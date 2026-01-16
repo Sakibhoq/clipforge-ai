@@ -1,4 +1,13 @@
 fastapi
-uvicorn[standard]
-pydantic
+uvicorn
 python-multipart
+pydantic
+sqlalchemy
+alembic
+stripe
+PyJWT
+email-validator
+passlib==1.7.4
+bcrypt==3.2.2
+boto3==1.34.162
+python-dotenv

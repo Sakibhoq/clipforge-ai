@@ -1,0 +1,29 @@
+
+# --- local/large files ---
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+
+# node / next build junk
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+
+# backups / artifacts
+/workspaces/_backup_clipforge/
+*.tgz
+*.tar.gz
+
+# env
+.env
+**/.env
+**/.env.local
+
+# python venv/cache
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
