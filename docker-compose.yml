@@ -1,23 +1,34 @@
 services:
+  frontend:
+    build: ./frontend
+    command: npm run dev -- --hostname 0.0.0.0 --port 3000
+    ports:
+      - "0.0.0.0:3000:3000"
+    environment:
+      # Browser needs to hit backend via same origin in Codespaces.
+      # We'll set it to http://localhost:8000 for now (works inside Codespaces port forwarding too).
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    depends_on:
+      - backend
+
   backend:
     build: ./backend
-    env_file:
-      - ./.env
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "0.0.0.0:8000:8000"
     volumes:
       - ./data:/data
+      - ./backend:/app
     environment:
-      SECRET_KEY: "super-secret-key"
-      FRONTEND_URL: "http://localhost:3000"
-      STRIPE_SECRET_KEY: "sk_test_xxx"
-      STRIPE_WEBHOOK_SECRET: "whsec_xxx"
+      SECRET_KEY: "dev-secret-change-me"
+      FRONTEND_BASE_URL: "http://localhost:3000"
+      DATABASE_URL: "sqlite:////data/app.db"
+      # Stripe optional in dev; leave empty unless you’re testing checkout/webhooks
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
 
   worker:
     build: ./worker
-    env_file:
-      - ./.env
     depends_on:
       - backend
     volumes:
@@ -25,4 +36,8 @@ services:
       - ./backend:/backend
       - ./worker:/app
     environment:
+      SECRET_KEY: "dev-secret-change-me"
       PYTHONPATH: "/backend"
+      DATABASE_URL: "sqlite:////data/app.db"
+      # if worker calls backend HTTP, we'll set it later after we confirm the client code
+      BACKEND_URL: "http://backend:8000"
