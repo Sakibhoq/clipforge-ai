@@ -18,7 +18,6 @@ venv/
 data/
 backend/data/
 storage/
-backend/storage/
 
 # node / next
 node_modules/
