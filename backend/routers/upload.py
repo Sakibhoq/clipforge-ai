@@ -1,9 +1,10 @@
 import os
 import uuid
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional, Any, Literal
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -14,8 +15,22 @@ from models.user import User
 # Reuse the auth dependency from your auth router (cookie-based)
 from routers.auth import get_current_user
 
-router = APIRouter(prefix="/upload", tags=["upload"])
 
+# =====================================================
+# Routers
+# - /upload      (LEGACY local upload, deprecated/disabled)
+# - /uploads     (S3 flow: /uploads/register) ✅
+# =====================================================
+
+router = APIRouter(tags=["uploads"])
+
+legacy_router = APIRouter(prefix="/upload", tags=["upload"])
+uploads_router = APIRouter(prefix="/uploads", tags=["uploads"])
+
+
+# =====================================================
+# LEGACY LOCAL UPLOAD (deprecated)
+# =====================================================
 
 # local storage target (same as LocalStorage)
 DEFAULT_STORAGE_PATH = os.path.abspath(
@@ -26,6 +41,13 @@ BASE_STORAGE_PATH = os.getenv("LOCAL_STORAGE_PATH", DEFAULT_STORAGE_PATH)
 # Production safety limits (override via env if needed)
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))  # 2GB default
 ALLOWED_MIME_PREFIXES: Tuple[str, ...] = ("video/",)
+
+# 🚫 Legacy local uploads are deprecated — enforce S3 flow by default
+DISABLE_LEGACY_LOCAL_UPLOAD = os.getenv("DISABLE_LEGACY_LOCAL_UPLOAD", "1").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _safe_filename(name: str) -> str:
@@ -54,13 +76,37 @@ def _ensure_under_base(base_dir: Path, target: Path) -> None:
         raise HTTPException(status_code=400, detail="Invalid storage path")
 
 
-@router.post("")
+@legacy_router.get("")
+async def upload_deprecated_status():
+    """
+    Public deprecation marker so it's obvious this endpoint should not be used.
+    This avoids needing auth just to verify behavior during deploy checks.
+    """
+    return {
+        "deprecated": True,
+        "disabled": DISABLE_LEGACY_LOCAL_UPLOAD,
+        "detail": "Local uploads are deprecated. Use /storage/presign (PUT to S3) then /uploads/register.",
+    }
+
+
+@legacy_router.post("")
 async def upload_video(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # 🚫 HARD STOP: legacy local uploads disabled
+    # Note: auth runs before this for POST, so unauthenticated requests still get 401.
+    if DISABLE_LEGACY_LOCAL_UPLOAD:
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "Local uploads are deprecated. "
+                "Use /storage/presign (PUT to S3) then /uploads/register."
+            ),
+        )
+
     # --- Basic validation (production) ---
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="Missing filename")
@@ -141,7 +187,7 @@ async def upload_video(
     db.commit()
     db.refresh(upload)
 
-    # ✅ Job created for this upload
+    # ✅ Job created for this upload (legacy path, no settings)
     job = Job(upload_id=upload.id, status="queued")
     db.add(job)
     db.commit()
@@ -153,3 +199,69 @@ async def upload_video(
         "status": job.status,
         "bytes_saved": size,
     }
+
+
+# =====================================================
+# S3 FLOW: /uploads/register  ✅
+# =====================================================
+
+AspectRatio = Literal["9:16", "1:1", "4:5", "16:9", "4:3"]
+
+
+class RegisterUploadBody(BaseModel):
+    original_filename: str = Field(..., min_length=1, max_length=512)
+    storage_key: str = Field(..., min_length=1, max_length=1024)
+
+    # render settings
+    aspect_ratio: AspectRatio
+    captions_enabled: bool = True
+    watermark_enabled: bool = True
+    caption_style_json: Optional[Any] = None
+
+
+@uploads_router.post("/register")
+def register_upload(
+    body: RegisterUploadBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # normalize filename (avoid weird separators)
+    safe_name = _safe_filename(body.original_filename)
+
+    # Free users: watermark forced ON (paid can toggle)
+    plan = (getattr(current_user, "plan", "") or "").lower().strip()
+    is_free = plan == "free"
+    watermark_enabled = True if is_free else bool(body.watermark_enabled)
+
+    upload = Upload(
+        user_id=current_user.id,
+        original_filename=safe_name,
+        storage_key=str(body.storage_key).strip(),
+    )
+    db.add(upload)
+    db.commit()
+    db.refresh(upload)
+
+    # Create job WITH render settings (worker reads from Job)
+    job = Job(
+        upload_id=upload.id,
+        status="queued",
+        aspect_ratio=str(body.aspect_ratio),
+        captions_enabled=bool(body.captions_enabled),
+        watermark_enabled=bool(watermark_enabled),
+        caption_style_json=body.caption_style_json,
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    return {
+        "upload_id": upload.id,
+        "job_id": job.id,
+        "status": job.status,
+    }
+
+
+# Attach subrouters
+router.include_router(legacy_router)
+router.include_router(uploads_router)

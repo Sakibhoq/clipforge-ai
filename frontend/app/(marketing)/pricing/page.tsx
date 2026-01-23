@@ -2,14 +2,21 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 
 /* =========================================================
-   Clipforge — Pricing Page (Marketing)
+   Orbito — Pricing Page (Marketing)
    - 4 tiers: Free Trial / Starter / Creator / Studio
    - Monthly/Yearly toggle (side-by-side, default Yearly)
    - Credit Packs slider at TOP (Creator only)
    - Creator Yearly = 3600 credits upfront (per year)
    - Discount applies ONLY in Yearly mode
+
+   Mobile polish (this pass):
+   - Safer small-screen spacing + typography
+   - Reduce heavy glow effects on mobile (keep premium feel)
+   - Make comparison section scrollable (handled in Part 2)
+   - No behavior/logic changes
 ========================================================= */
 
 function CheckIcon() {
@@ -97,9 +104,10 @@ function Divider() {
 function HoverSheen() {
   return (
     <>
+      {/* heavy blur sheen hidden on mobile to reduce visual noise + perf */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute -inset-10 hidden opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 sm:block"
         style={{
           background:
             "radial-gradient(120px 120px at 20% 25%, rgba(167,139,250,0.20), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.18), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.14), transparent 62%)",
@@ -129,7 +137,9 @@ function MiniPill({ icon, label }: { icon: React.ReactNode; label: string }) {
 function PlainPrice({ price, suffix }: { price: string; suffix: string }) {
   return (
     <div className="mt-5 flex items-end gap-2">
-      <div className="text-5xl font-semibold tracking-tight">{price}</div>
+      <div className="text-4xl font-semibold tracking-tight sm:text-5xl">
+        {price}
+      </div>
       <div className="pb-2 text-sm text-white/55">{suffix}</div>
     </div>
   );
@@ -147,10 +157,12 @@ function StrikePrice({
   return (
     <div className="mt-5">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-        <div className="text-lg text-white/55 line-through decoration-white/30">
+        <div className="text-base text-white/55 line-through decoration-white/30 sm:text-lg">
           {was}
         </div>
-        <div className="text-5xl font-semibold tracking-tight">{now}</div>
+        <div className="text-4xl font-semibold tracking-tight sm:text-5xl">
+          {now}
+        </div>
         <div className="pb-2 text-sm text-white/55">{suffix}</div>
       </div>
     </div>
@@ -209,11 +221,11 @@ function Toggle({
 }) {
   return (
     <div className="flex items-center">
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] p-1">
+      <div className="flex w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] p-1">
         <button
           onClick={() => setMode("monthly")}
           className={cn(
-            "rounded-full px-5 py-2 text-sm font-medium transition",
+            "rounded-full px-4 py-2 text-sm font-medium transition sm:px-5",
             mode === "monthly"
               ? "bg-white text-black"
               : "text-white/70 hover:text-white"
@@ -225,7 +237,7 @@ function Toggle({
         <button
           onClick={() => setMode("yearly")}
           className={cn(
-            "rounded-full px-5 py-2 text-sm font-medium transition",
+            "rounded-full px-4 py-2 text-sm font-medium transition sm:px-5",
             mode === "yearly"
               ? "bg-white text-black"
               : "text-white/70 hover:text-white"
@@ -249,7 +261,7 @@ function PacksBar({
   setPack: React.Dispatch<React.SetStateAction<number>>;
 }) {
   return (
-    <div className="mt-8 group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+    <div className="mt-8 group surface-soft relative overflow-hidden p-4 sm:p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
       <HoverSheen />
       <div className="relative">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -277,7 +289,7 @@ function PacksBar({
                 step={1}
                 value={pack}
                 onChange={(e) => setPack(parseInt(e.target.value, 10))}
-                className="w-56 accent-white"
+                className="w-full min-w-[170px] max-w-[420px] accent-white md:w-56"
               />
 
               <div className="flex gap-2">
@@ -480,7 +492,9 @@ export default function Page() {
   const studioMonthlyWithPackExample = studioMonthlyExample * pack;
   const studioYearlyMonthlyEqExample =
     studioMonthlyWithPackExample * (1 - yearlyDiscount);
-  const studioYearlyTotalExample = Math.round(studioYearlyMonthlyEqExample * months);
+  const studioYearlyTotalExample = Math.round(
+    studioYearlyMonthlyEqExample * months
+  );
 
   /* ===========================
      LINKS
@@ -532,7 +546,12 @@ export default function Page() {
   );
 
   const starterBenefits = useMemo(
-    () => ["Everything in Free Trial", "More credits for cadence", "Templates + calm defaults", "Email support"],
+    () => [
+      "Everything in Free Trial",
+      "More credits for cadence",
+      "Templates + calm defaults",
+      "Email support",
+    ],
     []
   );
 
@@ -566,27 +585,30 @@ export default function Page() {
 
   return (
     <div className="bg-plain relative">
-      {/* PAGE-LEVEL GLOW (landing-style) */}
+      {/* PAGE-LEVEL GLOW (softened on mobile) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
+        <div className="absolute inset-0 opacity-[0.50] hidden sm:block">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
+
+        {/* keep blobs on desktop; reduce clutter on mobile */}
+        <div className="absolute -top-40 left-[-20%] hidden h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl sm:block" />
+        <div className="absolute top-24 right-[-18%] hidden h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl sm:block" />
+        <div className="absolute bottom-[-18%] left-[10%] hidden h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl sm:block" />
+
         <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <section className="relative mx-auto max-w-6xl px-6 pb-16 pt-10">
+      <section className="relative mx-auto max-w-6xl px-4 sm:px-6 pb-16 pt-10">
         {/* HEADER ROW */}
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="text-xs text-white/50">• Pricing</div>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
               Credit-based. <span className="grad-text">Scale when it works.</span>
             </h1>
-            <p className="mt-3 max-w-2xl text-white/65">
+            <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
               Start free. Upgrade when you’re ready for more throughput. Packs
               scale Creator only.
             </p>
@@ -602,7 +624,7 @@ export default function Page() {
         {/* PRICING GRID */}
         <div className="mt-8 grid gap-5 md:grid-cols-4">
           {/* Free Trial */}
-          <div className="group surface relative overflow-hidden p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
               <TierHeader title="Free Trial" subtitle="Test the full experience" />
@@ -636,11 +658,14 @@ export default function Page() {
           </div>
 
           {/* Starter */}
-          <div className="group surface relative overflow-hidden p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
               <TierHeader title="Starter" subtitle="Monthly only" />
-              <PlainPrice price={`$${formatMoney(starterMonthlyPrice)}`} suffix="/mo" />
+              <PlainPrice
+                price={`$${formatMoney(starterMonthlyPrice)}`}
+                suffix="/mo"
+              />
               <SmallNote>
                 <span className="text-white/80">Monthly only</span>{" "}
                 <span className="text-white/50">• no yearly billing</span>
@@ -653,7 +678,10 @@ export default function Page() {
               <FeatureBullets items={tierBullets.starter} />
 
               <div className="mt-6">
-                <Link href="/register" className="btn-ghost w-full py-3 text-base">
+                <Link
+                  href="/register"
+                  className="btn-ghost w-full py-3 text-base"
+                >
                   Choose Starter
                 </Link>
               </div>
@@ -675,7 +703,7 @@ export default function Page() {
           </div>
 
           {/* Creator */}
-          <div className="group surface relative p-6 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface relative p-5 sm:p-6 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             {/* subtle highlight */}
             <div className="pointer-events-none absolute -inset-10 opacity-70">
               <div className="absolute inset-0 bg-[radial-gradient(520px_280px_at_40%_25%,rgba(167,139,250,0.18),transparent_62%)]" />
@@ -713,7 +741,8 @@ export default function Page() {
                     suffix="/mo"
                   />
                   <SmallNote>
-                    Billed monthly <span className="text-white/50">• no discount</span>
+                    Billed monthly{" "}
+                    <span className="text-white/50">• no discount</span>
                   </SmallNote>
                 </>
               )}
@@ -749,14 +778,16 @@ export default function Page() {
           </div>
 
           {/* Studio */}
-          <div className="group surface relative overflow-hidden p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
               <TierHeader title="Studio" subtitle="Teams & high volume" />
 
               <div className="mt-5">
                 <div className="flex items-end gap-2">
-                  <div className="text-5xl font-semibold tracking-tight">Custom</div>
+                  <div className="text-4xl font-semibold tracking-tight sm:text-5xl">
+                    Custom
+                  </div>
                 </div>
                 <SmallNote>Sized to your seats, volume, and workflow.</SmallNote>
               </div>
@@ -768,7 +799,10 @@ export default function Page() {
               <FeatureBullets items={tierBullets.studio} />
 
               <div className="mt-6">
-                <Link href="/contact" className="btn-ghost w-full py-3 text-base">
+                <Link
+                  href="/contact"
+                  className="btn-ghost w-full py-3 text-base"
+                >
                   Contact sales
                 </Link>
               </div>
@@ -787,7 +821,9 @@ export default function Page() {
                 Internal reference:{" "}
                 <span className="text-white/65">
                   {mode === "yearly"
-                    ? `$${formatMoney(studioYearlyMonthlyEqExample)}/mo eq • billed yearly ($${studioYearlyTotalExample})`
+                    ? `$${formatMoney(
+                        studioYearlyMonthlyEqExample
+                      )}/mo eq • billed yearly ($${studioYearlyTotalExample})`
                     : `$${formatMoney(studioMonthlyWithPackExample)}/mo eq`}
                 </span>
               </div>
@@ -795,20 +831,22 @@ export default function Page() {
           </div>
         </div>
 
+        {/* (Part 2 continues: Comparison, FAQ, CTA, Footer) */}
         {/* COMPARISON */}
         <section className="mt-14">
-          <div className="group surface relative overflow-hidden p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
               <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
                   <div className="text-xs text-white/50">• Compare</div>
                   <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-                    What’s included — <span className="grad-text">at a glance</span>
+                    What’s included —{" "}
+                    <span className="grad-text">at a glance</span>
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-white/65">
-                    Starter stays simple. Creator adds scale + priority. Studio is
-                    built around teams.
+                    Starter stays simple. Creator adds scale + priority. Studio
+                    is built around teams.
                   </p>
                 </div>
 
@@ -818,61 +856,72 @@ export default function Page() {
                     {mode === "yearly" ? "Yearly" : "Monthly"}
                   </span>{" "}
                   +{" "}
-                  <span className="text-white/80 font-medium">{pack}× pack</span>
+                  <span className="text-white/80 font-medium">
+                    {pack}× pack
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="grid grid-cols-5 gap-3 pb-3 text-xs text-white/55">
-                  <div className="text-white/65">Feature</div>
-                  <div>Trial</div>
-                  <div>Starter</div>
-                  <div>Creator</div>
-                  <div>Studio</div>
+              {/* mobile-safe horizontal scroll */}
+              <div className="mt-6 -mx-4 overflow-x-auto px-4">
+                <div className="min-w-[760px] rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="grid grid-cols-5 gap-3 pb-3 text-xs text-white/55">
+                    <div className="text-white/65">Feature</div>
+                    <div>Trial</div>
+                    <div>Starter</div>
+                    <div>Creator</div>
+                    <div>Studio</div>
+                  </div>
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Credits"
+                    trial={`${trialCredits}`}
+                    starter={`${starterMonthlyCredits}/mo`}
+                    creator={
+                      mode === "yearly"
+                        ? `${creatorCredits}/yr upfront`
+                        : `${creatorCredits}/mo`
+                    }
+                    studio="Custom"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Processing priority"
+                    trial="Standard"
+                    starter="Standard+"
+                    creator="Priority"
+                    studio="Priority+"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Presets & templates"
+                    trial="Basic"
+                    starter="Yes"
+                    creator="Advanced"
+                    studio="Team presets"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Support"
+                    trial="Email"
+                    starter="Email"
+                    creator="Priority email"
+                    studio="Dedicated"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Team seats"
+                    trial="—"
+                    starter="—"
+                    creator="—"
+                    studio="Yes"
+                  />
                 </div>
-                <Divider />
-
-                <ComparisonRow
-                  label="Credits"
-                  trial={`${trialCredits}`}
-                  starter={`${starterMonthlyCredits}/mo`}
-                  creator={
-                    mode === "yearly"
-                      ? `${creatorCredits}/yr upfront`
-                      : `${creatorCredits}/mo`
-                  }
-                  studio="Custom"
-                />
-                <Divider />
-
-                <ComparisonRow
-                  label="Processing priority"
-                  trial="Standard"
-                  starter="Standard+"
-                  creator="Priority"
-                  studio="Priority+"
-                />
-                <Divider />
-
-                <ComparisonRow
-                  label="Presets & templates"
-                  trial="Basic"
-                  starter="Yes"
-                  creator="Advanced"
-                  studio="Team presets"
-                />
-                <Divider />
-
-                <ComparisonRow
-                  label="Support"
-                  trial="Email"
-                  starter="Email"
-                  creator="Priority email"
-                  studio="Dedicated"
-                />
-                <Divider />
-
-                <ComparisonRow label="Team seats" trial="—" starter="—" creator="—" studio="Yes" />
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -892,14 +941,14 @@ export default function Page() {
 
         {/* FAQ */}
         <section className="mt-14">
-          <div className="surface p-6 md:p-8">
+          <div className="surface p-5 sm:p-6 md:p-8">
             <div className="text-xs text-white/50">• FAQ</div>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
               Answers, <span className="grad-text">no fluff</span>
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-white/65">
-              Credits are your usage currency. Packs scale Creator only. Yearly delivers
-              Creator credits upfront.
+              Credits are your usage currency. Packs scale Creator only. Yearly
+              delivers Creator credits upfront.
             </p>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -945,8 +994,8 @@ export default function Page() {
 
         {/* CTA STRIP */}
         <section className="mt-14">
-          <div className="group surface relative overflow-hidden p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
-            <div className="absolute inset-0">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+            <div className="absolute inset-0 hidden sm:block">
               <div className="aurora opacity-60" />
             </div>
             <HoverSheen />
@@ -955,7 +1004,8 @@ export default function Page() {
               <div>
                 <div className="text-xs text-white/50">• Next</div>
                 <div className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">
-                  Start free. <span className="grad-text">Scale when it earns.</span>
+                  Start free.{" "}
+                  <span className="grad-text">Scale when it earns.</span>
                 </div>
                 <div className="mt-2 text-sm text-white/65">
                   Keep it calm. Keep it consistent. Add volume when you want it.
@@ -979,9 +1029,9 @@ export default function Page() {
 
         {/* FOOTER */}
         <footer className="pb-6 pt-12 text-xs text-white/45">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-0">
-            <div>© 2026 • Clipforge.ai by Sakib LLC</div>
-            <div className="flex gap-5">
+          <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>© 2026 • {BRAND.name} by Sakib LLC</div>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((i) => (
                 <a key={i.href} href={i.href} className="hover:text-white/70">
                   {i.label}
@@ -991,8 +1041,8 @@ export default function Page() {
           </div>
 
           <div className="mt-6 text-[11px] text-white/35">
-            Starter is monthly-only. Packs scale Creator credits + pricing only. Creator yearly
-            delivers credits upfront for the year.
+            Starter is monthly-only. Packs scale Creator credits + pricing only.
+            Creator yearly delivers credits upfront for the year.
           </div>
         </footer>
       </section>

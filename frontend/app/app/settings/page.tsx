@@ -1,17 +1,18 @@
 // frontend/app/app/settings/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge — Settings (UI only)
-   - No backend calls
-   - Premium, calm, app-chrome
+   Orbito — Settings (Launch-Ready)
+   - Calm premium app-chrome
    - Local-only preferences (persisted in localStorage)
-   - Real "Log out" clears cf_token cookie
-   - Empty-state polish for plan/credits/email (until /me is wired)
+   - Real logout calls /auth/logout (cookie-auth) + fallback cookie clear
+   - /auth/me hydration for email/plan/credits (graceful fallback if unavailable)
+   - Mobile polish: safe-area padding, svh height, responsive button layout
 ========================================================= */
 
 function cx(...a: Array<string | false | null | undefined>) {
@@ -27,12 +28,9 @@ function Icon({
     | "bolt"
     | "shield"
     | "mail"
-    | "play"
     | "chev"
     | "warn"
-    | "spark"
     | "check"
-    | "x"
     | "info";
   className?: string;
 }) {
@@ -40,7 +38,7 @@ function Icon({
 
   if (name === "user") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M12 12a4.2 4.2 0 1 0-4.2-4.2A4.2 4.2 0 0 0 12 12Z"
           stroke="rgba(255,255,255,0.75)"
@@ -58,7 +56,7 @@ function Icon({
 
   if (name === "bolt") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M13 2 3 14h8l-1 8 11-14h-8l0-6Z"
           stroke="rgba(255,255,255,0.7)"
@@ -71,7 +69,7 @@ function Icon({
 
   if (name === "shield") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M12 2 20 6v7c0 5-3.5 9-8 9s-8-4-8-9V6l8-4Z"
           stroke="rgba(255,255,255,0.65)"
@@ -91,7 +89,7 @@ function Icon({
 
   if (name === "mail") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M4 6h16v12H4V6Z"
           stroke="rgba(255,255,255,0.6)"
@@ -109,25 +107,9 @@ function Icon({
     );
   }
 
-  if (name === "play") {
-    return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
-        <path
-          d="M10 8.2v7.6a1 1 0 0 0 1.5.86l6-3.8a1 1 0 0 0 0-1.72l-6-3.8A1 1 0 0 0 10 8.2Z"
-          fill="rgba(255,255,255,0.78)"
-        />
-        <path
-          d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-          stroke="rgba(255,255,255,0.55)"
-          strokeWidth="1.4"
-        />
-      </svg>
-    );
-  }
-
   if (name === "warn") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M12 3 2.8 20h18.4L12 3Z"
           stroke="rgba(255,255,255,0.55)"
@@ -150,26 +132,9 @@ function Icon({
     );
   }
 
-  if (name === "spark") {
-    return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
-        <path
-          d="M12 2l1.2 4.2L17.5 8l-4.3 1.8L12 14l-1.2-4.2L6.5 8l4.3-1.8L12 2Z"
-          stroke="rgba(255,255,255,0.72)"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M18.5 13.2l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3Z"
-          fill="rgba(255,255,255,0.55)"
-        />
-      </svg>
-    );
-  }
-
   if (name === "check") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M20 7L10.2 16.8 4.8 11.4"
           stroke="rgba(167,255,220,0.9)"
@@ -183,7 +148,7 @@ function Icon({
 
   if (name === "info") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"
           stroke="rgba(255,255,255,0.55)"
@@ -205,22 +170,9 @@ function Icon({
     );
   }
 
-  if (name === "x") {
-    return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
-        <path
-          d="M6 6l12 12M18 6 6 18"
-          stroke="rgba(255,255,255,0.62)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
   // chev
   return (
-    <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+    <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
       <path
         d="M9 6l6 6-6 6"
         stroke="rgba(255,255,255,0.6)"
@@ -339,18 +291,17 @@ function Pill({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** More robust cookie clearing (works across more browsers). */
-function clearCookie(name: string) {
+/**
+ * Fallback cookie clearing (helps if backend logout fails / cookies stuck).
+ * We avoid hardcoding domain; path-only is safest across envs.
+ */
+function clearCookieEverywhere(name: string) {
   const expires = "Thu, 01 Jan 1970 00:00:00 GMT";
-  const base = `${name}=; expires=${expires}; Max-Age=0;`;
+  const base = `${name}=; expires=${expires}; Max-Age=0; SameSite=Lax;`;
 
-  // Common paths used in app router setups
+  // Common paths
   document.cookie = `${base} path=/;`;
   document.cookie = `${base} path=/app;`;
-
-  // NOTE: When you deploy on a real domain, you may also want:
-  // document.cookie = `${base} path=/; domain=clipforge.ai;`;
-  // But we should not hardcode domain here during dev.
 }
 
 type LocalPrefs = {
@@ -379,6 +330,12 @@ function safeParsePrefs(raw: string | null): LocalPrefs | null {
   }
 }
 
+type MeResponse = {
+  email: string;
+  plan: string;
+  credits: number;
+};
+
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -389,17 +346,14 @@ export default function SettingsPage() {
 
   const [saveState, setSaveState] = useState<null | "saved" | "error">(null);
 
-  /**
-   * Placeholder for future /auth/me wiring.
-   * Later you’ll replace this with:
-   * const me = useMe(); // or state from app layout
-   */
-  const me: null | { email: string; plan: string; credits: number; status?: string } = null;
+  // /auth/me hydration (graceful)
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [meLoading, setMeLoading] = useState(true);
 
   const email = me?.email ?? "—";
   const plan = me?.plan ?? "—";
-  const credits = me?.credits != null ? String(me.credits) : "—";
-  const status = me?.status ?? "—";
+  const credits = typeof me?.credits === "number" ? String(me.credits) : "—";
+  const status = meLoading ? "Loading…" : me ? "Active" : "—";
 
   useEffect(() => {
     // hydrate local prefs
@@ -410,10 +364,40 @@ export default function SettingsPage() {
       setProductTips(fromLs.productTips);
       setAutoPlayPreviews(fromLs.autoPlayPreviews);
     }
+
+    // hydrate /auth/me (optional; if fails we stay UI-only)
+    let mounted = true;
+    setMeLoading(true);
+    apiFetch<MeResponse>("/auth/me", { method: "GET" })
+      .then((d) => {
+        if (!mounted) return;
+        setMe(d);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setMe(null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setMeLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  function logout() {
-    clearCookie("cf_token");
+  async function logout() {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // Even if backend call fails, we still force-leave app UI.
+    }
+
+    // Fallback: clear common cookie name used by backend
+    // (If your cookie name differs, update here.)
+    clearCookieEverywhere("cf_token");
+
     router.push("/login");
     router.refresh();
   }
@@ -443,20 +427,45 @@ export default function SettingsPage() {
     setTimeout(() => setSaveState(null), 1600);
   }
 
+  const saveChip = useMemo(() => {
+    if (saveState === "saved") {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[12px] text-emerald-100/90">
+          <Icon name="check" />
+          Saved locally
+        </span>
+      );
+    }
+    if (saveState === "error") {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[12px] text-amber-100/90">
+          <Icon name="warn" />
+          Couldn’t save
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/55">
+        <Icon name="info" />
+        Local only (for now)
+      </span>
+    );
+  }, [saveState]);
+
   return (
-    <div className="grid gap-6">
+    <div className="min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))] grid gap-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <div className="text-lg font-semibold text-white/90">Settings</div>
           <div className="mt-1 text-sm text-white/60">Account preferences and app behavior.</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/app/billing?dev=1" className="btn-solid-dark text-[12px] px-4 py-2">
+          <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
             Billing
           </Link>
-          <Link href="/app/clips?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+          <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2">
             Clips
           </Link>
         </div>
@@ -494,7 +503,7 @@ export default function SettingsPage() {
                 <div className="text-sm font-semibold text-white/90">Account</div>
                 <span className="rounded-full border border-white/10 bg-white/[0.02] px-2.5 py-0.5 text-[11px] text-white/55 inline-flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-white/30" />
-                  UI-only
+                  {me ? "Live" : "Fallback"}
                 </span>
               </div>
 
@@ -508,18 +517,23 @@ export default function SettingsPage() {
                 <Pill>Status: {status}</Pill>
               </div>
 
-              <div className="mt-2 text-[12px] text-white/45">
-                These values will populate from{" "}
-                <span className="text-white/60">/auth/me</span> when backend wiring is ready.
-              </div>
+              {!me ? (
+                <div className="mt-2 text-[12px] text-white/45">
+                  Values will populate from <span className="text-white/60">/auth/me</span> when available.
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/app/upload?dev=1" className="btn-aurora text-[12px] px-4 py-2">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
+            <Link href="/app/upload" className="btn-aurora text-[12px] px-4 py-2 w-full sm:w-auto">
               New upload
             </Link>
-            <button type="button" onClick={logout} className="btn-ghost text-[12px] px-4 py-2">
+            <button
+              type="button"
+              onClick={logout}
+              className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto"
+            >
               Log out
             </button>
           </div>
@@ -548,32 +562,23 @@ export default function SettingsPage() {
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-solid-dark text-[12px] px-4 py-2" onClick={savePrefs}>
+        <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+          <button
+            type="button"
+            className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
+            onClick={savePrefs}
+          >
             Save preferences
           </button>
-          <button type="button" className="btn-ghost text-[12px] px-4 py-2" onClick={resetPrefs}>
+          <button
+            type="button"
+            className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto"
+            onClick={resetPrefs}
+          >
             Reset
           </button>
 
-          <div className="ml-auto flex items-center gap-2 text-[12px] text-white/55">
-            {saveState === "saved" ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-emerald-100/90">
-                <Icon name="check" />
-                Saved locally
-              </span>
-            ) : saveState === "error" ? (
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-amber-100/90">
-                <Icon name="warn" />
-                Couldn’t save
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-white/55">
-                <Icon name="info" />
-                Local only (for now)
-              </span>
-            )}
-          </div>
+          <div className="sm:ml-auto flex items-center justify-start sm:justify-end">{saveChip}</div>
         </div>
       </Section>
 
@@ -585,7 +590,7 @@ export default function SettingsPage() {
             hint="Change password from your account."
             right={
               <Link
-                href="/app/settings/password?dev=1"
+                href="/app/settings/password"
                 className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
               >
                 Change
@@ -625,8 +630,8 @@ export default function SettingsPage() {
           <Row label="Processing alerts" hint="Notify when jobs complete." right={<Pill>Later</Pill>} />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Link href="/contact" className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2">
+        <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+          <Link href="/contact" className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2 w-full sm:w-auto">
             Contact support
             <Icon name="chev" className="opacity-70" />
           </Link>
@@ -634,7 +639,7 @@ export default function SettingsPage() {
         </div>
       </Section>
 
-      {/* Extra polish: help strip */}
+      {/* Help strip */}
       <div className="surface-soft relative overflow-hidden p-6">
         <div
           aria-hidden="true"
@@ -651,11 +656,11 @@ export default function SettingsPage() {
               Support is available via the contact page. In-app messaging can be added later.
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/app/upload?dev=1" className="btn-solid-dark text-[12px] px-4 py-2">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
+            <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
               Upload
             </Link>
-            <Link href="/app/clips?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+            <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto">
               Clips
             </Link>
           </div>
@@ -681,8 +686,12 @@ export default function SettingsPage() {
             Account deletion is intentionally disabled until backend is ready.
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button type="button" disabled className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-50">
+          <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+            <button
+              type="button"
+              disabled
+              className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-50 w-full sm:w-auto"
+            >
               Delete account
             </button>
             <div className="text-[12px] text-white/55">Disabled for safety.</div>

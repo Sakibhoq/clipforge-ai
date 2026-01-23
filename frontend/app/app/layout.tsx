@@ -12,32 +12,55 @@ type MeResponse = {
   credits: number;
 };
 
+function normalizePath(p: string) {
+  if (!p) return "/";
+  if (p === "/") return "/";
+  return p.replace(/\/+$/, "");
+}
+
+/**
+ * /app tab resolver
+ *  - /app            -> ""
+ *  - /app/billing    -> "billing"
+ *  - /app/clips/123  -> "clips"
+ */
+function getAppTabFromPath(pathname: string) {
+  const p = normalizePath(pathname);
+
+  if (p === "/app") return "";
+  if (!p.startsWith("/app/")) return null;
+
+  const rest = p.slice("/app/".length);
+  return rest.split("/")[0] || "";
+}
+
+function cx(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathnameRaw = usePathname();
+  const pathname = normalizePath(pathnameRaw || "/");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Cookie-auth: always try to load /auth/me (server decides if logged in)
+  // Cookie-auth: load once on mount (do NOT re-run on every path change)
   useEffect(() => {
     let mounted = true;
 
     async function loadMe() {
       setLoading(true);
       try {
-        const data = await apiFetch<MeResponse>("/auth/me", { credentials: "include" });
+        const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
         if (!mounted) return;
         setMe(data);
-      } catch (e: any) {
+      } catch {
         if (!mounted) return;
         setMe(null);
-
-        // If not authenticated, bounce to login (but avoid loops if already there)
-        if (!pathname.startsWith("/login")) {
-          router.push("/login");
-        }
+        router.push("/login");
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -48,38 +71,89 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [pathname, router]);
+    // IMPORTANT: run once. router is stable in Next App Router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mobile polish: lock body scroll when menu is open + close on route change
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = (document.body.style as any).touchAction;
+
+    document.body.style.overflow = "hidden";
+    (document.body.style as any).touchAction = "none";
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+
+    // Prevent iOS rubber-band scroll while menu open
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      (document.body.style as any).touchAction = prevTouchAction || "";
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("touchmove", onTouchMove as any);
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    // Close mobile menu when navigating
+    setMobileOpen(false);
+  }, [pathname]);
 
   async function logout() {
     try {
-      await apiFetch<{ ok: true }>("/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiFetch("/auth/logout", { method: "POST" });
     } catch {
       // ignore
-    } finally {
-      setMobileOpen(false);
-      setMe(null);
-      router.push("/login");
-      router.refresh();
     }
+    setMobileOpen(false);
+    setMe(null);
+    setLoading(false);
+    router.push("/login");
+    router.refresh();
+  }
+
+  const activeTab = useMemo(() => getAppTabFromPath(pathname), [pathname]);
+
+  function isActive(href: string) {
+    const h = normalizePath(href);
+
+    // Overview ONLY on exact /app
+    if (h === "/app") return activeTab === "";
+
+    // Others match first segment after /app
+    if (h.startsWith("/app/")) {
+      const tab = h.slice("/app/".length).split("/")[0] || "";
+      return activeTab === tab;
+    }
+
+    return false;
   }
 
   function navItem(href: string, label: string, mobile = false) {
-    const active = pathname === href || pathname.startsWith(href + "/");
+    const active = isActive(href);
 
     return (
       <Link
         href={href}
         onClick={() => mobile && setMobileOpen(false)}
-        className={[
-          "rounded-full px-3 py-2 text-sm transition border",
+        className={cx(
+          "rounded-full px-3 py-2 text-sm transition border outline-none",
           active
             ? "bg-white/[0.14] text-white border-white/25"
             : "border-transparent text-white/70 hover:text-white hover:bg-white/[0.06]",
-          mobile && "w-full text-left",
-        ].join(" ")}
+          "focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-0",
+          mobile && "w-full text-left"
+        )}
       >
         {label}
       </Link>
@@ -90,7 +164,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const emailLabel = useMemo(() => me?.email ?? "Account", [me]);
 
   return (
-    <div className="min-h-screen bg-plain relative">
+    <div
+      className={cx(
+        "min-h-[100svh] bg-plain relative overflow-x-hidden",
+        "[padding-left:env(safe-area-inset-left)] [padding-right:env(safe-area-inset-right)]"
+      )}
+    >
       {/* Background */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 opacity-[0.55]">
@@ -104,11 +183,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Top bar */}
       <div className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div
+          className={cx(
+            "mx-auto flex max-w-6xl items-center justify-between px-6 py-4",
+            "[padding-top:calc(env(safe-area-inset-top)+1rem)] md:[padding-top:1rem]"
+          )}
+        >
           {/* Brand */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Link href="/" className="text-sm font-semibold tracking-tight text-white">
-              Clipforge
+              Orbito
             </Link>
             <span className="text-xs text-white/40">/</span>
             <span className="text-xs text-white/60">App</span>
@@ -144,10 +228,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Mobile toggle */}
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="md:hidden rounded-full border border-white/15 bg-white/[0.06] p-2 text-white/80 hover:bg-white/[0.10]"
-              aria-label="Open menu"
+              className="md:hidden rounded-full border border-white/15 bg-white/[0.06] p-2 text-white/80 hover:bg-white/[0.10] active:scale-[0.99]"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
             >
-              ☰
+              {mobileOpen ? "✕" : "☰"}
             </button>
 
             <button
@@ -159,10 +244,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile nav */}
+        {/* Mobile nav (full-screen panel, safe-area aware) */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/10 bg-black/60 backdrop-blur">
-            <div className="mx-auto max-w-6xl px-6 py-4 grid gap-2">
+          <div className="md:hidden border-t border-white/10 bg-black/70 backdrop-blur">
+            <div
+              className={cx(
+                "mx-auto max-w-6xl px-6 py-4 grid gap-2",
+                "max-h-[calc(100svh-72px)] overflow-auto",
+                "[padding-bottom:calc(env(safe-area-inset-bottom)+1rem)]"
+              )}
+            >
+              {/* Optional account line for mobile */}
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div className="text-xs text-white/60">
+                  {loading ? "Loading…" : me ? emailLabel : "Signed out"}
+                </div>
+                <div className="mt-1 text-[11px] text-white/40">
+                  {loading ? "—" : me ? `Plan: ${planLabel}` : "—"}
+                </div>
+              </div>
+
               {navItem("/app", "Overview", true)}
               {navItem("/app/upload", "Upload", true)}
               {navItem("/app/clips", "Clips", true)}
@@ -183,7 +284,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Page content */}
-      <main className="relative mx-auto max-w-6xl px-6 py-10">{children}</main>
+      <main className="relative mx-auto max-w-6xl px-6 py-8 sm:py-10">{children}</main>
     </div>
   );
 }

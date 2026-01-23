@@ -1,7 +1,7 @@
 // frontend/app/reset-password/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -15,7 +15,7 @@ function isStrongPassword(pw: string) {
   const upper = /[A-Z]/.test(s);
   const lower = /[a-z]/.test(s);
   const number = /[0-9]/.test(s);
-  const special = /[^A-Za-z0-9]/.test(s); // special character
+  const special = /[^A-Za-z0-9]/.test(s);
   return { length, upper, lower, number, special, ok: length && upper && lower && number && special };
 }
 
@@ -78,12 +78,7 @@ function Icon({
   if (name === "eyeOff") {
     return (
       <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
-        <path
-          d="M3 5l18 18"
-          stroke="rgba(255,255,255,0.65)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
+        <path d="M3 5l18 18" stroke="rgba(255,255,255,0.65)" strokeWidth="1.8" strokeLinecap="round" />
         <path
           d="M2.2 12s3.6-7 9.8-7c2 0 3.7.6 5.1 1.5M21.8 12s-3.6 7-9.8 7c-2.2 0-4.1-.7-5.7-1.8"
           stroke="rgba(255,255,255,0.55)"
@@ -116,12 +111,7 @@ function Icon({
   if (name === "x") {
     return (
       <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
-        <path
-          d="M7 7l10 10M17 7 7 17"
-          stroke="rgba(255,255,255,0.65)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        <path d="M7 7l10 10M17 7 7 17" stroke="rgba(255,255,255,0.65)" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
@@ -138,13 +128,7 @@ function Icon({
   );
 }
 
-function Rule({
-  ok,
-  label,
-}: {
-  ok: boolean;
-  label: string;
-}) {
+function Rule({ ok, label }: { ok: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-[12px]">
       <span
@@ -174,6 +158,20 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // mobile polish: scroll focused input into view (iOS keyboard)
+  const lastFocusTsRef = useRef<number>(0);
+  function onFieldFocus(target: HTMLInputElement) {
+    lastFocusTsRef.current = Date.now();
+    window.setTimeout(() => {
+      if (Date.now() - lastFocusTsRef.current > 900) return;
+      try {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        // ignore
+      }
+    }, 220);
+  }
+
   const rules = useMemo(() => isStrongPassword(pw), [pw]);
   const match = useMemo(() => pw.length > 0 && pw2.length > 0 && pw === pw2, [pw, pw2]);
 
@@ -199,21 +197,31 @@ export default function ResetPasswordPage() {
     }
   }
 
+  const rootStyle: React.CSSProperties = {
+    minHeight: "100svh",
+    paddingTop: "env(safe-area-inset-top)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+  };
+
   return (
-    <div className="min-h-screen bg-plain relative">
-      {/* PAGE-LEVEL AURORA (matches forgot/login) */}
+    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+      {/* PAGE-LEVEL AURORA (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
+
+        {/* blobs: vmin positioning reduces iOS overflow edge cases */}
+        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
+        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
+        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
+
+        {/* grid: disable on small screens (can shimmer / seams on iOS) */}
+        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-screen max-w-lg items-center px-6 py-14">
+      <main className="relative mx-auto max-w-lg px-6 pb-14 pt-10 sm:pt-12">
         <section className="surface-soft relative w-full overflow-hidden p-6 md:p-8">
           {/* subtle aurora wash inside */}
           <div
@@ -265,7 +273,7 @@ export default function ResetPasswordPage() {
 
                 <div className="mt-5 flex flex-col gap-2">
                   <Link href="/forgot-password" className="btn-solid-dark w-full py-3 text-sm text-center">
-                    Request new reset link
+                    Request new reset link{" "}
                     <span className="inline-flex align-middle ml-1">
                       <Icon name="arrow" />
                     </span>
@@ -297,7 +305,7 @@ export default function ResetPasswordPage() {
                     onClick={() => router.push("/login")}
                     className="btn-solid-dark w-full py-3 text-sm"
                   >
-                    Go to login
+                    Go to login{" "}
                     <span className="inline-flex align-middle ml-1">
                       <Icon name="arrow" />
                     </span>
@@ -322,113 +330,111 @@ export default function ResetPasswordPage() {
                 </div>
               </>
             ) : (
-              <>
-                {/* FORM */}
-                <form onSubmit={onSubmit} className="mt-6 grid gap-4">
-                  {/* NEW PASSWORD */}
-                  <div>
-                    <label className="block text-[12px] font-medium text-white/75">New password</label>
-                    <div className="relative mt-2">
-                      {/* left icon */}
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-95">
-                        <Icon name="key" />
-                      </span>
+              <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+                {/* NEW PASSWORD */}
+                <div>
+                  <label className="block text-[12px] font-medium text-white/75">New password</label>
+                  <div className="relative mt-2">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-95">
+                      <Icon name="key" />
+                    </span>
 
-                      <input
-                        value={pw}
-                        onChange={(e) => setPw(e.target.value)}
-                        type={show ? "text" : "password"}
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        className="field !pl-12 !pr-12"
-                      />
+                    <input
+                      value={pw}
+                      onChange={(e) => setPw(e.target.value)}
+                      onFocus={(e) => onFieldFocus(e.currentTarget)}
+                      type={show ? "text" : "password"}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={cx(
+                        "field !pl-12 !pr-12",
+                        // iOS: avoid input zoom
+                        "!text-[16px] sm:!text-[14px]"
+                      )}
+                    />
 
-                      {/* right eye */}
-                      <button
-                        type="button"
-                        onClick={() => setShow((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white/70 hover:bg-white/[0.06]"
-                        aria-label={show ? "Hide password" : "Show password"}
-                      >
-                        {show ? <Icon name="eyeOff" /> : <Icon name="eye" />}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShow((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white/70 hover:bg-white/[0.06] active:scale-[0.99]"
+                      aria-label={show ? "Hide password" : "Show password"}
+                    >
+                      {show ? <Icon name="eyeOff" /> : <Icon name="eye" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* CONFIRM */}
+                <div>
+                  <label className="block text-[12px] font-medium text-white/75">Confirm password</label>
+                  <div className="relative mt-2">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-95">
+                      <Icon name="lock" />
+                    </span>
+
+                    <input
+                      value={pw2}
+                      onChange={(e) => setPw2(e.target.value)}
+                      onFocus={(e) => onFieldFocus(e.currentTarget)}
+                      type={show2 ? "text" : "password"}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className={cx("field !pl-12 !pr-12", "!text-[16px] sm:!text-[14px]")}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => setShow2((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white/70 hover:bg-white/[0.06] active:scale-[0.99]"
+                      aria-label={show2 ? "Hide password" : "Show password"}
+                    >
+                      {show2 ? <Icon name="eyeOff" /> : <Icon name="eye" />}
+                    </button>
                   </div>
 
-                  {/* CONFIRM */}
-                  <div>
-                    <label className="block text-[12px] font-medium text-white/75">Confirm password</label>
-                    <div className="relative mt-2">
-                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-95">
-                        <Icon name="lock" />
-                      </span>
-
-                      <input
-                        value={pw2}
-                        onChange={(e) => setPw2(e.target.value)}
-                        type={show2 ? "text" : "password"}
-                        placeholder="••••••••"
-                        autoComplete="new-password"
-                        className="field !pl-12 !pr-12"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShow2((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-white/70 hover:bg-white/[0.06]"
-                        aria-label={show2 ? "Hide password" : "Show password"}
-                      >
-                        {show2 ? <Icon name="eyeOff" /> : <Icon name="eye" />}
-                      </button>
-                    </div>
-
-                    {pw2.length > 0 && !match ? (
-                      <div className="mt-2 text-[12px] text-white/45">Passwords do not match.</div>
-                    ) : null}
-                  </div>
-
-                  {/* RULES */}
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                    <div className="text-[12px] font-semibold text-white/75">Password requirements</div>
-                    <div className="mt-3 grid gap-2">
-                      <Rule ok={rules.length} label="At least 8 characters" />
-                      <Rule ok={rules.upper} label="1 uppercase letter" />
-                      <Rule ok={rules.lower} label="1 lowercase letter" />
-                      <Rule ok={rules.number} label="1 number" />
-                      <Rule ok={rules.special} label="1 special character" />
-                    </div>
-
-                    <div className="mt-3 h-px w-full bg-white/10" />
-                    <div className="mt-3 text-[12px] text-white/50">
-                      We’ll wire validation + reset tokens on the backend next.
-                    </div>
-                  </div>
-
-                  {err ? (
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] leading-5 text-white/70">
-                      {err}
-                    </div>
+                  {pw2.length > 0 && !match ? (
+                    <div className="mt-2 text-[12px] text-white/45">Passwords do not match.</div>
                   ) : null}
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={!canSubmit}
-                    className={cx(
-                      "btn-solid-dark w-full py-3 text-sm",
-                      !canSubmit && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {submitting ? "Updating…" : "Update password"}
-                  </button>
-
-                  <div className="flex items-center justify-between text-[12px] text-white/50">
-                    <span>Security-first: we don’t reveal account existence.</span>
-                    <Link href="/contact" className="text-white/60 hover:text-white/80">
-                      Need help?
-                    </Link>
+                {/* RULES */}
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="text-[12px] font-semibold text-white/75">Password requirements</div>
+                  <div className="mt-3 grid gap-2">
+                    <Rule ok={rules.length} label="At least 8 characters" />
+                    <Rule ok={rules.upper} label="1 uppercase letter" />
+                    <Rule ok={rules.lower} label="1 lowercase letter" />
+                    <Rule ok={rules.number} label="1 number" />
+                    <Rule ok={rules.special} label="1 special character" />
                   </div>
-                </form>
-              </>
+
+                  <div className="mt-3 h-px w-full bg-white/10" />
+                  <div className="mt-3 text-[12px] text-white/50">
+                    We’ll wire validation + reset tokens on the backend next.
+                  </div>
+                </div>
+
+                {err ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] leading-5 text-white/70">
+                    {err}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className={cx("btn-solid-dark w-full py-3 text-sm", !canSubmit && "opacity-50 cursor-not-allowed")}
+                >
+                  {submitting ? "Updating…" : "Update password"}
+                </button>
+
+                <div className="flex items-center justify-between text-[12px] text-white/50">
+                  <span>Security-first: we don’t reveal account existence.</span>
+                  <Link href="/contact" className="text-white/60 hover:text-white/80">
+                    Need help?
+                  </Link>
+                </div>
+              </form>
             )}
           </div>
         </section>

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -36,3 +36,34 @@ def list_jobs(
         }
         for job in jobs
     ]
+
+
+@router.get("/{job_id}")
+def get_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch a single job by id, scoped to the authenticated user (via Upload ownership).
+    This is the polling endpoint the frontend should use instead of scanning /jobs.
+    """
+    job = (
+        db.query(Job)
+        .join(Upload, Job.upload_id == Upload.id)
+        .filter(Job.id == job_id)
+        .filter(Upload.user_id == current_user.id)
+        .first()
+    )
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {
+        "id": job.id,
+        "upload_id": job.upload_id,
+        "status": job.status,
+        "error": job.error,
+        "created_at": job.created_at,
+        "updated_at": getattr(job, "updated_at", None),
+    }

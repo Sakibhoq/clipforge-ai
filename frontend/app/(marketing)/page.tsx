@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from "react";
+import { BRAND } from "@/lib/brand";
 
 function useReveal() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -32,10 +33,10 @@ function useReveal() {
 function HoverSheen() {
   return (
     <>
-      {/* hover aurora sheen */}
+      {/* hover aurora sheen (hide heavy blur on mobile for perf/clarity) */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute -inset-10 hidden opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 sm:block"
         style={{
           background:
             "radial-gradient(120px 120px at 20% 25%, rgba(167,139,250,0.20), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.18), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.14), transparent 62%)",
@@ -91,7 +92,7 @@ export default function Page() {
             Generate <H>Shorts</H> automatically
           </>
         ),
-        d: <>Clipforge finds the moments, hooks them, and formats them.</>,
+        d: <>Orbito finds the moments, hooks them, and formats them.</>,
       },
       {
         id: "edit",
@@ -153,7 +154,7 @@ export default function Page() {
         ),
         desc: (
           <>
-            Set a cadence once. Clipforge keeps your accounts active every week.
+            Set a cadence once. Orbito keeps your accounts active every week.
           </>
         ),
       },
@@ -209,32 +210,48 @@ export default function Page() {
   );
 
   return (
-    <div ref={revealRef as any} className="min-h-screen bg-plain relative">
-      {/* PAGE-LEVEL AURORA FIELD */}
+    <div
+      ref={revealRef as any}
+      className="
+        relative
+        min-h-[100svh]
+        overflow-x-hidden
+        bg-plain
+        [padding-left:env(safe-area-inset-left)]
+        [padding-right:env(safe-area-inset-right)]
+      "
+    >
+      {/* PAGE-LEVEL AURORA FIELD (softened on mobile) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
+
+        {/* hide the animated aurora on very small screens (keeps it crisp + faster) */}
+        <div className="absolute inset-0 opacity-[0.50] hidden sm:block">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
+
+        {/* big blobs off on mobile to avoid overflow + visual crowding */}
+        <div className="absolute -top-40 left-[-20%] hidden h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl sm:block" />
+        <div className="absolute top-24 right-[-18%] hidden h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl sm:block" />
+        <div className="absolute bottom-[-18%] left-[10%] hidden h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl sm:block" />
+
         <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-24 pt-10">
+      <main className="relative mx-auto max-w-6xl px-4 sm:px-6 pb-20 pt-10 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="relative">
           <div
             data-reveal
-            className="reveal surface relative overflow-hidden p-8 md:p-10"
+            className="reveal surface relative overflow-hidden p-5 sm:p-6 md:p-10"
           >
             <div className="absolute inset-0">
-              <div className="aurora opacity-80" />
+              {/* keep the hero aurora, but slightly calmer on mobile */}
+              <div className="aurora opacity-70 sm:opacity-80" />
               <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_35%_25%,rgba(255,255,255,0.06),transparent_60%)]" />
             </div>
 
-            <div className="relative grid gap-8 md:grid-cols-[1.15fr_0.85fr]">
+            <div className="relative grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] text-white/70">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
@@ -242,20 +259,20 @@ export default function Page() {
                   <H>TikToks</H> — on autopilot
                 </div>
 
-                <h1 className="mt-5 text-4xl font-semibold leading-[1.05] tracking-tight md:text-6xl">
+                <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
                   Paste a <H>YouTube</H> link.
                   <br />
                   Get <H>Shorts</H> ready to post.
                 </h1>
 
-                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Clipforge finds your best moments, turns them into
+                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/65 sm:text-[15px]">
+                  {BRAND.name} finds your best moments, turns them into
                   ready-to-publish <H>Shorts</H>, and lets you edit, download, or
                   auto-post to <H>TikTok</H>, <H>Instagram</H> <H>Reels</H>, and{" "}
                   <H>YouTube Shorts</H>. One upload — weeks of content.
                 </p>
 
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                <div className="mt-6 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
                   <a href="/register" className="btn-aurora">
                     Start free trial
                   </a>
@@ -267,7 +284,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-white/55">
+                <div className="mt-7 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-white/55">
                   <span className="text-white/70">
                     Paste <H>YouTube</H> / upload
                   </span>{" "}
@@ -277,7 +294,7 @@ export default function Page() {
               </div>
 
               {/* RIGHT PANEL */}
-              <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+              <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 md:hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                 <HoverSheen />
 
                 <div className="relative">
@@ -293,11 +310,11 @@ export default function Page() {
                     {heroSteps.map((x) => (
                       <div
                         key={x.id}
-                        className="group/card relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20"
+                        className="group/card relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition-all duration-300 md:hover:-translate-y-0.5 hover:border-white/20"
                       >
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover/card:opacity-100"
+                          className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover/card:opacity-100 hidden sm:block"
                           style={{
                             background:
                               "radial-gradient(120px 120px at 25% 25%, rgba(167,139,250,0.18), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.15), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.12), transparent 62%)",
@@ -311,7 +328,7 @@ export default function Page() {
                     ))}
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-[11px] text-white/60">
+                  <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/60 sm:grid-cols-3">
                     {[
                       { k: "Speed", v: "Shorts in minutes" },
                       { k: "Reach", v: "Every platform" },
@@ -319,11 +336,11 @@ export default function Page() {
                     ].map((x) => (
                       <div
                         key={x.k}
-                        className="group/mini relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20"
+                        className="group/mini relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-3 transition-all duration-300 md:hover:-translate-y-0.5 hover:border-white/20"
                       >
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover/mini:opacity-100"
+                          className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover/mini:opacity-100 hidden sm:block"
                           style={{
                             background:
                               "radial-gradient(120px 120px at 20% 30%, rgba(167,139,250,0.16), transparent 60%), radial-gradient(140px 140px at 85% 25%, rgba(125,211,252,0.14), transparent 62%), radial-gradient(140px 140px at 55% 90%, rgba(45,212,191,0.10), transparent 62%)",
@@ -344,14 +361,15 @@ export default function Page() {
         </section>
 
         {/* FEATURES */}
-        <section id="features" className="pt-16">
+        <section id="features" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-              Make <H>Shorts</H> that win attention —<br className="hidden md:block" />
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+              Make <H>Shorts</H> that win attention —
+              <br className="hidden md:block" />
               and post them everywhere.
             </h2>
-            <p className="mt-3 max-w-2xl text-white/65">
-              Clipforge is built for creators who want the output of a team —
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-white/65">
+              {BRAND.name} is built for creators who want the output of a team —
               without spending hours editing.
             </p>
           </div>
@@ -361,7 +379,7 @@ export default function Page() {
               <div
                 key={c.id}
                 data-reveal
-                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]"
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 md:hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]"
               >
                 <HoverSheen />
                 <div className="relative">
@@ -385,12 +403,12 @@ export default function Page() {
         </section>
 
         {/* HOW IT WORKS */}
-        <section id="how" className="pt-16">
+        <section id="how" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
               Set it up once. <span className="grad-text">Then ship daily.</span>
             </h2>
-            <p className="mt-3 max-w-2xl text-white/65">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-white/65">
               One link becomes a steady stream of <H>Shorts</H> — with control
               when you want it.
             </p>
@@ -401,7 +419,7 @@ export default function Page() {
               <div
                 key={s.id}
                 data-reveal
-                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]"
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 md:hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]"
               >
                 <HoverSheen />
                 <div className="relative">
@@ -434,10 +452,10 @@ export default function Page() {
         </section>
 
         {/* FOOTER */}
-        <footer className="pb-10 pt-20 text-xs text-white/45">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-0">
-            <div>© 2026 • Clipforge.ai by Sakib LLC</div>
-            <div className="flex gap-5">
+        <footer className="pb-10 pt-16 sm:pt-20 text-xs text-white/45">
+          <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>© 2026 • {BRAND.name} by Sakib LLC</div>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((i) => (
                 <a key={i.href} href={i.href} className="hover:text-white/70">
                   {i.label}

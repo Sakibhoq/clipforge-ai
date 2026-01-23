@@ -2,81 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-function LogoMark({
-  size = 28,
-  speed = "nav",
-}: {
-  size?: number;
-  speed?: "nav" | "hero";
-}) {
-  const root = speed === "hero" ? "cfm-hero" : "cfm-nav";
-
-  return (
-    <span
-      className={root}
-      aria-hidden="true"
-      style={{ width: size, height: size, display: "inline-flex" }}
-    >
-      <svg viewBox="0 0 64 64" width={size} height={size}>
-        <defs>
-          <linearGradient
-            id={`${root}-grad`}
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="100%"
-          >
-            <stop offset="0%" stopColor="#A78BFA" />
-            <stop offset="50%" stopColor="#7DD3FC" />
-            <stop offset="100%" stopColor="#2DD4BF" />
-          </linearGradient>
-        </defs>
-
-        {/* Spine */}
-        <g className={`${root}__spine`}>
-          <rect
-            x="18"
-            y="10"
-            width="10"
-            height="44"
-            rx="5"
-            fill={`url(#${root}-grad)`}
-          />
-        </g>
-
-        {/* Top arm */}
-        <g className={`${root}__top`}>
-          <rect
-            x="26"
-            y="10"
-            width="30"
-            height="10"
-            rx="5"
-            fill={`url(#${root}-grad)`}
-          />
-        </g>
-
-        {/* Mid arm */}
-        <g className={`${root}__mid`}>
-          <rect
-            x="26"
-            y="28"
-            width="22"
-            height="10"
-            rx="5"
-            fill={`url(#${root}-grad)`}
-          />
-        </g>
-      </svg>
-    </span>
-  );
-}
+import { usePathname, useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+import { BRAND } from "@/lib/brand";
 
 function Logo() {
+  const pathname = usePathname();
+  const inApp = pathname?.startsWith("/app");
+
+  // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
+  const v = "orb-1";
+
   return (
-    <Link href="/" className="group flex items-center gap-3">
+    <Link href={inApp ? "/app" : "/"} className="group flex items-center gap-3 shrink-0">
       <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
         {/* aurora halo */}
         <span
@@ -89,13 +27,20 @@ function Logo() {
           }}
         />
 
-        <LogoMark size={28} speed="nav" />
+        {/* Primary mark */}
+        <img
+          src={`/orbito-mark.svg?v=${v}`}
+          alt={`${BRAND.name} logo`}
+          width={22}
+          height={22}
+          style={{ display: "block" }}
+        />
       </span>
 
       {/* Wordmark */}
       <span className="relative">
-        <span className="text-sm font-semibold tracking-tight text-white/90">
-          Clipforge
+        <span className="text-[18px] font-semibold tracking-[-0.01em] text-white/95">
+          {BRAND.name}
         </span>
 
         {/* soft aurora sheen */}
@@ -108,50 +53,6 @@ function Logo() {
           }}
         />
       </span>
-
-      {/* animation styles (reliable, outside SVG) */}
-      <style jsx>{`
-        .cfm-nav__spine,
-        .cfm-nav__top,
-        .cfm-nav__mid {
-          transform-box: fill-box;
-          opacity: 0;
-        }
-
-        .cfm-nav__spine {
-          transform-origin: center;
-          transform: scaleY(0.2);
-          animation: cfmNavSpine 700ms cubic-bezier(0.22, 1, 0.36, 1)
-            forwards;
-        }
-        .cfm-nav__top,
-        .cfm-nav__mid {
-          transform-origin: left center;
-          transform: scaleX(0.2);
-          animation: cfmNavArm 650ms cubic-bezier(0.22, 1, 0.36, 1)
-            forwards;
-        }
-
-        .cfm-nav__top {
-          animation-delay: 160ms;
-        }
-        .cfm-nav__mid {
-          animation-delay: 320ms;
-        }
-
-        @keyframes cfmNavSpine {
-          to {
-            opacity: 1;
-            transform: scaleY(1);
-          }
-        }
-        @keyframes cfmNavArm {
-          to {
-            opacity: 1;
-            transform: scaleX(1);
-          }
-        }
-      `}</style>
     </Link>
   );
 }
@@ -168,8 +69,12 @@ function NavLink({
   const pathname = usePathname();
 
   const active = useMemo(() => {
+    if (!pathname) return false;
+
+    // exact or nested routes
     if (href === "/") return pathname === "/";
-    return pathname === href || pathname?.startsWith(`${href}/`);
+    if (href === "/app") return pathname === "/app" || pathname.startsWith("/app/");
+    return pathname === href || pathname.startsWith(`${href}/`);
   }, [pathname, href]);
 
   return (
@@ -181,7 +86,6 @@ function NavLink({
         active ? "text-white" : "text-white/70 hover:text-white",
       ].join(" ")}
     >
-      {/* pill hover/active surface */}
       <span
         aria-hidden="true"
         className={[
@@ -197,10 +101,8 @@ function NavLink({
         }}
       />
 
-      {/* label */}
       <span className="relative z-[1]">{children}</span>
 
-      {/* underline */}
       <span
         aria-hidden="true"
         className={[
@@ -213,7 +115,6 @@ function NavLink({
         }}
       />
 
-      {/* glow */}
       <span
         aria-hidden="true"
         className={[
@@ -250,7 +151,6 @@ function IconButton({
       aria-label={label}
       title={title}
     >
-      {/* hover glow */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute -inset-2 opacity-0 blur-md transition-opacity duration-200 group-hover:opacity-100"
@@ -264,23 +164,12 @@ function IconButton({
   );
 }
 
-function CreditsPill({
-  credits,
-  loading,
-}: {
-  credits: number | null;
-  loading: boolean;
-}) {
+function CreditsPill({ credits, loading }: { credits: number | null; loading: boolean }) {
   return (
     <div className="group relative hidden md:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/75">
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 rounded-full bg-emerald-300/70"
-      />
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
       <span className="text-white/55">Credits</span>
-      <span className="font-semibold text-white/85 tabular-nums">
-        {loading ? "…" : credits ?? "—"}
-      </span>
+      <span className="font-semibold text-white/85 tabular-nums">{loading ? "…" : credits ?? "—"}</span>
 
       <span
         aria-hidden="true"
@@ -294,24 +183,17 @@ function CreditsPill({
   );
 }
 
-function getStoredToken() {
-  if (typeof window === "undefined") return null;
-  // supports multiple keys so you don’t get stuck if your login page stores a different name
-  const keys = ["access_token", "token", "cf_token", "clipforge_token"];
-  for (const k of keys) {
-    const v = window.localStorage.getItem(k);
-    if (v && v.trim()) return v.trim();
-  }
-  return null;
-}
+type MeResponse = { email: string; plan: string; credits: number };
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  const [token, setToken] = useState<string | null>(null);
-  const [credits, setCredits] = useState<number | null>(null);
-  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [meLoading, setMeLoading] = useState(false);
+
+  const inApp = pathname?.startsWith("/app");
 
   // close mobile menu on route change
   useEffect(() => {
@@ -328,86 +210,125 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  // hydrate auth token (client)
+  // MOBILE POLISH: lock body scroll when menu is open (prevents background scroll on iOS)
+  // + prevent iOS “rubber band” scrolling behind the overlay
   useEffect(() => {
-    const t = getStoredToken();
-    setToken(t);
-  }, []);
+    if (!open) return;
 
-  // fetch credits when logged in
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+
+    // compensate for scrollbar to avoid layout shift on desktop
+    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) document.body.style.paddingRight = `${scrollBarWidth}px`;
+
+    document.body.style.overflow = "hidden";
+
+    const preventTouchMove = (e: TouchEvent) => {
+      // Block background page scroll gestures while menu is open
+      e.preventDefault();
+    };
+
+    // iOS Safari needs { passive: false } to allow preventDefault
+    window.addEventListener("touchmove", preventTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener("touchmove", preventTouchMove);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [open]);
+
+  // cookie-auth: fetch /auth/me to determine authed + credits
   useEffect(() => {
-    if (!token) {
-      setCredits(null);
-      setCreditsLoading(false);
-      return;
+    let cancelled = false;
+
+    async function loadMe() {
+      setMeLoading(true);
+      try {
+        const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+        if (!cancelled) setMe(data);
+      } catch {
+        if (!cancelled) setMe(null);
+      } finally {
+        if (!cancelled) setMeLoading(false);
+      }
     }
 
-    const API =
-      process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-      "http://127.0.0.1:8000";
+    loadMe();
 
-    const ac = new AbortController();
-    setCreditsLoading(true);
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
-    fetch(`${API}/me`, {
-      method: "GET",
-      signal: ac.signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`me:${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        // ✅ CHANGE THIS LINE if your backend uses a different field name:
-        const v =
-          data?.credits_remaining ??
-          data?.credits ??
-          data?.remaining_credits ??
-          null;
+  const authed = !!me;
+  const credits = me?.credits ?? null;
 
-        setCredits(typeof v === "number" ? v : null);
-      })
-      .catch(() => {
-        // silent fail: navbar should never crash
-        setCredits(null);
-      })
-      .finally(() => setCreditsLoading(false));
+  async function logout() {
+    try {
+      await apiFetch("/auth/logout", { method: "POST" });
+    } catch {
+      // ignore
+    }
+    setMe(null);
+    setOpen(false);
+    router.push("/login");
+    router.refresh();
+  }
 
-    return () => ac.abort();
-  }, [token]);
+  const marketingLinks = useMemo(
+    () => [
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/features", label: "Features" }, // ✅ restored
+      { href: "/pricing", label: "Pricing" },
+      { href: "/contact", label: "Contact" },
+    ],
+    []
+  );
 
-  const authed = !!token;
+  const appLinks = useMemo(
+    () => [
+      { href: "/app", label: "Overview" },
+      { href: "/app/upload", label: "Upload" },
+      { href: "/app/clips", label: "Clips" },
+      { href: "/app/billing", label: "Billing" },
+      { href: "/app/settings", label: "Settings" },
+    ],
+    []
+  );
+
+  const navLinks = inApp ? appLinks : marketingLinks;
 
   return (
-    <header className="sticky top-0 z-50">
-      {/* spacing: px-6 for premium breathing room */}
+    // Safe-area: pad from notch + left/right inset (landscape)
+    <header
+      className="sticky top-0 z-50"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       <div className="mx-auto max-w-6xl px-6">
-        {/* spacing: mt-4 + px-6 py-3.5 */}
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/30 px-6 py-3.5 backdrop-blur">
-          {/* left cluster: looser */}
-          <div className="flex items-center gap-8 md:gap-10">
+          <div className="flex items-center gap-8 md:gap-10 min-w-0">
             <Logo />
 
-            {/* nav: more room between pills */}
             <nav className="hidden md:flex items-center gap-3">
-              <NavLink href="/features">Features</NavLink>
-              <NavLink href="/how-it-works">How it works</NavLink>
-              <NavLink href="/pricing">Pricing</NavLink>
-              <NavLink href="/contact">Contact</NavLink>
+              {navLinks.map((l) => (
+                <NavLink key={l.href} href={l.href}>
+                  {l.label}
+                </NavLink>
+              ))}
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Desktop actions */}
             <div className="hidden md:flex items-center gap-3">
-              {authed && (
-                <CreditsPill credits={credits} loading={creditsLoading} />
-              )}
+              {authed && <CreditsPill credits={credits} loading={meLoading} />}
 
-              {!authed && (
+              {!authed ? (
                 <>
                   <IconButton href="/login" label="Login" title="Login">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -449,21 +370,27 @@ export default function Navbar() {
                     />
                   </Link>
                 </>
-              )}
+              ) : (
+                <>
+                  {!inApp && (
+                    <Link href="/app" className="btn-ghost text-xs">
+                      Dashboard
+                    </Link>
+                  )}
 
-              {authed && (
-                <Link href="/dashboard" className="btn-ghost text-xs">
-                  Dashboard
-                </Link>
+                  <button type="button" onClick={logout} className="btn-ghost text-xs">
+                    Log out
+                  </button>
+                </>
               )}
             </div>
 
-            {/* Mobile menu button */}
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               className="md:hidden group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/85 transition active:scale-[0.98]"
               aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
             >
               <span
                 aria-hidden="true"
@@ -474,13 +401,7 @@ export default function Navbar() {
                 }}
               />
               {open ? (
-                <svg
-                  className="relative"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
+                <svg className="relative" width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M6 6l12 12M18 6L6 18"
                     stroke="currentColor"
@@ -489,13 +410,7 @@ export default function Navbar() {
                   />
                 </svg>
               ) : (
-                <svg
-                  className="relative"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
+                <svg className="relative" width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M4 7h16M4 12h16M4 17h16"
                     stroke="currentColor"
@@ -508,17 +423,27 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile panel */}
         {open && (
           <div className="md:hidden relative">
-            {/* overlay click-catcher */}
             <button
+              type="button"
               aria-label="Close menu overlay"
               className="fixed inset-0 z-40 cursor-default"
               onClick={() => setOpen(false)}
             />
 
-            <div className="absolute left-0 right-0 z-50 mt-3 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur">
+            {/* mobile menu panel: safe max height + scroll inside */}
+            <div
+              className="absolute left-0 right-0 z-50 mt-3 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur"
+              style={{
+                maxHeight: "calc(100vh - env(safe-area-inset-top) - 88px)",
+                overflow: "auto",
+                WebkitOverflowScrolling: "touch",
+                paddingBottom: "max(8px, env(safe-area-inset-bottom))",
+              }}
+              role="dialog"
+              aria-label="Mobile navigation"
+            >
               <div className="px-3 py-2 flex items-center justify-between">
                 <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
                   Navigate
@@ -529,33 +454,21 @@ export default function Navbar() {
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
                     <span className="text-white/50">Credits</span>
                     <span className="font-semibold text-white/85 tabular-nums">
-                      {creditsLoading ? "…" : credits ?? "—"}
+                      {meLoading ? "…" : credits ?? "—"}
                     </span>
                   </div>
                 )}
               </div>
 
               <div className="flex flex-col gap-1 p-1">
-                <NavLink href="/features" onNavigate={() => setOpen(false)}>
-                  Features
-                </NavLink>
-                <NavLink href="/how-it-works" onNavigate={() => setOpen(false)}>
-                  How it works
-                </NavLink>
-                <NavLink href="/pricing" onNavigate={() => setOpen(false)}>
-                  Pricing
-                </NavLink>
-                <NavLink href="/contact" onNavigate={() => setOpen(false)}>
-                  Contact
-                </NavLink>
-                {authed && (
-                  <NavLink href="/dashboard" onNavigate={() => setOpen(false)}>
-                    Dashboard
+                {navLinks.map((l) => (
+                  <NavLink key={l.href} href={l.href} onNavigate={() => setOpen(false)}>
+                    {l.label}
                   </NavLink>
-                )}
+                ))}
               </div>
 
-              {!authed && (
+              {!authed ? (
                 <div className="mt-2 grid grid-cols-2 gap-2 p-2">
                   <IconButton
                     href="/login"
@@ -610,6 +523,22 @@ export default function Navbar() {
                       }}
                     />
                   </Link>
+                </div>
+              ) : (
+                <div className="mt-2 grid gap-2 p-2">
+                  {!inApp && (
+                    <Link
+                      href="/app"
+                      onClick={() => setOpen(false)}
+                      className="btn-ghost text-xs text-center"
+                    >
+                      Dashboard
+                    </Link>
+                  )}
+
+                  <button type="button" onClick={logout} className="btn-solid-dark text-xs">
+                    Log out
+                  </button>
                 </div>
               )}
             </div>

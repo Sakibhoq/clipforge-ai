@@ -1,3 +1,4 @@
+// frontend/app/features/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -5,12 +6,12 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
 /* =========================================================
-   Clipforge — Features (Marketing)
+   Orbito — Features (Marketing)
    - Premium coverflow wheel (drag + wheel)
    - Magnetic center settling
-   - One rail (single scrollbar) end-to-end (no gaps)
-   - No infinite loop (prevents haywire)
-   - Many feature cards (hooky, not wordy)
+   - Dial scrubber (replaces rail slider)
+   - Mobile friendly: safe-area + lighter overlap + touch tuning
+   - No infinite loop (stable)
    - Footer matches landing (transparent)
 ========================================================= */
 
@@ -19,7 +20,6 @@ import Navbar from "@/components/Navbar";
 ----------------------------- */
 
 function H({ children }: { children: React.ReactNode }) {
-  // highlight words (YouTube/TikTok/Instagram/Reels/Shorts)
   return <span className="grad-text font-semibold tracking-tight">{children}</span>;
 }
 
@@ -72,6 +72,187 @@ type FeatureCard = {
 };
 
 /* =========================================================
+   Dial (scrubber)
+========================================================= */
+
+function clamp01(n: number) {
+  return Math.max(0, Math.min(1, n));
+}
+
+function Dial({
+  value,
+  onChange,
+}: {
+  value: number; // 0..1
+  onChange: (v: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+
+  // Friendly arc: start at 225°, end at -45° (270° sweep)
+  const START = (225 * Math.PI) / 180;
+  const END = (-45 * Math.PI) / 180;
+  const SWEEP = END - START; // negative sweep
+  const v = clamp01(value);
+
+  const size = 74;
+  const stroke = 7;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const angle = START + SWEEP * v;
+  const px = cx + r * Math.cos(angle);
+  const py = cy + r * Math.sin(angle);
+
+  function polarToCartesian(a: number) {
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  }
+
+  function arcPath(a0: number, a1: number) {
+    const p0 = polarToCartesian(a0);
+    const p1 = polarToCartesian(a1);
+    const largeArc = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
+    const sweepFlag = 1; // CW
+    return `M ${p0.x.toFixed(2)} ${p0.y.toFixed(2)} A ${r.toFixed(2)} ${r.toFixed(
+      2
+    )} 0 ${largeArc} ${sweepFlag} ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
+  }
+
+  function valueFromPoint(clientX: number, clientY: number) {
+    const el = ref.current;
+    if (!el) return v;
+
+    const rect = el.getBoundingClientRect();
+    const x = clientX - (rect.left + rect.width / 2);
+    const y = clientY - (rect.top + rect.height / 2);
+    const a = Math.atan2(y, x); // -PI..PI
+
+    const to2pi = (ang: number) => {
+      let t = ang;
+      while (t < 0) t += 2 * Math.PI;
+      while (t >= 2 * Math.PI) t -= 2 * Math.PI;
+      return t;
+    };
+
+    const A = to2pi(a);
+    const S = to2pi(START);
+    const E = to2pi(END);
+
+    // Clockwise length from S to E
+    const cwLen = (S - E + 2 * Math.PI) % (2 * Math.PI);
+    // Clockwise distance from S to A
+    const cwDist = (S - A + 2 * Math.PI) % (2 * Math.PI);
+
+    const clampedDist = Math.max(0, Math.min(cwLen, cwDist));
+    const p = cwLen > 0 ? clampedDist / cwLen : 0;
+    return clamp01(p);
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    draggingRef.current = true;
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+    onChange(valueFromPoint(e.clientX, e.clientY));
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!draggingRef.current) return;
+    if (!(e.currentTarget as HTMLDivElement).hasPointerCapture(e.pointerId)) return;
+    onChange(valueFromPoint(e.clientX, e.clientY));
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    draggingRef.current = false;
+    try {
+      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    } catch {}
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    const step = e.shiftKey ? 0.08 : 0.03;
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      onChange(clamp01(v - step));
+    }
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      onChange(clamp01(v + step));
+    }
+    if (e.key === "Home") {
+      e.preventDefault();
+      onChange(0);
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      onChange(1);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        ref={ref}
+        className="cfDial"
+        role="slider"
+        aria-label="Feature wheel dial"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(v * 100)}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+          <path
+            d={arcPath(START, END)}
+            stroke="rgba(255,255,255,0.10)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d={arcPath(START, START + SWEEP * v)}
+            stroke="url(#cfDialGrad)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <circle cx={px} cy={py} r={5.3} fill="rgba(255,255,255,0.92)" opacity={0.9} />
+          <circle
+            cx={px}
+            cy={py}
+            r={8.4}
+            fill="transparent"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1"
+          />
+          <defs>
+            <linearGradient id="cfDialGrad" x1="0" y1="0" x2="74" y2="74">
+              <stop offset="0%" stopColor="rgba(167,139,250,0.75)" />
+              <stop offset="55%" stopColor="rgba(125,211,252,0.65)" />
+              <stop offset="100%" stopColor="rgba(45,212,191,0.55)" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        <div className="cfDial__center">
+          <div className="text-[11px] text-white/55">Scrub</div>
+          <div className="mt-0.5 text-[12px] font-semibold text-white/80 tabular-nums">
+            {Math.round(v * 100)}%
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden sm:block text-[11px] text-white/45">
+        Drag the dial to scrub.
+        <div className="mt-1 text-white/35">Shift+arrows for bigger steps.</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
    Page
 ========================================================= */
 
@@ -80,7 +261,6 @@ export default function FeaturesPage() {
      Refs + State (wheel system)
   ----------------------------- */
   const wheelRef = useRef<HTMLDivElement | null>(null);
-  const railRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rafRef = useRef<number | null>(null);
 
@@ -109,12 +289,10 @@ export default function FeaturesPage() {
   });
 
   const snapTimerRef = useRef<number | null>(null);
-
   const [progress, setProgress] = useState(0);
 
   /* -----------------------------
      Data — lots of cards (hooky)
-     Keep each card short, punchy.
   ----------------------------- */
   const cards: FeatureCard[] = useMemo(
     () => [
@@ -126,7 +304,7 @@ export default function FeaturesPage() {
             Paste a <H>YouTube</H> link
           </>
         ),
-        desc: <>Drop a link. Clipforge ingests the full video and starts forging.</>,
+        desc: <>Drop a link. Orbito ingests the full video and starts forging.</>,
         bullets: [
           <>
             Paste <H>YouTube</H> in seconds — no messy downloads.
@@ -333,7 +511,6 @@ export default function FeaturesPage() {
         tagLeft: <>Production</>,
         tagRight: <>Ready</>,
       },
-      // Add a few more so the wheel feels “deep”
       {
         id: "face-safe",
         kicker: "Quality",
@@ -392,7 +569,6 @@ export default function FeaturesPage() {
     const cur = scroller.scrollLeft;
     const target = animRef.current.target;
 
-    // smooth easing factor (trackpad-friendly)
     const k = 1 - Math.pow(0.001, dt / 340);
     const next = cur + (target - cur) * k;
 
@@ -410,8 +586,10 @@ export default function FeaturesPage() {
   function setTarget(left: number) {
     const scroller = wheelRef.current;
     if (!scroller) return;
+
     const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
     animRef.current.target = Math.max(0, Math.min(max, left));
+
     if (!animRef.current.active) {
       animRef.current.active = true;
       animRef.current.lastT = performance.now();
@@ -454,8 +632,8 @@ export default function FeaturesPage() {
   }
 
   /* =========================================================
-     Coverflow transforms + progress (single scrollbar)
-     IMPORTANT: progress must ignore the padding that centers cards.
+     Coverflow transforms + progress
+     IMPORTANT: progress ignores the padding that centers cards.
   ========================================================= */
 
   useEffect(() => {
@@ -468,14 +646,11 @@ export default function FeaturesPage() {
         const rect = scroller.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
 
-        // The wheel uses padding-left/right to center cards.
-        // Ignore that padding when computing scrollbar progress so the rail is end-to-end.
         const PAD = scroller.clientWidth * 0.55;
         const usable = Math.max(1, scroller.scrollWidth - scroller.clientWidth - PAD * 2);
         const pos = scroller.scrollLeft - PAD;
         setProgress(Math.max(0, Math.min(1, pos / usable)));
 
-        // Coverflow transforms on every card (center sharp, sides blur + tilt)
         for (let i = 0; i < cardRefs.current.length; i++) {
           const el = cardRefs.current[i];
           if (!el) continue;
@@ -507,7 +682,6 @@ export default function FeaturesPage() {
     const onScroll = () => {
       requestUpdate();
 
-      // Debounced snap after scroll ends
       if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
       snapTimerRef.current = window.setTimeout(() => {
         if (!dragRef.current.dragging) snapToNearest();
@@ -517,7 +691,6 @@ export default function FeaturesPage() {
     scroller.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", requestUpdate);
 
-    // initial
     const t = window.requestAnimationFrame(requestUpdate);
 
     return () => {
@@ -543,7 +716,6 @@ export default function FeaturesPage() {
       const absX = Math.abs(e.deltaX);
       const absY = Math.abs(e.deltaY);
 
-      // only hijack when user is essentially vertical scrolling
       if (absY > absX) {
         e.preventDefault();
         setTarget(scroller.scrollLeft + e.deltaY * 1.05);
@@ -570,12 +742,9 @@ export default function FeaturesPage() {
     dragRef.current.lastT = performance.now();
     dragRef.current.vx = 0;
 
-    // cancel animated target while dragging
     animRef.current.active = false;
 
-    // cancel pending snap
     if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
-
     scroller.setPointerCapture(e.pointerId);
   }
 
@@ -604,56 +773,31 @@ export default function FeaturesPage() {
     dragRef.current.dragging = false;
     dragRef.current.pointerId = null;
 
-    // inertia
     const v = dragRef.current.vx;
     const inertia = -v * 520;
     setTarget(scroller.scrollLeft + inertia);
 
-    // snap after inertia settles
     if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current);
     snapTimerRef.current = window.setTimeout(() => snapToNearest(), 180);
   }
 
   /* =========================================================
-     Rail (single scrollbar)
-     - end-to-end
-     - no gap (thumb never hangs outside)
+     Dial mapping -> scroll target
   ========================================================= */
 
-  const railThumbLeftPct = useMemo(() => {
-    // must match CSS width
-    const THUMB_PX = 72;
-
-    // Use rail width if available; fallback to wheel width
-    const railEl = railRef.current;
-    const w = railEl?.clientWidth || wheelRef.current?.clientWidth || 1;
-
-    const thumbPct = (THUMB_PX / w) * 100;
-    const range = Math.max(0, 100 - thumbPct);
-
-    // progress is already 0..1 across usable range
-    return Math.max(0, Math.min(range, progress * range));
-  }, [progress]);
-
-  function railToPointer(e: React.PointerEvent<HTMLDivElement>) {
+  function dialToScroll(p: number) {
     const scroller = wheelRef.current;
-    const railEl = railRef.current;
-    if (!scroller || !railEl) return;
+    if (!scroller) return;
 
-    const rect = railEl.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
-    const p = rect.width > 0 ? x / rect.width : 0;
-
-    // Map rail p to usable scroll (ignore center padding)
     const PAD = scroller.clientWidth * 0.55;
     const usable = Math.max(1, scroller.scrollWidth - scroller.clientWidth - PAD * 2);
 
-    setTarget(PAD + usable * p);
+    // On mobile rotate / resize, scrollWidth can settle a frame later.
+    requestAnimationFrame(() => {
+      setTarget(PAD + usable * clamp01(p));
+    });
   }
 
-  /* -----------------------------
-     Footer links (match landing)
-  ----------------------------- */
   const footerLinks = useMemo(
     () => [
       { label: "Features", href: "/features" },
@@ -667,7 +811,6 @@ export default function FeaturesPage() {
   /* =========================================================
      Render
   ========================================================= */
-
   return (
     <div className="min-h-screen bg-plain relative">
       <Navbar />
@@ -684,7 +827,7 @@ export default function FeaturesPage() {
         <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-28 pt-12">
+      <main className="relative mx-auto max-w-6xl px-6 pt-12 pb-28 [padding-bottom:calc(7rem+env(safe-area-inset-bottom))]">
         {/* HERO */}
         <section className="surface relative overflow-hidden p-8 md:p-12">
           <div className="absolute inset-0">
@@ -700,10 +843,10 @@ export default function FeaturesPage() {
               <span className="grad-text">short-form.</span>
             </h1>
 
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Clipforge turns long-form into a clean, repeatable workflow: paste{" "}
-              <H>YouTube</H>, generate <H>Shorts</H>, make quick edits, then post
-              to <H>TikTok</H>, <H>Instagram</H> <H>Reels</H>, and{" "}
+            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px] line-clamp-4 sm:line-clamp-none">
+              Orbito turns long-form into a clean, repeatable workflow: paste{" "}
+              <H>YouTube</H>, generate <H>Shorts</H>, make quick edits, then post to{" "}
+              <H>TikTok</H>, <H>Instagram</H> <H>Reels</H>, and{" "}
               <H>YouTube Shorts</H> — automatically.
             </p>
 
@@ -712,19 +855,22 @@ export default function FeaturesPage() {
                 paste <H>YouTube</H>
               </Pill>
               →
-              <Pill>detect hooks</Pill>→
+              <Pill>detect hooks</Pill>
+              →
               <Pill>
                 generate <H>Shorts</H>
               </Pill>
               →
-              <Pill>edit / export</Pill>→
+              <Pill>edit / export</Pill>
+              →
               <Pill>auto-post</Pill>
             </div>
 
             {/* WHEEL HEADER */}
             <div className="mt-12 flex items-center justify-between gap-4">
               <div className="text-xs text-white/45">
-                Drag the cards or scroll — smooth wheel motion with magnetic center
+                Drag the cards or scroll — smooth wheel motion with magnetic
+                center
               </div>
               <div className="hidden sm:flex items-center gap-2 text-[11px] text-white/45">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
@@ -743,7 +889,9 @@ export default function FeaturesPage() {
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
-                style={{ cursor: dragRef.current.dragging ? "grabbing" : "grab" }}
+                style={{
+                  cursor: dragRef.current.dragging ? "grabbing" : "grab",
+                }}
               >
                 <div className="cfTrack py-6">
                   {cards.map((f, idx) => (
@@ -755,9 +903,7 @@ export default function FeaturesPage() {
                       className="cfCard group surface-soft relative overflow-hidden p-6 select-none"
                     >
                       <HoverSheen />
-
                       <div className="relative">
-                        {/* header */}
                         <div className="flex items-center justify-between text-xs text-white/55">
                           <div className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5">
                             {f.kicker}
@@ -765,17 +911,14 @@ export default function FeaturesPage() {
                           <div className="text-white/40">{f.tagRight}</div>
                         </div>
 
-                        {/* title */}
                         <div className="mt-3 text-base font-semibold text-white/90">
                           {f.title}
                         </div>
 
-                        {/* desc */}
                         <div className="mt-2 text-sm leading-relaxed text-white/60">
                           {f.desc}
                         </div>
 
-                        {/* bullets */}
                         {f.bullets?.length ? (
                           <ul className="mt-4 space-y-2 text-sm text-white/60">
                             {f.bullets.map((b, i) => (
@@ -787,12 +930,13 @@ export default function FeaturesPage() {
                           </ul>
                         ) : null}
 
-                        {/* footer row */}
                         <div className="mt-5 flex items-center justify-between">
                           <Link href="/register" className="btn-ghost text-xs">
                             Try it now
                           </Link>
-                          <div className="text-xs text-white/45">{f.tagLeft}</div>
+                          <div className="text-xs text-white/45">
+                            {f.tagLeft}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -800,36 +944,9 @@ export default function FeaturesPage() {
                 </div>
               </div>
 
-              {/* SINGLE RAIL (end-to-end, no gaps) */}
-              <div
-                ref={railRef}
-                className="cfRail mt-4"
-                role="slider"
-                aria-label="Feature wheel scrollbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(progress * 100)}
-                tabIndex={0}
-                onPointerDown={(e) => {
-                  (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-                  railToPointer(e);
-                }}
-                onPointerMove={(e) => {
-                  if ((e.currentTarget as HTMLDivElement).hasPointerCapture(e.pointerId)) {
-                    railToPointer(e);
-                  }
-                }}
-                onPointerUp={(e) => {
-                  try {
-                    (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-                  } catch {}
-                }}
-              >
-                <div className="cfRail__track" />
-                <div
-                  className="cfRail__thumb"
-                  style={{ left: `${railThumbLeftPct}%` }}
-                />
+              {/* DIAL */}
+              <div className="mt-6 flex items-center justify-center">
+                <Dial value={progress} onChange={dialToScroll} />
               </div>
             </div>
 
@@ -846,7 +963,7 @@ export default function FeaturesPage() {
               </Link>
             </div>
 
-            {/* Secondary sections (real product feel) */}
+            {/* SECONDARY SECTIONS */}
             <div className="mt-14 grid gap-4 md:grid-cols-3">
               {[
                 {
@@ -869,7 +986,9 @@ export default function FeaturesPage() {
                   <HoverSheen />
                   <div className="relative">
                     <div className="text-sm font-semibold">{x.t}</div>
-                    <div className="mt-2 text-sm leading-relaxed text-white/60">{x.d}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/60">
+                      {x.d}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -884,13 +1003,17 @@ export default function FeaturesPage() {
               </Link>
             </div>
 
-            {/* FOOTER (match landing: transparent) */}
+            {/* FOOTER */}
             <footer className="pb-0 pt-20 text-xs text-white/45">
-              <div className="mx-auto flex max-w-6xl items-center justify-between px-0">
-                <div>© 2026 • Clipforge.ai by Sakib LLC</div>
+              <div className="mx-auto flex max-w-6xl items-center justify-between">
+                <div>© 2026 • Orbito by Sakib LLC</div>
                 <div className="flex gap-5">
                   {footerLinks.map((i) => (
-                    <a key={i.href} href={i.href} className="hover:text-white/70">
+                    <a
+                      key={i.href}
+                      href={i.href}
+                      className="hover:text-white/70"
+                    >
                       {i.label}
                     </a>
                   ))}
@@ -901,19 +1024,12 @@ export default function FeaturesPage() {
         </section>
       </main>
 
-      {/* =========================================================
-          Styles (scoped)
-          - Wheel overlap
-          - Coverflow transforms
-          - Single rail
-      ========================================================= */}
+      {/* ================= STYLES ================= */}
       <style jsx>{`
-        /* pills already use tailwind classes, but keep a hook for consistency */
         .pill :global(.grad-text) {
           display: inline-block;
         }
 
-        /* Wheel container */
         .cfWheel {
           position: relative;
           scroll-snap-type: x mandatory;
@@ -926,30 +1042,24 @@ export default function FeaturesPage() {
           display: none;
         }
 
-        /* Track: overlap for “hide behind” */
         .cfTrack {
           display: flex;
           align-items: stretch;
-
-          /* Center scaffolding so first/last card can be centered */
-          padding-left: 55vw;
-          padding-right: 55vw;
+          padding-left: clamp(42vw, 55vw, 55vw);
+          padding-right: clamp(42vw, 55vw, 55vw);
         }
 
         .cfCard {
           scroll-snap-align: center;
           flex: 0 0 auto;
-
           width: min(560px, 86vw);
           margin-right: -180px;
           border-radius: 24px;
-
           transform: perspective(1000px) rotateY(var(--cf-ry, 0deg))
             scale(var(--cf-sc, 1));
           opacity: var(--cf-op, 1);
           filter: blur(var(--cf-bl, 0px));
           z-index: var(--cf-z, 1);
-
           transform-style: preserve-3d;
           will-change: transform, opacity, filter;
           transition: filter 220ms ease, opacity 220ms ease;
@@ -970,54 +1080,40 @@ export default function FeaturesPage() {
           box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55);
         }
 
-        /* Rail */
-        .cfRail {
-          position: relative;
-          height: 10px;
+        .cfDial {
+          width: 64px;
+          height: 64px;
           border-radius: 999px;
+          position: relative;
           cursor: pointer;
           user-select: none;
           touch-action: none;
-          overflow: hidden; /* ensures end-to-end visually */
-        }
-
-        .cfRail__track {
-          position: absolute;
-          inset: 0;
-          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          background: rgba(255, 255, 255, 0.02);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.04);
-          backdrop-filter: blur(10px);
+          box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
         }
 
-        .cfRail__thumb {
+        .cfDial__center {
           position: absolute;
-          top: 50%;
-          width: 72px;
-          height: 6px;
-
-          /* IMPORTANT: no -50% X shift (prevents edge gaps) */
-          transform: translateY(-50%);
-
-          border-radius: 999px;
-          background: linear-gradient(
-            90deg,
-            rgba(167, 139, 250, 0.75),
-            rgba(125, 211, 252, 0.65),
-            rgba(45, 212, 191, 0.55)
-          );
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          transition: left 120ms ease;
+          text-align: center;
+          pointer-events: none;
         }
 
-        /* Responsive tweaks */
+        .cfDial:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18),
+            0 18px 55px rgba(0, 0, 0, 0.35);
+        }
+
         @media (max-width: 640px) {
           .cfCard {
             margin-right: -120px;
           }
-          .cfRail__thumb {
+          .cfDial {
             width: 56px;
+            height: 56px;
           }
         }
       `}</style>

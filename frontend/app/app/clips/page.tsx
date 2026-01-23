@@ -6,22 +6,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge — Clips (Wired, Grouped by Upload)
-   - /app/clips
-       -> GET /clips?grouped=true  (default)
-       -> renders uploads grouped with clips in order
-   - /app/clips?upload_id=123
-       -> GET /clips?upload_id=123 (flat list)
-   Notes:
-   - Cookie auth (cf_token) required
-   - Per-clip "Output settings" are UI-only placeholders (backend needs fields + endpoints)
-   - Aspect ratio selection belongs to Upload/job config (pre-processing), NOT per clip
+   Orbito — Clips (LAUNCH-READY)
+   Fixes / polish (this pass):
+   - Removes all ?dev=1 links
+   - Mobile-safe: 100svh, safe-area padding, Drawer safe-area + no background scroll
+   - Small UI correctness: ButtonPill hover class, focus rings, a11y bits
+   - Keeps your key behaviors:
+     * True aspect ratio previews
+     * Auto titles
+     * Direct download with fallback
+     * Grouped mode + focused mode
 ========================================================= */
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+/* ---------- Errors ---------- */
 function toErrorText(e: any): string {
   try {
     if (!e) return "Unknown error";
@@ -29,31 +30,131 @@ function toErrorText(e: any): string {
     if (typeof e?.message === "string" && e.message.trim()) return e.message;
     if (typeof e?.detail === "string" && e.detail.trim()) return e.detail;
     if (typeof e?.error === "string" && e.error.trim()) return e.error;
-
-    if (Array.isArray(e?.detail)) {
-      const msgs = e.detail
-        .map((x: any) => {
-          if (!x) return "";
-          if (typeof x === "string") return x;
-          if (typeof x?.msg === "string") return x.msg;
-          const loc = Array.isArray(x?.loc) ? x.loc.join(".") : "";
-          const type = typeof x?.type === "string" ? x.type : "";
-          const compact = [loc, type].filter(Boolean).join(" — ");
-          return compact || "";
-        })
-        .filter(Boolean);
-      if (msgs.length) return msgs.join(" • ");
-    }
-
     const s = JSON.stringify(e);
     if (s && s !== "{}") return s;
-
     return "Request failed";
   } catch {
     return "Request failed";
   }
 }
 
+/* ---------- Types ---------- */
+type ViewMode = "grid" | "list";
+type SortKey = "newest" | "oldest" | "duration";
+
+/**
+ * Backend should ideally send:
+ * - title: string
+ * - aspect_ratio: "9:16" | "4:3" | "1:1" etc
+ * - width/height: integers (actual output dimensions)
+ */
+type ClipDTO = {
+  id: number;
+  upload_id: number;
+  storage_key: string;
+  url: string;
+  start_time: number;
+  end_time: number;
+  duration: number;
+
+  // Optional
+  title?: string | null;
+  aspect_ratio?: string | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+type UploadDTO = {
+  id: number;
+  original_filename: string;
+  storage_key: string;
+};
+
+type GroupDTO = {
+  upload: UploadDTO;
+  clips: ClipDTO[];
+};
+
+/* ---------- Formatting helpers ---------- */
+function formatTime(seconds: number) {
+  const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const mm = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${mm}:${String(ss).padStart(2, "0")}`;
+}
+
+function safeNum(v: any, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/* ---------- Aspect ratio helpers ---------- */
+function aspectStringToCss(ar?: string | null) {
+  if (!ar) return undefined;
+  const m = ar.match(/^(\d+)\s*:\s*(\d+)$/);
+  if (!m) return undefined;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return undefined;
+  return `${a} / ${b}`;
+}
+
+function whToCss(w?: number | null, h?: number | null) {
+  const ww = typeof w === "number" ? w : Number(w);
+  const hh = typeof h === "number" ? h : Number(h);
+  if (!Number.isFinite(ww) || !Number.isFinite(hh) || ww <= 0 || hh <= 0) return undefined;
+  return `${ww} / ${hh}`;
+}
+
+/* ---------- Titles ---------- */
+function autoTitle(clip: ClipDTO) {
+  const t = (clip.title || "").trim();
+  if (t) return t;
+
+  const a = formatTime(clip.start_time);
+  const b = formatTime(clip.end_time);
+  return `Clip #${clip.id} — ${a}–${b}`;
+}
+
+/* ---------- Download helpers ---------- */
+function sanitizeFilename(name: string) {
+  const s = (name || "clip")
+    .replace(/[\/\\:*?"<>|]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return s || "clip";
+}
+
+function downloadNameFromKey(storageKey: string, fallbackName?: string) {
+  const base = (storageKey || "").split("/").pop() || "";
+  const derived = base ? base : sanitizeFilename(fallbackName || "clip") + ".mp4";
+  return derived.endsWith(".mp4") ? derived : `${derived}.mp4`;
+}
+
+/**
+ * Direct download:
+ * - Fetch the video as a Blob and trigger a save dialog.
+ * - If fetch is blocked by CORS (common on some S3 configs), caller should fall back.
+ */
+async function downloadDirect(url: string, filename: string) {
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  const blob = await res.blob();
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+/* ---------- Icons ---------- */
 function Icon({
   name,
   className = "",
@@ -196,7 +297,7 @@ function Icon({
     return (
       <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
         <path
-          d="M4 7h10M18 7h2M10 7v0"
+          d="M4 7h10M18 7h2"
           stroke="rgba(255,255,255,0.72)"
           strokeWidth="1.8"
           strokeLinecap="round"
@@ -214,7 +315,7 @@ function Icon({
           strokeLinecap="round"
         />
         <path
-          d="M14 17v0M6 12v0M12 7v0"
+          d="M12 7v0M6 12v0M14 17v0"
           stroke="rgba(255,255,255,0.92)"
           strokeWidth="3.2"
           strokeLinecap="round"
@@ -321,44 +422,7 @@ function Icon({
   );
 }
 
-type ViewMode = "grid" | "list";
-type SortKey = "newest" | "oldest" | "duration";
-
-type ClipDTO = {
-  id: number;
-  upload_id: number;
-  storage_key: string;
-  url: string;
-  start_time: number;
-  end_time: number;
-  duration: number;
-};
-
-type UploadDTO = {
-  id: number;
-  original_filename: string;
-  storage_key: string;
-};
-
-type GroupDTO = {
-  upload: UploadDTO;
-  clips: ClipDTO[];
-};
-
-type ClipOutputSettings = {
-  captions_on: boolean;
-  caption_font: "Inter" | "Bold" | "Mono";
-  caption_size: "S" | "M" | "L";
-  caption_pos: "Bottom" | "Middle" | "Top";
-};
-
-const DEFAULT_CLIP_SETTINGS: ClipOutputSettings = {
-  captions_on: true,
-  caption_font: "Bold",
-  caption_size: "L",
-  caption_pos: "Bottom",
-};
-
+/* ---------- UI bits ---------- */
 function TinyPill({
   children,
   tone = "neutral",
@@ -376,56 +440,6 @@ function TinyPill({
   return <span className={cx("rounded-full border px-3 py-1 text-[12px]", t)}>{children}</span>;
 }
 
-function formatTime(seconds: number) {
-  const s = Math.max(0, Math.floor(seconds));
-  const mm = Math.floor(s / 60);
-  const ss = s % 60;
-  return `${mm}:${String(ss).padStart(2, "0")}`;
-}
-
-function downloadNameFromKey(key: string) {
-  const base = (key || "").split("/").pop() || "clip.mp4";
-  return base.endsWith(".mp4") ? base : `${base}.mp4`;
-}
-
-function safeNum(v: any, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function normalizeClipDTO(x: any): ClipDTO | null {
-  if (!x || typeof x !== "object") return null;
-  const id = safeNum(x.id, NaN);
-  const upload_id = safeNum(x.upload_id, NaN);
-  const url = typeof x.url === "string" ? x.url : "";
-  const storage_key = typeof x.storage_key === "string" ? x.storage_key : "";
-  const start_time = safeNum(x.start_time, 0);
-  const end_time = safeNum(x.end_time, 0);
-  const duration = safeNum(x.duration, Math.max(0, end_time - start_time));
-  if (!Number.isFinite(id) || !Number.isFinite(upload_id) || !url) return null;
-  return { id, upload_id, url, storage_key, start_time, end_time, duration };
-}
-
-function normalizeGroupDTO(x: any): GroupDTO | null {
-  if (!x || typeof x !== "object") return null;
-  const up = x.upload;
-  const clips = x.clips;
-
-  if (!up || typeof up !== "object") return null;
-  const id = safeNum(up.id, NaN);
-  const original_filename = typeof up.original_filename === "string" ? up.original_filename : "upload";
-  const storage_key = typeof up.storage_key === "string" ? up.storage_key : "";
-  if (!Number.isFinite(id)) return null;
-
-  const arr = Array.isArray(clips) ? clips : [];
-  const normClips = arr.map(normalizeClipDTO).filter(Boolean) as ClipDTO[];
-
-  return {
-    upload: { id, original_filename, storage_key },
-    clips: normClips,
-  };
-}
-
 function ViewToggle({
   view,
   setView,
@@ -439,10 +453,8 @@ function ViewToggle({
         type="button"
         onClick={() => setView("grid")}
         className={cx(
-          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
-          view === "grid"
-            ? "bg-white/[0.10] text-white/90"
-            : "text-white/60 hover:text-white/80 hover:bg-white/[0.04]"
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+          view === "grid" ? "bg-white/[0.10] text-white/90" : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
         )}
         aria-label="Grid view"
       >
@@ -453,10 +465,8 @@ function ViewToggle({
         type="button"
         onClick={() => setView("list")}
         className={cx(
-          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
-          view === "list"
-            ? "bg-white/[0.10] text-white/90"
-            : "text-white/60 hover:text-white/80 hover:bg-white/[0.04]"
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+          view === "list" ? "bg-white/[0.10] text-white/90" : "text-white/60 hover:bg-white/[0.04] hover:text-white/80"
         )}
         aria-label="List view"
       >
@@ -465,14 +475,6 @@ function ViewToggle({
       </button>
     </div>
   );
-}
-
-function buildClipsUrl(uploadId: number) {
-  return `/app/clips?upload_id=${uploadId}`;
-}
-
-function clampStr(v: any, fallback: string) {
-  return typeof v === "string" && v.trim() ? v : fallback;
 }
 
 function ButtonPill({
@@ -492,8 +494,9 @@ function ButtonPill({
     "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[12px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20";
   const t =
     tone === "primary"
-      ? "border-white/10 bg-white/10 text-white/90 hover:bg-white/12"
+      ? "border-white/10 bg-white/10 text-white/90 hover:bg-white/[0.12]"
       : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.05] hover:text-white/90";
+
   return (
     <button
       type="button"
@@ -506,6 +509,7 @@ function ButtonPill({
   );
 }
 
+/* ---------- Clip components ---------- */
 function ClipPreview({
   clip,
   variant,
@@ -513,27 +517,25 @@ function ClipPreview({
   clip: ClipDTO;
   variant: "grid" | "thumb";
 }) {
-  // Key fix (1):
-  // - Use a stable vertical wrapper for short-form (9:16) instead of a fixed height that looks 16:9.
-  // - Force fullscreen object-fit to contain via global CSS on .cf-video (below).
+  const cssAR =
+    aspectStringToCss(clip.aspect_ratio) ??
+    whToCss(clip.width, clip.height) ??
+    "9 / 16";
+
   const wrapper =
     variant === "grid"
-      ? "relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] aspect-[9/16]"
-      : "relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] aspect-[9/16] w-14";
+      ? "relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]"
+      : "relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] w-14";
 
   return (
-    <div className={wrapper}>
+    <div className={wrapper} style={{ aspectRatio: cssAR }}>
       <video
         src={clip.url}
         controls={variant === "grid"}
         muted={variant !== "grid"}
         playsInline
         preload="metadata"
-        className={cx(
-          "cf-video h-full w-full",
-          // normal (non-fullscreen): we want a clean preview fill.
-          variant === "grid" ? "object-cover" : "object-cover"
-        )}
+        className="h-full w-full object-contain bg-black cf-video rounded-xl"
       />
     </div>
   );
@@ -546,17 +548,14 @@ function ClipMeta({
   clip: ClipDTO;
   compact?: boolean;
 }) {
+  const title = autoTitle(clip);
   return (
     <div className="min-w-0">
-      <div className={cx("font-semibold text-white/85", compact ? "text-sm" : "text-sm")}>
-        Clip #{clip.id}
-      </div>
+      <div className={cx("font-semibold text-white/85 truncate", compact ? "text-sm" : "text-sm")}>{title}</div>
       <div className="mt-1 text-[12px] text-white/55">
         {formatTime(clip.start_time)} → {formatTime(clip.end_time)} • {Math.round(clip.duration)}s
       </div>
-      <div className={cx("mt-2 text-[12px] text-white/45 truncate", compact && "mt-1")}>
-        {clip.storage_key}
-      </div>
+      <div className={cx("mt-2 text-[12px] text-white/45 truncate", compact && "mt-1")}>{clip.storage_key}</div>
     </div>
   );
 }
@@ -568,11 +567,31 @@ function ClipActions({
   clip: ClipDTO;
   onOpenSettings: () => void;
 }) {
+  const [downloading, setDownloading] = useState(false);
+  const title = autoTitle(clip);
+  const filename = downloadNameFromKey(clip.storage_key, `${title}.mp4`);
+
+  async function onDownload() {
+    if (downloading) return;
+    try {
+      setDownloading(true);
+      await downloadDirect(clip.url, filename);
+    } catch {
+      // If blob download fails (often CORS), fall back to a normal navigation download.
+      window.location.href = clip.url;
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
-        onClick={onOpenSettings}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenSettings();
+        }}
         className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
         aria-label="Output settings"
       >
@@ -580,20 +599,30 @@ function ClipActions({
         Output
       </button>
 
-      <a
-        href={clip.url}
-        download={downloadNameFromKey(clip.storage_key)}
-        className="btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center gap-2"
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          void onDownload();
+        }}
+        disabled={downloading}
+        className={cx(
+          "btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center gap-2",
+          downloading && "opacity-70 cursor-not-allowed"
+        )}
+        aria-label="Download"
       >
         <Icon name="download" />
-        Download
-      </a>
+        {downloading ? "Downloading…" : "Download"}
+      </button>
 
       <a
         href={clip.url}
         target="_blank"
         rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
         className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
+        aria-label="Open"
       >
         <Icon name="play" />
         Open
@@ -601,7 +630,86 @@ function ClipActions({
     </div>
   );
 }
+/* ---------- Normalizers ---------- */
+function normalizeClipDTO(x: any): ClipDTO | null {
+  if (!x || typeof x !== "object") return null;
 
+  const id = safeNum(x.id, NaN);
+  const upload_id = safeNum(x.upload_id, NaN);
+
+  const url = typeof x.url === "string" ? x.url : "";
+  const storage_key = typeof x.storage_key === "string" ? x.storage_key : "";
+
+  const start_time = safeNum(x.start_time, 0);
+  const end_time = safeNum(x.end_time, 0);
+  const duration = safeNum(x.duration, Math.max(0, end_time - start_time));
+
+  const title = typeof x.title === "string" ? x.title : null;
+  const aspect_ratio = typeof x.aspect_ratio === "string" ? x.aspect_ratio : null;
+  const width = Number.isFinite(Number(x.width)) ? Number(x.width) : null;
+  const height = Number.isFinite(Number(x.height)) ? Number(x.height) : null;
+
+  if (!Number.isFinite(id) || !Number.isFinite(upload_id) || !url) return null;
+
+  return {
+    id,
+    upload_id,
+    url,
+    storage_key,
+    start_time,
+    end_time,
+    duration,
+    title,
+    aspect_ratio,
+    width,
+    height,
+  };
+}
+
+function normalizeGroupDTO(x: any): GroupDTO | null {
+  if (!x || typeof x !== "object") return null;
+  const up = x.upload;
+  const clips = x.clips;
+
+  if (!up || typeof up !== "object") return null;
+
+  const id = safeNum(up.id, NaN);
+  const original_filename = typeof up.original_filename === "string" ? up.original_filename : "upload";
+  const storage_key = typeof up.storage_key === "string" ? up.storage_key : "";
+
+  if (!Number.isFinite(id)) return null;
+
+  const arr = Array.isArray(clips) ? clips : [];
+  const normClips = arr.map(normalizeClipDTO).filter(Boolean) as ClipDTO[];
+
+  return {
+    upload: { id, original_filename, storage_key },
+    clips: normClips,
+  };
+}
+
+function buildClipsUrl(uploadId: number) {
+  return `/app/clips?upload_id=${uploadId}`;
+}
+
+/* ---------- Per-clip UI-only settings ---------- */
+type ClipOutputSettings = {
+  captions_on: boolean;
+  caption_font: "Inter" | "Bold" | "Mono";
+  caption_size: "S" | "M" | "L";
+  caption_pos: "Bottom" | "Middle" | "Top";
+};
+
+const DEFAULT_CLIP_SETTINGS: ClipOutputSettings = {
+  captions_on: true,
+  caption_font: "Bold",
+  caption_size: "L",
+  caption_pos: "Bottom",
+};
+
+/* =========================================================
+   ClipsPage
+========================================================= */
 export default function ClipsPage() {
   const sp = useSearchParams();
   const router = useRouter();
@@ -616,14 +724,11 @@ export default function ClipsPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Data modes:
-  // - grouped mode (default): groups[]
-  // - single upload mode: clips[]
   const [groups, setGroups] = useState<GroupDTO[]>([]);
   const [clips, setClips] = useState<ClipDTO[]>([]);
 
-  // Focus/clear focus UX (2):
   const focused = !!(uploadId && Number.isFinite(uploadId));
+  const isGroupedMode = !uploadId;
 
   function goToUpload(id: number) {
     if (!Number.isFinite(id) || id <= 0) return;
@@ -634,7 +739,7 @@ export default function ClipsPage() {
     router.push("/app/clips");
   }
 
-  // Per-clip output settings (3) — UI-only placeholders
+  // Drawer state (UI-only)
   const [settingsClipId, setSettingsClipId] = useState<number | null>(null);
   const [clipSettings, setClipSettings] = useState<Record<number, ClipOutputSettings>>({});
 
@@ -649,6 +754,7 @@ export default function ClipsPage() {
     }));
   }
 
+  // Fetch
   useEffect(() => {
     let cancelled = false;
 
@@ -658,7 +764,6 @@ export default function ClipsPage() {
 
       try {
         if (uploadId && Number.isFinite(uploadId)) {
-          // Single-upload mode
           const data = await apiFetch<any>(`/clips?upload_id=${uploadId}`);
           if (cancelled) return;
 
@@ -670,14 +775,12 @@ export default function ClipsPage() {
           return;
         }
 
-        // Grouped default mode
         const data = await apiFetch<any>(`/clips?grouped=true`);
         if (cancelled) return;
 
         const arr = Array.isArray(data) ? data : [];
         const normalized = arr.map(normalizeGroupDTO).filter(Boolean) as GroupDTO[];
 
-        // Keep only groups that actually have clips
         setGroups(normalized.filter((g) => g.clips.length > 0));
         setClips([]);
       } catch (e: any) {
@@ -696,6 +799,7 @@ export default function ClipsPage() {
     };
   }, [uploadId]);
 
+  // Filters
   const activeFilterCount = (query ? 1 : 0) + (sort !== "newest" ? 1 : 0);
 
   function clearAllUiFilters() {
@@ -703,11 +807,10 @@ export default function ClipsPage() {
     setSort("newest");
   }
 
-  // Expand/collapse by upload id (remember in this session only)
+  // Expand/collapse groups
   const [openUploads, setOpenUploads] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    // Auto-open first few groups on load
     if (!groups.length) return;
     setOpenUploads((prev) => {
       const next = { ...prev };
@@ -719,6 +822,7 @@ export default function ClipsPage() {
     });
   }, [groups]);
 
+  // Visible groups
   const visibleGroups = useMemo(() => {
     let out = [...groups];
 
@@ -730,24 +834,33 @@ export default function ClipsPage() {
           const uploadMatches = filename.includes(q) || String(g.upload.id).includes(q);
           if (uploadMatches) return g;
 
-          const filteredClips = g.clips.filter((c) => (c.storage_key || "").toLowerCase().includes(q));
+          const filteredClips = g.clips.filter((c) => {
+            const key = (c.storage_key || "").toLowerCase();
+            const title = (c.title || "").toLowerCase();
+            return key.includes(q) || title.includes(q) || String(c.id).includes(q);
+          });
+
           return { ...g, clips: filteredClips };
         })
         .filter((g) => g.clips.length > 0);
     }
 
-    // Sort groups by upload id desc (newest upload first)
+    // uploads: newest first by id
     out.sort((a, b) => (b.upload.id ?? 0) - (a.upload.id ?? 0));
-
     return out;
   }, [groups, query]);
 
+  // Visible clips (focused mode)
   const visibleClips = useMemo(() => {
     let out = [...clips];
 
     if (query.trim()) {
       const q = query.trim().toLowerCase();
-      out = out.filter((c) => (c.storage_key || "").toLowerCase().includes(q));
+      out = out.filter((c) => {
+        const key = (c.storage_key || "").toLowerCase();
+        const title = (c.title || "").toLowerCase();
+        return key.includes(q) || title.includes(q) || String(c.id).includes(q);
+      });
     }
 
     if (sort === "duration") out.sort((a, b) => (b.duration ?? 0) - (a.duration ?? 0));
@@ -757,21 +870,10 @@ export default function ClipsPage() {
     return out;
   }, [clips, query, sort]);
 
-  const isGroupedMode = !uploadId;
   const hasAny = isGroupedMode ? visibleGroups.length > 0 : visibleClips.length > 0;
 
-  // When focused, show a clear “focused upload” bar (2)
-  const focusedUploadLabel = useMemo(() => {
-    if (!focused) return null;
-
-    // If we have the upload metadata in groups (rare in focused mode), show it.
-    // Otherwise just show upload_id.
-    return `upload_id=${uploadId}`;
-  }, [focused, uploadId]);
-
   return (
-    <div className="relative grid gap-6">
-      {/* Fullscreen fit fix (1): keep video true aspect in fullscreen */}
+    <div className="relative grid gap-6 min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))]">
       <style jsx global>{`
         video.cf-video:fullscreen {
           object-fit: contain !important;
@@ -783,7 +885,7 @@ export default function ClipsPage() {
         }
       `}</style>
 
-      {/* HEADER BAND */}
+      {/* HEADER */}
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <div className="absolute inset-0 bg-[radial-gradient(900px_460px_at_50%_0%,rgba(255,255,255,0.06),transparent_65%)]" />
@@ -804,57 +906,31 @@ export default function ClipsPage() {
             </div>
             <div className="mt-2 max-w-2xl text-sm text-white/65">
               {focused ? (
-                <>Focused view for <span className="text-white/85 font-semibold">{focusedUploadLabel}</span>.</>
+                <>
+                  Focused view for <span className="text-white/85 font-semibold">upload_id={uploadId}</span>.
+                </>
               ) : (
                 <>All clips grouped by upload — newest uploads first.</>
               )}
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <TinyPill>Grouped by upload</TinyPill>
+              <TinyPill>Grouped</TinyPill>
+              <TinyPill>Aspect-aware</TinyPill>
               <TinyPill>Export-ready</TinyPill>
-              <TinyPill>Fast review</TinyPill>
             </div>
-
-            {focused ? (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-[12px] text-white/70">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] font-semibold text-white/80">
-                      <Icon name="folder" />
-                      Focused
-                    </span>
-                    <span className="text-white/60">You’re viewing clips from one upload.</span>
-                  </div>
-
-                  {/* (2) Clear focus stays in the “header action” area */}
-                  <ButtonPill tone="primary" onClick={clearUploadFocus}>
-                    <Icon name="x" />
-                    Clear focus
-                  </ButtonPill>
-                </div>
-              </div>
-            ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* When focused, keep clear focus visible here too (same area) */}
-            {!focused ? null : (
-              <button
-                type="button"
-                onClick={clearUploadFocus}
-                className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
-              >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
+            {focused ? (
+              <ButtonPill onClick={clearUploadFocus} className="w-full sm:w-auto justify-center">
                 <Icon name="x" />
                 Clear focus
-              </button>
-            )}
+              </ButtonPill>
+            ) : null}
 
-            <Link href="/app/upload?dev=1" className="btn-solid-dark text-[12px] px-4 py-2">
+            <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               New upload
-            </Link>
-            <Link href="/app/billing?dev=1" className="btn-ghost text-[12px] px-4 py-2">
-              Billing
             </Link>
           </div>
         </div>
@@ -883,8 +959,6 @@ export default function ClipsPage() {
                 <Icon name="chev" />
               </span>
             </div>
-
-            {/* Removed global Output settings (3) — per-clip now */}
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -902,7 +976,7 @@ export default function ClipsPage() {
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.03] p-1.5 text-white/70 hover:bg-white/[0.06] hover:text-white/90 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.03] p-1.5 text-white/70 hover:bg-white/[0.06] hover:text-white/90 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
                   aria-label="Clear search"
                 >
                   <Icon name="x" />
@@ -914,7 +988,7 @@ export default function ClipsPage() {
               type="button"
               onClick={clearAllUiFilters}
               className={cx(
-                "btn-ghost text-[12px] px-4 py-2 inline-flex items-center justify-center gap-2",
+                "btn-ghost text-[12px] px-4 py-2 inline-flex items-center justify-center gap-2 w-full sm:w-auto",
                 activeFilterCount === 0 && "opacity-60"
               )}
               aria-label="Clear filters"
@@ -945,7 +1019,7 @@ export default function ClipsPage() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* CONTENT */}
       {loading ? (
         <div className="surface-soft p-6">
           <div className="text-sm font-semibold text-white/85">Loading clips…</div>
@@ -955,15 +1029,15 @@ export default function ClipsPage() {
         <div className="surface-soft p-6">
           <div className="text-sm font-semibold text-white/85">Couldn’t load clips</div>
           <div className="mt-2 text-sm text-white/60">{err}</div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="btn-solid-dark text-[12px] px-4 py-2"
+              className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
             >
               Retry
             </button>
-            <Link href="/app/upload?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+            <Link href="/app/upload" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               New upload
             </Link>
           </div>
@@ -974,11 +1048,11 @@ export default function ClipsPage() {
           <div className="mt-2 text-sm text-white/60">
             If a job is still running, wait a moment — clips will appear here automatically.
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Link href="/app/upload?dev=1" className="btn-solid-dark text-[12px] px-4 py-2">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               New upload
             </Link>
-            <Link href="/app?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+            <Link href="/app" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               Back to overview
             </Link>
           </div>
@@ -991,16 +1065,27 @@ export default function ClipsPage() {
 
             return (
               <div key={g.upload.id} className="surface-soft overflow-hidden">
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() =>
                     setOpenUploads((p) => ({
                       ...p,
                       [g.upload.id]: !open,
                     }))
                   }
-                  className="w-full p-4 flex items-center justify-between gap-3 text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenUploads((p) => ({
+                        ...p,
+                        [g.upload.id]: !open,
+                      }));
+                    }
+                  }}
+                  className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
                   aria-label={`Toggle upload ${g.upload.id}`}
+                  aria-expanded={open}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -1012,9 +1097,7 @@ export default function ClipsPage() {
                         {clipCount} clip(s)
                       </span>
                     </div>
-                    <div className="mt-2 truncate text-sm font-semibold text-white/85">
-                      {g.upload.original_filename || "upload"}
-                    </div>
+                    <div className="mt-2 truncate text-sm font-semibold text-white/85">{g.upload.original_filename || "upload"}</div>
                     <div className="mt-1 truncate text-[12px] text-white/45">{g.upload.storage_key}</div>
                   </div>
 
@@ -1025,28 +1108,37 @@ export default function ClipsPage() {
                         e.stopPropagation();
                         goToUpload(g.upload.id);
                       }}
-                      className="btn-ghost text-[12px] px-3 py-2"
+                      className="btn-ghost text-[12px] px-3 py-2 inline-flex items-center justify-center"
                       aria-label="Focus this upload"
                     >
                       Focus
                     </button>
 
-                    <span
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenUploads((p) => ({
+                          ...p,
+                          [g.upload.id]: !open,
+                        }));
+                      }}
                       className={cx(
-                        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition",
+                        "inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                         open ? "rotate-180" : "rotate-0"
                       )}
+                      aria-label={open ? "Collapse" : "Expand"}
+                      aria-expanded={open}
                     >
                       <Icon name="collapse" />
-                    </span>
+                    </button>
                   </div>
-                </button>
+                </div>
 
                 {open ? (
                   <div className="border-t border-white/10 p-4 pt-4">
-                    {/* Clips grid/list inside the group */}
                     {view === "grid" ? (
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 auto-rows-min">
                         {g.clips
                           .slice()
                           .sort((a, b) => {
@@ -1057,16 +1149,11 @@ export default function ClipsPage() {
                           .map((c) => (
                             <div key={c.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
                               <ClipPreview clip={c} variant="grid" />
-
                               <div className="mt-4 flex items-start justify-between gap-3">
                                 <ClipMeta clip={c} />
                               </div>
-
                               <div className="mt-4">
-                                <ClipActions
-                                  clip={c}
-                                  onOpenSettings={() => setSettingsClipId(c.id)}
-                                />
+                                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
                               </div>
                             </div>
                           ))}
@@ -1087,11 +1174,7 @@ export default function ClipsPage() {
                                   <ClipPreview clip={c} variant="thumb" />
                                   <ClipMeta clip={c} compact />
                                 </div>
-
-                                <ClipActions
-                                  clip={c}
-                                  onOpenSettings={() => setSettingsClipId(c.id)}
-                                />
+                                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
                               </div>
                             </div>
                           ))}
@@ -1103,43 +1186,37 @@ export default function ClipsPage() {
             );
           })}
         </div>
+      ) : view === "grid" ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleClips.map((c) => (
+            <div key={c.id} className="surface-soft overflow-hidden p-4">
+              <ClipPreview clip={c} variant="grid" />
+              <div className="mt-4 flex items-start justify-between gap-3">
+                <ClipMeta clip={c} />
+              </div>
+              <div className="mt-4">
+                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        // Focused upload mode (flat list)
-        view === "grid" ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleClips.map((c) => (
-              <div key={c.id} className="surface-soft overflow-hidden p-4">
-                <ClipPreview clip={c} variant="grid" />
-
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <ClipMeta clip={c} />
+        <div className="grid gap-3">
+          {visibleClips.map((c) => (
+            <div key={c.id} className="surface-soft p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <ClipPreview clip={c} variant="thumb" />
+                  <ClipMeta clip={c} compact />
                 </div>
-
-                <div className="mt-4">
-                  <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
-                </div>
+                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {visibleClips.map((c) => (
-              <div key={c.id} className="surface-soft p-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ClipPreview clip={c} variant="thumb" />
-                    <ClipMeta clip={c} compact />
-                  </div>
-
-                  <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Per-clip output settings drawer (3) */}
+      {/* SETTINGS DRAWER (UI-only) */}
       <Drawer
         open={settingsClipId !== null}
         onClose={() => setSettingsClipId(null)}
@@ -1157,7 +1234,9 @@ export default function ClipsPage() {
     </div>
   );
 }
-
+/* =========================================================
+   PerClipSettings (UI-only)
+========================================================= */
 function PerClipSettings({
   clipId,
   settings,
@@ -1184,7 +1263,7 @@ function PerClipSettings({
             type="button"
             onClick={() => onChange({ captions_on: !settings.captions_on })}
             className={cx(
-              "inline-flex h-8 w-14 items-center rounded-full border transition",
+              "inline-flex h-8 w-14 items-center rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
               settings.captions_on ? "border-emerald-400/20 bg-emerald-400/10" : "border-white/10 bg-white/[0.02]"
             )}
             aria-label="Toggle captions"
@@ -1246,30 +1325,30 @@ function PerClipSettings({
           Note
         </div>
         <div className="mt-2 leading-relaxed">
-          Aspect ratio is selected <span className="text-white/75 font-semibold">before processing</span> (upload/job config),
-          not per clip. Per-clip edits like caption styling will require a render pipeline.
+          Aspect ratio is selected <span className="text-white/75 font-semibold">before processing</span> (upload/job
+          config), not per clip. Per-clip styling changes require re-rendering.
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           type="button"
           onClick={onDone}
-          className="btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center gap-2"
+          className="btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Icon name="spark" />
           Done
         </button>
 
-        <span className="text-[12px] text-white/45">
-          Clip #{clipId} settings are stored client-side for now.
-        </span>
+        <span className="text-[12px] text-white/45">Clip #{clipId} settings are stored client-side for now.</span>
       </div>
     </div>
   );
 }
 
-/* Drawer (production-safe) */
+/* =========================================================
+   Drawer (production-safe, safe-area + scroll lock)
+========================================================= */
 function Drawer({
   open,
   onClose,
@@ -1283,39 +1362,59 @@ function Drawer({
 }) {
   React.useEffect(() => {
     if (!open) return;
+
+    const prevOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.documentElement.style.overflow = prevOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[80]">
-      <button
+      <div
         aria-label="Close overlay"
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+        role="button"
+        tabIndex={0}
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px] focus:outline-none"
         onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClose();
+          }
+        }}
       />
-      <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5">
+
+      <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="text-sm font-semibold text-white/90">{title}</div>
             <div className="mt-1 text-sm text-white/55">Per-clip preferences (wiring next).</div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
             aria-label="Close"
           >
             <Icon name="x" />
           </button>
         </div>
 
-        <div className="mt-5">{children}</div>
+        <div className="mt-5 max-h-[calc(100svh-120px)] overflow-auto pr-1">{children}</div>
       </div>
     </div>
   );

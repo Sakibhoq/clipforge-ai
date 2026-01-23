@@ -1,13 +1,13 @@
 // frontend/app/register/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge — Register (Cookie Auth, Production)
+   Orbito — Register (Cookie Auth, Production)
    - POST /auth/register (creates user)
    - POST /auth/login (sets HttpOnly cf_token)
    - Redirects to /app after success
@@ -150,7 +150,7 @@ function ProviderButton({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-[13px] font-semibold text-white/85 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+        "group relative flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-[13px] font-semibold text-white/85 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 active:scale-[0.99]",
         disabled ? "cursor-not-allowed opacity-60" : "hover:bg-white/[0.07]",
       ].join(" ")}
       aria-label={`Continue with ${label}`}
@@ -196,7 +196,11 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-[14px] text-white/90 outline-none placeholder:text-white/35 transition focus:border-white/20 focus:bg-white/[0.06]"
+        className={[
+          // iOS: prevent input zoom by keeping >=16px on small screens
+          "h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-[16px] sm:text-[14px]",
+          "text-white/90 outline-none placeholder:text-white/35 transition focus:border-white/20 focus:bg-white/[0.06]",
+        ].join(" ")}
       />
     </div>
   );
@@ -215,6 +219,17 @@ function Divider({ label }: { label: string }) {
 type RegisterOk = { message: string };
 type LoginOk = { ok: true };
 
+function errToMessage(err: any) {
+  const detail = err?.detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail.map((x: any) => x?.msg).filter(Boolean);
+    if (msgs.length) return msgs.join(" • ");
+  }
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (typeof err?.message === "string" && err.message.trim()) return err.message;
+  return "Unable to create account. Try a different email.";
+}
+
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -228,11 +243,26 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // mobile polish: keep focused input visible & avoid awkward jumps
+  const lastFocusTsRef = useRef<number>(0);
+
   const canSubmitEmail = useMemo(() => {
     const n = name.trim();
     const e = email.trim();
     return n.length >= 2 && e.includes("@") && password.length >= 6 && agree && !submitting;
   }, [name, email, password, agree, submitting]);
+
+  function onFieldFocus(target: HTMLInputElement) {
+    lastFocusTsRef.current = Date.now();
+    window.setTimeout(() => {
+      if (Date.now() - lastFocusTsRef.current > 900) return;
+      try {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        // ignore
+      }
+    }, 220);
+  }
 
   function onSocial(provider: Provider) {
     // UI-only: no fake success.
@@ -257,44 +287,49 @@ export default function RegisterPage() {
       await apiFetch<RegisterOk>("/auth/register", {
         method: "POST",
         body: { email: em, password },
-        credentials: "include",
       });
 
       // 2) Immediately login to set HttpOnly cookie
       await apiFetch<LoginOk>("/auth/login", {
         method: "POST",
         body: { email: em, password },
-        credentials: "include",
       });
 
       router.push("/app");
       router.refresh();
     } catch (err: any) {
-      const msg =
-        (err && (err.message || err.detail)) ||
-        "Unable to create account. Try a different email.";
-      setFormError(typeof msg === "string" ? msg : "Unable to create account.");
+      setFormError(errToMessage(err));
     } finally {
       setSubmitting(false);
     }
   }
 
+  const rootStyle: React.CSSProperties = {
+    minHeight: "100svh",
+    paddingTop: "env(safe-area-inset-top)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+  };
+
   return (
-    <div className="min-h-screen bg-plain relative">
-      {/* PAGE AURORA (same structure as marketing pages) */}
+    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+      {/* PAGE AURORA (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
+
+        {/* blobs: vmin positioning reduces iOS overflow edge cases */}
+        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
+        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
+        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
+
+        {/* grid: disable on small screens (can shimmer / seams on iOS) */}
+        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-12">
-        <section className="surface relative overflow-hidden p-8 md:p-12">
+      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
+        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
             <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
@@ -308,18 +343,18 @@ export default function RegisterPage() {
                 <span className="hidden sm:inline">Already have an account?</span>
                 <Link
                   href="/login"
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/85 transition hover:bg-white/8"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-white/85 transition hover:bg-white/8 active:scale-[0.99]"
                 >
                   Sign in
                 </Link>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-10 lg:grid-cols-12">
-              {/* LEFT: simple copy */}
+            <div className="mt-6 grid gap-10 lg:grid-cols-12 lg:gap-10">
+              {/* LEFT */}
               <div className="lg:col-span-5">
-                <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-                  Join <span className="grad-text">Clipforge</span>.
+                <h1 className="text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-4xl md:text-5xl">
+                  Join <span className="grad-text">Orbito</span>.
                 </h1>
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/65 md:text-[15px]">
                   Sign up with a provider or email. You’ll be ready to upload and start generating
@@ -331,18 +366,14 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* RIGHT: card */}
+              {/* RIGHT */}
               <div className="lg:col-span-7">
-                <div className="surface-soft relative overflow-hidden p-6 md:p-7">
+                <div className="surface-soft relative overflow-hidden p-5 sm:p-6 md:p-7">
                   <HoverSheen />
 
                   <div className="relative">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="text-sm font-semibold text-white/85">Sign up</div>
-                        <div className="mt-1 text-xs text-white/55">Choose Social or Email.</div>
-                      </div>
-                    </div>
+                    <div className="text-sm font-semibold text-white/85">Sign up</div>
+                    <div className="mt-1 text-xs text-white/55">Choose Social or Email.</div>
 
                     {/* MODE TOGGLE */}
                     <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
@@ -380,10 +411,26 @@ export default function RegisterPage() {
 
                     {mode === "social" ? (
                       <div className="mt-4 grid gap-2">
-                        <ProviderButton provider="google" onClick={() => onSocial("google")} disabled={submitting} />
-                        <ProviderButton provider="apple" onClick={() => onSocial("apple")} disabled={submitting} />
-                        <ProviderButton provider="facebook" onClick={() => onSocial("facebook")} disabled={submitting} />
-                        <ProviderButton provider="tiktok" onClick={() => onSocial("tiktok")} disabled={submitting} />
+                        <ProviderButton
+                          provider="google"
+                          onClick={() => onSocial("google")}
+                          disabled={submitting}
+                        />
+                        <ProviderButton
+                          provider="apple"
+                          onClick={() => onSocial("apple")}
+                          disabled={submitting}
+                        />
+                        <ProviderButton
+                          provider="facebook"
+                          onClick={() => onSocial("facebook")}
+                          disabled={submitting}
+                        />
+                        <ProviderButton
+                          provider="tiktok"
+                          onClick={() => onSocial("tiktok")}
+                          disabled={submitting}
+                        />
 
                         {formError && (
                           <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] leading-5 text-white/70">
@@ -425,7 +472,7 @@ export default function RegisterPage() {
                             type="checkbox"
                             checked={agree}
                             onChange={(e) => setAgree(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5"
+                            className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-white/80"
                           />
                           <span>
                             I agree to the{" "}
@@ -456,7 +503,7 @@ export default function RegisterPage() {
                           type="submit"
                           disabled={!canSubmitEmail}
                           className={[
-                            "group relative h-11 w-full overflow-hidden rounded-2xl border text-[13px] font-semibold tracking-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                            "group relative h-11 w-full overflow-hidden rounded-2xl border text-[13px] font-semibold tracking-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 active:scale-[0.99]",
                             canSubmitEmail
                               ? "border-white/10 bg-white/10 text-white/90 hover:bg-white/12"
                               : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45",

@@ -1,3 +1,4 @@
+# backend/routers/clips.py
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -8,13 +9,12 @@ from models.clip import Clip
 from models.upload import Upload
 from models.user import User
 from storage.s3 import S3Storage
-
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 
 
-@router.get("/")
+@router.get("")  # ✅ IMPORTANT: no trailing slash -> avoids 307 redirect
 def list_clips(
     upload_id: Optional[int] = Query(default=None),
     grouped: bool = Query(default=True),
@@ -27,7 +27,6 @@ def list_clips(
         grouped=true  -> returns [{ upload: {...}, clips: [...] }, ...]
         grouped=false -> returns flat list of all clips for user
     """
-
     storage = S3Storage()
 
     def clip_dict(clip: Clip):

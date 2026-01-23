@@ -1,7 +1,9 @@
+# backend/routers/upload_register.py
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional, Literal, Dict, Any
+from typing import Optional, Literal, Any, Dict
 import json
 
 from core.database import get_db
@@ -14,22 +16,23 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
-
-AspectRatio = Literal["9:16", "1:1", "4:3"]
+# ✅ Match frontend options
+AspectRatio = Literal["9:16", "1:1", "4:5", "16:9", "4:3"]
 
 
 class RegisterUploadRequest(BaseModel):
     original_filename: str = Field(..., min_length=1)
     storage_key: str = Field(..., min_length=1)
 
-    # Optional render settings (processing-time)
+    # Render settings (sent by frontend)
     aspect_ratio: AspectRatio = Field(default="9:16")
     captions_enabled: bool = Field(default=True)
     watermark_enabled: bool = Field(default=True)
 
-    # Arbitrary caption styling config (UI can send later)
-    # Example fields you can support later in worker:
-    # { "font": "Inter", "size": 44, "color": "#FFFFFF", "stroke": true, "position": "bottom", "margin": 0.08 }
+    # ✅ New: frontend sends this name (can be dict or JSON string or null)
+    caption_style_json: Optional[Any] = Field(default=None)
+
+    # ✅ Back-compat: older UI may send caption_style dict
     caption_style: Optional[Dict[str, Any]] = Field(default=None)
 
     # Allows re-render / retries without changing storage_key
@@ -65,23 +68,49 @@ def _require_user_key_namespace(user_id: int, storage_key: str):
         )
 
 
-def _job_kwargs_from_req(req: RegisterUploadRequest) -> dict:
-    style_json = None
-    if req.caption_style is not None:
+def _normalize_caption_style_json(req: RegisterUploadRequest) -> Optional[str]:
+    """
+    Store as DB-safe JSON string or None.
+    Accepts:
+      - caption_style_json: dict | JSON string | None
+      - caption_style: dict | None (back-compat)
+    """
+    val: Any = req.caption_style_json
+    if val is None and req.caption_style is not None:
+        val = req.caption_style
+
+    if val is None:
+        return None
+
+    # If already a JSON string, validate it's JSON
+    if isinstance(val, str):
         try:
-            style_json = json.dumps(req.caption_style)
+            json.loads(val)
+            return val
         except Exception:
-            # If caller sends non-serializable content, reject early
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="caption_style must be valid JSON",
+                detail="caption_style_json must be valid JSON (string) or an object",
             )
+
+    # If dict/other JSON-serializable object
+    try:
+        return json.dumps(val)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="caption_style_json must be JSON-serializable",
+        )
+
+
+def _job_kwargs_from_req(req: RegisterUploadRequest) -> dict:
+    style_json = _normalize_caption_style_json(req)
 
     return {
         "status": "queued",
         "aspect_ratio": req.aspect_ratio,
-        "captions_enabled": req.captions_enabled,
-        "watermark_enabled": req.watermark_enabled,
+        "captions_enabled": bool(req.captions_enabled),
+        "watermark_enabled": bool(req.watermark_enabled),
         "caption_style_json": style_json,
     }
 
@@ -112,6 +141,12 @@ def register_upload(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Storage verification failed",
         )
+
+    # ✅ Free users forced watermark ON (paid can toggle)
+    plan = (getattr(current_user, "plan", "") or "").lower().strip()
+    is_free = plan == "free"
+    if is_free:
+        req.watermark_enabled = True
 
     job_kwargs = _job_kwargs_from_req(req)
 

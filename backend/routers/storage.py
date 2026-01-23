@@ -84,13 +84,21 @@ def presign_put(
             ext = ext[:12]
 
     # ✅ Per-user namespace (critical for production safety)
+    # NOTE: We do NOT sign x-amz-meta-user_id anymore (brittle + unnecessary).
+    # User identity is enforced by:
+    # - authenticated /storage/presign (current_user)
+    # - per-user key namespace users/{id}/...
     key = f"users/{current_user.id}/videos/{uuid.uuid4().hex}{ext}"
 
     # These are the exact headers that will be signed into the presigned URL.
     # The browser/client must include them on PUT verbatim.
+    #
+    # IMPORTANT:
+    # - Do NOT include x-amz-meta-user_id here.
+    # - Some environments/browsers/extensions/tools can accidentally override it,
+    #   causing SignatureDoesNotMatch. The key namespace already encodes ownership.
     required_headers = {
         "Content-Type": ct,
-        "x-amz-meta-user_id": str(current_user.id),
         "x-amz-meta-original_filename": safe_name,
     }
 
@@ -111,7 +119,7 @@ def presign_put(
                 "Key": key,
                 "ContentType": ct,
                 "Metadata": {
-                    "user_id": str(current_user.id),
+                    # Keep only non-sensitive metadata; user_id is encoded in the key.
                     "original_filename": safe_name,
                 },
             },

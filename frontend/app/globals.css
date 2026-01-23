@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* =========================================================
-   Clipforge System UI — globals.css
+   Orbito System UI — globals.css
    Premium dark system look (aurora + surfaces + buttons + components)
 ========================================================= */
 
@@ -45,11 +45,24 @@
   --btn-b-dim: rgba(70, 215, 255, 0.11);
   --btn-c-dim: rgba(53, 242, 166, 0.10);
 
+  /* Safe-area helpers (iOS notch) */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
 }
 
 html,
 body {
   height: 100%;
+}
+
+html {
+  /* Mobile polish: prevent iOS tap highlight + nicer scroll */
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+  /* Helps reduce rubber-band glow issues when combined with overscroll-behavior */
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -61,10 +74,25 @@ body {
 
   /* IMPORTANT: prevent weird horizontal seams from overflow + fixed layers */
   overflow-x: hidden;
+
+  /* Mobile polish: avoid 100vh quirks in iOS (layout uses min-h-screen, but this helps) */
+  min-height: 100dvh;
+
+  /* Mobile polish: smoother scroll on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Better defaults for media on mobile */
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
 }
 
 a {
@@ -72,6 +100,7 @@ a {
   text-decoration: none;
 }
 
+/* Selection */
 ::selection {
   background: rgba(122, 162, 255, 0.25);
 }
@@ -83,6 +112,62 @@ a {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* -----------------------------
+   Mobile polish utilities
+   (Use these in components when needed)
+----------------------------- */
+
+/* Safe-area padding helpers */
+.safe-x {
+  padding-left: max(0px, var(--sal));
+  padding-right: max(0px, var(--sar));
+}
+.safe-top {
+  padding-top: max(0px, var(--sat));
+}
+.safe-bottom {
+  padding-bottom: max(0px, var(--sab));
+}
+
+/* Viewport height helpers (avoid iOS address bar issues) */
+.vh-safe {
+  min-height: 100svh; /* stable viewport height */
+  min-height: 100dvh; /* dynamic viewport height */
+}
+
+/* Prevent iOS “double-tap to zoom” vibes on buttons/links */
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* iOS: prevent input focus zoom (Safari zooms if font-size < 16px) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Keep your input styling (you already use .field) */
+.field {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.03);
+  padding: 0.7rem 0.85rem;
+  color: rgba(255,255,255,0.9);
+  outline: none;
+}
+
+.field::placeholder {
+  color: rgba(255,255,255,0.45);
+}
+
+.field:focus {
+  border-color: rgba(70,215,255,0.22);
+  box-shadow: 0 0 0 4px rgba(70,215,255,0.10);
 }
 
 /* -----------------------------
@@ -727,28 +812,6 @@ a {
 input[type="range"].slider {
   width: 100%;
   accent-color: rgba(255,255,255,0.92);
-}
-
-/* -----------------------------
-   Simple form styles
------------------------------ */
-.field {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
-  padding: 0.7rem 0.85rem;
-  color: rgba(255,255,255,0.9);
-  outline: none;
-}
-
-.field::placeholder {
-  color: rgba(255,255,255,0.45);
-}
-
-.field:focus {
-  border-color: rgba(70,215,255,0.22);
-  box-shadow: 0 0 0 4px rgba(70,215,255,0.10);
 }
 
 /* -----------------------------

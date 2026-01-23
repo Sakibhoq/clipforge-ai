@@ -198,6 +198,32 @@ function Badge({
   );
 }
 
+function SoftCard({
+  children,
+  className = "",
+  glow = true,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  glow?: boolean;
+}) {
+  return (
+    <div className={`surface-soft relative overflow-hidden ${className}`}>
+      {glow ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-10 opacity-25 blur-2xl"
+          style={{
+            background:
+              "radial-gradient(220px 150px at 22% 28%, rgba(167,139,250,0.14), transparent 72%), radial-gradient(240px 170px at 78% 42%, rgba(125,211,252,0.12), transparent 72%), radial-gradient(240px 170px at 50% 88%, rgba(45,212,191,0.10), transparent 72%)",
+          }}
+        />
+      ) : null}
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
 function Card({
   title,
   subtitle,
@@ -221,10 +247,8 @@ function Card({
             </div>
           ) : null}
           <div>
-            <div className="text-sm font-semibold tracking-tight">{title}</div>
-            {subtitle ? (
-              <div className="mt-1 text-sm leading-relaxed text-white/65">{subtitle}</div>
-            ) : null}
+            <div className="text-sm font-semibold tracking-tight text-white/90">{title}</div>
+            {subtitle ? <div className="mt-1 text-sm leading-relaxed text-white/60">{subtitle}</div> : null}
           </div>
         </div>
         {right ? <div className="shrink-0">{right}</div> : null}
@@ -248,11 +272,12 @@ function ActionButton({
   icon: React.ReactNode;
   variant?: "primary" | "ghost";
 }) {
-  const base = "group relative overflow-hidden rounded-2xl border px-5 py-4 transition";
+  const base =
+    "group relative overflow-hidden rounded-2xl border px-5 py-4 transition-all duration-300";
   const styles =
     variant === "primary"
       ? "border-white/15 bg-white text-black hover:bg-white/90"
-      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]";
+      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/16";
   const titleCls = variant === "primary" ? "text-black" : "text-white/90";
   const descCls = variant === "primary" ? "text-black/70" : "text-white/60";
 
@@ -260,10 +285,10 @@ function ActionButton({
     <Link href={href} className={`${base} ${styles}`}>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-x-8 -top-10 h-24 rotate-6 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
+        className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-35"
         style={{
           background:
-            "radial-gradient(180px 80px at 50% 50%, rgba(255,255,255,0.35), transparent 65%)",
+            "radial-gradient(220px 150px at 22% 28%, rgba(167,139,250,0.16), transparent 72%), radial-gradient(240px 170px at 78% 42%, rgba(125,211,252,0.14), transparent 72%), radial-gradient(240px 170px at 50% 88%, rgba(45,212,191,0.11), transparent 72%)",
         }}
       />
       <div className="relative flex items-start gap-3">
@@ -302,16 +327,28 @@ export default function AppHome() {
         { label: "Clips", state: "idle" as const },
       ],
       hints: [
-        { title: "Trial credits", desc: "Start small. Credits apply once your account sync is wired.", icon: "bolt" as const },
-        { title: "Cost clarity", desc: "You’ll see expected cost before running processing.", icon: "shield" as const },
-        { title: "Scale later", desc: "Plans + packs become the growth control layer.", icon: "spark" as const },
+        {
+          title: "Trial credits",
+          desc: "Get your first outputs fast. Credits will sync once billing is wired.",
+          icon: "bolt" as const,
+        },
+        {
+          title: "Cost clarity",
+          desc: "You’ll see what a run costs before processing starts.",
+          icon: "shield" as const,
+        },
+        {
+          title: "Quality first",
+          desc: "Smart framing + clean captions by default.",
+          icon: "spark" as const,
+        },
       ],
     };
   }, []);
 
   return (
     <div className="space-y-6">
-      {/* Top status strip */}
+      {/* Compact status strip (kept, cleaner) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge label={`Plan: ${ui.planLabel}`} tone="neutral" />
@@ -320,90 +357,98 @@ export default function AppHome() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/app/upload"
-            className="rounded-full bg-white px-4 py-2 text-sm font-semibold !text-black hover:bg-white/90 hover:!text-black transition"
-          >
+          <Link href="/app/upload" className="btn-aurora text-[12px] px-4 py-2">
             Upload
           </Link>
-          <Link
-            href="/app/billing"
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition"
-          >
+          <Link href="/app/billing" className="btn-ghost text-[12px] px-4 py-2">
             Billing
           </Link>
         </div>
       </div>
 
-      {/* Hero / primary module */}
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-7 md:p-8">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-24 opacity-70 blur-3xl"
-          style={{
-            background:
-              "radial-gradient(900px 420px at 50% 30%, rgba(167,139,250,0.18), transparent 60%), radial-gradient(820px 420px at 20% 70%, rgba(94,234,212,0.12), transparent 62%), radial-gradient(900px 500px at 85% 70%, rgba(125,211,252,0.12), transparent 62%)",
-          }}
-        />
-        <div className="relative">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
-            <span className="inline-flex items-center gap-2">
-              <Icon name="spark" className="h-4 w-4 text-white/70" />
-              Overview
-            </span>
-            <span className="text-white/30">•</span>
-            <span className="text-white/55">Clipforge App</span>
-            <span className="text-white/30">•</span>
-            <span className="text-white/55">Empty state (no runs yet)</span>
+      {/* Hero — polished to match Clips/Billing style */}
+      <SoftCard className="p-6 md:p-7" glow>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-white/55">
+              <span className="inline-flex items-center gap-2">
+                <Icon name="spark" className="h-4 w-4 text-white/70" />
+                Overview
+              </span>
+              <span className="text-white/30">•</span>
+              <span className="text-white/55">Orbito App</span>
+            </div>
+
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              <span className="bg-gradient-to-r from-violet-300 via-sky-300 to-teal-300 bg-clip-text text-transparent">
+                Start your first run
+              </span>
+              <span className="text-white/90"> — we’ll handle the pipeline.</span>
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/60">
+              Upload a long-form video once. Orbito generates short clips you can review and export.
+            </p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <ActionButton
+                href="/app/upload"
+                title="Start upload"
+                desc="Drop a file and kick off processing."
+                icon={<Icon name="upload" className="h-5 w-5" />}
+                variant="primary"
+              />
+              <ActionButton
+                href="/app/upload"
+                title="Import link"
+                desc="Paste a YouTube / podcast URL."
+                icon={<Icon name="link" className="h-5 w-5" />}
+                variant="ghost"
+              />
+              <ActionButton
+                href="/app/clips"
+                title="View clips"
+                desc="Your library fills in after the first run."
+                icon={<Icon name="clips" className="h-5 w-5" />}
+                variant="ghost"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-white/50">Pipeline:</span>
+              {ui.pipeline.map((step) => {
+                const tone = step.state === "ready" ? "good" : step.state === "running" ? "warn" : "neutral";
+                return <Badge key={step.label} label={step.label} tone={tone} />;
+              })}
+            </div>
           </div>
 
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Start your first run — we’ll handle the pipeline.
-          </h1>
+          {/* Right-side “next step” module (kept, simplified) */}
+          <div className="w-full max-w-sm">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-5">
+              <div className="flex items-center gap-2 text-xs text-white/55">
+                <Icon name="shield" className="h-4 w-4 text-white/70" />
+                Next step
+              </div>
+              <div className="mt-2 text-sm font-semibold text-white/85">Upload a video</div>
+              <div className="mt-1 text-sm text-white/55">
+                You’ll see processing status and generated clips immediately after.
+              </div>
 
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">
-            Upload long-form once. Clipforge processes it into short clips you can review, organize, and export when ready.
-          </p>
-
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <ActionButton
-              href="/app/upload"
-              title="Start upload"
-              desc="Drop a file and kick off a run."
-              icon={<Icon name="upload" className="h-5 w-5" />}
-              variant="primary"
-            />
-            <ActionButton
-              href="/app/upload"
-              title="Import link"
-              desc="Paste a YouTube / podcast URL."
-              icon={<Icon name="link" className="h-5 w-5" />}
-              variant="ghost"
-            />
-            <ActionButton
-              href="/app/clips"
-              title="View clips"
-              desc="Outputs show here once generated."
-              icon={<Icon name="clips" className="h-5 w-5" />}
-              variant="ghost"
-            />
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-white/55">Pipeline:</span>
-            {ui.pipeline.map((step) => {
-              const tone =
-                step.state === "ready" ? "good" : step.state === "running" ? "warn" : "neutral";
-              return <Badge key={step.label} label={step.label} tone={tone} />;
-            })}
-            <span className="text-xs text-white/45">•</span>
-            <span className="text-xs text-white/55">
-              It’s empty because you haven’t uploaded a video yet.
-            </span>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2">
+                  Upload now
+                </Link>
+                <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2">
+                  Open clips
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      </SoftCard>
 
+      {/* Lower content — reduced duplication, still “full” */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 grid gap-4 md:grid-cols-3">
           {ui.hints.map((x) => (
@@ -414,22 +459,19 @@ export default function AppHome() {
                   {x.icon === "shield" ? <Icon name="shield" className="h-5 w-5" /> : null}
                   {x.icon === "spark" ? <Icon name="spark" className="h-5 w-5" /> : null}
                 </div>
-                <div className="text-sm font-semibold">{x.title}</div>
+                <div className="text-sm font-semibold text-white/90">{x.title}</div>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-white/70">{x.desc}</p>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">{x.desc}</p>
             </div>
           ))}
         </div>
 
         <Card
           title="Recent activity"
-          subtitle="Runs, exports, and clip generation will show here."
+          subtitle="Runs and exports will show here."
           icon={<Icon name="clock" className="h-5 w-5 text-white/80" />}
           right={
-            <Link
-              href="/app/clips"
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white transition"
-            >
+            <Link href="/app/clips" className="btn-ghost text-[12px] px-3 py-1.5">
               Open clips
             </Link>
           }
@@ -442,20 +484,14 @@ export default function AppHome() {
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-white/85">Nothing yet — start your first upload.</div>
                 <div className="mt-1 text-sm leading-relaxed text-white/60">
-                  Upload a long-form video and Clipforge will generate a set of short clips ready for review.
+                  Upload a long-form video and Orbito will generate short clips for review.
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href="/app/upload"
-                    className="rounded-full bg-white px-4 py-2 text-sm font-semibold !text-black hover:bg-white/90 hover:!text-black transition"
-                  >
+                  <Link href="/app/upload" className="btn-aurora text-[12px] px-4 py-2">
                     Upload now
                   </Link>
-                  <Link
-                    href="/pricing"
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition"
-                  >
+                  <Link href="/app/billing" className="btn-ghost text-[12px] px-4 py-2">
                     Plans
                   </Link>
                 </div>
@@ -464,23 +500,23 @@ export default function AppHome() {
           </div>
         </Card>
       </div>
-
+      {/* Keep these two cards, remove the extra “what happens next” wall-of-text */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card
           title="How the flow works"
-          subtitle="A tight loop: upload → process → pick the best clips."
+          subtitle="Upload → process → review → export."
           icon={<Icon name="spark" className="h-5 w-5 text-white/80" />}
         >
           <div className="grid gap-3">
             {[
               { t: "Upload long-form", d: "Drag & drop a file or import a link.", to: "/app/upload" },
               { t: "Run processing", d: "Transcribe, detect highlights, generate clips.", to: "/app/upload" },
-              { t: "Review & export", d: "Trim, rename, download — or queue for posting later.", to: "/app/clips" },
+              { t: "Review & export", d: "Pick the best clips and export.", to: "/app/clips" },
             ].map((s, idx) => (
               <Link
                 key={s.t}
                 href={s.to}
-                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:bg-white/[0.06] transition"
+                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 hover:bg-white/[0.06] hover:border-white/16 transition"
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xs font-semibold text-white/70">
@@ -524,49 +560,34 @@ export default function AppHome() {
         </Card>
 
         <Card
-          title="What happens next"
-          subtitle="Once you run your first upload, this app fills in quickly."
-          icon={<Icon name="shield" className="h-5 w-5 text-white/80" />}
+          title="Billing & credits"
+          subtitle="UI-only for now; wiring comes after launch hardening."
+          icon={<Icon name="billing" className="h-5 w-5 text-white/80" />}
         >
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-            <div className="text-sm font-semibold text-white/85">You’ll see</div>
+            <div className="text-sm font-semibold text-white/85">Coming soon</div>
             <ul className="mt-3 space-y-2 text-sm text-white/65">
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/40" />
-                Processing status as your run moves through the pipeline.
+                Stripe checkout + webhook credit updates
               </li>
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/40" />
-                Generated clips in your library with scores, duration, and export readiness.
+                Credits shown in navbar (from /auth/me)
               </li>
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white/40" />
-                Account + credits synced into the navbar when backend wiring resumes.
+                Packs + subscriptions with real receipts/invoices
               </li>
             </ul>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Link
-                href="/app/upload"
-                className="rounded-full bg-white px-4 py-2 text-sm font-semibold !text-black hover:bg-white/90 hover:!text-black transition"
-              >
-                Start upload
+              <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
+                Open billing
               </Link>
-              <Link
-                href="/app/billing"
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition"
-              >
-                View plans
+              <Link href="/app/upload" className="btn-ghost text-[12px] px-4 py-2">
+                New upload
               </Link>
-            </div>
-
-            <div className="mt-4 text-[12px] text-white/45">
-              Later: navbar credits will sync from{" "}
-              <code className="px-1 rounded bg-white/5 border border-white/10 text-white/70">
-                /auth/me
-              </code>{" "}
-              (or your final <code className="px-1 rounded bg-white/5 border border-white/10 text-white/70">/me</code>{" "}
-              endpoint).
             </div>
           </div>
         </Card>

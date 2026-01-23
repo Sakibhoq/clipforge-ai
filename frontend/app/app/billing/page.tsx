@@ -1,22 +1,21 @@
+// frontend/app/app/billing/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 /* =========================================================
-   Clipforge — Billing (UI only)
+   Orbito — Billing (UI only)
    Goals:
    - Users can change plans anytime (upgrade/downgrade)
    - Users can buy more credits when they run out
    - No Stripe calls yet (wired later)
    - Premium, calm, not intimidating
 
-   Polish pass:
-   ✅ Credits balance module (UI-only)
-   ✅ Plan change UX: same-plan message + downgrade note
-   ✅ Billing history / invoices placeholder
-   ✅ Studio contact CTA
-   ✅ Small “Saved” toast for UI actions
+   Mobile polish:
+   - Safe-area padding + svh guards
+   - Toast positioned above bottom safe-area
+   - Buttons go full-width on small screens
 ========================================================= */
 
 function cx(...a: Array<string | false | null | undefined>) {
@@ -62,12 +61,7 @@ function Badge({
       : "border-white/10 bg-white/[0.04] text-white/75";
 
   return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-semibold",
-        t
-      )}
-    >
+    <span className={cx("inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-semibold", t)}>
       {children}
     </span>
   );
@@ -163,7 +157,7 @@ function PlanCard({
 
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="text-sm font-semibold text-white/90">{plan.name}</div>
             <div className="mt-1 text-sm text-white/60">{plan.desc}</div>
           </div>
@@ -174,25 +168,26 @@ function PlanCard({
           </div>
         </div>
 
-        <div className="mt-4 text-3xl font-semibold tracking-tight text-white/85">
-          {plan.priceLabel}
-        </div>
+        <div className="mt-4 text-3xl font-semibold tracking-tight text-white/85">{plan.priceLabel}</div>
 
         {plan.note ? (
           <div className="mt-2 text-[12px] leading-relaxed text-white/55">{plan.note}</div>
         ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={() => onChoose(plan.key)}
             disabled={active}
-            className={cx("btn-aurora text-[12px] px-4 py-2", active && "opacity-60")}
+            className={cx(
+              "btn-aurora text-[12px] px-4 py-2 w-full sm:w-auto",
+              active && "opacity-60 cursor-not-allowed"
+            )}
           >
             {active ? "Selected" : "Choose"}
           </button>
 
-          <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2">
+          <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
             Compare plans
           </Link>
         </div>
@@ -202,11 +197,7 @@ function PlanCard({
         <div className="mt-3 flex items-center justify-between text-[12px] text-white/55">
           <span>{plan.short}</span>
           <span className="text-white/45">
-            {plan.interval === "custom"
-              ? "custom"
-              : plan.interval === "yearly"
-              ? "yearly"
-              : "monthly"}
+            {plan.interval === "custom" ? "custom" : plan.interval === "yearly" ? "yearly" : "monthly"}
           </span>
         </div>
       </div>
@@ -244,23 +235,19 @@ function PackCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">{pack.name}</div>
-            <div className="mt-1 text-sm text-white/60">
-              {pack.credits.toLocaleString()} credits
-            </div>
+            <div className="mt-1 text-sm text-white/60">{pack.credits.toLocaleString()} credits</div>
           </div>
           {pack.popular ? <Badge>Popular</Badge> : null}
         </div>
 
-        <div className="mt-4 text-2xl font-semibold tracking-tight text-white/90">
-          {pack.priceLabel}
-        </div>
+        <div className="mt-4 text-2xl font-semibold tracking-tight text-white/90">{pack.priceLabel}</div>
 
         <div className="mt-2 text-[12px] text-white/55">
           {pack.valueHint ?? "One-time purchase. Credits add to your balance."}
         </div>
 
-        <div className="mt-5 inline-flex items-center gap-2">
-          <span className="btn-solid-dark text-[12px] px-4 py-2">Buy credits</span>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <span className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">Buy credits</span>
           <span className="text-[12px] text-white/45">Tax calculated at checkout</span>
         </div>
       </div>
@@ -314,13 +301,13 @@ function Modal({
 
           {extra ? <div className="mt-4">{extra}</div> : null}
 
-          <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-            <button type="button" className="btn-ghost text-[12px] px-4 py-2" onClick={onClose}>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button type="button" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto" onClick={onClose}>
               Cancel
             </button>
             <button
               type="button"
-              className="btn-solid-dark text-[12px] px-4 py-2"
+              className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
               onClick={() => {
                 onConfirm();
                 onClose();
@@ -330,9 +317,7 @@ function Modal({
             </button>
           </div>
 
-          <div className="mt-3 text-[12px] text-white/45">
-            Stripe will handle payment + tax later when wired.
-          </div>
+          <div className="mt-3 text-[12px] text-white/45">Stripe will handle payment + tax later when wired.</div>
         </div>
       </div>
     </div>
@@ -343,12 +328,14 @@ function Toast({ show, text }: { show: boolean; text: string }) {
   return (
     <div
       className={cx(
-        "fixed bottom-6 right-6 z-[90] transition-all duration-300",
+        "fixed z-[90] transition-all duration-300",
+        "left-4 right-4 sm:left-auto sm:right-6",
+        "bottom-[max(16px,env(safe-area-inset-bottom))]",
         show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none"
       )}
       aria-live="polite"
     >
-      <div className="rounded-2xl border border-white/10 bg-black/70 backdrop-blur px-4 py-3 text-[12px] text-white/80 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <div className="mx-auto sm:mx-0 w-full sm:w-auto rounded-2xl border border-white/10 bg-black/70 backdrop-blur px-4 py-3 text-[12px] text-white/80 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
         {text}
       </div>
     </div>
@@ -363,11 +350,7 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CreditsCard({
-  onBuy,
-}: {
-  onBuy: () => void;
-}) {
+function CreditsCard({ onBuy }: { onBuy: () => void }) {
   // UI-only placeholders (later: fetched from /auth/me or /billing)
   const credits = "—";
   const usedThisPeriod = "—";
@@ -405,17 +388,15 @@ function CreditsCard({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={onBuy} className="btn-solid-dark text-[12px] px-4 py-2">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <button type="button" onClick={onBuy} className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
           Buy credits
         </button>
-        <Link href="/app/upload?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+        <Link href="/app/upload" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           New upload
         </Link>
 
-        <div className="ml-auto text-[12px] text-white/55">
-          Tip: export-ready packs are perfect for heavy weeks.
-        </div>
+        <div className="sm:ml-auto text-[12px] text-white/55">Tip: export-ready packs are perfect for heavy weeks.</div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
@@ -436,9 +417,7 @@ function BillingHistoryCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-white/90">Billing history</div>
-          <div className="mt-1 text-sm text-white/60">
-            Invoices and receipts will appear here once Stripe is wired.
-          </div>
+          <div className="mt-1 text-sm text-white/60">Invoices and receipts will appear here once Stripe is wired.</div>
         </div>
         <Badge tone="neutral">UI-only</Badge>
       </div>
@@ -458,9 +437,7 @@ function BillingHistoryCard() {
         ))}
       </div>
 
-      <div className="mt-4 text-[12px] text-white/45">
-        Later: show invoice PDF links + receipt email delivery status.
-      </div>
+      <div className="mt-4 text-[12px] text-white/45">Later: show invoice PDF links + receipt email delivery status.</div>
     </SoftCard>
   );
 }
@@ -478,16 +455,14 @@ function StudioCtaCard() {
         <Badge>Custom</Badge>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <Link href="/contact" className="btn-solid-dark text-[12px] px-4 py-2">
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Link href="/contact" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           Contact sales
         </Link>
-        <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2">
+        <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           See Studio details
         </Link>
-        <div className="ml-auto text-[12px] text-white/55">
-          Response time: fast (manual for now).
-        </div>
+        <div className="sm:ml-auto text-[12px] text-white/55">Response time: fast (manual for now).</div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
@@ -509,10 +484,18 @@ export default function BillingPage() {
   const [pendingPack, setPendingPack] = useState<string | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   function showToast(msg: string) {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 1800);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 1800);
   }
 
   const plans: Plan[] = useMemo(() => {
@@ -523,7 +506,7 @@ export default function BillingPage() {
         key: "free_trial",
         name: "Free Trial",
         short: "Try the pipeline",
-        desc: "Test Clipforge and generate your first clips.",
+        desc: "Test Orbito and generate your first clips.",
         priceLabel: "$0",
         interval: "monthly",
         note: "Free credits are one-time per email (anti-abuse enforced later).",
@@ -591,7 +574,6 @@ export default function BillingPage() {
   }, []);
 
   function openPlanModal(p: PlanKey) {
-    // If user clicks current plan, show an info modal instead of a confirm
     if (p === currentPlan) {
       setModalMode("info");
       setPendingPlan(null);
@@ -614,7 +596,6 @@ export default function BillingPage() {
   }
 
   function confirmAction() {
-    // UI only
     if (modalMode === "plan" && pendingPlan) {
       setCurrentPlan(pendingPlan);
       showToast("Plan updated (UI-only).");
@@ -639,43 +620,39 @@ export default function BillingPage() {
   const pendingIsDowngrade = pendingPlan ? isDowngrade(currentPlan, pendingPlan) : false;
 
   return (
-    <div className="grid gap-6">
+    <div className="min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))] grid gap-6">
       {/* Header */}
       <SoftCard className="p-6" glow>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-xs text-white/50">• Billing</div>
-            <div className="mt-3 text-2xl font-semibold tracking-tight text-white/90">
-              Manage plan & credits
+          <div className="min-w-0">
+            <div className="text-xs text-sky-300/60">• Billing</div>
+            <div className="mt-1 text-3xl font-semibold tracking-tight">
+              <span className="bg-gradient-to-r from-violet-300 via-sky-300 to-teal-300 bg-clip-text text-transparent">
+                Manage plan &amp; credits
+              </span>
             </div>
-            <div className="mt-2 text-sm text-white/60">
+            <div className="mt-1 text-sm text-white/60">
               Upgrade anytime, or top up credits when you run low. Stripe will be wired later.
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Plan changes
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Credit top-ups
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Tax at checkout
-              </span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Plan changes</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Credit top-ups</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Tax at checkout</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/app/settings?dev=1" className="btn-ghost text-[12px] px-4 py-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Link href="/app/settings" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               Settings
             </Link>
-            <Link href="/app/upload?dev=1" className="btn-solid-dark text-[12px] px-4 py-2">
+            <Link href="/app/upload" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               New upload
             </Link>
           </div>
         </div>
       </SoftCard>
 
-      {/* Credits (UI-only, but makes page feel complete) */}
+      {/* Credits */}
       <CreditsCard onBuy={() => openPackModal("pack_standard")} />
 
       {/* Current */}
@@ -683,9 +660,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Current plan</div>
-            <div className="mt-1 text-sm text-white/60">
-              This will populate from the backend when billing is wired.
-            </div>
+            <div className="mt-1 text-sm text-white/60">This will populate from the backend when billing is wired.</div>
           </div>
           <Badge tone="good">{currentPlanLabel}</Badge>
         </div>
@@ -698,23 +673,21 @@ export default function BillingPage() {
 
         <Divider />
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             type="button"
-            className="btn-solid-dark text-[12px] px-4 py-2"
+            className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
             onClick={() => openPlanModal(currentPlan)}
           >
             Manage subscription
           </button>
-          <div className="text-[12px] text-white/55">
-            Stripe + tax wiring is on the backend checklist.
-          </div>
+          <div className="text-[12px] text-white/55">Stripe + tax wiring is on the backend checklist.</div>
         </div>
       </SoftCard>
 
       {/* Plan switching */}
       <SoftCard className="p-6" glow>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="text-sm font-semibold text-white/90">Change plan</div>
             <div className="mt-1 text-sm text-white/60">
@@ -744,9 +717,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Buy more credits</div>
-            <div className="mt-1 text-sm text-white/60">
-              Top up instantly. Credits stack on your balance.
-            </div>
+            <div className="mt-1 text-sm text-white/60">Top up instantly. Credits stack on your balance.</div>
           </div>
           <Badge>One-time purchase</Badge>
         </div>
@@ -758,15 +729,9 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Credits add after payment
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            No plan change required
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Receipts via email
-          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Credits add after payment</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">No plan change required</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Receipts via email</span>
         </div>
       </SoftCard>
 
@@ -802,8 +767,7 @@ export default function BillingPage() {
               <div className="mt-2 grid gap-2">
                 <div>• Upgrades: immediate.</div>
                 <div>
-                  • Downgrades:{" "}
-                  <span className="text-white/75">scheduled to end of period</span> (once wired).
+                  • Downgrades: <span className="text-white/75">scheduled to end of period</span> (once wired).
                 </div>
                 <div>• Credits: updated after checkout confirmation.</div>
               </div>

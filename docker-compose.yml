@@ -1,43 +1,84 @@
+# docker-compose.yml (fixed block)
 services:
   frontend:
     build: ./frontend
     command: npm run dev -- --hostname 0.0.0.0 --port 3000
     ports:
-      - "0.0.0.0:3000:3000"
+      - "3000:3000"
     environment:
-      # Browser needs to hit backend via same origin in Codespaces.
-      # We'll set it to http://localhost:8000 for now (works inside Codespaces port forwarding too).
-      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+      # IMPORTANT: this runs in the BROWSER, so it must be reachable from your computer
+      NEXT_PUBLIC_API_BASE: "/api"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
 
   backend:
     build: ./backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers
     ports:
-      - "0.0.0.0:8000:8000"
+      - "8000:8000"
     volumes:
       - ./data:/data
-      - ./backend:/app
+
+      # AWS credentials (Codespaces + local dev)
+      # IMPORTANT:
+      # - Codespaces home = /home/codespace
+      # - On EC2 this volume is REMOVED and IAM role is used instead
+      - /home/codespace/.aws:/root/.aws:ro
     environment:
-      SECRET_KEY: "dev-secret-change-me"
-      FRONTEND_BASE_URL: "http://localhost:3000"
+      # Core
+      SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
-      # Stripe optional in dev; leave empty unless you’re testing checkout/webhooks
+      FRONTEND_ORIGIN: "http://localhost:3000"
+
+      # Storage
+      STORAGE_BACKEND: "s3"
+      AWS_REGION: "us-east-1"
+      S3_BUCKET: "clipforge-uploads-dev-26"
+
+      # URLs
+      FRONTEND_BASE_URL: "http://localhost:3000"
+
+      # Billing (wired later)
       STRIPE_SECRET_KEY: ""
       STRIPE_WEBHOOK_SECRET: ""
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   worker:
     build: ./worker
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./data:/data
+
+      # Allow worker to import backend code
       - ./backend:/backend
-      - ./worker:/app
+
+      # AWS credentials (same rule as backend)
+      - /home/codespace/.aws:/root/.aws:ro
     environment:
-      SECRET_KEY: "dev-secret-change-me"
-      PYTHONPATH: "/backend"
+      # Core
+      SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
-      # if worker calls backend HTTP, we'll set it later after we confirm the client code
+
+      # Storage
+      STORAGE_BACKEND: "s3"
+      AWS_REGION: "us-east-1"
+      S3_BUCKET: "clipforge-uploads-dev-26"
+
+      # Timeouts (fix ffprobe timeout on big uploads)
+      WORKER_FFPROBE_TIMEOUT: "180"
+
+      # Runtime
+      PYTHONPATH: "/backend"
       BACKEND_URL: "http://backend:8000"
+
+    restart: unless-stopped

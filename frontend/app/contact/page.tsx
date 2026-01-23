@@ -1,6 +1,7 @@
+// frontend/app/contact/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
@@ -15,10 +16,13 @@ function isEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
+function cx(...a: Array<string | false | null | undefined>) {
+  return a.filter(Boolean).join(" ");
+}
+
 function HoverSheen() {
   return (
     <>
-      {/* hover aurora sheen */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
@@ -27,7 +31,6 @@ function HoverSheen() {
             "radial-gradient(120px 120px at 20% 25%, rgba(167,139,250,0.20), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.18), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.14), transparent 62%)",
         }}
       />
-      {/* subtle top highlight */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -48,6 +51,7 @@ function Field({
   type = "text",
   error,
   autoComplete,
+  inputMode,
 }: {
   label: string;
   value: string;
@@ -56,21 +60,26 @@ function Field({
   type?: string;
   error?: string | null;
   autoComplete?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
     <label className="block">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <div className="text-xs text-white/60">{label}</div>
-        {error ? <div className="text-[11px] text-rose-200/80">{error}</div> : null}
+        {error ? (
+          <div className="text-[11px] text-rose-200/80">{error}</div>
+        ) : null}
       </div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         type={type}
+        inputMode={inputMode}
         autoComplete={autoComplete}
         placeholder={placeholder}
         className={[
-          "h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-sm text-white/85 outline-none transition",
+          // iOS: avoid input zoom
+          "h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition",
           "placeholder:text-white/30",
           error
             ? "border-rose-200/25 focus:border-rose-200/40"
@@ -96,9 +105,11 @@ function Textarea({
 }) {
   return (
     <label className="block">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <div className="text-xs text-white/60">{label}</div>
-        {error ? <div className="text-[11px] text-rose-200/80">{error}</div> : null}
+        {error ? (
+          <div className="text-[11px] text-rose-200/80">{error}</div>
+        ) : null}
       </div>
       <textarea
         value={value}
@@ -106,7 +117,8 @@ function Textarea({
         placeholder={placeholder}
         rows={6}
         className={[
-          "w-full resize-none rounded-2xl border bg-white/[0.03] px-4 py-3 text-sm text-white/85 outline-none transition",
+          // iOS: avoid zoom; keep comfy line-height
+          "w-full resize-none rounded-2xl border bg-white/[0.03] px-4 py-3 text-[16px] sm:text-sm leading-relaxed text-white/85 outline-none transition",
           "placeholder:text-white/30",
           error
             ? "border-rose-200/25 focus:border-rose-200/40"
@@ -139,14 +151,43 @@ function SendMessageModal({
   });
 
   const [status, setStatus] = useState<
-    { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string }
+    | { kind: "idle" }
+    | { kind: "sending" }
+    | { kind: "sent" }
+    | { kind: "error"; message: string }
   >({ kind: "idle" });
+
+  // focus / keyboard polish
+  const firstFieldRef = useRef<HTMLInputElement | null>(null);
+  const lastFocusTsRef = useRef<number>(0);
+
+  function onFieldFocus(target: HTMLElement) {
+    lastFocusTsRef.current = Date.now();
+    window.setTimeout(() => {
+      if (Date.now() - lastFocusTsRef.current > 900) return;
+      try {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        // ignore
+      }
+    }, 220);
+  }
 
   // Reset when opened
   useEffect(() => {
     if (!open) return;
     setStatus({ kind: "idle" });
+    setForm({ name: "", email: "", subject: "", message: "" });
     setTouched({ name: false, email: false, subject: false, message: false });
+
+    // focus first field
+    window.setTimeout(() => {
+      try {
+        firstFieldRef.current?.focus();
+      } catch {
+        // ignore
+      }
+    }, 60);
   }, [open]);
 
   // ESC to close
@@ -169,7 +210,7 @@ function SendMessageModal({
 
     if (!form.name.trim()) e.name = "Required";
     if (!form.email.trim()) e.email = "Required";
-    else if (!isEmail(form.email)) e.email = "Invalid email";
+    else if (!isEmail(form.email)) e.email = "Invalid";
     if (!form.subject.trim()) e.subject = "Required";
     if (!form.message.trim()) e.message = "Required";
     else if (form.message.trim().length < 10) e.message = "Too short";
@@ -199,9 +240,7 @@ function SendMessageModal({
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to send");
-      }
+      if (!res.ok) throw new Error(data?.error || "Failed to send");
 
       setStatus({ kind: "sent" });
       setForm({ name: "", email: "", subject: "", message: "" });
@@ -223,10 +262,16 @@ function SendMessageModal({
         onClick={onClose}
       />
 
-      {/* modal */}
-      <div className="relative mx-auto mt-24 w-[min(720px,92vw)]">
+      {/* modal (mobile-safe): bottom sheet on small, centered on md+ */}
+      <div
+        className={cx(
+          "relative mx-auto w-[min(720px,92vw)]",
+          "mt-16 md:mt-24",
+          "pb-[env(safe-area-inset-bottom)]"
+        )}
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="group surface relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-6 md:p-7 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
-          {/* internal aurora */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 opacity-[0.45]">
               <div className="aurora" />
@@ -292,23 +337,42 @@ function SendMessageModal({
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Field
-                label="Name"
-                value={form.name}
-                onChange={(v) => setForm((s) => ({ ...s, name: v }))}
-                placeholder="Your name"
-                autoComplete="name"
-                error={fieldError("name")}
-              />
+              <label className="block">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="text-xs text-white/60">Name</div>
+                  {fieldError("name") ? (
+                    <div className="text-[11px] text-rose-200/80">{fieldError("name")}</div>
+                  ) : null}
+                </div>
+                <input
+                  ref={(el) => {
+                    firstFieldRef.current = el;
+                  }}
+                  value={form.name}
+                  onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                  onFocus={(e) => onFieldFocus(e.currentTarget)}
+                  autoComplete="name"
+                  placeholder="Your name"
+                  className={cx(
+                    "h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition placeholder:text-white/30",
+                    fieldError("name")
+                      ? "border-rose-200/25 focus:border-rose-200/40"
+                      : "border-white/10 focus:border-white/20"
+                  )}
+                />
+              </label>
+
               <Field
                 label="Your email"
                 value={form.email}
                 onChange={(v) => setForm((s) => ({ ...s, email: v }))}
                 placeholder="you@company.com"
                 autoComplete="email"
+                inputMode="email"
                 type="email"
                 error={fieldError("email")}
               />
+
               <div className="md:col-span-2">
                 <Field
                   label="Subject"
@@ -319,6 +383,7 @@ function SendMessageModal({
                   error={fieldError("subject")}
                 />
               </div>
+
               <div className="md:col-span-2">
                 <Textarea
                   label="Message"
@@ -336,11 +401,7 @@ function SendMessageModal({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost text-xs"
-                  onClick={onClose}
-                >
+                <button type="button" className="btn-ghost text-xs" onClick={onClose}>
                   Cancel
                 </button>
 
@@ -348,10 +409,7 @@ function SendMessageModal({
                   type="button"
                   onClick={onSubmit}
                   disabled={status.kind === "sending"}
-                  className={[
-                    "btn-aurora text-xs",
-                    status.kind === "sending" ? "opacity-80 cursor-not-allowed" : "",
-                  ].join(" ")}
+                  className={cx("btn-aurora text-xs", status.kind === "sending" && "opacity-80 cursor-not-allowed")}
                 >
                   {status.kind === "sending" ? "Sending…" : "Send message"}
                 </button>
@@ -362,8 +420,8 @@ function SendMessageModal({
 
             <div className="mt-4 text-xs text-white/45">
               Prefer email?{" "}
-              <a className="text-white/70 hover:text-white" href="mailto:support@clipforge.ai">
-                support@clipforge.ai
+              <a className="text-white/70 hover:text-white" href="mailto:support@orbito.cc">
+                support@orbito.cc
               </a>
               .
             </div>
@@ -375,15 +433,7 @@ function SendMessageModal({
 }
 
 export default function ContactPage() {
-  const topics = [
-    "Support",
-    "Billing",
-    "Studio / enterprise",
-    "Partnerships",
-    "Feedback",
-    "Bug report",
-    "Feature request",
-  ];
+  const topics = ["Support", "Billing", "Studio / enterprise", "Partnerships", "Feedback"];
 
   const footerLinks = useMemo(
     () => [
@@ -397,24 +447,32 @@ export default function ContactPage() {
 
   const [open, setOpen] = useState(false);
 
+  const rootStyle: React.CSSProperties = {
+    minHeight: "100svh",
+    paddingTop: "env(safe-area-inset-top)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+  };
+
   return (
-    <div className="min-h-screen bg-plain relative">
+    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
       <Navbar />
 
-      {/* PAGE-LEVEL AURORA FIELD (match landing/features/how-it-works) */}
+      {/* PAGE-LEVEL AURORA FIELD (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
+
+        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
+        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
+        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
+
+        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-24 pt-12">
-        <section className="surface relative overflow-hidden p-8 md:p-12">
+      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
+        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
             <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
@@ -423,22 +481,21 @@ export default function ContactPage() {
           <div className="relative">
             <div className="text-xs text-white/55">• Contact</div>
 
-            <div className="mt-3 grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-start">
-              {/* LEFT: COPY */}
+            <div className="mt-4 grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-start">
+              {/* LEFT */}
               <div>
-                <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">
-                  Contact <span className="grad-text">Clipforge</span>
+                <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
+                  Contact <span className="grad-text">Orbito</span>
                 </h1>
 
-                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Need help, billing fixes, Studio questions, or a quick answer?
-                  Message us — we keep it fast, clean, and reliable.
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
+                  Support, billing, Studio questions, or quick feedback — send a message and we’ll respond fast.
                 </p>
 
-                <div className="mt-7 flex flex-wrap items-center gap-2">
+                <div className="mt-6 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    Response target: within 24 hours
+                    Target: within 24 hours
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     Email-first support
@@ -448,7 +505,7 @@ export default function ContactPage() {
                   </span>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-7">
                   <div className="text-xs text-white/50">Common topics</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {topics.map((t) => (
@@ -462,7 +519,7 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                <div className="mt-10 flex flex-wrap items-center gap-3">
+                <div className="mt-9 flex flex-wrap items-center gap-3">
                   <Link href="/pricing" className="btn-ghost">
                     View pricing
                   </Link>
@@ -475,7 +532,7 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* RIGHT: CONTACT CARD */}
+              {/* RIGHT */}
               <div className="space-y-4">
                 <div className="group surface-soft relative overflow-hidden p-6 md:p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
@@ -497,26 +554,20 @@ export default function ContactPage() {
 
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
                       <div className="text-xs text-white/45">Support</div>
-                      <div className="mt-1 text-sm font-semibold text-white/85">
-                        support@clipforge.ai
-                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
                       <div className="mt-2 text-xs text-white/45">
                         Billing? include the email on your account.
                       </div>
                     </div>
 
                     <div className="mt-6 flex flex-wrap gap-3">
-                      <button
-                        type="button"
-                        className="btn-aurora"
-                        onClick={() => setOpen(true)}
-                      >
+                      <button type="button" className="btn-aurora" onClick={() => setOpen(true)}>
                         Write a message
                       </button>
 
                       <a
                         className="btn-ghost"
-                        href="mailto:support@clipforge.ai?subject=Studio%20%2F%20Enterprise%20inquiry"
+                        href="mailto:support@orbito.cc?subject=Studio%20%2F%20Enterprise%20inquiry"
                       >
                         Studio / enterprise
                       </a>
@@ -528,22 +579,19 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                {/* Secondary tiny card */}
                 <div className="surface-soft p-5">
                   <div className="text-xs text-white/50">Preferred format</div>
                   <div className="mt-2 text-sm text-white/65 leading-relaxed">
                     One sentence summary + what you expected + what happened.
-                    We’ll take it from there.
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* FOOTER (match landing: transparent) */}
-            <footer className="pb-10 pt-20 text-xs text-white/45">
-              <div className="mx-auto flex max-w-6xl items-center justify-between px-0">
-                <div>© 2026 • Clipforge.ai by Sakib LLC</div>
-                <div className="flex gap-5">
+            <footer className="pb-10 pt-14 sm:pt-20 text-xs text-white/45">
+              <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>© 2026 • Orbito by Sakib LLC</div>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
                   {footerLinks.map((i) => (
                     <a key={i.href} href={i.href} className="hover:text-white/70">
                       {i.label}
@@ -556,7 +604,6 @@ export default function ContactPage() {
         </section>
       </main>
 
-      {/* in-page send panel */}
       <SendMessageModal open={open} onClose={() => setOpen(false)} />
     </div>
   );

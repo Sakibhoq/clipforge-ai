@@ -1,6 +1,7 @@
+// frontend/app/forgot-password/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 function cx(...a: Array<string | false | null | undefined>) {
@@ -21,7 +22,7 @@ function Icon({
   const common = `inline-block ${className}`;
   if (name === "mail") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M4.5 7.5h15v9h-15v-9Z"
           stroke="rgba(255,255,255,0.55)"
@@ -40,7 +41,7 @@ function Icon({
   }
   if (name === "check") {
     return (
-      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
         <path
           d="M20 7L10.2 16.8 4.8 11.4"
           stroke="rgba(255,255,255,0.80)"
@@ -52,7 +53,7 @@ function Icon({
     );
   }
   return (
-    <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+    <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
       <path
         d="M10 7l5 5-5 5"
         stroke="rgba(255,255,255,0.7)"
@@ -70,26 +71,50 @@ export default function ForgotPasswordPage() {
 
   const okEmail = useMemo(() => isValidEmail(email), [email]);
 
+  // mobile polish: scroll focused input into view (iOS keyboard)
+  const lastFocusTsRef = useRef<number>(0);
+  function onFieldFocus(target: HTMLInputElement) {
+    lastFocusTsRef.current = Date.now();
+    window.setTimeout(() => {
+      if (Date.now() - lastFocusTsRef.current > 900) return;
+      try {
+        target.scrollIntoView({ block: "center", behavior: "smooth" });
+      } catch {
+        // ignore
+      }
+    }, 220);
+  }
+
   function submit() {
     // UI-only for now (backend + email later)
     setSubmitted(true);
   }
 
+  const rootStyle: React.CSSProperties = {
+    minHeight: "100svh",
+    paddingTop: "env(safe-area-inset-top)",
+    paddingBottom: "env(safe-area-inset-bottom)",
+  };
+
   return (
-    <div className="min-h-screen bg-plain relative">
-      {/* PAGE-LEVEL AURORA */}
+    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+      {/* PAGE-LEVEL AURORA (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
+
+        {/* blobs: vmin positioning reduces iOS overflow edge cases */}
+        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
+        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
+        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
+
+        {/* grid: disable on small screens (can shimmer / seams on iOS) */}
+        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <main className="relative mx-auto flex min-h-screen max-w-lg items-center px-6 py-14">
+      <main className="relative mx-auto max-w-lg px-6 pb-14 pt-10 sm:pt-12">
         <section className="surface-soft relative w-full overflow-hidden p-6 md:p-8">
           <div
             aria-hidden="true"
@@ -114,9 +139,7 @@ export default function ForgotPasswordPage() {
             {!submitted ? (
               <>
                 <div className="mt-6">
-                  <label className="block text-[12px] font-medium text-white/75">
-                    Email
-                  </label>
+                  <label className="block text-[12px] font-medium text-white/75">Email</label>
                   <div className="relative mt-2">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 opacity-90">
                       <Icon name="mail" />
@@ -124,10 +147,15 @@ export default function ForgotPasswordPage() {
                     <input
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={(e) => onFieldFocus(e.currentTarget)}
                       placeholder="you@domain.com"
-                      className="field !pl-12"
                       inputMode="email"
                       autoComplete="email"
+                      className={cx(
+                        "field !pl-12",
+                        // iOS: avoid input zoom
+                        "!text-[16px] sm:!text-[14px]"
+                      )}
                     />
                   </div>
 
@@ -141,10 +169,7 @@ export default function ForgotPasswordPage() {
                     type="button"
                     onClick={submit}
                     disabled={!okEmail}
-                    className={cx(
-                      "btn-solid-dark w-full py-3 text-sm",
-                      !okEmail && "opacity-50 cursor-not-allowed"
-                    )}
+                    className={cx("btn-solid-dark w-full py-3 text-sm", !okEmail && "opacity-50 cursor-not-allowed")}
                   >
                     Send reset link
                   </button>
@@ -182,11 +207,7 @@ export default function ForgotPasswordPage() {
                     </span>
                   </Link>
 
-                  <button
-                    type="button"
-                    onClick={() => setSubmitted(false)}
-                    className="btn-ghost w-full py-3 text-sm"
-                  >
+                  <button type="button" onClick={() => setSubmitted(false)} className="btn-ghost w-full py-3 text-sm">
                     Try a different email
                   </button>
                 </div>
