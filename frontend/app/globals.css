@@ -52,16 +52,16 @@
   --sal: env(safe-area-inset-left);
 }
 
-html,
-body {
-  height: 100%;
-}
-
+/* IMPORTANT:
+   Avoid "inner scrollbar" + half-scroll bugs:
+   - Do NOT force html/body to height:100%
+   - Do NOT set body overflow-y:auto/hidden
+   Let the browser viewport handle scrolling naturally.
+*/
 html {
-  /* Mobile polish: prevent iOS tap highlight + nicer scroll */
+  height: auto;
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
-  /* Helps reduce rubber-band glow issues when combined with overscroll-behavior */
   overscroll-behavior-y: none;
 }
 
@@ -72,13 +72,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* IMPORTANT: prevent weird horizontal seams from overflow + fixed layers */
+  /* Prevent sideways scroll from fixed/blur layers */
   overflow-x: hidden;
 
-  /* Mobile polish: avoid 100vh quirks in iOS (layout uses min-h-screen, but this helps) */
+  /* ✅ allow normal page scroll (fixes "scroll starts under navbar" + half-scroll) */
+  overflow-y: visible;
+
+  /* iOS viewport correctness */
+  min-height: 100svh;
   min-height: 100dvh;
 
-  /* Mobile polish: smoother scroll on iOS */
+  /* iOS smooth scroll */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -154,20 +158,20 @@ textarea {
 .field {
   width: 100%;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
   padding: 0.7rem 0.85rem;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
   outline: none;
 }
 
 .field::placeholder {
-  color: rgba(255,255,255,0.45);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .field:focus {
-  border-color: rgba(70,215,255,0.22);
-  box-shadow: 0 0 0 4px rgba(70,215,255,0.10);
+  border-color: rgba(70, 215, 255, 0.22);
+  box-shadow: 0 0 0 4px rgba(70, 215, 255, 0.10);
 }
 
 /* -----------------------------
@@ -187,13 +191,12 @@ textarea {
   pointer-events: none;
   z-index: -2;
 
-  /* smooth multi-radials + soft vertical shade */
   background:
-    radial-gradient(1100px 700px at 50% 10%, rgba(255,255,255,0.06), transparent 60%),
+    radial-gradient(1100px 700px at 50% 10%, rgba(255, 255, 255, 0.06), transparent 60%),
     radial-gradient(900px 600px at 12% 45%, rgba(155, 140, 255, 0.14), transparent 60%),
     radial-gradient(900px 650px at 88% 52%, rgba(70, 215, 255, 0.12), transparent 62%),
     radial-gradient(950px 700px at 50% 92%, rgba(53, 242, 166, 0.10), transparent 62%),
-    linear-gradient(to bottom, rgba(0,0,0,0.10), rgba(0,0,0,0.85));
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.85));
 
   filter: blur(44px);
   opacity: 0.85;
@@ -204,10 +207,22 @@ textarea {
 }
 
 @keyframes bgHue {
-  0%   { transform: translate3d(-1%, -1%, 0) scale(1.04); filter: blur(44px) hue-rotate(0deg); }
-  35%  { transform: translate3d( 1%,  0%, 0) scale(1.06); filter: blur(46px) hue-rotate(28deg); }
-  70%  { transform: translate3d(-0.5%, 1%, 0) scale(1.05); filter: blur(45px) hue-rotate(65deg); }
-  100% { transform: translate3d(-1%, -1%, 0) scale(1.04); filter: blur(44px) hue-rotate(0deg); }
+  0% {
+    transform: translate3d(-1%, -1%, 0) scale(1.04);
+    filter: blur(44px) hue-rotate(0deg);
+  }
+  35% {
+    transform: translate3d(1%, 0%, 0) scale(1.06);
+    filter: blur(46px) hue-rotate(28deg);
+  }
+  70% {
+    transform: translate3d(-0.5%, 1%, 0) scale(1.05);
+    filter: blur(45px) hue-rotate(65deg);
+  }
+  100% {
+    transform: translate3d(-1%, -1%, 0) scale(1.04);
+    filter: blur(44px) hue-rotate(0deg);
+  }
 }
 
 /* Vignette + tiny film grain (subtle, also fixed = no seams) */
@@ -220,8 +235,8 @@ textarea {
 
   background:
     radial-gradient(1200px 700px at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.62) 100%),
-    radial-gradient(900px 450px at 50% 0%, rgba(255,255,255,0.04), transparent 60%),
-    radial-gradient(900px 450px at 50% 100%, rgba(0,0,0,0.25), transparent 55%);
+    radial-gradient(900px 450px at 50% 0%, rgba(255, 255, 255, 0.04), transparent 60%),
+    radial-gradient(900px 450px at 50% 100%, rgba(0, 0, 0, 0.25), transparent 55%);
 
   opacity: 0.95;
 }
@@ -240,8 +255,6 @@ textarea {
 
 /* -----------------------------
    Animated aurora (LOCAL USE ONLY)
-   NOTE: This is used inside small components too (logo mark),
-   so it must remain absolute-based and NOT fixed.
 ----------------------------- */
 .aurora {
   position: absolute;
@@ -299,13 +312,26 @@ textarea {
   transform: translateZ(0);
   animation: blobFloat 11s ease-in-out infinite;
 }
-.blob.b2 { animation-duration: 15s; animation-direction: reverse; opacity: 0.45; }
-.blob.b3 { animation-duration: 18s; opacity: 0.35; }
+.blob.b2 {
+  animation-duration: 15s;
+  animation-direction: reverse;
+  opacity: 0.45;
+}
+.blob.b3 {
+  animation-duration: 18s;
+  opacity: 0.35;
+}
 
 @keyframes blobFloat {
-  0%   { transform: translate3d(0, 0, 0) scale(1.02); }
-  50%  { transform: translate3d(18px, -12px, 0) scale(1.08); }
-  100% { transform: translate3d(0, 0, 0) scale(1.02); }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(18px, -12px, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
 }
 
 /* -----------------------------
@@ -321,9 +347,9 @@ textarea {
 .grad-text-soft {
   background: linear-gradient(
     90deg,
-    rgba(155,140,255,0.95),
-    rgba(70,215,255,0.95),
-    rgba(53,242,166,0.95)
+    rgba(155, 140, 255, 0.95),
+    rgba(70, 215, 255, 0.95),
+    rgba(53, 242, 166, 0.95)
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -337,9 +363,7 @@ textarea {
   border-radius: var(--r-xl);
   border: 1px solid rgba(255, 255, 255, 0.10);
   background: rgba(255, 255, 255, 0.03);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    var(--shadow);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), var(--shadow);
 }
 
 .surface-soft {
@@ -350,21 +374,21 @@ textarea {
 
 .surface-inset {
   border-radius: var(--r-md);
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   background:
-    radial-gradient(800px 260px at 30% 0%, rgba(255,255,255,0.05), transparent 60%),
-    rgba(255,255,255,0.02);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.03), var(--shadow-soft);
+    radial-gradient(800px 260px at 30% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    rgba(255, 255, 255, 0.02);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--shadow-soft);
 }
 
 .hairline {
-  border: 1px solid rgba(255,255,255,0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .divider {
   height: 1px;
   width: 100%;
-  background: rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.10);
 }
 
 /* Glass highlight sweep */
@@ -376,7 +400,7 @@ textarea {
   content: "";
   position: absolute;
   inset: -40%;
-  background: radial-gradient(closest-side, rgba(255,255,255,0.08), transparent 60%);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.08), transparent 60%);
   transform: translate3d(-18%, -12%, 0);
   pointer-events: none;
 }
@@ -389,19 +413,19 @@ textarea {
   align-items: center;
   gap: 0.45rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
   padding: 0.25rem 0.55rem;
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.82);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .pill-dot {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: rgba(53,242,166,0.95);
-  box-shadow: 0 0 18px rgba(53,242,166,0.35);
+  background: rgba(53, 242, 166, 0.95);
+  box-shadow: 0 0 18px rgba(53, 242, 166, 0.35);
 }
 
 .chip {
@@ -409,20 +433,26 @@ textarea {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
   padding: 0.2rem 0.55rem;
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 /* -----------------------------
    Animated icon / accent
 ----------------------------- */
 @keyframes iconHue {
-  0%   { filter: hue-rotate(0deg) saturate(1.15); }
-  50%  { filter: hue-rotate(60deg) saturate(1.3); }
-  100% { filter: hue-rotate(0deg) saturate(1.15); }
+  0% {
+    filter: hue-rotate(0deg) saturate(1.15);
+  }
+  50% {
+    filter: hue-rotate(60deg) saturate(1.3);
+  }
+  100% {
+    filter: hue-rotate(0deg) saturate(1.15);
+  }
 }
 
 .icon-aurora {
@@ -431,7 +461,7 @@ textarea {
 }
 
 .icon-aurora svg {
-  filter: drop-shadow(0 0 10px rgba(70,215,255,0.18));
+  filter: drop-shadow(0 0 10px rgba(70, 215, 255, 0.18));
 }
 
 .icon-ring {
@@ -439,9 +469,9 @@ textarea {
   display: inline-grid;
   place-items: center;
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.03);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 
@@ -463,7 +493,9 @@ textarea {
 }
 
 @keyframes spinGlow {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* -----------------------------
@@ -484,11 +516,10 @@ textarea {
   font-weight: 650;
   letter-spacing: -0.01em;
 
-  /* slightly darker white (less “glowy” / more premium) */
   background: rgba(255, 255, 255, 0.88);
   color: #0b0f14;
 
-  box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
   overflow: hidden;
   transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
 }
@@ -503,16 +534,16 @@ textarea {
   /* border thickness */
   padding: 6px;
 
-  /* stripe bands — now matched to aurora palette + darker */
+  /* stripe bands — matched to aurora palette + darker */
   background: linear-gradient(
     90deg,
-    rgba(0,0,0,0) 0%,
+    rgba(0, 0, 0, 0) 0%,
     var(--btn-a) 16%,
     var(--btn-b) 36%,
     var(--btn-c) 54%,
     var(--btn-b) 72%,
     var(--btn-a) 86%,
-    rgba(0,0,0,0) 100%
+    rgba(0, 0, 0, 0) 100%
   );
 
   background-size: 240% 100%;
@@ -530,7 +561,8 @@ textarea {
   z-index: 0;
 
   /* slightly darker border glow */
-  filter: drop-shadow(0 0 10px rgba(70,215,255,0.14)) drop-shadow(0 0 18px rgba(155,140,255,0.10));
+  filter: drop-shadow(0 0 10px rgba(70, 215, 255, 0.14))
+    drop-shadow(0 0 18px rgba(155, 140, 255, 0.10));
   opacity: 0.95;
 }
 
@@ -556,7 +588,7 @@ textarea {
 
 .btn-aurora:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 48px rgba(0,0,0,0.62);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.62);
   filter: saturate(1.02);
 }
 
@@ -565,8 +597,12 @@ textarea {
 }
 
 @keyframes auroraBorderSlide {
-  0%   { background-position:   0% 50%; }
-  100% { background-position: 240% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 240% 50%;
+  }
 }
 
 /* -----------------------------
@@ -577,12 +613,12 @@ textarea {
   isolation: isolate;
 
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
   padding: 0.55rem 0.95rem;
   font-size: 0.875rem;
   font-weight: 550;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255, 255, 255, 0.85);
 
   display: inline-flex;
   align-items: center;
@@ -590,10 +626,14 @@ textarea {
   gap: 0.5rem;
 
   overflow: hidden;
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease;
 }
 
-/* aurora border hint on hover/focus (same palette, darker) */
+/* aurora border hint on hover/focus */
 .btn-ghost::before {
   content: "";
   position: absolute;
@@ -615,29 +655,36 @@ textarea {
   filter: blur(0.2px);
 }
 
-.btn-ghost > * { position: relative; z-index: 1; }
+.btn-ghost > * {
+  position: relative;
+  z-index: 1;
+}
 
 .btn-ghost:hover {
-  background: rgba(255,255,255,0.055);
-  color: rgba(255,255,255,0.95);
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.95);
   transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.16);
+  border-color: rgba(255, 255, 255, 0.16);
 }
-.btn-ghost:hover::before { opacity: 0.52; }
+.btn-ghost:hover::before {
+  opacity: 0.52;
+}
 
 .btn-ghost:active {
   transform: translateY(0px);
 }
-.btn-ghost:focus-visible::before { opacity: 0.65; }
+.btn-ghost:focus-visible::before {
+  opacity: 0.65;
+}
 
 .btn-solid-dark {
   position: relative;
   isolation: isolate;
 
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(15, 18, 26, 0.75);
-  color: rgba(255,255,255,0.92);
+  color: rgba(255, 255, 255, 0.92);
   padding: 0.65rem 1rem;
   font-weight: 650;
 
@@ -666,16 +713,23 @@ textarea {
   z-index: 0;
 }
 
-.btn-solid-dark > * { position: relative; z-index: 1; }
+.btn-solid-dark > * {
+  position: relative;
+  z-index: 1;
+}
 
 .btn-solid-dark:hover {
   background: rgba(15, 18, 26, 0.88);
   transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.14);
+  border-color: rgba(255, 255, 255, 0.14);
 }
-.btn-solid-dark:hover::before { opacity: 0.42; }
+.btn-solid-dark:hover::before {
+  opacity: 0.42;
+}
 
-.btn-solid-dark:active { transform: translateY(0px); }
+.btn-solid-dark:active {
+  transform: translateY(0px);
+}
 
 /* -----------------------------
    Reveal
@@ -716,7 +770,7 @@ textarea {
   grid-template-columns: 18px 1fr;
   align-items: start;
   gap: 0.55rem;
-  color: rgba(255,255,255,0.80);
+  color: rgba(255, 255, 255, 0.80);
   font-size: 0.9rem;
   line-height: 1.25rem;
 }
@@ -725,8 +779,8 @@ textarea {
   width: 18px;
   height: 18px;
   border-radius: 6px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: grid;
   place-items: center;
 }
@@ -736,7 +790,7 @@ textarea {
 }
 
 .note {
-  color: rgba(255,255,255,0.68);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 0.85rem;
 }
 
@@ -748,15 +802,15 @@ textarea {
   align-items: center;
   gap: 0.3rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
   padding: 0.25rem;
 }
 
 .toggle button {
   border: 0;
   background: transparent;
-  color: rgba(255,255,255,0.78);
+  color: rgba(255, 255, 255, 0.78);
   font-weight: 650;
   font-size: 0.85rem;
   padding: 0.45rem 0.75rem;
@@ -766,7 +820,7 @@ textarea {
 }
 
 .toggle button.active {
-  background: rgba(255,255,255,0.92);
+  background: rgba(255, 255, 255, 0.92);
   color: rgba(11, 15, 20, 0.95);
 }
 
@@ -776,9 +830,9 @@ textarea {
   padding: 0.15rem 0.45rem;
   font-size: 0.75rem;
   font-weight: 750;
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.82);
-  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 /* -----------------------------
@@ -786,8 +840,8 @@ textarea {
 ----------------------------- */
 .sliderWrap {
   border-radius: var(--r-md);
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
   padding: 0.75rem 0.85rem;
 }
 
@@ -799,42 +853,64 @@ textarea {
 
 .sliderLabel {
   font-size: 0.85rem;
-  color: rgba(255,255,255,0.72);
+  color: rgba(255, 255, 255, 0.72);
   white-space: nowrap;
 }
 
 .sliderValue {
   font-size: 0.85rem;
-  color: rgba(255,255,255,0.88);
+  color: rgba(255, 255, 255, 0.88);
   white-space: nowrap;
 }
 
 input[type="range"].slider {
   width: 100%;
-  accent-color: rgba(255,255,255,0.92);
+  accent-color: rgba(255, 255, 255, 0.92);
 }
 
 /* -----------------------------
    Footer
 ----------------------------- */
 .footerText {
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 0.85rem;
 }
 
 /* -----------------------------
    Scrollbar
+   Subtle, but visible (browser viewport scroll).
 ----------------------------- */
-*::-webkit-scrollbar {
-  width: 10px;
+body::-webkit-scrollbar {
+  width: 8px;
 }
-*::-webkit-scrollbar-track {
-  background: rgba(255,255,255,0.02);
+body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.015);
 }
-*::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.10);
+body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
 }
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.16);
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+/* =========================================
+   Orbito — Single scrollbar guard (NO inner scroll)
+   Put this at the VERY BOTTOM of globals.css
+========================================= */
+
+html,
+body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: auto !important;   /* browser scrollbar */
+  overflow-x: hidden !important;
+}
+
+/* Prevent Next root wrappers from becoming scroll containers */
+body > div,
+#__next,
+main {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
 }

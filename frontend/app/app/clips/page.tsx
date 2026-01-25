@@ -1414,7 +1414,7 @@ function Drawer({
           </button>
         </div>
 
-        <div className="mt-5 max-h-[calc(100svh-120px)] overflow-auto pr-1">{children}</div>
+        <div className="mt-5 pr-1">{children}</div>
       </div>
     </div>
   );

@@ -63,6 +63,40 @@ function Spinner() {
   );
 }
 
+function EyeIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12s-4 7.5-10.5 7.5S1.5 12 1.5 12Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M2 12s3.5-6.5 10-6.5c2.1 0 3.9.6 5.4 1.4M22 12s-3.5 6.5-10 6.5c-2.1 0-3.9-.6-5.4-1.4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.2 10.2A3 3 0 0 0 12 15a3 3 0 0 0 1.8-.6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -289,6 +323,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [socialBusy, setSocialBusy] = useState<Provider | null>(null);
@@ -574,22 +610,40 @@ export default function LoginPage() {
                           </Link>
                         </div>
 
-                        <input
-                          ref={(el) => {
-                            passRef.current = el;
-                          }}
-                          id="password"
-                          type="password"
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          onFocus={(e) => onFieldFocus(e.currentTarget)}
-                          placeholder="••••••••"
-                          className={[
-                            "h-11 w-full rounded-2xl border border-white/10 bg-white/5 px-4 text-[16px] sm:text-[14px]",
-                            "text-white/90 outline-none placeholder:text-white/35 transition focus:border-white/20 focus:bg-white/[0.06]",
-                          ].join(" ")}
-                        />
+                        <div className="relative">
+                          <input
+                            ref={(el) => {
+                              passRef.current = el;
+                            }}
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            onFocus={(e) => onFieldFocus(e.currentTarget)}
+                            placeholder="••••••••"
+                            className={[
+                              "h-11 w-full rounded-2xl border border-white/10 bg-white/5 pl-4 pr-11 text-[16px] sm:text-[14px]",
+                              "text-white/90 outline-none placeholder:text-white/35 transition focus:border-white/20 focus:bg-white/[0.06]",
+                            ].join(" ")}
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((v) => !v)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            className={[
+                              "absolute right-2 top-1/2 -translate-y-1/2",
+                              "inline-flex h-9 w-9 items-center justify-center rounded-xl",
+                              "text-white/45 transition hover:text-white/80 hover:bg-white/[0.06]",
+                              "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                              "active:scale-[0.98]",
+                            ].join(" ")}
+                            tabIndex={0}
+                          >
+                            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                          </button>
+                        </div>
                       </div>
 
                       <label className="flex items-center justify-between gap-3 pt-1 text-[12px] text-white/65">

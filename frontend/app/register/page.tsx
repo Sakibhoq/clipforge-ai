@@ -54,6 +54,40 @@ function Spinner() {
   );
 }
 
+function EyeIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12s-4 7.5-10.5 7.5S1.5 12 1.5 12Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M2 12s3.5-6.5 10-6.5c2.1 0 3.9.6 5.4 1.4M22 12s-3.5 6.5-10 6.5c-2.1 0-3.9-.6-5.4-1.4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.2 10.2A3 3 0 0 0 12 15a3 3 0 0 0 1.8-.6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -173,6 +207,7 @@ function Field({
   placeholder,
   value,
   onChange,
+  onFocus,
 }: {
   id: string;
   label: string;
@@ -182,6 +217,7 @@ function Field({
   placeholder?: string;
   value: string;
   onChange: (v: string) => void;
+  onFocus?: (el: HTMLInputElement) => void;
 }) {
   return (
     <div className="grid gap-2">
@@ -195,6 +231,7 @@ function Field({
         inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => onFocus?.(e.currentTarget)}
         placeholder={placeholder}
         className={[
           // iOS: prevent input zoom by keeping >=16px on small screens
@@ -239,6 +276,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agree, setAgree] = useState(true);
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -447,6 +486,7 @@ export default function RegisterPage() {
                           placeholder="Your name"
                           value={name}
                           onChange={setName}
+                          onFocus={onFieldFocus}
                         />
                         <Field
                           id="email"
@@ -456,16 +496,45 @@ export default function RegisterPage() {
                           placeholder="you@domain.com"
                           value={email}
                           onChange={setEmail}
+                          onFocus={onFieldFocus}
                         />
-                        <Field
-                          id="password"
-                          label="Password"
-                          type="password"
-                          autoComplete="new-password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={setPassword}
-                        />
+
+                        <div className="grid gap-2">
+                          <label className="text-[12px] font-medium text-white/75" htmlFor="password">
+                            Password
+                          </label>
+
+                          <div className="relative">
+                            <input
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              autoComplete="new-password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              onFocus={(e) => onFieldFocus(e.currentTarget)}
+                              placeholder="••••••••"
+                              className={[
+                                "h-11 w-full rounded-2xl border border-white/10 bg-white/5 pl-4 pr-11 text-[16px] sm:text-[14px]",
+                                "text-white/90 outline-none placeholder:text-white/35 transition focus:border-white/20 focus:bg-white/[0.06]",
+                              ].join(" ")}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword((v) => !v)}
+                              aria-label={showPassword ? "Hide password" : "Show password"}
+                              className={[
+                                "absolute right-2 top-1/2 -translate-y-1/2",
+                                "inline-flex h-9 w-9 items-center justify-center rounded-xl",
+                                "text-white/45 transition hover:text-white/80 hover:bg-white/[0.06]",
+                                "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                                "active:scale-[0.98]",
+                              ].join(" ")}
+                            >
+                              {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                            </button>
+                          </div>
+                        </div>
 
                         <label className="flex items-start gap-2 pt-1 text-[12px] text-white/65">
                           <input

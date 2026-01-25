@@ -1,3 +1,4 @@
+// frontend/app/(marketing)/pricing/page.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -6,17 +7,16 @@ import { BRAND } from "@/lib/brand";
 
 /* =========================================================
    Orbito — Pricing Page (Marketing)
-   - 4 tiers: Free Trial / Starter / Creator / Studio
-   - Monthly/Yearly toggle (side-by-side, default Yearly)
-   - Credit Packs slider at TOP (Creator only)
-   - Creator Yearly = 3600 credits upfront (per year)
-   - Discount applies ONLY in Yearly mode
 
-   Mobile polish (this pass):
-   - Safer small-screen spacing + typography
-   - Reduce heavy glow effects on mobile (keep premium feel)
-   - Make comparison section scrollable (handled in Part 2)
-   - No behavior/logic changes
+   FIXES:
+   - Sticky navbar compatibility:
+     DO NOT set overflow on the page root (overflow-x-hidden breaks sticky).
+   - Double-scrollbar compatibility:
+     No page-level vertical scroll container; background is fixed.
+
+   Mobile polish:
+   - Softer glows on mobile
+   - Comparison horizontally scrollable only
 ========================================================= */
 
 function CheckIcon() {
@@ -104,7 +104,6 @@ function Divider() {
 function HoverSheen() {
   return (
     <>
-      {/* heavy blur sheen hidden on mobile to reduce visual noise + perf */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -inset-10 hidden opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 sm:block"
@@ -428,9 +427,6 @@ function FAQItem({
 }
 
 export default function Page() {
-  /* ===========================
-     STATE
-  =========================== */
   const [mode, setMode] = useState<BillingMode>("yearly");
   const [pack, setPack] = useState<number>(1);
 
@@ -452,18 +448,11 @@ export default function Page() {
 
   const toggleBenefits = (k: keyof typeof openBenefits) =>
     setOpenBenefits((p) => ({ ...p, [k]: !p[k] }));
-
   const toggleFaq = (k: string) => setFaqOpen((p) => ({ ...p, [k]: !p[k] }));
 
-  /* ===========================
-     TIERS / CREDITS
-  =========================== */
   const trialCredits = 60;
-
-  // Starter: fixed, no packs
   const starterMonthlyCredits = 150;
 
-  // Creator: monthly credits vs yearly credits upfront (packs apply)
   const creatorMonthlyCredits = 300;
   const creatorYearlyCreditsUpfront = 3600;
 
@@ -472,20 +461,15 @@ export default function Page() {
       ? creatorYearlyCreditsUpfront * pack
       : creatorMonthlyCredits * pack;
 
-  /* ===========================
-     PRICES
-  =========================== */
   const starterMonthlyPrice = 14.99;
   const creatorMonthlyPrice = 29.99;
 
-  // Studio example baseline for internal math (display hidden-ish)
   const studioMonthlyExample = 99.0;
 
   const yearlyDiscount = 0.51;
   const months = 12;
 
   const creatorMonthlyWithPack = creatorMonthlyPrice * pack;
-
   const creatorYearlyMonthlyEq = creatorMonthlyWithPack * (1 - yearlyDiscount);
   const creatorYearlyTotal = Math.round(creatorYearlyMonthlyEq * months);
 
@@ -496,9 +480,6 @@ export default function Page() {
     studioYearlyMonthlyEqExample * months
   );
 
-  /* ===========================
-     LINKS
-  =========================== */
   const footerLinks = useMemo(
     () => [
       { label: "Features", href: "/features" },
@@ -509,9 +490,6 @@ export default function Page() {
     []
   );
 
-  /* ===========================
-     CONTENT ARRAYS
-  =========================== */
   const tierBullets = useMemo(() => {
     return {
       trial: [
@@ -531,7 +509,11 @@ export default function Page() {
         "Priority processing",
         "Presets + repeatable formats",
       ],
-      studio: ["High-volume credits", "Team seats + roles", "Support + SLA options"],
+      studio: [
+        "High-volume credits",
+        "Team seats + roles",
+        "Support + SLA options",
+      ],
     };
   }, [trialCredits, starterMonthlyCredits, creatorCredits, mode]);
 
@@ -584,29 +566,30 @@ export default function Page() {
   const discountLabel = useMemo(() => "−51%", []);
 
   return (
-    <div className="bg-plain relative">
-      {/* PAGE-LEVEL GLOW (softened on mobile) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+    // IMPORTANT: no overflow on the page root (keeps navbar sticky working)
+    <div className="relative">
+      {/* FIXED PAGE BACKGROUND (no layout height impact) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+      >
         <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.50] hidden sm:block">
+        <div className="absolute inset-0 hidden opacity-[0.50] sm:block">
           <div className="aurora" />
         </div>
 
-        {/* keep blobs on desktop; reduce clutter on mobile */}
         <div className="absolute -top-40 left-[-20%] hidden h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.22),transparent_62%)] blur-3xl sm:block" />
         <div className="absolute top-24 right-[-18%] hidden h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_64%)] blur-3xl sm:block" />
         <div className="absolute bottom-[-18%] left-[10%] hidden h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.14),transparent_65%)] blur-3xl sm:block" />
-
-        <div className="absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
-      <section className="relative mx-auto max-w-6xl px-4 sm:px-6 pb-16 pt-10">
-        {/* HEADER ROW */}
+      <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="text-xs text-white/50">• Pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Credit-based. <span className="grad-text">Scale when it works.</span>
+              Credit-based.{" "}
+              <span className="grad-text">Scale when it works.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
               Start free. Upgrade when you’re ready for more throughput. Packs
@@ -618,12 +601,9 @@ export default function Page() {
           <Toggle mode={mode} setMode={setMode} discountLabel={discountLabel} />
         </div>
 
-        {/* TOP PACKS BAR */}
         <PacksBar pack={pack} setPack={setPack} />
 
-        {/* PRICING GRID */}
         <div className="mt-8 grid gap-5 md:grid-cols-4">
-          {/* Free Trial */}
           <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
@@ -657,7 +637,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Starter */}
           <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
@@ -702,9 +681,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Creator */}
           <div className="group surface relative p-5 sm:p-6 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
-            {/* subtle highlight */}
             <div className="pointer-events-none absolute -inset-10 opacity-70">
               <div className="absolute inset-0 bg-[radial-gradient(520px_280px_at_40%_25%,rgba(167,139,250,0.18),transparent_62%)]" />
               <div className="absolute inset-0 bg-[radial-gradient(520px_280px_at_70%_45%,rgba(125,211,252,0.14),transparent_62%)]" />
@@ -777,7 +754,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Studio */}
           <div className="group surface relative overflow-hidden p-5 sm:p-6 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
             <div className="relative">
@@ -831,8 +807,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* (Part 2 continues: Comparison, FAQ, CTA, Footer) */}
-        {/* COMPARISON */}
         <section className="mt-14">
           <div className="group surface relative overflow-hidden p-5 sm:p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <HoverSheen />
@@ -856,14 +830,11 @@ export default function Page() {
                     {mode === "yearly" ? "Yearly" : "Monthly"}
                   </span>{" "}
                   +{" "}
-                  <span className="text-white/80 font-medium">
-                    {pack}× pack
-                  </span>
+                  <span className="text-white/80 font-medium">{pack}× pack</span>
                 </div>
               </div>
 
-              {/* mobile-safe horizontal scroll */}
-              <div className="mt-6 -mx-4 overflow-x-auto px-4">
+              <div className="mt-6 -mx-4 overflow-x-auto overflow-y-hidden px-4">
                 <div className="min-w-[760px] rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="grid grid-cols-5 gap-3 pb-3 text-xs text-white/55">
                     <div className="text-white/65">Feature</div>
@@ -939,7 +910,6 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FAQ */}
         <section className="mt-14">
           <div className="surface p-5 sm:p-6 md:p-8">
             <div className="text-xs text-white/50">• FAQ</div>
@@ -992,7 +962,6 @@ export default function Page() {
           </div>
         </section>
 
-        {/* CTA STRIP */}
         <section className="mt-14">
           <div className="group surface relative overflow-hidden p-5 sm:p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <div className="absolute inset-0 hidden sm:block">
@@ -1027,7 +996,6 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FOOTER */}
         <footer className="pb-6 pt-12 text-xs text-white/45">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>© 2026 • {BRAND.name} by Sakib LLC</div>

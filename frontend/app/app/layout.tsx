@@ -71,7 +71,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-    // IMPORTANT: run once. router is stable in Next App Router.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -90,7 +89,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
 
-    // Prevent iOS rubber-band scroll while menu open
     const onTouchMove = (e: TouchEvent) => {
       e.preventDefault();
     };
@@ -105,7 +103,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [mobileOpen]);
 
   useEffect(() => {
-    // Close mobile menu when navigating
     setMobileOpen(false);
   }, [pathname]);
 
@@ -127,15 +124,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   function isActive(href: string) {
     const h = normalizePath(href);
 
-    // Overview ONLY on exact /app
     if (h === "/app") return activeTab === "";
-
-    // Others match first segment after /app
     if (h.startsWith("/app/")) {
       const tab = h.slice("/app/".length).split("/")[0] || "";
       return activeTab === tab;
     }
-
     return false;
   }
 
@@ -163,22 +156,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const emailLabel = useMemo(() => me?.email ?? "Account", [me]);
 
+  // bump this when you want to force-refresh the mark (CDN/browser cache)
+  const logoV = "orb-1";
+
   return (
     <div
       className={cx(
-        "min-h-[100svh] bg-plain relative overflow-x-hidden",
+        // IMPORTANT: no 100vh/100svh/min-h here -> prevents creating a competing scroll container
+        "relative bg-plain overflow-x-hidden",
         "[padding-left:env(safe-area-inset-left)] [padding-right:env(safe-area-inset-right)]"
       )}
     >
-      {/* Background */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      {/* Background: fixed behind everything, never participates in height */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 opacity-[0.55]">
           <div className="aurora" />
         </div>
         <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.18),transparent_62%)] blur-3xl" />
         <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.14),transparent_64%)] blur-3xl" />
         <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.12),transparent_65%)] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.06] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
       {/* Top bar */}
@@ -191,9 +187,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {/* Brand */}
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="text-sm font-semibold tracking-tight text-white">
-              Orbito
+            <Link href="/" className="group inline-flex items-center gap-3 min-w-0">
+              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  style={{
+                    background:
+                      "radial-gradient(60px 60px at 50% 50%, rgba(167,139,250,0.35), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(125,211,252,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(45,212,191,0.22), transparent 70%)",
+                    filter: "blur(10px)",
+                  }}
+                />
+                <img
+                  src={`/orbito-mark.svg?v=${logoV}`}
+                  alt="Orbito logo"
+                  width={22}
+                  height={22}
+                  style={{ display: "block" }}
+                />
+              </span>
+
+              {/* Bigger wordmark */}
+              <span className="text-[18px] sm:text-[19px] font-semibold tracking-[-0.01em] text-white/95">
+                Orbito
+              </span>
             </Link>
+
             <span className="text-xs text-white/40">/</span>
             <span className="text-xs text-white/60">App</span>
           </div>
@@ -210,17 +229,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Right */}
           <div className="flex items-center gap-3">
             <div className="hidden md:block text-right">
-              <div className="text-xs text-white/60">
-                {loading ? "Loading…" : me ? emailLabel : "Signed out"}
-              </div>
-              <div className="text-[11px] text-white/40">
-                {loading ? "—" : me ? `Plan: ${planLabel}` : "—"}
-              </div>
+              <div className="text-xs text-white/60">{loading ? "Loading…" : me ? emailLabel : "Signed out"}</div>
+              <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
             </div>
 
-            <div className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[12px] text-white/80">
+            {/* Slightly bigger credits pill */}
+            <div className="rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-2 text-[13px] text-white/85">
               <span className="text-white/60">Credits</span>{" "}
-              <span className="font-semibold">
+              <span className="font-semibold tabular-nums">
                 {loading ? "—" : typeof me?.credits === "number" ? me.credits : "—"}
               </span>
             </div>
@@ -244,24 +260,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile nav (full-screen panel, safe-area aware) */}
+        {/* Mobile nav */}
         {mobileOpen && (
           <div className="md:hidden border-t border-white/10 bg-black/70 backdrop-blur">
             <div
               className={cx(
                 "mx-auto max-w-6xl px-6 py-4 grid gap-2",
-                "max-h-[calc(100svh-72px)] overflow-auto",
                 "[padding-bottom:calc(env(safe-area-inset-bottom)+1rem)]"
               )}
             >
-              {/* Optional account line for mobile */}
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="text-xs text-white/60">
-                  {loading ? "Loading…" : me ? emailLabel : "Signed out"}
-                </div>
-                <div className="mt-1 text-[11px] text-white/40">
-                  {loading ? "—" : me ? `Plan: ${planLabel}` : "—"}
-                </div>
+                <div className="text-xs text-white/60">{loading ? "Loading…" : me ? emailLabel : "Signed out"}</div>
+                <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
               </div>
 
               {navItem("/app", "Overview", true)}
@@ -283,8 +293,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      {/* Page content */}
-      <main className="relative mx-auto max-w-6xl px-6 py-8 sm:py-10">{children}</main>
+      {/* Page content (add safe-area bottom padding so body scroll feels right on iOS) */}
+      <main className="relative mx-auto max-w-6xl px-6 py-8 sm:py-10 pb-[max(16px,env(safe-area-inset-bottom))]">
+        {children}
+      </main>
     </div>
   );
 }
