@@ -114,7 +114,9 @@ function isPlainObject(v: any): v is Record<string, any> {
  * - Cookie-auth by default
  * - Throws a structured object on non-2xx
  */
-export async function apiFetch<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+type ApiFetchInit = Omit<RequestInit, "body"> & { body?: any };
+
+export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const base = getApiBase();
 
   // If base is "/api", keep relative routing.
