@@ -65,13 +65,13 @@ export default function AutomationsPage() {
     try {
       const rule = (await apiFetch<Rule>("/automations/rules", {
         method: "POST",
-        body: {
+        body: JSON.stringify({
           name: preset.name,
           trigger: preset.trigger,
           action: preset.action,
           enabled: true,
           config: preset.config,
-        },
+        }),
       })) as Rule;
       setRules((prev) => [rule, ...prev]);
     } finally {
