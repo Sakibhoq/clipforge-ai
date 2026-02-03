@@ -11,12 +11,15 @@ from routers.auth import get_current_user
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
+# ---------------------------------------------------------
+# List jobs (scoped to user)
+# ---------------------------------------------------------
+
 @router.get("")
 def list_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # ✅ Scope jobs to the authenticated user via Upload ownership
     jobs = (
         db.query(Job)
         .join(Upload, Job.upload_id == Upload.id)
@@ -25,7 +28,6 @@ def list_jobs(
         .all()
     )
 
-    # Keep response shape stable
     return [
         {
             "id": job.id,
@@ -33,10 +35,15 @@ def list_jobs(
             "status": job.status,
             "error": job.error,
             "created_at": job.created_at,
+            "updated_at": getattr(job, "updated_at", None),
         }
         for job in jobs
     ]
 
+
+# ---------------------------------------------------------
+# Get single job (polling endpoint)
+# ---------------------------------------------------------
 
 @router.get("/{job_id}")
 def get_job(
@@ -44,10 +51,6 @@ def get_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Fetch a single job by id, scoped to the authenticated user (via Upload ownership).
-    This is the polling endpoint the frontend should use instead of scanning /jobs.
-    """
     job = (
         db.query(Job)
         .join(Upload, Job.upload_id == Upload.id)
@@ -66,4 +69,45 @@ def get_job(
         "error": job.error,
         "created_at": job.created_at,
         "updated_at": getattr(job, "updated_at", None),
+    }
+
+
+# ---------------------------------------------------------
+# Cancel job (NEW — REQUIRED)
+# ---------------------------------------------------------
+
+@router.post("/{job_id}/cancel")
+def cancel_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = (
+        db.query(Job)
+        .join(Upload, Job.upload_id == Upload.id)
+        .filter(Job.id == job_id)
+        .filter(Upload.user_id == current_user.id)
+        .first()
+    )
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # If already finished, treat as no-op
+    if job.status in ("done", "failed", "canceled"):
+        return {
+            "ok": True,
+            "status": job.status,
+        }
+
+    # Mark canceled
+    job.status = "canceled"
+    job.error = "Canceled by user"
+    job.running_stage = None
+
+    db.commit()
+
+    return {
+        "ok": True,
+        "status": "canceled",
     }

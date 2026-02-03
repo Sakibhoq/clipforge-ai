@@ -318,13 +318,9 @@ export default function Page() {
         d: <>Orbito finds the moments, hooks them, and formats them.</>,
       },
       {
-        id: "autopost",
-        t: (
-          <>
-            Auto-post to <H>TikTok</H> / <H>Reels</H> / <H>Shorts</H>
-          </>
-        ),
-        d: <>Schedule once. Stay consistent while you sleep.</>,
+        id: "export",
+        t: <>Export and post</>,
+        d: <>Download clean outputs now. Auto-posting is coming soon.</>,
       },
     ],
     []
@@ -342,22 +338,14 @@ export default function Page() {
         desc: <>Highlights, hooks, and clean segments — automatically.</>,
       },
       {
-        id: "formats",
-        title: (
-          <>
-            Built for <H>Reels</H>, <H>TikTok</H>, and <H>Shorts</H>
-          </>
-        ),
-        desc: <>Captions + pacing that feels native on every platform.</>,
+        id: "captions",
+        title: <>Premium captions + smart reframing</>,
+        desc: <>Word-by-word captions and speaker-first crops built for vertical.</>,
       },
       {
-        id: "autopublish",
-        title: (
-          <>
-            Auto-post to <H>Instagram</H>, <H>TikTok</H> & <H>YouTube</H>
-          </>
-        ),
-        desc: <>Set a cadence once. Orbito keeps you consistent every week.</>,
+        id: "export",
+        title: <>Export-ready outputs</>,
+        desc: <>Crisp video, clean audio, and formats that post cleanly.</>,
       },
     ],
     []
@@ -390,20 +378,6 @@ export default function Page() {
         n: "3",
         title: "Review & edit (optional)",
         desc: "Approve clips, tweak captions, export — or keep it hands-off.",
-      },
-      {
-        id: "hiw-4",
-        n: "4",
-        title: (
-          <>
-            Auto-post to <H>TikTok</H>, <H>Reels</H> & <H>Shorts</H>
-          </>
-        ),
-        desc: (
-          <>
-            Schedule <H>TikTok</H>, <H>Instagram</H> <H>Reels</H>, and <H>YouTube Shorts</H>.
-          </>
-        ),
       },
     ],
     []
@@ -440,11 +414,11 @@ export default function Page() {
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
                   {BRAND.name} finds your best moments, formats them for <H>TikTok</H>, <H>Instagram</H>{" "}
-                  <H>Reels</H>, and <H>YouTube Shorts</H> — then you edit, download, or auto-post.
+                  <H>Reels</H>, and <H>YouTube Shorts</H> — then you edit and download. Auto-posting is coming next.
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <a href="/register" className="btn-aurora">
+                  <a href="/start-trial" className="btn-aurora">
                     Start free trial
                   </a>
                   <a href="/how-it-works" className="btn-ghost">
@@ -457,7 +431,7 @@ export default function Page() {
                   <span className="text-white/75">
                     Paste <H>YouTube</H> / upload
                   </span>{" "}
-                  → AI clips → quick review → schedule <H>TikTok</H> / <H>Reels</H> / <H>Shorts</H>
+                  → AI clips → quick review → export
                 </div>
               </div>
 
@@ -561,7 +535,7 @@ export default function Page() {
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
             {howItWorks.map((s) => (
               <div
                 key={s.id}
@@ -585,12 +559,62 @@ export default function Page() {
             <a href="/how-it-works" className="btn-ghost">
               See full workflow
             </a>
-            <a href="/register" className="btn-aurora">
+            <a href="/start-trial" className="btn-aurora">
               Start free trial
             </a>
             <a href="/contact" className="btn-ghost">
               Contact
             </a>
+          </div>
+        </section>
+
+        {/* COMING SOON */}
+        <section id="labs" className="pt-12 sm:pt-14">
+          <div
+            data-reveal
+            className="reveal relative overflow-hidden rounded-3xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]"
+          >
+            <div
+              aria-hidden="true"
+              className="absolute -inset-10 opacity-80 blur-2xl animate-[labGlow_10s_ease-in-out_infinite]"
+              style={{
+                background:
+                  "conic-gradient(from 120deg, rgba(45,212,191,0.32), rgba(125,211,252,0.32), rgba(167,139,250,0.3), rgba(45,212,191,0.32))",
+              }}
+            />
+            <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Clipforge Labs</span>
+                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-3 py-1 text-emerald-100/90">
+                  Coming soon
+                </span>
+              </div>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                AI video + AI song generation
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
+                We’re launching it at clipforge.us while Orbito stays focused on premium clipping. Early access will
+                be announced inside Orbito.
+              </p>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {[
+                  {
+                    t: "AI video generation",
+                    d: "Short-form visuals on demand — ideation to render.",
+                  },
+                  {
+                    t: "AI song generation",
+                    d: "Original tracks designed for short-form pacing.",
+                  },
+                ].map((x) => (
+                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
+                    <div className="text-sm font-semibold">{x.t}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 

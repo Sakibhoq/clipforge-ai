@@ -8,14 +8,32 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import auth, upload, jobs, health, clips, billing
+from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront
 from routers import storage as storage_router
 from routers import upload_register
+
+# ---------------------------------------------------------
+# Feature flags
+# ---------------------------------------------------------
+ENABLE_YOUTUBE_INGEST = (os.getenv("ENABLE_YOUTUBE_INGEST") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # ---------------------------------------------------------
 # App
 # ---------------------------------------------------------
 app = FastAPI(title="Clipforge API")
+
+# ---------------------------------------------------------
+# Optional: YouTube automated ingest (DISABLED by default in prod)
+# ---------------------------------------------------------
+if ENABLE_YOUTUBE_INGEST:
+    from routers.youtube_ingest import router as youtube_router
+
+    app.include_router(youtube_router)
 
 # ---------------------------------------------------------
 # CORS (cookie auth)
@@ -70,6 +88,10 @@ def root():
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(oauth.router)
+app.include_router(social.router)
+app.include_router(automations.router)
+app.include_router(storefront.router)
 
 app.include_router(upload.router)
 app.include_router(upload_register.router)

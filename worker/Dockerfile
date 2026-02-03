@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     git \
     libglib2.0-0 \
     libgl1 \
+    fonts-dejavu-core \
+    fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

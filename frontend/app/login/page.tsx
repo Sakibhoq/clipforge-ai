@@ -161,30 +161,82 @@ function TikTokIcon() {
   );
 }
 
-type Provider = "google" | "apple" | "facebook" | "tiktok";
+function DiscordIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
+      <path
+        d="M7.5 7.5c2.7-1.1 6.3-1.1 9 0 1.7 2 2.7 4.3 2.9 6.9-2.1 1.6-4.2 2.2-6.4 2.4l-.8-1.2c.7-.1 1.4-.3 2.1-.6-2.4 1.1-4.9 1.1-7.3 0 .7.3 1.4.5 2.1.6l-.8 1.2c-2.2-.2-4.3-.8-6.4-2.4.2-2.6 1.2-4.9 2.9-6.9Z"
+        fill="rgba(255,255,255,0.86)"
+      />
+      <circle cx="9.3" cy="12" r="1.2" fill="rgba(0,0,0,0.7)" />
+      <circle cx="14.7" cy="12" r="1.2" fill="rgba(0,0,0,0.7)" />
+    </svg>
+  );
+}
+
+function YouTubeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
+      <path
+        d="M22 7.5s-.2-1.6-.8-2.3c-.7-.9-1.5-.9-1.9-1-2.7-.2-6.8-.2-6.8-.2h-.1s-4.1 0-6.8.2c-.4 0-1.2.1-1.9 1C3 6 2.8 7.5 2.8 7.5S2.6 9.3 2.6 11v1.6c0 1.7.2 3.5.2 3.5s.2 1.6.8 2.3c.7.9 1.7.9 2.1 1 1.5.1 6.3.2 6.3.2s4.1 0 6.8-.2c.4 0 1.2-.1 1.9-1 .6-.7.8-2.3.8-2.3s.2-1.8.2-3.5V11c0-1.7-.2-3.5-.2-3.5Z"
+        fill="rgba(255,255,255,0.86)"
+      />
+      <path d="M10 9.2 15.4 12 10 14.8V9.2Z" fill="rgba(0,0,0,0.75)" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none">
+      <rect
+        x="5"
+        y="5"
+        width="14"
+        height="14"
+        rx="4"
+        stroke="rgba(255,255,255,0.86)"
+        strokeWidth="1.6"
+      />
+      <circle cx="12" cy="12" r="3.4" stroke="rgba(255,255,255,0.86)" strokeWidth="1.6" />
+      <circle cx="16.6" cy="7.6" r="1" fill="rgba(255,255,255,0.86)" />
+    </svg>
+  );
+}
+
+type Provider = "google" | "apple" | "facebook" | "tiktok" | "discord" | "youtube" | "instagram";
+type ProviderStatus = Record<Provider, boolean>;
 
 function providerLabel(p: Provider) {
   if (p === "google") return "Google";
   if (p === "apple") return "Apple";
   if (p === "facebook") return "Facebook";
-  return "TikTok";
+  if (p === "tiktok") return "TikTok";
+  if (p === "discord") return "Discord";
+  if (p === "youtube") return "YouTube";
+  return "Instagram";
 }
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   if (provider === "google") return <GoogleIcon />;
   if (provider === "apple") return <AppleIcon />;
   if (provider === "facebook") return <FacebookIcon />;
-  return <TikTokIcon />;
+  if (provider === "tiktok") return <TikTokIcon />;
+  if (provider === "discord") return <DiscordIcon />;
+  if (provider === "youtube") return <YouTubeIcon />;
+  return <InstagramIcon />;
 }
 
 function ProviderButton({
   provider,
   onClick,
   disabled,
+  badge,
 }: {
   provider: Provider;
   onClick: () => void;
   disabled?: boolean;
+  badge?: string | null;
 }) {
   const label = providerLabel(provider);
   return (
@@ -203,6 +255,11 @@ function ProviderButton({
         <ProviderIcon provider={provider} />
         Continue with {label}
       </span>
+      {badge ? (
+        <span className="absolute right-3 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
+          {badge}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -328,11 +385,8 @@ export default function LoginPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [socialBusy, setSocialBusy] = useState<Provider | null>(null);
-
-  const [socialNoAccount, setSocialNoAccount] = useState<{
-    provider: Provider;
-    message: string;
-  } | null>(null);
+  const [socialError, setSocialError] = useState<string | null>(null);
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -368,6 +422,36 @@ export default function LoginPage() {
     };
   }, [router, nextPath]);
 
+  useEffect(() => {
+    let mounted = true;
+    apiFetch<{ providers: Array<{ provider: Provider; configured: boolean }> }>("/auth/oauth/providers")
+      .then((res) => {
+        if (!mounted) return;
+        const map: ProviderStatus = {
+          google: false,
+          apple: false,
+          facebook: false,
+          tiktok: false,
+          discord: false,
+          youtube: false,
+          instagram: false,
+        };
+        for (const p of res.providers || []) {
+          if (p.provider in map) {
+            map[p.provider] = !!p.configured;
+          }
+        }
+        setProviderStatus(map);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setProviderStatus(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // keyboard/focus polish: scroll focused input into view on mobile Safari
   function onFieldFocus(target: HTMLInputElement) {
     lastFocusTsRef.current = Date.now();
@@ -384,16 +468,39 @@ export default function LoginPage() {
     }, 220);
   }
 
+  function socialErrorMessage(e: any): string {
+    if (!e) return "Social login failed. Please try again.";
+    const detail = e?.detail || e?.message || e?.error;
+    if (typeof detail === "string") return detail;
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return "Social login failed. Please try again.";
+    }
+  }
+
   async function onSocial(provider: Provider) {
+    if (providerStatus && providerStatus[provider] === false) {
+      setSocialError(`${providerLabel(provider)} OAuth is not configured yet.`);
+      return;
+    }
     setFormError(null);
-    setSocialNoAccount(null);
+    setSocialError(null);
     setSocialBusy(provider);
     try {
-      await new Promise((r) => setTimeout(r, 420));
-      setSocialNoAccount({
-        provider,
-        message: `No ${providerLabel(provider)} account found for Orbito.`,
-      });
+      const data = (await apiFetch(`/auth/oauth/${provider}/start`, {
+        method: "POST",
+        body: { next: nextPath },
+      })) as any;
+
+      const url = data?.url;
+      if (!url) {
+        setSocialError("Social login failed. Please try again.");
+        return;
+      }
+      window.location.href = url;
+    } catch (e) {
+      setSocialError(socialErrorMessage(e));
     } finally {
       setSocialBusy(null);
     }
@@ -402,7 +509,7 @@ export default function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    setSocialNoAccount(null);
+    setSocialError(null);
 
     const em = email.trim();
     if (!em || !em.includes("@")) return setFormError("Enter a valid email.");
@@ -475,8 +582,8 @@ export default function LoginPage() {
       </div>
 
       {/* Layout: mobile-first scroll; desktop can look centered without forcing 100vh traps */}
-      <main className="relative mx-auto max-w-6xl px-6 pb-16 pt-10 sm:pt-12">
-        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
+      <main className="relative mx-auto max-w-6xl px-6 pb-16 pt-10 sm:pt-12 overflow-visible">
+        <section className="surface relative overflow-visible p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
             <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
@@ -485,7 +592,15 @@ export default function LoginPage() {
           <div className="relative">
             {/* TOP ROW */}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-white/55">• Sign in</div>
+              <div className="flex items-center gap-3 text-xs text-white/55">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+                >
+                  <span aria-hidden="true">←</span> Back
+                </Link>
+                <span>• Sign in</span>
+              </div>
               <div className="flex items-center gap-3 text-[12px] text-white/60">
                 <span className="hidden sm:inline">New here?</span>
                 <Link
@@ -507,13 +622,14 @@ export default function LoginPage() {
                   Sign in to manage uploads, jobs, and clips.
                 </p>
                 <div className="mt-5 text-xs text-white/55">
-                  Providers: <H>Google</H>, <H>Apple</H>, <H>Facebook</H>, <H>TikTok</H>
+                  Providers: <H>Google</H>, <H>Apple</H>, <H>Facebook</H>, <H>TikTok</H>, <H>Discord</H>,{" "}
+                  <H>YouTube</H>, <H>Instagram</H>
                 </div>
               </div>
 
               {/* RIGHT */}
               <div className="lg:col-span-7">
-                <div className="surface-soft relative overflow-hidden p-5 sm:p-6 md:p-7">
+                <div className="surface-soft relative overflow-visible p-5 sm:p-6 md:p-7">
                   <HoverSheen />
 
                   <div className="relative">
@@ -524,26 +640,25 @@ export default function LoginPage() {
 
                     {/* SOCIAL */}
                     <div className="mt-5 grid gap-2">
-                      <ProviderButton
-                        provider="google"
-                        onClick={() => onSocial("google")}
-                        disabled={!!socialBusy || submitting}
-                      />
-                      <ProviderButton
-                        provider="apple"
-                        onClick={() => onSocial("apple")}
-                        disabled={!!socialBusy || submitting}
-                      />
-                      <ProviderButton
-                        provider="facebook"
-                        onClick={() => onSocial("facebook")}
-                        disabled={!!socialBusy || submitting}
-                      />
-                      <ProviderButton
-                        provider="tiktok"
-                        onClick={() => onSocial("tiktok")}
-                        disabled={!!socialBusy || submitting}
-                      />
+                      {(
+                        [
+                          "google",
+                          "apple",
+                          "facebook",
+                          "tiktok",
+                          "discord",
+                          "youtube",
+                          "instagram",
+                        ] as Provider[]
+                      ).map((p) => (
+                        <ProviderButton
+                          key={p}
+                          provider={p}
+                          onClick={() => onSocial(p)}
+                          disabled={!!socialBusy || submitting || providerStatus?.[p] === false}
+                          badge={providerStatus?.[p] === false ? "Setup needed" : null}
+                        />
+                      ))}
                     </div>
 
                     {socialBusy && (
@@ -553,31 +668,9 @@ export default function LoginPage() {
                       </div>
                     )}
 
-                    {socialNoAccount && (
+                    {socialError && (
                       <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-[12px] leading-5 text-white/70">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-white/80 font-semibold">
-                              {socialNoAccount.message}
-                            </div>
-                            <div className="mt-1 text-white/60">
-                              If you’re new, create an account to continue.
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(
-                                `/register?from=${encodeURIComponent(
-                                  `login_${socialNoAccount.provider}`
-                                )}`
-                              )
-                            }
-                            className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 transition hover:bg-white/8 active:scale-[0.99]"
-                          >
-                            Create account
-                          </button>
-                        </div>
+                        {socialError}
                       </div>
                     )}
 

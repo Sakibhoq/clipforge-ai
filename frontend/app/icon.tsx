@@ -1,37 +1,22 @@
-// frontend/app/icon.tsx
-import { ImageResponse } from "next/og";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export const size = {
   width: 32,
   height: 32,
 };
 
-export const contentType = "image/png";
+export const contentType = "image/svg+xml";
 
 export default function Icon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "transparent",
-        }}
-      >
-        <img
-          src="http://localhost:3000/orbito-mark.svg"
-          width={32}
-          height={32}
-          alt="Orbito"
-        />
-      </div>
-    ),
-    {
-      width: 32,
-      height: 32,
-    }
+  const svg = readFileSync(
+    join(process.cwd(), "public/orbito-mark.svg"),
+    "utf8"
   );
+
+  return new Response(svg, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+    },
+  });
 }

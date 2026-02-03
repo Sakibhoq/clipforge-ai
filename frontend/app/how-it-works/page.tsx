@@ -1,17 +1,19 @@
 // frontend/app/how-it-works/page.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
 /* =========================================================
    Orbito — How it works (Marketing)
-   FIXES:
-   - Bring Navbar back (this route isn't under (marketing) group in your tree)
-   - Remove page-level scroll container to eliminate double scrollbars
-   - Background layers are FIXED so they never affect layout height
-   - Only the document/body scrolls
+
+   FIX (behavior, not layout):
+   - Your Navbar is FIXED on marketing pages and already renders a spacer.
+   - This page also renders <Navbar /> manually, which is correct (route is not under (marketing)),
+     BUT we must ensure we DO NOT create a second spacer or an extra scroll container.
+   - Keep ONLY document/body scrolling (no page-level scroll wrappers).
+   - Background layers remain FIXED and never affect layout height.
 ========================================================= */
 
 function H({ children }: { children: React.ReactNode }) {
@@ -41,28 +43,32 @@ function HoverSheen() {
 }
 
 export default function HowItWorksPage() {
+  // Safety: if something elsewhere accidentally set body overflow hidden, fix it for this route.
+  // (Doesn't change layout; just ensures scroll works.)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const steps = [
     {
       n: "01",
       meta: "10 seconds",
       t: (
         <>
-          Paste a <H>YouTube</H> link (or upload)
+          Paste <H>YouTube</H> or upload once
         </>
       ),
       d: (
         <>
-          Drop your long-form once. Orbito ingests it, stores it, and runs processing in the background — you can leave
-          immediately.
+          Drop your long-form once. Orbito ingests it, stores it, and starts processing in the background — you can
+          leave immediately.
         </>
       ),
-      bullets: [
-        <>
-          Paste <H>YouTube</H> or upload MP4.
-        </>,
-        <>No downloads or setup.</>,
-        <>Dashboard updates automatically.</>,
-      ],
+      bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Runs while you do other work.</>],
     },
     {
       n: "02",
@@ -74,11 +80,11 @@ export default function HowItWorksPage() {
           <H>TikTok</H>.
         </>
       ),
-      bullets: [<>High-retention moments.</>, <>Tight pacing.</>, <>Clean endings.</>],
+      bullets: [<>High-retention moments.</>, <>Speaker-first framing.</>, <>Clean endings.</>],
     },
     {
       n: "03",
-      meta: "Fast edits",
+      meta: "Fast review",
       t: <>Review, polish, export</>,
       d: (
         <>
@@ -87,21 +93,6 @@ export default function HowItWorksPage() {
         </>
       ),
       bullets: [<>Premium captions.</>, <>Safe margins.</>, <>Ready-to-post exports.</>],
-    },
-    {
-      n: "04",
-      meta: "Hands-off",
-      t: (
-        <>
-          Post manually — or auto-post to <H>Instagram</H> / <H>TikTok</H>
-        </>
-      ),
-      d: (
-        <>
-          Download and post yourself, or connect socials and let Orbito publish on a schedule. Paste once. Keep posting.
-        </>
-      ),
-      bullets: [<>Download anytime.</>, <>Schedule posts.</>, <>Stay consistent automatically.</>],
     },
   ] as const;
 
@@ -113,18 +104,15 @@ export default function HowItWorksPage() {
     <>
       forge <H>Shorts</H>
     </>,
-    <>
-      export <H>Reels</H> / <H>TikTok</H>
-    </>,
+    <>export</>,
     <>repeat</>,
   ];
 
   return (
-    <div className="relative overflow-x-hidden bg-transparent">
+    <div className="relative bg-transparent overflow-x-hidden">
       {/* FIXED PAGE BACKGROUND (never affects layout height / never creates scroll containers) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-black" />
-
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
         <div className="absolute inset-0 opacity-[0.55]">
           <div className="aurora" />
@@ -141,6 +129,7 @@ export default function HowItWorksPage() {
       {/* Navbar (needed here because this route isn't under (marketing)/layout.tsx) */}
       <Navbar />
 
+      {/* IMPORTANT: no inner scroll container here. */}
       <main className="relative mx-auto max-w-6xl px-6 pb-24 pt-10 sm:pt-12 [padding-bottom:calc(6rem+env(safe-area-inset-bottom))]">
         <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
@@ -159,6 +148,24 @@ export default function HowItWorksPage() {
               Orbito turns long-form into short-form — fast. Paste a <H>YouTube</H> link, get ready-to-post clips for{" "}
               <H>TikTok</H>, <H>Instagram Reels</H>, and <H>YouTube Shorts</H>.
             </p>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55 md:text-[15px]">
+              Built for creators who want premium output without babysitting timelines.
+            </p>
+
+            <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
+              <div
+                aria-hidden="true"
+                className="absolute -inset-8 opacity-70 blur-2xl animate-[labGlow_10s_ease-in-out_infinite]"
+                style={{
+                  background:
+                    "conic-gradient(from 120deg, rgba(45,212,191,0.32), rgba(125,211,252,0.32), rgba(167,139,250,0.3), rgba(45,212,191,0.32))",
+                }}
+              />
+              <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
+                <span className="font-semibold text-white/90">Clipforge Labs</span> launches next with AI video + music
+                generation. Early access will be announced in-app.
+              </div>
+            </div>
 
             {/* SIGNAL STRIP */}
             <div className="mt-7 flex flex-wrap items-center gap-2 text-xs text-white/55">
@@ -166,20 +173,6 @@ export default function HowItWorksPage() {
                 <span key={i} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
                   {x}
                 </span>
-              ))}
-            </div>
-
-            {/* MICRO VALUE */}
-            <div className="mt-8 grid gap-2 md:grid-cols-3 text-[11px] text-white/60">
-              {[
-                { k: "Hands-off", v: "Runs in the background" },
-                { k: "Platform-ready", v: "Shorts / Reels / TikTok formats" },
-                { k: "Consistent", v: "Batch clips + optional auto-post" },
-              ].map((x) => (
-                <div key={x.k} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <div className="text-white/45">{x.k}</div>
-                  <div className="mt-1 text-white/75">{x.v}</div>
-                </div>
               ))}
             </div>
 
@@ -195,7 +188,7 @@ export default function HowItWorksPage() {
                 }}
               />
 
-              <div className="relative grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="relative grid gap-3 sm:gap-4 md:grid-cols-3">
                 {steps.map((x) => (
                   <div
                     key={x.n}
@@ -239,9 +232,33 @@ export default function HowItWorksPage() {
               </div>
             </div>
 
+            {/* COMING SOON */}
+            <div className="mt-10 grid gap-4 md:grid-cols-2">
+              <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-xs text-white/45">• Coming soon</div>
+                  <div className="mt-2 text-sm font-semibold">Clipforge Labs</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/60">
+                    AI video generation + AI song generation. The next product line will live at clipforge.us.
+                  </div>
+                </div>
+              </div>
+              <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-xs text-white/45">• Roadmap</div>
+                  <div className="mt-2 text-sm font-semibold">Auto-posting & creator workflows</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/60">
+                    Social scheduling, subscriptions, and storefront tools are next once launch stability is locked in.
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* CTA */}
             <div className="mt-12 sm:mt-14 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-              <Link href="/register" className="btn-aurora w-full sm:w-auto text-center active:scale-[0.99]">
+              <Link href="/start-trial" className="btn-aurora w-full sm:w-auto text-center active:scale-[0.99]">
                 Start free trial
               </Link>
               <Link href="/pricing" className="btn-ghost w-full sm:w-auto text-center active:scale-[0.99]">

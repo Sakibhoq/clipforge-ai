@@ -1,25 +1,18 @@
 "use client";
 
 /* =========================================================
-   Clipforge — API helper (cookie auth, Codespaces-safe)
+   Orbito — API helper (cookie auth, Codespaces-safe)
 
    - Backend auth uses HttpOnly cookie: cf_token
    - Therefore ALL requests must include:
        credentials: "include"
 
-   - In Codespaces, frontend runs on:
-       https://<name>-3000.app.github.dev
-     backend runs on:
-       https://<name>-8000.app.github.dev
+   Codespaces:
+     frontend: https://<name>-3000.app.github.dev
+     backend:  https://<name>-8000.app.github.dev
 
-   - You can override everything with:
-       NEXT_PUBLIC_API_BASE=https://...-8000.app.github.dev
-
-   - Local dev IMPORTANT:
-       localhost and 127.0.0.1 are NOT the same cookie site.
-       So we match the browser hostname for the backend base:
-         http://127.0.0.1:8000  (if page is on 127.0.0.1)
-         http://localhost:8000  (if page is on localhost)
+   Production (EC2):
+     NEXT_PUBLIC_API_BASE=https://api.orbito.cc
 ========================================================= */
 
 type ApiErrorShape =
@@ -54,15 +47,29 @@ function guessLocalBackendOrigin(): string | null {
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     return `${proto}//${hostname}:8000`;
   }
-
   return null;
 }
 
 function getApiBase(): string {
-  // Always go through Next.js proxy in dev
+  // Prefer explicit env override (works for EC2 + local + Codespaces)
+  const envBase =
+    process.env.NEXT_PUBLIC_API_BASE ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "";
+
+  if (envBase) return envBase.replace(/\/+$/, "");
+
+  // Codespaces fallback (direct to -8000)
+  const cs = guessCodespacesBackendOrigin();
+  if (cs) return cs;
+
+  // Local fallback (match host)
+  const local = guessLocalBackendOrigin();
+  if (local) return local;
+
+  // Last resort: same-origin proxy (only if you actually implemented it)
   return "/api";
 }
-
 
 async function readJsonSafe(res: Response) {
   const text = await res.text();
@@ -74,17 +81,13 @@ async function readJsonSafe(res: Response) {
   }
 }
 
-function buildErrorPayload(
-  res: Response,
-  url: string,
-  body: any
-): Record<string, any> {
+function buildErrorPayload(res: Response, url: string, body: any): Record<string, any> {
   const payload: Record<string, any> = { status: res.status, url };
 
   if (body && typeof body === "object") {
-    if ("detail" in body) payload.detail = body.detail;
-    if ("message" in body) payload.message = body.message;
-    if ("error" in body) payload.error = body.error;
+    if ("detail" in body) payload.detail = (body as any).detail;
+    if ("message" in body) payload.message = (body as any).message;
+    if ("error" in body) payload.error = (body as any).error;
 
     if (!payload.detail && !payload.message && !payload.error) {
       payload.body = body;
@@ -102,8 +105,7 @@ function isPlainObject(v: any): v is Record<string, any> {
   if (v instanceof Blob) return false;
   if (v instanceof ArrayBuffer) return false;
   if (v instanceof URLSearchParams) return false;
-  if (typeof ReadableStream !== "undefined" && v instanceof ReadableStream)
-    return false;
+  if (typeof ReadableStream !== "undefined" && v instanceof ReadableStream) return false;
   return Object.prototype.toString.call(v) === "[object Object]";
 }
 
@@ -112,18 +114,19 @@ function isPlainObject(v: any): v is Record<string, any> {
  * - Cookie-auth by default
  * - Throws a structured object on non-2xx
  */
-export async function apiFetch<T = any>(
-  path: string,
-  init: RequestInit = {}
-): Promise<T> {
+export async function apiFetch<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const base = getApiBase();
 
-  const url = path.startsWith("http")
-    ? path
-    : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+  // If base is "/api", keep relative routing.
+  // Otherwise, call backend origin directly.
+  const url =
+    path.startsWith("http")
+      ? path
+      : base === "/api"
+        ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
+        : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
 
   const headers = new Headers(init.headers || {});
-
   let body: RequestInit["body"] = init.body;
 
   if (isPlainObject(body)) {
@@ -143,8 +146,7 @@ export async function apiFetch<T = any>(
       cache: "no-store",
     });
   } catch (e: any) {
-    const err: ApiErrorShape = { message: e?.message || "Failed to fetch", url };
-    throw err;
+    throw { message: e?.message || "Failed to fetch", url } satisfies ApiErrorShape;
   }
 
   const parsed = await readJsonSafe(res);

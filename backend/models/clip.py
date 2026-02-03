@@ -20,3 +20,4 @@ class Clip(Base):
 
     # Optional metadata (v1 simple)
     title = Column(String, nullable=True)
+    hook = Column(String, nullable=True)

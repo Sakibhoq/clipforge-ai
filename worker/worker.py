@@ -12,6 +12,16 @@ import math
 import uuid
 import re
 import traceback
+import faulthandler
+import signal
+import requests
+
+faulthandler.enable()
+try:
+    faulthandler.register(signal.SIGUSR1, all_threads=True)
+except Exception:
+    pass
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -28,6 +38,9 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(ROOT_DIR, ".env"), override=False)
 
 WORKER_NAME = os.getenv("CLIPFORGE_WORKER_NAME", "worker-1")
+
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
+AUTOMATION_WEBHOOK_SECRET = os.getenv("AUTOMATION_WEBHOOK_SECRET", "")
 
 POLL_INTERVAL = float(os.getenv("WORKER_POLL_INTERVAL", "2.0"))
 HEARTBEAT_INTERVAL = float(os.getenv("WORKER_HEARTBEAT_INTERVAL", "10.0"))
@@ -49,6 +62,30 @@ def log(msg: str, *, job_id: Optional[int] = None, level: str = "INFO"):
     if job_id is not None:
         prefix += f"[job:{job_id}]"
     print(prefix, msg, flush=True)
+
+
+def trigger_automations(job_id: int, user_id: int):
+    """
+    Notify backend to run automation rules (best-effort, non-fatal).
+    """
+    if not BACKEND_URL:
+        return
+    try:
+        url = f"{BACKEND_URL.rstrip('/')}/automations/trigger"
+        headers = {}
+        if AUTOMATION_WEBHOOK_SECRET:
+            headers["X-Orbito-Automation-Secret"] = AUTOMATION_WEBHOOK_SECRET
+        requests.post(
+            url,
+            json={"event": "job.completed", "job_id": int(job_id), "user_id": int(user_id)},
+            headers=headers,
+            timeout=8,
+        )
+    except Exception as e:
+        try:
+            log(f"Automation trigger failed: {e}", job_id=job_id, level="WARN")
+        except Exception:
+            pass
 
 # -----------------------------------------------------
 # Job status helpers
@@ -199,16 +236,17 @@ def reclaim_stale_jobs(db):
 
 # =====================================================
 # Clipforge Worker — FINAL (Section 2 / 10)
-# Storage, Download, Video Preflight
+# Storage, Download, Video Preflight (CANCEL-SAFE)
 # =====================================================
 
+import os
+import uuid
+import time
+import signal
+import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Tuple
-
-# -----------------------------------------------------
-# Storage abstraction
-# -----------------------------------------------------
+from typing import Tuple, Optional
 
 from storage import get_storage
 
@@ -219,16 +257,46 @@ from storage import get_storage
 TMP_ROOT = Path(os.getenv("WORKER_TMP_DIR", "/tmp/clipforge"))
 TMP_ROOT.mkdir(parents=True, exist_ok=True)
 
-MAX_SOURCE_BYTES = int(
-    os.getenv("WORKER_MAX_SOURCE_BYTES", str(5 * 1024**3))  # 5 GB
-)
+MAX_SOURCE_BYTES = int(os.getenv("WORKER_MAX_SOURCE_BYTES", str(5 * 1024**3)))  # 5GB
 
 # -----------------------------------------------------
-# Temp helpers
+# Cancel checks (sqlite fallback)
 # -----------------------------------------------------
+
+WORKER_DB_PATH = os.getenv("WORKER_DB_PATH", "/data/app.db")
+CANCEL_POLL_S = float(os.getenv("WORKER_CANCEL_POLL_S", "0.35"))
+
+def is_job_canceled(job_id: int) -> bool:
+    if not job_id:
+        return False
+    try:
+        if not WORKER_DB_PATH or not os.path.exists(WORKER_DB_PATH):
+            return False
+        conn = sqlite3.connect(WORKER_DB_PATH, timeout=0.25)
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT status FROM jobs WHERE id = ?", (int(job_id),))
+            row = cur.fetchone()
+            return bool(row and str(row[0]).lower() == "canceled")
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+# -----------------------------------------------------
+# Filesystem helpers (SELF-CONTAINED)
+# -----------------------------------------------------
+
+def ensure_parent_dir(path: Path) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise RuntimeError(f"Failed to create parent dir for {path}: {e}")
 
 def make_tmp_file(suffix: str) -> Path:
-    return TMP_ROOT / f"{uuid.uuid4().hex}{suffix}"
+    p = TMP_ROOT / f"{uuid.uuid4().hex}{suffix}"
+    ensure_parent_dir(p)
+    return p
 
 def safe_unlink(path: Path):
     try:
@@ -238,8 +306,31 @@ def safe_unlink(path: Path):
         pass
 
 # -----------------------------------------------------
-# Subprocess runner (strict)
+# Subprocess runner (CANCEL-SAFE)
 # -----------------------------------------------------
+
+def _kill_process_tree(proc: subprocess.Popen) -> None:
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+
+    try:
+        proc.wait(timeout=1.5)
+        return
+    except Exception:
+        pass
+
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
 
 def run_subprocess(
     cmd: list,
@@ -247,81 +338,78 @@ def run_subprocess(
     timeout: int,
     desc: str,
     allow_stderr: bool = False,
+    job_id: Optional[int] = None,
 ) -> Tuple[str, str]:
-    """
-    Runs subprocess and returns (stdout, stderr).
-    """
+    start = time.time()
+
     try:
-        p = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=timeout,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"{desc} timed out")
+    except Exception as e:
+        raise RuntimeError(f"{desc} failed to start: {e}")
 
-    stdout = p.stdout.decode(errors="ignore")
-    stderr = p.stderr.decode(errors="ignore")
+    while True:
+        if job_id and is_job_canceled(job_id):
+            _kill_process_tree(proc)
+            raise RuntimeError("Canceled by user")
 
-    if p.returncode != 0 and not allow_stderr:
-        raise RuntimeError(f"{desc} failed:\n{stderr or stdout}")
+        rc = proc.poll()
+        if rc is not None:
+            out = (proc.stdout.read() or b"").decode(errors="ignore")
+            err = (proc.stderr.read() or b"").decode(errors="ignore")
+            if rc != 0 and not allow_stderr:
+                raise RuntimeError(f"{desc} failed:\n{err or out}")
+            return out, err
 
-    return stdout, stderr
+        if timeout and (time.time() - start) > timeout:
+            _kill_process_tree(proc)
+            raise RuntimeError(f"{desc} timed out")
+
+        time.sleep(CANCEL_POLL_S)
 
 # -----------------------------------------------------
-# Source download
+# Source download (CANCEL-SAFE)
 # -----------------------------------------------------
 
-def download_source_video(
-    *,
-    storage_key: str,
-    job_id: int,
-) -> Path:
-    """
-    Streams source video from storage to disk.
-    Fails fast on empty or oversized objects.
-    """
+def download_source_video(*, storage_key: str, job_id: int) -> Path:
     storage = get_storage()
     tmp_path = make_tmp_file(".mp4")
-
-    log(f"Downloading source video: {storage_key}", job_id=job_id)
 
     total = 0
     try:
         with storage.open(storage_key) as body, open(tmp_path, "wb") as f:
             while True:
+                if is_job_canceled(job_id):
+                    raise RuntimeError("Canceled by user")
+
                 chunk = body.read(1024 * 1024)
                 if not chunk:
                     break
+
                 total += len(chunk)
                 if total > MAX_SOURCE_BYTES:
                     raise RuntimeError("Source video exceeds size limit")
+
                 f.write(chunk)
     except Exception:
         safe_unlink(tmp_path)
         raise
 
-    if total <= 0 or not tmp_path.exists():
+    if total <= 0:
         safe_unlink(tmp_path)
-        raise RuntimeError(
-            "Downloaded video is empty (0 bytes). "
-            "Likely presigned upload failed."
-        )
+        raise RuntimeError("Downloaded video is empty (0 bytes)")
 
-    log(f"Download complete ({total / 1024**2:.1f} MB)", job_id=job_id)
     return tmp_path
 
 # -----------------------------------------------------
-# FFprobe helpers
+# FFprobe helpers (CANCEL-SAFE)
 # -----------------------------------------------------
 
-def probe_video_basic(path: Path) -> Tuple[int, int, float]:
-    """
-    Returns (width, height, duration_seconds).
-    Fails fast if video is unreadable or corrupt.
-    """
-    # Duration
+def probe_video_basic(path: Path, *, job_id: Optional[int] = None) -> Tuple[int, int, float]:
     out, _ = run_subprocess(
         [
             "ffprobe",
@@ -332,13 +420,14 @@ def probe_video_basic(path: Path) -> Tuple[int, int, float]:
         ],
         timeout=30,
         desc="ffprobe duration",
+        job_id=job_id,
     )
+
     try:
         duration = float(out.strip())
     except Exception:
         raise RuntimeError("Failed to parse video duration")
 
-    # Dimensions
     out, _ = run_subprocess(
         [
             "ffprobe",
@@ -350,11 +439,12 @@ def probe_video_basic(path: Path) -> Tuple[int, int, float]:
         ],
         timeout=30,
         desc="ffprobe dimensions",
+        job_id=job_id,
     )
+
     try:
         w, h = out.strip().split(",")
-        width = int(w)
-        height = int(h)
+        width, height = int(w), int(h)
     except Exception:
         raise RuntimeError("Failed to parse video dimensions")
 
@@ -363,33 +453,8 @@ def probe_video_basic(path: Path) -> Tuple[int, int, float]:
 
     return width, height, duration
 
-# -----------------------------------------------------
-# Integrated preflight
-# -----------------------------------------------------
-
-def preflight_source_video(
-    *,
-    source_path: Path,
-    job_id: int,
-) -> Tuple[int, int, float]:
-    """
-    Ensures:
-      - readable by ffmpeg
-      - valid dimensions
-      - non-zero duration
-    """
-    log("Preflighting source video", job_id=job_id)
-
-    try:
-        w, h, dur = probe_video_basic(source_path)
-    except Exception as e:
-        raise RuntimeError(
-            f"Video preflight failed: {e}\n"
-            "If you see 'moov atom not found', upload is corrupt."
-        )
-
-    log(f"Video OK — {w}x{h}, {dur:.1f}s", job_id=job_id)
-    return w, h, dur
+def preflight_source_video(*, source_path: Path, job_id: int) -> Tuple[int, int, float]:
+    return probe_video_basic(source_path, job_id=job_id)
 
 # =====================================================
 # END SECTION 2 / 10
@@ -450,6 +515,8 @@ def extract_audio_wav(
         cmd,
         timeout=FFMPEG_TIMEOUT,
         desc="ffmpeg audio extract",
+        allow_stderr=True,
+        job_id=int(job_id),
     )
 
     if not wav_path.exists() or wav_path.stat().st_size <= 0:
@@ -868,6 +935,9 @@ CLIP_TARGET_SECONDS = float(
 CLIP_MAX_SECONDS = float(
     os.getenv("WORKER_CLIP_MAX_SECONDS", "60.0")
 )
+MIN_CLIPS_PER_MINUTE = float(
+    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.8")
+)
 
 SILENCE_PADDING = float(
     os.getenv("WORKER_SILENCE_PADDING", "0.15")
@@ -1040,6 +1110,34 @@ def generate_clip_plans(
             continue
         final.append(c)
 
+    # -------------------------------------------------
+    # Ensure minimum clip count for long videos
+    # -------------------------------------------------
+    try:
+        min_clips = max(1, int(math.ceil((video_duration / 60.0) * MIN_CLIPS_PER_MINUTE)))
+    except Exception:
+        min_clips = 1
+
+    if len(final) < min_clips and video_duration >= CLIP_MIN_SECONDS:
+        # Fallback segmentation should not hard-cap at CLIP_MAX_SECONDS,
+        # otherwise long videos collapse into identical 60s chunks.
+        seg_len = max(CLIP_MIN_SECONDS, video_duration / float(min_clips))
+        generated: List[Dict[str, float]] = []
+        s = 0.0
+        while s < video_duration and len(generated) < min_clips:
+            e = min(s + seg_len, video_duration)
+            if e - s >= CLIP_MIN_SECONDS:
+                generated.append(
+                    {
+                        "start": s,
+                        "end": e,
+                        "duration": e - s,
+                    }
+                )
+            s = e
+        if generated:
+            return generated
+
     return final
 
 # =====================================================
@@ -1051,6 +1149,7 @@ def generate_clip_plans(
 
 HOOK_CONF_THRESHOLD = float(os.getenv("WORKER_HOOK_CONF_THRESHOLD", "0.55"))
 TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "3"))
+MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "8"))
 
 def compute_clip_quality_score(
     *,
@@ -1087,6 +1186,9 @@ def compute_clip_quality_score(
     # motion smoothness: [0..1], higher is better
     motion_score = max(0.0, min(1.0, float(motion_metrics.get("motion_score", 0.60))))
 
+    # hook score: early words feel punchy
+    hook_score = compute_hook_score(words, s, e)
+
     # silence penalty: if the clip is mostly inside silence intervals, penalize
     silence_seconds = 0.0
     for ss, se in silences or []:
@@ -1100,19 +1202,23 @@ def compute_clip_quality_score(
         0.30 * dur_score +
         0.35 * speech_score +
         0.20 * energy_score +
-        0.15 * motion_score
+        0.10 * motion_score +
+        0.05 * hook_score
     ) * silence_penalty
 
     score = max(0.0, min(1.0, float(score)))
     clip["quality_score"] = score
     return clip
 
-def select_top_k_clips(clips: list) -> list:
+def select_top_k_clips(clips: list, *, top_k: Optional[int] = None) -> list:
     """
-    Sort by quality_score desc, keep TOP_K_CLIPS, enforce non-overlap.
+    Sort by quality_score desc, keep top_k, enforce non-overlap.
     """
     if not clips:
         return []
+
+    max_keep = int(top_k or TOP_K_CLIPS)
+    max_keep = max(1, max_keep)
 
     # sort by score then duration (slight preference for longer if tie)
     ordered = sorted(
@@ -1123,7 +1229,7 @@ def select_top_k_clips(clips: list) -> list:
 
     picked = []
     for c in ordered:
-        if len(picked) >= TOP_K_CLIPS:
+        if len(picked) >= max_keep:
             break
         s = float(c["start"]); e = float(c["end"])
         if any(overlaps(s, e, float(p["start"]), float(p["end"])) for p in picked):
@@ -1136,6 +1242,60 @@ def select_top_k_clips(clips: list) -> list:
 
     # ensure rank order is stable
     return picked
+
+HOOK_KEYWORDS = [
+    "wait", "watch", "listen", "here's", "this is", "why", "how", "what",
+    "secret", "mistake", "truth", "nobody", "never", "always", "stop",
+    "new", "best", "worst", "top", "fast", "easy", "simple", "warning",
+]
+
+def compute_hook_score(words: list, clip_start: float, clip_end: float) -> float:
+    """
+    Heuristic hook score from the first few seconds of a clip.
+    """
+    if not words:
+        return 0.0
+
+    window_end = min(clip_end, clip_start + 6.0)
+    head_words = words_in_range(words, clip_start, window_end)
+    text = clean_text(" ".join(str(w.get("word", "")) for w in head_words)).lower()
+    if not text:
+        return 0.0
+
+    score = 0.0
+    if "?" in text:
+        score += 0.12
+    if "!" in text:
+        score += 0.08
+    if any(k in text for k in HOOK_KEYWORDS):
+        score += 0.22
+    if re.match(r"^(why|how|what|when|where|who)\b", text):
+        score += 0.18
+    if re.search(r"\b\d+(\.\d+)?\b", text):
+        score += 0.12
+
+    return max(0.0, min(1.0, score))
+
+def generate_hook_heuristic(snippet: str) -> Tuple[str, float]:
+    """
+    Hook-style string (short, punchy).
+    """
+    s = clean_text(snippet or "")
+    if not s:
+        return ("", 0.1)
+
+    s = re.sub(r"^(um|uh|like|you know)\b[:,]?\s*", "", s, flags=re.IGNORECASE)
+    s = s.strip()
+
+    # Prefer first sentence or question.
+    sentence = re.split(r"(?<=[\.\?\!])\s+", s)[0] if s else s
+    sentence = truncate_text(sentence, 64)
+
+    if len(sentence) < 12:
+        sentence = truncate_text(s, 64)
+
+    conf = 0.6 if len(sentence) >= 14 else 0.4
+    return (sentence, conf)
 
 def generate_title_heuristic(snippet: str) -> Tuple[str, float]:
     """
@@ -1150,8 +1310,8 @@ def generate_title_heuristic(snippet: str) -> Tuple[str, float]:
     s = re.sub(r"^(um|uh|like|you know)\b[:,]?\s*", "", s, flags=re.IGNORECASE)
     s = s.strip()
 
-    # Shorten
-    title = truncate_text(s, 60)
+    # Shorten + Title-ish
+    title = truncate_text(s, 68)
     conf = 0.65 if len(title) >= 14 else 0.45
     return (title, conf)
 
@@ -1794,18 +1954,13 @@ def build_ass_header(
         "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
     )
 
-    # BorderStyle=1 => outline+shadow
-    base = (
-        f"Style: Base,{style['font']},{int(style['font_size'])},"
-        f"{style['primary_color']},&H00FFFFFF,{style['outline_color']},&H00000000,"
-        f"{int(style['bold'])},{int(style['italic'])},0,0,100,100,0,0,"
-        f"1,{int(style['outline'])},{int(style['shadow'])},"
-        f"{int(style['alignment'])},{int(style['margin_h'])},{int(style['margin_h'])},{int(margin_v)},1"
-    )
-
+    # Single-layer karaoke:
+    # - SecondaryColour = base text (unsung)
+    # - PrimaryColour = highlight (sung)
+    karaoke_primary = os.getenv("WORKER_KARAOKE_HIGHLIGHT", "&H0000FFFF")  # bright yellow
     karaoke = (
         f"Style: Karaoke,{style['font']},{int(style['font_size'])},"
-        f"{style['primary_color']},&H0000FFFF,{style['outline_color']},&H00000000,"
+        f"{karaoke_primary},{style['primary_color']},{style['outline_color']},&H00000000,"
         f"{int(style['bold'])},{int(style['italic'])},0,0,100,100,0,0,"
         f"1,{int(style['outline'])},{int(style['shadow'])},"
         f"{int(style['alignment'])},{int(style['margin_h'])},{int(style['margin_h'])},{int(margin_v)},1"
@@ -1819,7 +1974,6 @@ def build_ass_header(
         "\n"
         "[V4+ Styles]\n"
         f"Format: {fmt}\n"
-        f"{base}\n"
         f"{karaoke}\n"
         "\n"
         "[Events]\n"
@@ -1861,19 +2015,59 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
 
     return "".join(parts)
 
+def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> str:
+    """
+    Karaoke text with explicit line breaks using \N.
+    line_indices are indexes into the words list (order preserved).
+    """
+    if not words:
+        return ""
+
+    parts = []
+    for li, idxs in enumerate(line_indices or []):
+        for wi in idxs:
+            if wi >= len(words):
+                continue
+            w = words[wi]
+            try:
+                start = float(w["start"])
+                end = float(w["end"])
+                token = str(w["word"])
+            except Exception:
+                continue
+
+            dur = max(0.0, end - start)
+            dur_cs = int(round(dur * 100.0))
+            dur_cs = _karaoke_clamp_cs(dur_cs)
+            parts.append(rf"{{\k{dur_cs}}}{ass_escape(token)}")
+
+        if li < len(line_indices) - 1:
+            parts.append(r"\N")
+
+    if not parts:
+        return build_karaoke_text(words)
+
+    return "".join(parts)
+
 # -----------------------------------------------------
 # Caption chunking
 # -----------------------------------------------------
 
-def _line_wrap_words(words: list) -> list:
-    toks = [clean_text(w).strip() for w in words if clean_text(w).strip()]
-    if not toks:
+def _wrap_word_indices(words: list) -> list[list[int]]:
+    """
+    Wraps words into line indices (preserves original timing tokens).
+    """
+    cleaned = [clean_text(w).strip() for w in words]
+    if not any(cleaned):
         return []
 
-    lines: list[list[str]] = [[]]
+    lines: list[list[int]] = [[]]
     cur_len = 0
 
-    for t in toks:
+    for i, t in enumerate(cleaned):
+        if not t:
+            continue
+
         # hard word-count wrap
         if len(lines[-1]) >= CAPTION_MAX_WORDS_PER_LINE:
             if len(lines) < CAPTION_MAX_LINES:
@@ -1892,10 +2086,9 @@ def _line_wrap_words(words: list) -> list:
         else:
             cur_len += len(t)
 
-        lines[-1].append(t)
+        lines[-1].append(i)
 
-    out = [" ".join(line).strip() for line in lines if line]
-    return out[:CAPTION_MAX_LINES]
+    return [line for line in lines if line][:CAPTION_MAX_LINES]
 
 def build_caption_blocks(*, clip_words: list) -> list:
     """
@@ -1919,8 +2112,17 @@ def build_caption_blocks(*, clip_words: list) -> list:
             return
 
         raw_tokens = [str(w["word"]) for w in cur if w.get("word")]
-        lines = _line_wrap_words(raw_tokens)
-        blocks.append((float(block_start), float(last_end), cur[:], lines))
+        line_indices = _wrap_word_indices(raw_tokens)
+        lines = []
+        for idxs in line_indices:
+            parts = []
+            for i in idxs:
+                tok = clean_text(raw_tokens[i]).strip()
+                if tok:
+                    parts.append(tok)
+            if parts:
+                lines.append(" ".join(parts))
+        blocks.append((float(block_start), float(last_end), cur[:], lines, line_indices))
 
         cur = []
         block_start = None
@@ -2004,31 +2206,20 @@ def build_ass_subtitles_for_clip(
     blocks = build_caption_blocks(clip_words=clip_words)
 
     events = []
-    for (b_start, b_end, b_words, lines) in blocks:
+    for (b_start, b_end, b_words, lines, line_indices) in blocks:
         s = max(float(clip_start), float(b_start))
         e = min(float(clip_end), float(b_end))
         if e <= s:
             continue
 
-        base_text = r"\N".join(ass_escape(line) for line in lines) if lines else ""
-        karaoke_text = build_karaoke_text(b_words)
-
-        # Base readable layer
-        if base_text:
-            events.append(
-                f"Dialogue: 0,{ass_time(s - clip_start)},{ass_time(e - clip_start)},Base,{base_text}"
-            )
-        else:
+        karaoke_text = build_karaoke_text_for_lines(b_words, line_indices)
+        if not karaoke_text:
             plain = ass_escape(clean_text(" ".join(str(w.get("word", "")) for w in b_words)))
-            if plain:
-                events.append(
-                    f"Dialogue: 0,{ass_time(s - clip_start)},{ass_time(e - clip_start)},Base,{plain}"
-                )
+            karaoke_text = plain
 
-        # Karaoke highlight layer
         if karaoke_text:
             events.append(
-                f"Dialogue: 1,{ass_time(s - clip_start)},{ass_time(e - clip_start)},Karaoke,{karaoke_text}"
+                f"Dialogue: 0,{ass_time(s - clip_start)},{ass_time(e - clip_start)},Karaoke,{karaoke_text}"
             )
 
     return header + "\n" + "\n".join(events) + "\n"
@@ -2059,995 +2250,705 @@ def write_ass_file(
 # =====================================================
 
 # =====================================================
-# Clipforge Worker — FINAL (Section 8 / 10)
-# Rendering / Export Engine — Crop + Scale + Subs + Watermark
-# (FULL + Launch-Ready)
-#
-# Fixes included:
-# - Supports 4:3 in aspect_to_target()
-# - Safe subtitles path escaping for ffmpeg (colon + backslash + apostrophe)
-# - drawtext uses fontfile when provided (more reliable than :font=)
-# - Defensive even-dimension handling + safe clamps
-# - UPDATED: watermark is bigger + more “alive” (pulse alpha + gentle drift + soft box)
+# Orbito Worker — FINAL (Section 8 / 10)
+# Render / Export (MP4)
+# - Global face-based reframing (dynamic crop)
+# - Burn-in captions (ASS)
+# - Watermark overlay (PNG + animated text)
 # =====================================================
 
-from typing import Optional, Tuple, Dict, Any
+from pathlib import Path
+from typing import List, Optional, Dict, Any, Tuple
+import math
 import os
 
 # -----------------------------------------------------
-# Render defaults
+# Watermark config
 # -----------------------------------------------------
 
-RENDER_CRF = int(os.getenv("WORKER_RENDER_CRF", "20"))          # 18-23 typical
-RENDER_PRESET = os.getenv("WORKER_RENDER_PRESET", "veryfast")  # faster for launch
-RENDER_FPS = int(os.getenv("WORKER_RENDER_FPS", "30"))
-RENDER_AUDIO_BITRATE = os.getenv("WORKER_RENDER_AUDIO_BR", "128k")
-RENDER_VIDEO_PROFILE = os.getenv("WORKER_RENDER_PROFILE", "high")
-RENDER_PIX_FMT = os.getenv("WORKER_RENDER_PIX_FMT", "yuv420p")
+# Inside the worker container, this must exist.
+# Prefer a baked-in asset for production, with a fallback to mounted public assets in dev.
+_WM_ENV = (os.getenv("WORKER_WATERMARK_PNG") or "").strip()
+_WM_DEFAULT = "/app/assets/orbito-mark.png"
+_WM_FALLBACK = "/app/public/worker/orbito-mark.png"
+if _WM_ENV:
+    WATERMARK_PNG_PATH = _WM_ENV
+elif os.path.exists(_WM_DEFAULT):
+    WATERMARK_PNG_PATH = _WM_DEFAULT
+else:
+    WATERMARK_PNG_PATH = _WM_FALLBACK
 
-RENDER_TIMEOUT = int(os.getenv("WORKER_RENDER_TIMEOUT", "3600"))  # 60 min/clip
+WATERMARK_LOGO_W = int(os.getenv("WORKER_WATERMARK_LOGO_W", "300"))
+WATERMARK_ALPHA = float(os.getenv("WORKER_WATERMARK_ALPHA", "0.88"))
 
-# Watermark controls
-WATERMARK_TEXT = os.getenv("WORKER_WATERMARK_TEXT", "Clipforge")
-WATERMARK_FONT = os.getenv("WORKER_WATERMARK_FONT", "Montserrat")
-WATERMARK_FONTFILE = os.getenv("WORKER_WATERMARK_FONTFILE", "")  # optional absolute path in container
+WATERMARK_LEFT_PAD = int(os.getenv("WORKER_WATERMARK_LEFT_PAD", "36"))
+WATERMARK_TEXT_GAP = int(os.getenv("WORKER_WATERMARK_TEXT_GAP", "18"))
 
-# Bigger by default (was 36)
-WATERMARK_FONT_SIZE = int(os.getenv("WORKER_WATERMARK_FONT_SIZE", "54"))
+# Text settings (vertical)
+WATERMARK_TEXT = os.getenv("WORKER_WATERMARK_TEXT", "Orbito")
+WATERMARK_TEXT_FONT = os.getenv("WORKER_WATERMARK_TEXT_FONT", "Montserrat")
+WATERMARK_TEXT_FONTFILE = os.getenv("WORKER_WATERMARK_TEXT_FONTFILE", "").strip()
+WATERMARK_TEXT_SIZE = int(os.getenv("WORKER_WATERMARK_TEXT_SIZE", "96"))
 
-# Base alpha (we still pulse it via expression)
-WATERMARK_ALPHA = float(os.getenv("WORKER_WATERMARK_ALPHA", "0.70"))
-
-# Stronger presence
-WATERMARK_OUTLINE = int(os.getenv("WORKER_WATERMARK_OUTLINE", "3"))
-WATERMARK_SHADOW = int(os.getenv("WORKER_WATERMARK_SHADOW", "2"))
-
-WATERMARK_SAFE_PAD = int(os.getenv("WORKER_WATERMARK_SAFE_PAD", "32"))
-WATERMARK_SPEED = float(os.getenv("WORKER_WATERMARK_SPEED", "1.35"))  # motion speed
-
-# “Alive” tuning
-WATERMARK_PULSE_HZ = float(os.getenv("WORKER_WATERMARK_PULSE_HZ", "0.12"))  # slow
-WATERMARK_DRIFT_PX = int(os.getenv("WORKER_WATERMARK_DRIFT_PX", "22"))
-WATERMARK_BOX = int(os.getenv("WORKER_WATERMARK_BOX", "1"))  # 1 = on
-WATERMARK_BOX_PAD = int(os.getenv("WORKER_WATERMARK_BOX_PAD", "10"))
-WATERMARK_BOX_BORDER = int(os.getenv("WORKER_WATERMARK_BOX_BORDER", "2"))
+# Pulse timing (seconds)
+WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "10.0"))
+WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "2.0"))
+WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 
 # -----------------------------------------------------
-# Aspect helpers
+# FFmpeg helpers
 # -----------------------------------------------------
 
-def aspect_to_target(aspect_ratio: str) -> Tuple[int, int]:
+def _ffq(path: Path) -> str:
+    # ffmpeg filter args are sensitive; keep this simple and safe
+    return str(path).replace("\\", "/").replace("'", r"\'")
+
+def build_lerp_expr(samples: list, axis: str) -> str:
     """
-    Returns render output WxH for known aspect labels.
+    Builds an ffmpeg-safe lerp() expression from camera samples.
+    axis: 'x' or 'y'
     """
-    a = (aspect_ratio or "").strip()
-    if a == "1:1":
-        return 1080, 1080
-    if a == "4:5":
-        return 1080, 1350
-    if a == "16:9":
-        return 1920, 1080
-    if a == "4:3":
-        return 1440, 1080
-    # default 9:16
-    return 1080, 1920
+    if not samples or len(samples) < 2:
+        return "0"
 
-def compute_crop_size(
-    *,
-    src_w: int,
-    src_h: int,
-    target_w: int,
-    target_h: int,
-) -> Tuple[int, int]:
-    """
-    Compute crop WxH inside source such that crop matches target aspect.
-    (No letterbox; we crop then scale.)
-    """
-    if src_w <= 0 or src_h <= 0:
-        # conservative fallback
-        w = max(2, int(target_w))
-        h = max(2, int(target_h))
-        w -= w % 2
-        h -= h % 2
-        return w, h
+    expr = ""
+    for i in range(len(samples) - 1):
+        t0, x0, y0 = samples[i]
+        t1, x1, y1 = samples[i + 1]
+        v0 = x0 if axis == "x" else y0
+        v1 = x1 if axis == "x" else y1
 
-    target_aspect = float(target_w) / float(target_h)
-    src_aspect = float(src_w) / float(src_h)
-
-    if src_aspect > target_aspect:
-        # source wider -> crop width
-        crop_h = int(src_h)
-        crop_w = int(round(crop_h * target_aspect))
-    else:
-        # source taller -> crop height
-        crop_w = int(src_w)
-        crop_h = int(round(crop_w / target_aspect))
-
-    crop_w = max(2, min(int(src_w), int(crop_w)))
-    crop_h = max(2, min(int(src_h), int(crop_h)))
-
-    # keep even dims for encoder stability
-    crop_w -= crop_w % 2
-    crop_h -= crop_h % 2
-    return crop_w, crop_h
-
-def _clamp_int(v: float, lo: int, hi: int) -> int:
-    return int(max(lo, min(hi, int(round(v)))))
-
-def _median(vals: list) -> float:
-    if not vals:
-        return 0.0
-    s = sorted(vals)
-    mid = len(s) // 2
-    if len(s) % 2 == 1:
-        return float(s[mid])
-    return 0.5 * (float(s[mid - 1]) + float(s[mid]))
-
-def estimate_clip_centers_from_samples(
-    *,
-    camera_samples: list,
-    clip_start: float,
-    clip_end: float,
-    fallback_x: float,
-    fallback_y: float,
-) -> Tuple[Tuple[float, float], Tuple[float, float]]:
-    """
-    Returns ((cx0, cy0), (cx1, cy1)) for a safe linear pan.
-    If we have no samples in range, return fallback for both.
-    """
-    if not camera_samples:
-        return (fallback_x, fallback_y), (fallback_x, fallback_y)
-
-    in_range = [s for s in camera_samples if clip_start <= float(s[0]) <= clip_end]
-    if len(in_range) < 2:
-        return (fallback_x, fallback_y), (fallback_x, fallback_y)
-
-    # Choose early and late windows
-    n = len(in_range)
-    w = max(1, min(6, n // 6))
-
-    early = in_range[:w]
-    late = in_range[-w:]
-
-    cx0 = _median([float(x) for (_t, x, _y) in early])
-    cy0 = _median([float(y) for (_t, _x, y) in early])
-
-    cx1 = _median([float(x) for (_t, x, _y) in late])
-    cy1 = _median([float(y) for (_t, _x, y) in late])
-
-    return (cx0, cy0), (cx1, cy1)
-
-def build_crop_pan_expressions(
-    *,
-    src_w: int,
-    src_h: int,
-    crop_w: int,
-    crop_h: int,
-    clip_duration: float,
-    center0: Tuple[float, float],
-    center1: Tuple[float, float],
-) -> Tuple[str, str]:
-    """
-    Builds ffmpeg crop x,y expressions that linearly pan from center0->center1.
-    Uses 't' in seconds.
-    """
-    cx0, cy0 = center0
-    cx1, cy1 = center1
-
-    # convert to top-left positions
-    x0 = float(cx0) - float(crop_w) / 2.0
-    y0 = float(cy0) - float(crop_h) / 2.0
-    x1 = float(cx1) - float(crop_w) / 2.0
-    y1 = float(cy1) - float(crop_h) / 2.0
-
-    # Clamp endpoints in python so expressions stay stable
-    x0i = _clamp_int(x0, 0, max(0, int(src_w - crop_w)))
-    y0i = _clamp_int(y0, 0, max(0, int(src_h - crop_h)))
-    x1i = _clamp_int(x1, 0, max(0, int(src_w - crop_w)))
-    y1i = _clamp_int(y1, 0, max(0, int(src_h - crop_h)))
-
-    if clip_duration <= 0.05:
-        return str(x0i), str(y0i)
-
-    d = float(clip_duration)
-    x_expr = f"{x0i}+({x1i}-{x0i})*min(max(t/{d:.6f},0),1)"
-    y_expr = f"{y0i}+({y1i}-{y0i})*min(max(t/{d:.6f},0),1)"
-    return x_expr, y_expr
-
-# -----------------------------------------------------
-# Subtitles + watermark filters
-# -----------------------------------------------------
-
-def _escape_ffmpeg_filter_path(p: str) -> str:
-    """
-    Escape a path for use inside ffmpeg filter args.
-    We escape:
-      - backslash
-      - colon (Windows drive letters / filter parsing)
-      - apostrophe (since we single-quote)
-    """
-    s = (p or "").replace("\\", "/")
-    s = s.replace(":", r"\:")
-    s = s.replace("'", r"\'")
-    return s
-
-def build_subtitles_filter(ass_path: "Path") -> str:
-    # subtitles filter wants a path; safest is single-quoted with escaping
-    return f"subtitles='{_escape_ffmpeg_filter_path(str(ass_path))}'"
-
-def _escape_drawtext_text(s: str) -> str:
-    # drawtext uses ':' as separator, and also parses quotes
-    t = (s or "")
-    t = t.replace("\\", r"\\")
-    t = t.replace(":", r"\:")
-    t = t.replace("'", r"\'")
-    t = t.replace("\n", " ")
-    return t
-
-def build_watermark_filter(
-    *,
-    out_w: int,
-    out_h: int,
-) -> str:
-    """
-    Moving “alive” watermark using drawtext:
-      - Bigger default size, and scales slightly with output height
-      - Gentle drift (sin/cos)
-      - Alpha pulse (subtle)
-      - Soft box behind text (optional) for premium presence
-    """
-    base_alpha = max(0.05, min(0.95, float(WATERMARK_ALPHA)))
-    pad = max(0, int(WATERMARK_SAFE_PAD))
-
-    # Scale font size with output height (keeps 1:1 / 16:9 feeling consistent)
-    # Example targets:
-    #  - 1080x1920: ~52-64
-    #  - 1920x1080: ~44-52
-    scaled = int(round(float(out_h) * 0.030))  # 3% of height
-    fontsize = int(max(int(WATERMARK_FONT_SIZE), scaled))
-
-    # Drift amplitude
-    drift = int(max(0, WATERMARK_DRIFT_PX))
-
-    # Keep it in a safe area and move it with sin/cos (alive, not distracting)
-    x_expr = (
-        f"{pad}+"
-        f"(w-text_w-{2*pad})*(0.5+0.5*sin({float(WATERMARK_SPEED):.4f}*t))"
-        f"+{drift}*sin({float(WATERMARK_SPEED):.4f}*0.7*t)"
-    )
-    y_expr = (
-        f"{pad}+"
-        f"(h-text_h-{2*pad})*(0.5+0.5*cos({float(WATERMARK_SPEED):.4f}*t))"
-        f"+{drift}*cos({float(WATERMARK_SPEED):.4f}*0.6*t)"
-    )
-
-    # Alpha pulse (FFmpeg drawtext supports expression alpha)
-    # Keep it subtle: +/- ~0.08 around base
-    # NOTE: use PI constant (ffmpeg expr supports PI)
-    pulse = max(0.02, min(0.30, 0.14 * base_alpha))
-    alpha_expr = f"min(max({base_alpha:.4f}+{pulse:.4f}*sin(2*PI*{float(WATERMARK_PULSE_HZ):.4f}*t),0.08),0.92)"
-
-    # Prefer fontfile if provided; more reliable across containers
-    if WATERMARK_FONTFILE and os.path.isabs(WATERMARK_FONTFILE):
-        font_part = f":fontfile='{_escape_ffmpeg_filter_path(WATERMARK_FONTFILE)}'"
-    else:
-        font_part = f":font='{_escape_drawtext_text(WATERMARK_FONT)}'"
-
-    # Soft premium box behind text (optional)
-    box_part = ""
-    if int(WATERMARK_BOX) == 1:
-        # boxcolor uses @alpha; keep very subtle
-        # boxborderw gives a bit of glass-like padding
-        box_part = (
-            f":box=1"
-            f":boxcolor=black@0.18"
-            f":boxborderw={int(max(0, WATERMARK_BOX_PAD))}"
+        seg = (
+            f"if(between(t,{t0:.3f},{t1:.3f}),"
+            f"lerp({v0:.3f},{v1:.3f},(t-{t0:.3f})/{max(t1-t0,0.001):.6f}),"
         )
+        expr += seg
 
-    return (
-        "drawtext="
-        f"text='{_escape_drawtext_text(WATERMARK_TEXT)}'"
-        f"{font_part}"
-        f":fontsize={fontsize}"
-        f":fontcolor=white@({alpha:.3f}*(0.72+0.28*sin(2.2*t)))"
-        f":alpha='{alpha_expr}'"
-        f":x={x_expr}"
-        f":y={y_expr}"
-        f":borderw={int(max(0, WATERMARK_OUTLINE))}"
-        f":shadowx={int(max(0, WATERMARK_SHADOW))}"
-        f":shadowy={int(max(0, WATERMARK_SHADOW))}"
-        f"{box_part}"
-    )
+    last = samples[-1][1 if axis == "x" else 2]
+    expr += f"{last:.3f}" + ")" * (len(samples) - 1)
+    return expr
+
+def _target_dims_for_aspect(aspect_ratio: Optional[str]) -> Tuple[int, int]:
+    a = (aspect_ratio or "9:16").strip()
+    if a == "1:1":
+        return (1080, 1080)
+    if a == "4:5":
+        return (1080, 1350)
+    if a == "16:9":
+        return (1920, 1080)
+    if a == "4:3":
+        return (1440, 1080)
+    return (1080, 1920)  # 9:16 default
 
 # -----------------------------------------------------
-# Render function
+# Render / Export
 # -----------------------------------------------------
 
 def render_clip_mp4(
     *,
-    source_video: "Path",
+    job_id: int,
+    source_video: Path,
     clip_start: float,
     clip_end: float,
-    src_w: int,
-    src_h: int,
-    aspect_ratio: str,
-    camera_samples: Optional[list],
-    captions_enabled: bool,
-    caption_style_json: Any,
-    words_all: list,
-    watermark_enabled: bool,
-    job_id: int,
+    out_path: Optional[Path] = None,
+    src_w: Optional[int] = None,
+    src_h: Optional[int] = None,
+    aspect_ratio: Optional[str] = None,
+    camera_samples: Optional[list] = None,
+
+    # captions
+    captions_enabled: bool = False,
+    words_all: Optional[list] = None,
+    caption_style_json: Any = None,
+
+    # watermark
+    watermark_enabled: bool = True,
+
+    fps: int = 30,
+    vf_parts: Optional[List[str]] = None,
+    **_unused: Any,
 ) -> Dict[str, Any]:
     """
-    Renders a single clip to a temp MP4 and returns:
-      { "path": Path, "duration": float, "out_w": int, "out_h": int }
+    Launch-safe render:
+      - dynamic crop using camera_samples (source-pixel centers)
+      - optional ASS captions (burn-in)
+      - optional watermark (PNG + animated text)
     """
-    if clip_end <= clip_start:
-        raise RuntimeError("Invalid clip timing")
 
-    clip_dur = float(clip_end - clip_start)
+    if out_path is None:
+        out_path = Path(f"/tmp/job_{job_id}_clip.mp4")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    out_w, out_h = aspect_to_target(aspect_ratio)
-    out_w = int(out_w); out_h = int(out_h)
+    clip_start = float(max(0.0, clip_start))
+    clip_end = float(max(clip_start + 0.01, clip_end))
+    clip_dur = clip_end - clip_start
 
-    crop_w, crop_h = compute_crop_size(
-        src_w=int(src_w),
-        src_h=int(src_h),
-        target_w=int(out_w),
-        target_h=int(out_h),
-    )
+    if not src_w or not src_h:
+        raise RuntimeError("Missing source dimensions for reframing")
 
-    # Camera center estimation
-    fallback_x = float(src_w) / 2.0
-    fallback_y = float(src_h) * 0.62  # mild speaker bias
+    target_w, target_h = _target_dims_for_aspect(aspect_ratio)
 
-    (cx0, cy0), (cx1, cy1) = estimate_clip_centers_from_samples(
-        camera_samples=camera_samples or [],
-        clip_start=float(clip_start),
-        clip_end=float(clip_end),
-        fallback_x=fallback_x,
-        fallback_y=fallback_y,
-    )
+    # -------------------------------------------------
+    # Crop window (in source pixels)
+    # -------------------------------------------------
 
-    x_expr, y_expr = build_crop_pan_expressions(
-        src_w=int(src_w),
-        src_h=int(src_h),
-        crop_w=int(crop_w),
-        crop_h=int(crop_h),
-        clip_duration=float(clip_dur),
-        center0=(float(cx0), float(cy0)),
-        center1=(float(cx1), float(cy1)),
-    )
+    target_ar = float(target_w) / float(target_h)
+    src_ar = float(src_w) / float(src_h)
 
-    # Build filter chain:
-    #   crop -> scale -> fps -> (subs) -> (watermark)
-    vf_parts = [
-        f"crop={int(crop_w)}:{int(crop_h)}:{x_expr}:{y_expr}",
-        f"scale={int(out_w)}:{int(out_h)}",
-        f"fps={int(RENDER_FPS)}",
-    ]
+    if src_ar > target_ar:
+        crop_h = int(src_h)
+        crop_w = int(crop_h * target_ar)
+    else:
+        crop_w = int(src_w)
+        crop_h = int(crop_w / target_ar)
 
-    ass_path = None
-    if captions_enabled:
-        # expects these helpers to exist in the worker:
-        # build_ass_subtitles_for_clip, write_ass_file
-        ass_text = build_ass_subtitles_for_clip(
-            words_all=words_all,
-            source_h=float(src_h),
-            clip_start=float(clip_start),
-            clip_end=float(clip_end),
-            target_w=int(out_w),
-            target_h=int(out_h),
-            camera_samples=camera_samples or [],
-            caption_style_json=caption_style_json,
+    crop_w = max(2, min(int(src_w), int(crop_w)))
+    crop_h = max(2, min(int(src_h), int(crop_h)))
+
+    # -------------------------------------------------
+    # Filters
+    # -------------------------------------------------
+
+    vf_chain: List[str] = []
+
+    # Base VF parts hook (if you have extra things to add)
+    if vf_parts:
+        for p in (vf_parts or []):
+            if p and isinstance(p, str):
+                vf_chain.append(p)
+
+    # Dynamic crop (GLOBAL reframing)
+    if camera_samples:
+        cx_expr = build_lerp_expr(camera_samples, "x")
+        cy_expr = build_lerp_expr(camera_samples, "y")
+
+        crop_expr = (
+            f"crop={crop_w}:{crop_h}:"
+            f"x=clamp({cx_expr}-{crop_w}/2,0,{src_w-crop_w}):"
+            f"y=clamp({cy_expr}-{crop_h}/2,0,{src_h-crop_h})"
         )
-        ass_path = write_ass_file(ass_text=ass_text, job_id=job_id, suffix=".ass")
-        vf_parts.append(build_subtitles_filter(ass_path))
+        vf_chain.append(crop_expr)
+    else:
+        vf_chain.append(
+            f"crop={crop_w}:{crop_h}:"
+            f"x={(src_w-crop_w)//2}:y={(src_h-crop_h)//2}"
+        )
 
-    if watermark_enabled:
-        vf_parts.append(build_watermark_filter(out_w=int(out_w), out_h=int(out_h)))
+    # Scale to target
+    vf_chain.append(f"scale={target_w}:{target_h}")
 
-    vf = ",".join(vf_parts)
+    # Captions (burn-in ASS)
+    captions_ass_path: Optional[Path] = None
+    if captions_enabled and words_all:
+        try:
+            ass_text = build_ass_subtitles_for_clip(
+                words_all=words_all,
+                clip_start=float(clip_start),
+                clip_end=float(clip_end),
+                target_w=int(target_w),
+                target_h=int(target_h),
+                camera_samples=camera_samples or [],
+                source_h=float(src_h) if src_h else None,
+                caption_style_json=caption_style_json,
+            )
+            captions_ass_path = write_ass_file(ass_text=ass_text, job_id=job_id)
+        except Exception as e:
+            # captions should never crash render
+            captions_ass_path = None
+            try:
+                log(f"Captions disabled due to error: {e}", job_id=job_id, level="WARN")
+            except Exception:
+                pass
 
-    out_path = make_tmp_file(".mp4")
+    if captions_ass_path:
+        vf_chain.append(f"subtitles='{_ffq(captions_ass_path)}'")
 
-    log(
-        f"Rendering clip {clip_start:.2f}-{clip_end:.2f}s -> {out_w}x{out_h}",
-        job_id=job_id,
-    )
+    # fps
+    vf_chain.append(f"fps={int(fps)}")
 
-    cmd = [
-        "ffmpeg",
-        "-hide_banner",
-        "-y",
-        "-ss", f"{float(clip_start):.6f}",
-        "-t", f"{float(clip_dur):.6f}",
-        "-i", str(source_video),
-        "-vf", vf,
-        "-c:v", "libx264",
-        "-profile:v", str(RENDER_VIDEO_PROFILE),
-        "-pix_fmt", str(RENDER_PIX_FMT),
-        "-preset", str(RENDER_PRESET),
-        "-crf", str(int(RENDER_CRF)),
-        "-r", str(int(RENDER_FPS)),
-        "-c:a", "aac",
-        "-b:a", str(RENDER_AUDIO_BITRATE),
-        "-movflags", "+faststart",
-        str(out_path),
-    ]
+    # We'll do watermark with filter_complex (overlay) so we can animate bobbing cleanly.
+    vf = ",".join(vf_chain)
+
+    # -------------------------------------------------
+    # Build command
+    # -------------------------------------------------
+
+    log("Rendering clip (mp4)", job_id=job_id)
+
+    # Default: no watermark (simple -vf)
+    cmd: List[str]
+
+    if watermark_enabled and os.path.exists(WATERMARK_PNG_PATH):
+        # Premium vertical watermark (left-center), pulsed every 10s for 2s.
+        wm_q = WATERMARK_PNG_PATH.replace("\\", "/")
+
+        # Pulse alpha for text (fade in/out)
+        period = max(2.0, float(WATERMARK_PULSE_PERIOD))
+        on_time = max(0.5, min(period, float(WATERMARK_PULSE_ON)))
+        fade = max(0.1, min(on_time / 2.0, float(WATERMARK_PULSE_FADE)))
+
+        # alpha: fade in -> hold -> fade out -> off
+        alpha_expr = (
+            f"if(lt(mod(t,{period}),{fade}),"
+            f"mod(t,{period})/{fade},"
+            f"if(lt(mod(t,{period}),{on_time - fade}),"
+            f"1,"
+            f"if(lt(mod(t,{period}),{on_time}),"
+            f"({on_time}-mod(t,{period}))/{fade},"
+            f"0)))"
+        )
+
+        enable_expr = f"between(mod(t\\,{period}),0,{on_time})"
+
+        # Vertical text (stacked letters)
+        vertical_text = "\\n".join(list((WATERMARK_TEXT or "ORBITO").strip()))
+        text_font_arg = (
+            f"fontfile='{_ffq(Path(WATERMARK_TEXT_FONTFILE))}':"
+            if WATERMARK_TEXT_FONTFILE
+            else f"font='{WATERMARK_TEXT_FONT}':"
+        )
+
+        filter_complex = (
+            f"[0:v]{vf}[v1];"
+            f"[1:v]scale={WATERMARK_LOGO_W}:-1,format=rgba,"
+            f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
+            f"[v1][wm]overlay="
+            f"x={WATERMARK_LEFT_PAD}:"
+            f"y=(H-h)/2:"
+            f"enable='{enable_expr}'"
+            f"[v2];"
+            f"[v2]drawtext="
+            f"{text_font_arg}"
+            f"text='{vertical_text}':"
+            f"fontsize={WATERMARK_TEXT_SIZE}:"
+            f"line_spacing=6:"
+            f"fontcolor=white@1.0:"
+            f"alpha='{alpha_expr}':"
+            f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
+            f"borderw=2:bordercolor=black@0.35:"
+            f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
+            f"y=(H-text_h)/2"
+            f"[vout]"
+        )
+
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-ss", f"{clip_start:.6f}",
+            "-t", f"{clip_dur:.6f}",
+            "-i", str(source_video),
+            "-i", wm_q,
+            "-filter_complex", filter_complex,
+            "-map", "[vout]",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ac", "2",
+            "-ar", "44100",
+            "-pix_fmt", "yuv420p",
+            "-preset", "veryfast",
+            "-movflags", "+faststart",
+            "-shortest",
+            str(out_path),
+        ]
+    else:
+        # fallback: no watermark, and no crash if png missing
+        cmd = [
+            "ffmpeg",
+            "-hide_banner",
+            "-y",
+            "-ss", f"{clip_start:.6f}",
+            "-t", f"{clip_dur:.6f}",
+            "-i", str(source_video),
+            "-vf", vf,
+            "-map", "0:v:0",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ac", "2",
+            "-ar", "44100",
+            "-pix_fmt", "yuv420p",
+            "-preset", "veryfast",
+            "-movflags", "+faststart",
+            "-shortest",
+            str(out_path),
+        ]
 
     try:
-        run_subprocess(cmd, timeout=int(RENDER_TIMEOUT), desc="ffmpeg render clip")
-    except Exception as e:
-        safe_unlink(out_path)
-        raise RuntimeError(f"Render failed: {e}")
+        run_subprocess(
+            cmd,
+            timeout=60 * 30,
+            desc="ffmpeg render mp4",
+            job_id=job_id,
+        )
     finally:
-        if ass_path is not None:
-            safe_unlink(ass_path)
+        if captions_ass_path:
+            safe_unlink(captions_ass_path)
 
-    if not out_path.exists() or out_path.stat().st_size <= 0:
-        safe_unlink(out_path)
-        raise RuntimeError("Render produced empty output file")
-
-    return {
-        "path": out_path,
-        "duration": float(clip_dur),
-        "out_w": int(out_w),
-        "out_h": int(out_h),
-    }
-
-# -----------------------------------------------------
-# Upload rendered artifact back to storage
-# -----------------------------------------------------
-
-def upload_rendered_clip(
-    *,
-    local_path: "Path",
-    dest_storage_key: str,
-    job_id: int,
-) -> None:
-    storage = get_storage()
-    log(f"Uploading rendered clip -> {dest_storage_key}", job_id=job_id)
-
-    try:
-        with open(local_path, "rb") as f:
-            storage.save(dest_storage_key, f)
-    except Exception as e:
-        raise RuntimeError(f"Failed to upload rendered clip: {e}")
+    return {"path": out_path}
 
 # =====================================================
 # END SECTION 8 / 10
 # =====================================================
 
+
 # =====================================================
-# Clipforge Worker — FINAL (Section 9 / 10)
-# DB Persistence + Credits + Job Finalization (SCHEMA-CORRECT for your DB)
-#
-# Matches your ACTUAL SQLite schema:
-# jobs:
-#  - id, upload_id, status, error, created_at, updated_at,
-#    aspect_ratio, captions_enabled, watermark_enabled, caption_style_json
-# uploads (expected):
-#  - id, user_id, storage_key, original_filename, created_at, ...
-# clips:
-#  - id, upload_id (NOT NULL), job_id, storage_key,
-#    start_time, end_time, duration, title
-#
-# Key fixes:
-# - NO jobs.storage_key usage (it does NOT exist)
-# - Always JOIN jobs.upload_id -> uploads.storage_key + uploads.user_id
-# - Insert clips with upload_id + start_time/end_time/duration (NOT start/end)
-# - No user_id/rank/quality_score columns assumed on clips table
-# - Watermark forced ON for free users (conservative, launch-safe)
+# Orbito Worker — FINAL (Section 9 / 10)
+# Job Orchestration + DB Persistence (UPLOAD VERIFIED)
 # =====================================================
 
-import math
-from typing import Any, Optional, Dict, List, Tuple
+from typing import Optional, Dict, Any, List
+from sqlalchemy import text
 
 # -----------------------------------------------------
-# Credits policy
+# DB fetch helper (JOIN jobs + uploads)
 # -----------------------------------------------------
 
-# 1 credit per started minute of SOURCE video (ceil(duration/60)). Minimum 1.
-CREDITS_PER_MINUTE = float(os.getenv("WORKER_CREDITS_PER_MINUTE", "1.0"))
-MIN_CREDITS_PER_JOB = int(os.getenv("WORKER_MIN_CREDITS_PER_JOB", "1"))
-
-# -----------------------------------------------------
-# DB helpers (schema-correct)
-# -----------------------------------------------------
-
-def fetch_job_and_upload_row(db, job_id: int) -> Dict[str, Any]:
-    """
-    Returns a dict with:
-      - job.* fields (from jobs table)
-      - upload.user_id, upload.storage_key, upload.original_filename
-    """
-    sql = """
-        SELECT
-            j.id                  AS job_id,
-            j.upload_id           AS upload_id,
-            j.status              AS status,
-            j.error               AS error,
-            j.created_at          AS created_at,
-            j.updated_at          AS updated_at,
-            j.aspect_ratio        AS aspect_ratio,
-            j.captions_enabled    AS captions_enabled,
-            j.watermark_enabled   AS watermark_enabled,
-            j.caption_style_json  AS caption_style_json,
-
-            u.user_id             AS user_id,
-            u.storage_key         AS source_storage_key,
-            u.original_filename   AS original_filename
-        FROM jobs j
-        JOIN uploads u ON u.id = j.upload_id
-        WHERE j.id = :job_id
-        LIMIT 1
-    """
-    row = db.execute(text(sql), {"job_id": int(job_id)}).mappings().fetchone()
-    if not row:
-        raise RuntimeError("Job not found or missing upload row (jobs.upload_id join failed)")
-    d = dict(row)
-
-    # Defensive defaults
-    d["aspect_ratio"] = (d.get("aspect_ratio") or "9:16")
-    d["captions_enabled"] = bool(d.get("captions_enabled", True))
-    d["watermark_enabled"] = bool(d.get("watermark_enabled", True))
-    return d
-
-def fetch_user_plan_and_credits(db, user_id: int) -> Tuple[str, int]:
+def fetch_job_row(db, job_id: int) -> Dict[str, Any]:
     row = db.execute(
-        text("SELECT plan, credits FROM users WHERE id = :uid LIMIT 1"),
+        text(
+            """
+            SELECT
+              j.id                 AS job_id,
+              j.upload_id          AS upload_id,
+              u.user_id            AS user_id,
+              u.storage_key        AS source_storage_key,
+
+              j.aspect_ratio       AS aspect_ratio,
+              j.captions_enabled   AS captions_enabled,
+              j.watermark_enabled  AS watermark_enabled,
+              j.caption_style_json AS caption_style_json,
+
+              j.credits_reserved   AS credits_reserved,
+              j.credits_refunded   AS credits_refunded
+            FROM jobs j
+            JOIN uploads u ON u.id = j.upload_id
+            WHERE j.id = :jid
+            LIMIT 1
+            """
+        ),
+        {"jid": int(job_id)},
+    ).mappings().fetchone()
+
+    if not row:
+        raise RuntimeError(f"Job not found: {job_id}")
+
+    return dict(row)
+
+# -----------------------------------------------------
+# Credit charge (exactly once per job run)
+# -----------------------------------------------------
+
+def charge_credits_once(*, db, user_id: int, credits_reserved: int) -> None:
+    if int(credits_reserved) <= 0:
+        raise RuntimeError("Job missing credits_reserved")
+
+    row = db.execute(
+        text("SELECT credits FROM users WHERE id = :uid"),
         {"uid": int(user_id)},
     ).fetchone()
+
     if not row:
         raise RuntimeError("User not found")
-    plan = str(row[0] or "free")
-    credits = int(row[1] or 0)
-    return plan, credits
 
-def update_user_credits(db, user_id: int, new_credits: int) -> None:
+    current = int(row[0] or 0)
+    if current < int(credits_reserved):
+        raise RuntimeError("Insufficient credits")
+
     db.execute(
         text("UPDATE users SET credits = :c WHERE id = :uid"),
-        {"c": int(new_credits), "uid": int(user_id)},
+        {"c": current - int(credits_reserved), "uid": int(user_id)},
     )
 
-def compute_required_credits(source_duration_seconds: float) -> int:
-    minutes = max(0.0, float(source_duration_seconds) / 60.0)
-    raw = int(math.ceil(minutes * CREDITS_PER_MINUTE))
-    return max(MIN_CREDITS_PER_JOB, raw)
+# -----------------------------------------------------
+# Refund credits (safe + atomic + idempotent)
+# -----------------------------------------------------
 
-def is_paid_plan(plan: str) -> bool:
-    """
-    Conservative: only explicit paid-like strings count as paid.
-    Everything else is treated as free (watermark forced on).
-    """
-    p = (plan or "").strip().lower()
-    return p in {"paid", "pro", "creator", "studio", "premium"}
-
-def charge_credits_or_fail(
-    *,
-    db,
-    user_id: Optional[int],
-    required_credits: int,
-    job_id: int,
-) -> bool:
-    """
-    Deduct credits (launch-safe single-writer).
-    Returns True if charged, False if user_id missing (skip charging).
-    Raises if insufficient credits.
-    """
-    if user_id is None:
-        log("No user_id for job; skipping credits charge", job_id=job_id)
+def refund_credits_once(*, db, job_id: int, user_id: int, credits_reserved: int) -> bool:
+    if int(job_id) <= 0 or int(user_id) <= 0 or int(credits_reserved) <= 0:
         return False
 
-    _plan, credits = fetch_user_plan_and_credits(db, int(user_id))
-    if credits < int(required_credits):
-        raise RuntimeError(f"Insufficient credits. Need {required_credits}, have {credits}.")
-
-    update_user_credits(db, int(user_id), int(credits) - int(required_credits))
-    return True
-
-def refund_credits_best_effort(
-    *,
-    user_id: Optional[int],
-    credits: int,
-    job_id: int,
-) -> None:
-    if user_id is None or int(credits) <= 0:
-        return
-    try:
-        with SessionLocal() as db:
-            plan, cur = fetch_user_plan_and_credits(db, int(user_id))
-            update_user_credits(db, int(user_id), int(cur) + int(credits))
-            db.commit()
-        log(f"Refunded {credits} credits (best-effort)", job_id=job_id)
-    except Exception:
-        log("Credit refund failed (best-effort)", job_id=job_id)
-
-# -----------------------------------------------------
-# Clip persistence (schema-correct)
-# -----------------------------------------------------
-
-def delete_existing_clips_for_job_best_effort(db, job_id: int) -> None:
-    try:
-        db.execute(text("DELETE FROM clips WHERE job_id = :jid"), {"jid": int(job_id)})
-    except Exception:
-        pass
-
-def insert_clip_row_schema_correct(
-    *,
-    db,
-    job_id: int,
-    upload_id: int,
-    storage_key: str,
-    start_time: float,
-    end_time: float,
-    duration: float,
-    title: str,
-) -> None:
-    """
-    Inserts into your clips schema exactly:
-      (upload_id NOT NULL, job_id, storage_key, start_time, end_time, duration, title)
-    """
-    sql = """
-        INSERT INTO clips
-            (upload_id, job_id, storage_key, start_time, end_time, duration, title)
-        VALUES
-            (:upload_id, :job_id, :storage_key, :start_time, :end_time, :duration, :title)
-    """
-    db.execute(
-        text(sql),
-        {
-            "upload_id": int(upload_id),
-            "job_id": int(job_id),
-            "storage_key": str(storage_key),
-            "start_time": float(start_time),
-            "end_time": float(end_time),
-            "duration": float(duration),
-            "title": str(title or ""),
-        },
+    res = db.execute(
+        text(
+            """
+            UPDATE jobs
+            SET credits_refunded = 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :job_id
+              AND credits_reserved = :cr
+              AND COALESCE(credits_refunded, 0) = 0
+            """
+        ),
+        {"job_id": int(job_id), "cr": int(credits_reserved)},
     )
 
-# -----------------------------------------------------
-# Job status updates (granular)
-# -----------------------------------------------------
+    if getattr(res, "rowcount", 0) != 1:
+        return False
 
-def set_job_running_stage(db, job_id: int, stage: str) -> None:
-    update_job_status(db, job_id, f"running:{stage}", None)
-
-def set_job_done(db, job_id: int) -> None:
-    update_job_status(db, job_id, "done", None)
-
-def set_job_failed(db, job_id: int, error: str) -> None:
-    update_job_status(db, job_id, "failed", error)
+    db.execute(
+        text("UPDATE users SET credits = COALESCE(credits, 0) + :cr WHERE id = :uid"),
+        {"cr": int(credits_reserved), "uid": int(user_id)},
+    )
+    return True
 
 # -----------------------------------------------------
-# Render + upload + persist clips
-# -----------------------------------------------------
-
-def render_upload_and_persist_top_clips(
-    *,
-    job_id: int,
-    upload_id: int,
-    user_id: int,
-    source_path: Path,
-    src_w: int,
-    src_h: int,
-    source_duration: float,
-    aspect_ratio: str,
-    captions_enabled: bool,
-    watermark_enabled: bool,
-    caption_style_json: Any,
-    words_all: list,
-    camera_samples: list,
-    selected_clips: list,
-) -> List[Dict[str, Any]]:
-    """
-    For each selected clip plan:
-      - render mp4
-      - upload to storage
-      - insert clip row (schema-correct)
-    Returns persisted clip metadata list.
-    """
-    persisted: List[Dict[str, Any]] = []
-
-    storage_prefix = f"users/{int(user_id)}/clips/{int(job_id)}"
-
-    with SessionLocal() as db:
-        delete_existing_clips_for_job_best_effort(db, job_id)
-
-        for idx, clip in enumerate(selected_clips):
-            s = float(clip["start"])
-            e = float(clip["end"])
-            dur = max(0.01, e - s)
-
-            title = str(clip.get("title") or "")
-            if not title:
-                title = "New clip"
-
-            rendered = render_clip_mp4(
-                source_video=source_path,
-                clip_start=s,
-                clip_end=e,
-                src_w=int(src_w),
-                src_h=int(src_h),
-                aspect_ratio=str(aspect_ratio or "9:16"),
-                camera_samples=camera_samples,
-                captions_enabled=bool(captions_enabled),
-                caption_style_json=caption_style_json,
-                words_all=words_all,
-                watermark_enabled=bool(watermark_enabled),
-                job_id=job_id,
-            )
-
-            local_mp4: Path = rendered["path"]
-            clip_uuid = uuid.uuid4().hex[:10]
-            dest_key = f"{storage_prefix}/{idx+1:02d}_{clip_uuid}.mp4"
-
-            try:
-                upload_rendered_clip(
-                    local_path=local_mp4,
-                    dest_storage_key=dest_key,
-                    job_id=job_id,
-                )
-            finally:
-                safe_unlink(local_mp4)
-
-            insert_clip_row_schema_correct(
-                db=db,
-                job_id=int(job_id),
-                upload_id=int(upload_id),
-                storage_key=dest_key,
-                start_time=float(s),
-                end_time=float(e),
-                duration=float(dur),
-                title=str(title),
-            )
-
-            persisted.append(
-                {
-                    "start_time": float(s),
-                    "end_time": float(e),
-                    "duration": float(dur),
-                    "title": str(title),
-                    "storage_key": str(dest_key),
-                }
-            )
-
-        db.commit()
-
-    return persisted
-
-# -----------------------------------------------------
-# Main job runner (updated to schema)
+# MAIN JOB RUNNER
 # -----------------------------------------------------
 
 def run_job(job_id: int) -> None:
-    """
-    Full launch-safe execution for one job:
-      - load job + upload config (JOIN)
-      - download + preflight
-      - compute credits + deduct
-      - run pipeline: audio -> whisper -> segmentation -> reframing -> scoring -> topK
-      - render topK -> upload -> persist clips (schema-correct)
-      - mark done
-      - refund credits if failure
-    """
-    credits_charged = False
-    credits_amount = 0
+    log("Starting job pipeline", job_id=job_id)
 
-    job_user_id: Optional[int] = None
+    source_path: Optional[Path] = None
+    clips_created = 0
+    charged = False
+
+    user_id: Optional[int] = None
     upload_id: Optional[int] = None
-    storage_key: Optional[str] = None
-
-    aspect_ratio = "9:16"
-    captions_enabled = True
-    watermark_enabled = True
-    caption_style_json = None
-
-    # -----------------------------
-    # Load job + upload config (JOIN)
-    # -----------------------------
-    with SessionLocal() as db:
-        jr = fetch_job_and_upload_row(db, int(job_id))
-
-        upload_id = int(jr["upload_id"])
-        job_user_id = int(jr["user_id"])
-        storage_key = str(jr["source_storage_key"] or "").strip()
-        if not storage_key:
-            raise RuntimeError("Upload missing storage_key (uploads.storage_key empty)")
-
-        aspect_ratio = str(jr.get("aspect_ratio") or "9:16")
-        captions_enabled = bool(jr.get("captions_enabled", True))
-        watermark_enabled = bool(jr.get("watermark_enabled", True))
-        caption_style_json = jr.get("caption_style_json", None)
-
-        # Force watermark ON for free users (launch policy)
-        plan, _credits = fetch_user_plan_and_credits(db, int(job_user_id))
-        if not is_paid_plan(plan):
-            watermark_enabled = True
-
-        set_job_running_stage(db, int(job_id), "download")
-        db.commit()
-
-    # -----------------------------
-    # Download + preflight
-    # -----------------------------
-    source_path = download_source_video(storage_key=str(storage_key), job_id=int(job_id))
+    credits_reserved: int = 0
 
     try:
+        # ---------------------------------------------
+        # Load job metadata
+        # ---------------------------------------------
         with SessionLocal() as db:
-            set_job_running_stage(db, int(job_id), "preflight")
-            db.commit()
+            job = fetch_job_row(db, int(job_id))
 
-        src_w, src_h, source_duration = preflight_source_video(
+        upload_id = int(job["upload_id"])
+        user_id = int(job["user_id"])
+        storage_key = str(job["source_storage_key"])
+
+        aspect_ratio = job.get("aspect_ratio") or "9:16"
+        captions_enabled = bool(job.get("captions_enabled"))
+        watermark_enabled = bool(job.get("watermark_enabled"))
+        caption_style_json = job.get("caption_style_json")
+
+        credits_reserved = int(job.get("credits_reserved") or 0)
+        if credits_reserved <= 0:
+            raise RuntimeError("Job missing credits_reserved")
+        charged = True  # credits were already reserved at upload time
+
+        # ---------------------------------------------
+        # Download + preflight
+        # ---------------------------------------------
+        source_path = download_source_video(storage_key=storage_key, job_id=job_id)
+        src_w, src_h, video_duration = preflight_source_video(
             source_path=source_path,
-            job_id=int(job_id),
+            job_id=job_id,
         )
 
-        # -----------------------------
-        # Credits charge (based on source duration)
-        # -----------------------------
-        credits_amount = compute_required_credits(source_duration)
+        # Global camera path (face-first reframing)
+        target_w, target_h = normalize_aspect(aspect_ratio)
+        _cam_x, _cam_y, cam_samples, _cam_meta = build_camera_path(
+            source_video=source_path,
+            job_id=job_id,
+            target_w=int(target_w),
+            target_h=int(target_h),
+        )
 
-        with SessionLocal() as db:
-            set_job_running_stage(db, int(job_id), "billing")
-            credits_charged = charge_credits_or_fail(
-                db=db,
-                user_id=job_user_id,
-                required_credits=credits_amount,
-                job_id=int(job_id),
+        # ---------------------------------------------
+        # Audio + transcription
+        # ---------------------------------------------
+        audio = run_audio_pipeline(source_video=source_path, job_id=job_id)
+
+        transcript_raw = transcribe_audio(wav_path=audio["wav_path"], job_id=job_id)
+        transcript = normalize_transcript(transcript_raw)
+
+        words = extract_words(transcript)
+        utterances = build_utterances(words)
+
+        clip_plans = generate_clip_plans(
+            utterances=utterances,
+            silences=audio["silences"],
+            video_duration=float(video_duration),
+        )
+
+        # ---------------------------------------------
+        # Score + select (viral-ish heuristic)
+        # ---------------------------------------------
+        scored: List[Dict[str, Any]] = []
+        for plan in clip_plans:
+            clip_start = float(plan["start"])
+            clip_end = float(plan["end"])
+
+            motion = motion_metrics_for_clip(
+                samples=cam_samples or [],
+                clip_start=clip_start,
+                clip_end=clip_end,
             )
-            db.commit()
 
-        # -----------------------------
-        # Audio
-        # -----------------------------
-        with SessionLocal() as db:
-            set_job_running_stage(db, int(job_id), "audio")
-            db.commit()
-
-        audio = run_audio_pipeline(source_video=source_path, job_id=int(job_id))
-        wav_path: Path = audio["wav_path"]
+            scored.append(
+                compute_clip_quality_score(
+                    clip=plan,
+                    words=words,
+                    silences=audio["silences"],
+                    audio_energy=audio["energy"],
+                    motion_metrics=motion,
+                )
+            )
 
         try:
-            # -----------------------------
-            # Transcription
-            # -----------------------------
-            with SessionLocal() as db:
-                set_job_running_stage(db, int(job_id), "transcribe")
-                db.commit()
+            min_clips = max(1, int(math.ceil((video_duration / 60.0) * MIN_CLIPS_PER_MINUTE)))
+        except Exception:
+            min_clips = 1
 
-            transcript = normalize_transcript(
-                transcribe_audio(wav_path=wav_path, job_id=int(job_id))
+        top_k = max(TOP_K_CLIPS, min_clips)
+        top_k = min(top_k, MAX_TOP_K_CLIPS)
+        top_k = min(top_k, max(1, len(scored)))
+
+        selected = select_top_k_clips(scored, top_k=top_k)
+        selected = sorted(selected, key=lambda c: float(c.get("start", 0.0)))
+
+        # ---------------------------------------------
+        # Render + UPLOAD EACH CLIP (VERIFIED)
+        # ---------------------------------------------
+        seen_titles: set[str] = set()
+        for idx, plan in enumerate(selected):
+            clip_start = float(plan["start"])
+            clip_end = float(plan["end"])
+
+            local_out = Path(f"/tmp/job_{job_id}_clip_{idx}.mp4")
+
+            vf_parts: List[str] = []
+
+            snippet = clean_text(
+                " ".join(str(w.get("word", "")) for w in words_in_range(words, clip_start, clip_end))
             )
-            words_all = extract_words(transcript)
+            hook, _hook_conf = generate_hook_heuristic(snippet)
+            title, _title_conf = generate_title_heuristic(hook or snippet)
+            if not title or title.strip().lower() in {"new clip", "untitled"}:
+                title = f"Clip {idx + 1}"
+            base_title = title
+            suffix = 2
+            while title.lower() in seen_titles:
+                title = f"{base_title} ({suffix})"
+                suffix += 1
+            seen_titles.add(title.lower())
 
-            # -----------------------------
-            # Segmentation
-            # -----------------------------
-            with SessionLocal() as db:
-                set_job_running_stage(db, int(job_id), "segment")
-                db.commit()
-
-            utterances = build_utterances(words_all)
-            clip_plans = generate_clip_plans(
-                utterances=utterances,
-                silences=audio["silences"],
-                video_duration=float(source_duration),
-            )
-
-            # -----------------------------
-            # Reframing samples
-            # -----------------------------
-            with SessionLocal() as db:
-                set_job_running_stage(db, int(job_id), "reframe")
-                db.commit()
-
-            target_w, target_h = aspect_to_target(str(aspect_ratio or "9:16"))
-            _cam_x, _cam_y, cam_samples, _cam_meta = build_camera_path(
+            render = render_clip_mp4(
+                job_id=job_id,
                 source_video=source_path,
-                job_id=int(job_id),
-                target_w=int(target_w),
-                target_h=int(target_h),
-            )
-            motion_metrics = compute_motion_metrics(cam_samples)
-
-            # -----------------------------
-            # Scoring + titles + topK
-            # -----------------------------
-            with SessionLocal() as db:
-                set_job_running_stage(db, int(job_id), "score")
-                db.commit()
-
-            enriched = []
-            for clip in clip_plans:
-                clip = compute_clip_quality_score(
-                    clip=clip,
-                    words=words_all,
-                    silences=audio["silences"],
-                    audio_energy=float(audio["energy"]),
-                    motion_metrics=motion_metrics,
-                )
-
-                cw = words_in_range(words_all, float(clip["start"]), float(clip["end"]))
-                snippet = clean_text(" ".join(w["word"] for w in cw[:28]))
-                title, conf = generate_title_heuristic(snippet)
-
-                if conf < HOOK_CONF_THRESHOLD:
-                    llm_title = generate_title_llm(snippet)
-                    if llm_title:
-                        title, conf = llm_title, 0.8
-
-                clip["title"] = title
-                clip["hook_confidence"] = float(conf)
-                enriched.append(clip)
-
-            selected = select_top_k_clips(enriched)
-            if not selected:
-                raise RuntimeError("No clips selected after scoring")
-
-            # -----------------------------
-            # Render + upload + persist (schema-correct)
-            # -----------------------------
-            with SessionLocal() as db:
-                set_job_running_stage(db, int(job_id), "render")
-                db.commit()
-
-            persisted = render_upload_and_persist_top_clips(
-                job_id=int(job_id),
-                upload_id=int(upload_id),
-                user_id=int(job_user_id),
-                source_path=source_path,
+                out_path=local_out,
+                clip_start=clip_start,
+                clip_end=clip_end,
                 src_w=int(src_w),
                 src_h=int(src_h),
-                source_duration=float(source_duration),
                 aspect_ratio=str(aspect_ratio),
-                captions_enabled=bool(captions_enabled),
-                watermark_enabled=bool(watermark_enabled),
-                caption_style_json=caption_style_json,
-                words_all=words_all,
+                vf_parts=vf_parts,
                 camera_samples=cam_samples,
-                selected_clips=selected,
+                captions_enabled=captions_enabled,
+                caption_style_json=caption_style_json,
+                words_all=words,
+                watermark_enabled=watermark_enabled,
             )
 
+            # -----------------------------
+            # HARD UPLOAD VERIFICATION
+            # -----------------------------
+            clip_key = f"users/{user_id}/clips/{job_id}_{idx}.mp4"
+            clip_path = Path(render["path"])
+
+            log(f"Preparing upload → {clip_key}", job_id=job_id)
+
+            if not clip_path.exists():
+                raise RuntimeError("Rendered clip file missing before upload")
+
+            size = clip_path.stat().st_size
+            if size <= 0:
+                raise RuntimeError("Rendered clip file is 0 bytes")
+
+            log(f"Rendered clip size: {size} bytes", job_id=job_id)
+
+            storage = get_storage()
+            storage.upload(str(clip_path), clip_key, content_type="video/mp4")
+
+            log(f"Upload completed → {clip_key}", job_id=job_id)
+
+            # -----------------------------
+            # DB INSERT (AFTER UPLOAD)
+            # -----------------------------
             with SessionLocal() as db:
-                set_job_done(db, int(job_id))
+                db.execute(
+                    text(
+                        """
+                        INSERT INTO clips (
+                            job_id,
+                            upload_id,
+                            storage_key,
+                            start_time,
+                            end_time,
+                            duration,
+                            title,
+                            hook
+                        )
+                        VALUES (
+                            :job_id,
+                            :upload_id,
+                            :key,
+                            :start,
+                            :end,
+                            :dur,
+                            :title,
+                            :hook
+                        )
+                        """
+                    ),
+                    {
+                        "job_id": job_id,
+                        "upload_id": upload_id,
+                        "key": clip_key,
+                        "start": clip_start,
+                        "end": clip_end,
+                        "dur": clip_end - clip_start,
+                        "title": title,
+                        "hook": hook,
+                    },
+                )
                 db.commit()
 
-            log(f"Job done. Persisted {len(persisted)} clips.", job_id=int(job_id))
+            clips_created += 1
+            safe_unlink(clip_path)
 
-        finally:
-            try:
-                safe_unlink(wav_path)
-            except Exception:
-                pass
+        with SessionLocal() as db:
+            update_job_status(db=db, job_id=job_id, status="done", error=None)
+            db.commit()
+
+        log(f"Job completed ({clips_created} clips)", job_id=job_id)
+        try:
+            if user_id:
+                trigger_automations(job_id=int(job_id), user_id=int(user_id))
+        except Exception:
+            pass
 
     except Exception as e:
         err = str(e) or "Job failed"
-        log(err, job_id=int(job_id))
 
-        try:
-            with SessionLocal() as db:
-                set_job_failed(db, int(job_id), err[:2000])
-                db.commit()
-        except Exception:
-            pass
+        if charged and user_id and credits_reserved > 0:
+            try:
+                with SessionLocal() as db:
+                    did = refund_credits_once(
+                        db=db,
+                        job_id=job_id,
+                        user_id=user_id,
+                        credits_reserved=credits_reserved,
+                    )
+                    db.commit()
+                if did:
+                    log(f"Refunded {credits_reserved} credits", job_id=job_id)
+            except Exception:
+                pass
 
-        if credits_charged and credits_amount > 0:
-            refund_credits_best_effort(
-                user_id=job_user_id,
-                credits=credits_amount,
-                job_id=int(job_id),
-            )
-
+        log(f"Job failed: {err}", job_id=job_id, level="ERROR")
+        with SessionLocal() as db:
+            update_job_status(db=db, job_id=job_id, status="failed", error=err[:1000])
+            db.commit()
         raise
 
     finally:
-        try:
+        if source_path:
             safe_unlink(source_path)
-        except Exception:
-            pass
 
 # =====================================================
 # END SECTION 9 / 10
@@ -3055,125 +2956,71 @@ def run_job(job_id: int) -> None:
 
 
 # =====================================================
-# Clipforge Worker — FINAL (Section 10 / 10)
-# Main Loop Glue + Heartbeat + Stale Recovery (LAUNCH-READY)
-#
-# Fixes vs your current Section 10:
-# - Heartbeat runs in a small background thread while a job is running,
-#   so updated_at stays fresh during long steps (render/transcribe/etc).
-# - Prevents stale reclaim from re-queuing an actively-running job.
-# - Best-effort resilience: thread stops cleanly; no crash if heartbeat fails.
+# Orbito Worker — FINAL (Section 10 / 10)
+# Main loop + entrypoint (NO worker_sections imports)
 # =====================================================
 
-import threading
+import time
+import signal
 
-def _job_heartbeat_loop(job_id: int, stop_evt: "threading.Event") -> None:
-    """
-    Sends periodic heartbeats for a single job until stop_evt is set.
-    Runs in a daemon thread while run_job(job_id) is executing.
-    """
-    # jitter a little so multiple workers don't thump DB in lockstep (harmless even with 1)
-    next_sleep = max(1.0, float(HEARTBEAT_INTERVAL))
+_SHUTDOWN = False
 
-    while not stop_evt.is_set():
+
+def _handle_shutdown(sig, frame):
+    global _SHUTDOWN
+    _SHUTDOWN = True
+    try:
+        log(f"Received signal {sig}, shutting down", level="WARN")
+    except Exception:
+        pass
+
+
+try:
+    signal.signal(signal.SIGTERM, _handle_shutdown)
+    signal.signal(signal.SIGINT, _handle_shutdown)
+except Exception:
+    pass
+
+
+def main():
+    log("Worker started")
+    try:
+        wm_path = str(WATERMARK_PNG_PATH)
+        wm_exists = os.path.exists(wm_path)
+        wm_size = os.path.getsize(wm_path) if wm_exists else 0
+        log(f"Worker file: {__file__}")
+        log(f"Watermark path: {wm_path} (exists={wm_exists}, bytes={wm_size})")
+    except Exception as e:
+        log(f"Startup fingerprint failed: {e}", level="WARN")
+
+    while not _SHUTDOWN:
         try:
             with SessionLocal() as db:
-                heartbeat(db, job_id=job_id)
-        except Exception:
-            # best-effort: don't kill worker if heartbeat fails
-            pass
-
-        # Wait with stop awareness
-        stop_evt.wait(timeout=next_sleep)
-
-def main_loop() -> None:
-    log("Worker starting")
-
-    last_reclaim = 0.0
-
-    while True:
-        started = time.time()
-        job_id: Optional[int] = None
-
-        hb_stop: Optional["threading.Event"] = None
-        hb_thread: Optional["threading.Thread"] = None
-
-        try:
-            # Periodic stale recovery (best-effort)
-            now = time.time()
-            if now - last_reclaim > 30:
-                try:
-                    with SessionLocal() as db:
-                        reclaim_stale_jobs(db)
-                    last_reclaim = now
-                except Exception:
-                    log("Stale reclaim failed (best-effort)")
-
-            # Claim next job
-            with SessionLocal() as db:
+                reclaim_stale_jobs(db)
                 job_id = claim_next_job(db)
 
             if job_id is None:
                 time.sleep(POLL_INTERVAL)
                 continue
 
-            log("Job claimed", job_id=job_id)
-
-            # Start per-job heartbeat thread so long run_job() phases don't go stale
-            hb_stop = threading.Event()
-            hb_thread = threading.Thread(
-                target=_job_heartbeat_loop,
-                args=(int(job_id), hb_stop),
-                daemon=True,
-            )
-            hb_thread.start()
-
-            # Run the actual job pipeline (Sections 2–9)
-            run_job(int(job_id))
-
-        except Exception as e:
-            err = str(e) or "Unhandled worker exception"
-            log(err, job_id=job_id, level="ERROR")
             try:
-                log(traceback.format_exc(), job_id=job_id, level="ERROR")
+                run_job(int(job_id))
             except Exception:
+                # run_job handles:
+                # - status updates
+                # - refunds (if needed)
+                # - logging
                 pass
 
-            # If run_job already marked failed, this is redundant but harmless.
-            if job_id is not None:
-                try:
-                    with SessionLocal() as db:
-                        update_job_status(db, int(job_id), "failed", err[:1000])
-                except Exception:
-                    pass
+        except Exception as e:
+            log(f"Worker loop error: {e}", level="ERROR")
+            time.sleep(2.0)
 
-            time.sleep(min(2.0, POLL_INTERVAL))
+    log("Worker exiting cleanly")
 
-        finally:
-            # Stop heartbeat thread if it was started
-            if hb_stop is not None:
-                try:
-                    hb_stop.set()
-                except Exception:
-                    pass
-            if hb_thread is not None:
-                try:
-                    hb_thread.join(timeout=1.0)
-                except Exception:
-                    pass
-
-            # Small floor to prevent busy spin
-            elapsed = time.time() - started
-            if elapsed < 0.10:
-                time.sleep(0.10 - elapsed)
-
-# -----------------------------------------------------
-# Entrypoint
-# -----------------------------------------------------
 
 if __name__ == "__main__":
-    main_loop()
-
+    main()
 # =====================================================
 # END SECTION 10 / 10
 # =====================================================

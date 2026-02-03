@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 /* =========================================================
    Orbito — Billing (UI only)
@@ -20,6 +21,11 @@ import Link from "next/link";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
+}
+
+function formatMoney(n: number) {
+  const fixed = n.toFixed(2);
+  return fixed.endsWith(".00") ? fixed.slice(0, -3) : fixed;
 }
 
 type PlanKey = "free_trial" | "starter" | "creator" | "studio";
@@ -41,6 +47,7 @@ type CreditPack = {
   key: string;
   name: string;
   credits: number;
+  packQty: number;
   priceLabel: string;
   popular?: boolean;
   valueHint?: string;
@@ -317,7 +324,7 @@ function Modal({
             </button>
           </div>
 
-          <div className="mt-3 text-[12px] text-white/45">Stripe will handle payment + tax later when wired.</div>
+      <div className="mt-3 text-[12px] text-white/45">Stripe handles payment + tax at checkout.</div>
         </div>
       </div>
     </div>
@@ -350,11 +357,27 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CreditsCard({ onBuy }: { onBuy: () => void }) {
-  // UI-only placeholders (later: fetched from /auth/me or /billing)
-  const credits = "—";
-  const usedThisPeriod = "—";
-  const estRunsLeft = "—";
+function checkoutErrorMessage(e: any): string {
+  if (!e) return "Checkout failed. Try again.";
+  const detail = e?.detail || e?.message || e?.error;
+  if (typeof detail === "string") return detail;
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return "Checkout failed. Try again.";
+  }
+}
+
+function CreditsCard({
+  credits,
+  onBuy,
+}: {
+  credits: number | null;
+  onBuy: () => void;
+}) {
+  const creditDisplay = credits === null ? "—" : credits.toLocaleString();
+  const estRunsLeft =
+    credits === null ? "—" : Math.max(0, Math.floor(credits / 2)).toLocaleString();
 
   return (
     <SoftCard className="p-6" glow>
@@ -362,7 +385,7 @@ function CreditsCard({ onBuy }: { onBuy: () => void }) {
         <div>
           <div className="text-sm font-semibold text-white/90">Credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Credits meter uploads, processing, and exports. This becomes real once backend is wired.
+            Credits meter uploads, processing, and exports.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -371,20 +394,20 @@ function CreditsCard({ onBuy }: { onBuy: () => void }) {
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Current balance</div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{credits}</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{creditDisplay}</div>
           <div className="mt-1 text-[12px] text-white/45">credits</div>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Used this period</div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{usedThisPeriod}</div>
-          <div className="mt-1 text-[12px] text-white/45">credits</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">—</div>
+          <div className="mt-1 text-[12px] text-white/45">coming soon</div>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Estimated runs left</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{estRunsLeft}</div>
-          <div className="mt-1 text-[12px] text-white/45">varies by length</div>
+          <div className="mt-1 text-[12px] text-white/45">≈ 1 min clips</div>
         </div>
       </div>
 
@@ -396,7 +419,7 @@ function CreditsCard({ onBuy }: { onBuy: () => void }) {
           New upload
         </Link>
 
-        <div className="sm:ml-auto text-[12px] text-white/55">Tip: export-ready packs are perfect for heavy weeks.</div>
+        <div className="sm:ml-auto text-[12px] text-white/55">Tip: packs scale Creator credits.</div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
@@ -417,27 +440,14 @@ function BillingHistoryCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-white/90">Billing history</div>
-          <div className="mt-1 text-sm text-white/60">Invoices and receipts will appear here once Stripe is wired.</div>
+          <div className="mt-1 text-sm text-white/60">Invoices appear after your first payment.</div>
         </div>
-        <Badge tone="neutral">UI-only</Badge>
+        <Badge tone="neutral">History</Badge>
       </div>
 
-      <div className="mt-5 grid gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3"
-          >
-            <div className="min-w-0">
-              <div className="h-3 w-40 rounded bg-white/[0.06]" />
-              <div className="mt-2 h-3 w-24 rounded bg-white/[0.05]" />
-            </div>
-            <div className="h-9 w-24 rounded-full border border-white/10 bg-white/[0.02]" />
-          </div>
-        ))}
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/60">
+        No invoices yet. Once you complete checkout, invoices and receipts show up here automatically.
       </div>
-
-      <div className="mt-4 text-[12px] text-white/45">Later: show invoice PDF links + receipt email delivery status.</div>
     </SoftCard>
   );
 }
@@ -473,9 +483,12 @@ function StudioCtaCard() {
 }
 
 export default function BillingPage() {
-  // UI-only state (later: fetched from backend)
+  type MeResponse = { email: string; plan: string; credits: number };
+
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free_trial");
   const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const [credits, setCredits] = useState<number | null>(null);
+  const [startingCheckout, setStartingCheckout] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"plan" | "pack" | "info">("plan");
@@ -487,7 +500,30 @@ export default function BillingPage() {
   const toastTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    apiFetch<MeResponse>("/auth/me", { method: "GET" })
+      .then((me) => {
+        if (cancelled) return;
+        const plan = (me.plan || "").toLowerCase();
+        const mapped: PlanKey =
+          plan === "starter"
+            ? "starter"
+            : plan === "creator"
+            ? "creator"
+            : plan === "studio"
+            ? "studio"
+            : "free_trial";
+        setCurrentPlan(mapped);
+        setCredits(typeof me.credits === "number" ? me.credits : 0);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCredits(null);
+        }
+      });
+
     return () => {
+      cancelled = true;
       if (toastTimer.current) window.clearTimeout(toastTimer.current);
     };
   }, []);
@@ -498,8 +534,43 @@ export default function BillingPage() {
     toastTimer.current = window.setTimeout(() => setToast(null), 1800);
   }
 
+  async function startCheckout(plan: "free" | "starter" | "creator", packQty?: number) {
+    if (startingCheckout) return;
+    setStartingCheckout(true);
+    try {
+      const payload =
+        plan === "creator"
+          ? { plan, interval, pack: Math.max(1, Math.min(10, packQty || 1)) }
+          : { plan, interval: "monthly" };
+
+      const data = (await apiFetch("/billing/checkout-session", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      })) as any;
+
+      const url = data?.url;
+      if (!url) {
+        showToast("Checkout failed. Try again.");
+        return;
+      }
+      window.location.href = url;
+    } catch (e) {
+      showToast(checkoutErrorMessage(e));
+    } finally {
+      setStartingCheckout(false);
+    }
+  }
+
   const plans: Plan[] = useMemo(() => {
-    const creatorPrice = interval === "yearly" ? "$— / yr" : "$— / mo";
+    const starterMonthlyPrice = 14.99;
+    const creatorMonthlyPrice = 29.99;
+    const yearlyDiscount = 0.51;
+    const creatorYearlyMonthlyEq = creatorMonthlyPrice * (1 - yearlyDiscount);
+
+    const creatorPrice =
+      interval === "yearly"
+        ? `$${formatMoney(creatorYearlyMonthlyEq)} / mo (billed yearly)`
+        : `$${formatMoney(creatorMonthlyPrice)} / mo`;
 
     return [
       {
@@ -516,7 +587,7 @@ export default function BillingPage() {
         name: "Starter",
         short: "Simple monthly plan",
         desc: "Consistent output with predictable billing.",
-        priceLabel: "$— / mo",
+        priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
         note: "Great for steady monthly creators.",
       },
@@ -547,31 +618,35 @@ export default function BillingPage() {
   }, [interval]);
 
   const creditPacks: CreditPack[] = useMemo(() => {
+    const base = interval === "yearly" ? 3600 : 300;
     return [
       {
-        key: "pack_small",
-        name: "Small pack",
-        credits: 500,
-        priceLabel: "$— one-time",
-        valueHint: "Good for a few extra uploads / exports.",
+        key: "pack_1x",
+        name: "Creator 1×",
+        packQty: 1,
+        credits: base * 1,
+        priceLabel: "Scales Creator",
+        valueHint: "Great for steady weekly output.",
       },
       {
-        key: "pack_standard",
-        name: "Standard pack",
-        credits: 1500,
-        priceLabel: "$— one-time",
+        key: "pack_3x",
+        name: "Creator 3×",
+        packQty: 3,
+        credits: base * 3,
+        priceLabel: "Scales Creator",
         popular: true,
         valueHint: "Most picked. Keeps you moving.",
       },
       {
-        key: "pack_large",
-        name: "Large pack",
-        credits: 4000,
-        priceLabel: "$— one-time",
+        key: "pack_8x",
+        name: "Creator 8×",
+        packQty: 8,
+        credits: base * 8,
+        priceLabel: "Scales Creator",
         valueHint: "Best for heavy weeks.",
       },
     ];
-  }, []);
+  }, [interval]);
 
   function openPlanModal(p: PlanKey) {
     if (p === currentPlan) {
@@ -597,12 +672,19 @@ export default function BillingPage() {
 
   function confirmAction() {
     if (modalMode === "plan" && pendingPlan) {
-      setCurrentPlan(pendingPlan);
-      showToast("Plan updated (UI-only).");
+      if (pendingPlan === "starter") startCheckout("starter");
+      if (pendingPlan === "creator") startCheckout("creator", 1);
+      if (pendingPlan === "free_trial") startCheckout("free");
+      if (pendingPlan === "studio") {
+        showToast("Studio is handled by sales.");
+      }
       return;
     }
     if (modalMode === "pack" && pendingPack) {
-      showToast("Checkout will be added when Stripe is wired.");
+      const pack = creditPacks.find((p) => p.key === pendingPack);
+      if (pack) {
+        startCheckout("creator", pack.packQty);
+      }
       return;
     }
     if (modalMode === "info") {
@@ -632,7 +714,7 @@ export default function BillingPage() {
               </span>
             </div>
             <div className="mt-1 text-sm text-white/60">
-              Upgrade anytime, or top up credits when you run low. Stripe will be wired later.
+              Upgrade anytime, or top up credits when you run low.
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Plan changes</span>
@@ -653,22 +735,22 @@ export default function BillingPage() {
       </SoftCard>
 
       {/* Credits */}
-      <CreditsCard onBuy={() => openPackModal("pack_standard")} />
+      <CreditsCard credits={credits} onBuy={() => openPackModal("pack_3x")} />
 
       {/* Current */}
       <SoftCard className="p-6" glow>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Current plan</div>
-            <div className="mt-1 text-sm text-white/60">This will populate from the backend when billing is wired.</div>
+          <div className="mt-1 text-sm text-white/60">Your current subscription and credits.</div>
           </div>
           <Badge tone="good">{currentPlanLabel}</Badge>
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <StatPill label="Plan" value={currentPlanLabel} />
-          <StatPill label="Credits" value="—" />
-          <StatPill label="Status" value="—" />
+          <StatPill label="Credits" value={credits === null ? "—" : credits.toLocaleString()} />
+          <StatPill label="Status" value="Active" />
         </div>
 
         <Divider />
@@ -681,7 +763,7 @@ export default function BillingPage() {
           >
             Manage subscription
           </button>
-          <div className="text-[12px] text-white/55">Stripe + tax wiring is on the backend checklist.</div>
+          <div className="text-[12px] text-white/55">Stripe Checkout handles upgrades and changes.</div>
         </div>
       </SoftCard>
 
@@ -719,7 +801,7 @@ export default function BillingPage() {
             <div className="text-sm font-semibold text-white/90">Buy more credits</div>
             <div className="mt-1 text-sm text-white/60">Top up instantly. Credits stack on your balance.</div>
           </div>
-          <Badge>One-time purchase</Badge>
+          <Badge>Creator packs</Badge>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -729,8 +811,8 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Credits add after payment</span>
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">No plan change required</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Credits add after checkout</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Creator required</span>
           <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Receipts via email</span>
         </div>
       </SoftCard>
@@ -753,10 +835,10 @@ export default function BillingPage() {
         }
         desc={
           modalMode === "plan"
-            ? "This will go to Stripe Checkout once billing is wired. For now, it updates the UI only."
+            ? "This will open Stripe Checkout to confirm your plan."
             : modalMode === "pack"
-            ? "This will go to Stripe Checkout once credit packs are wired. For now, it’s UI only."
-            : "Nothing to change right now. When billing is wired, this button will open Stripe’s subscription portal."
+            ? "This will open Stripe Checkout to scale Creator credits."
+            : "Nothing to change right now. You’re already on this plan."
         }
         confirmLabel={modalMode === "info" ? "Okay" : "Confirm"}
         tone={modalMode === "plan" && pendingIsDowngrade ? "warn" : "neutral"}
@@ -766,9 +848,7 @@ export default function BillingPage() {
               <div className="font-semibold text-white/80">What happens next</div>
               <div className="mt-2 grid gap-2">
                 <div>• Upgrades: immediate.</div>
-                <div>
-                  • Downgrades: <span className="text-white/75">scheduled to end of period</span> (once wired).
-                </div>
+                <div>• Downgrades: handled in Stripe during checkout.</div>
                 <div>• Credits: updated after checkout confirmation.</div>
               </div>
             </div>

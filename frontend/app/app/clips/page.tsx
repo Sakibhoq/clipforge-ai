@@ -59,6 +59,7 @@ type ClipDTO = {
 
   // Optional
   title?: string | null;
+  hook?: string | null;
   aspect_ratio?: string | null;
   width?: number | null;
   height?: number | null;
@@ -173,7 +174,8 @@ function Icon({
     | "info"
     | "folder"
     | "collapse"
-    | "sliders";
+    | "sliders"
+    | "calendar";
   className?: string;
 }) {
   const common = `inline-block ${className}`;
@@ -223,6 +225,15 @@ function Icon({
           strokeWidth="3"
           strokeLinecap="round"
         />
+      </svg>
+    );
+  }
+
+  if (name === "calendar") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+        <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" />
+        <path d="M7 3v4M17 3v4M3.5 9h17" stroke="rgba(255,255,255,0.6)" strokeWidth="1.6" />
       </svg>
     );
   }
@@ -549,9 +560,15 @@ function ClipMeta({
   compact?: boolean;
 }) {
   const title = autoTitle(clip);
+  const hook = (clip.hook || "").trim();
   return (
     <div className="min-w-0">
       <div className={cx("font-semibold text-white/85 truncate", compact ? "text-sm" : "text-sm")}>{title}</div>
+      {hook && (
+        <div className={cx("mt-0.5 text-[11px] text-white/55 line-clamp-1", compact && "text-[10px]")}>
+          {hook}
+        </div>
+      )}
       <div className="mt-1 text-[12px] text-white/55">
         {formatTime(clip.start_time)} → {formatTime(clip.end_time)} • {Math.round(clip.duration)}s
       </div>
@@ -563,9 +580,11 @@ function ClipMeta({
 function ClipActions({
   clip,
   onOpenSettings,
+  onSchedule,
 }: {
   clip: ClipDTO;
   onOpenSettings: () => void;
+  onSchedule: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const title = autoTitle(clip);
@@ -586,6 +605,19 @@ function ClipActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSchedule();
+        }}
+        className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
+        aria-label="Schedule"
+      >
+        <Icon name="calendar" />
+        Schedule
+      </button>
+
       <button
         type="button"
         onClick={(e) => {
@@ -710,7 +742,7 @@ const DEFAULT_CLIP_SETTINGS: ClipOutputSettings = {
 /* =========================================================
    ClipsPage
 ========================================================= */
-export default function ClipsPage() {
+export function ClipsWorkspace() {
   const sp = useSearchParams();
   const router = useRouter();
 
@@ -743,6 +775,13 @@ export default function ClipsPage() {
   const [settingsClipId, setSettingsClipId] = useState<number | null>(null);
   const [clipSettings, setClipSettings] = useState<Record<number, ClipOutputSettings>>({});
 
+  // Schedule drawer state (YouTube scheduler)
+  const [scheduleClipId, setScheduleClipId] = useState<number | null>(null);
+  const [scheduleCaption, setScheduleCaption] = useState("");
+  const [scheduleWhen, setScheduleWhen] = useState("");
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
   function getSettingsFor(id: number): ClipOutputSettings {
     return clipSettings[id] || DEFAULT_CLIP_SETTINGS;
   }
@@ -752,6 +791,37 @@ export default function ClipsPage() {
       ...prev,
       [id]: { ...(prev[id] || DEFAULT_CLIP_SETTINGS), ...patch },
     }));
+  }
+
+  function openSchedule(clip: ClipDTO) {
+    setScheduleClipId(clip.id);
+    setScheduleCaption(autoTitle(clip));
+    setScheduleWhen("");
+    setScheduleError(null);
+  }
+
+  async function createSchedule() {
+    if (!scheduleClipId || scheduleBusy) return;
+    setScheduleBusy(true);
+    setScheduleError(null);
+    try {
+      const scheduledAt = scheduleWhen ? new Date(scheduleWhen).toISOString() : undefined;
+      await apiFetch("/social/posts", {
+        method: "POST",
+        body: {
+          provider: "youtube",
+          clip_id: scheduleClipId,
+          caption: scheduleCaption || "New Orbito clip",
+          scheduled_at: scheduledAt,
+        },
+      });
+      setScheduleClipId(null);
+    } catch (e: any) {
+      const detail = e?.detail || e?.message || "Scheduling failed.";
+      setScheduleError(typeof detail === "string" ? detail : "Scheduling failed.");
+    } finally {
+      setScheduleBusy(false);
+    }
   }
 
   // Fetch
@@ -837,7 +907,8 @@ export default function ClipsPage() {
           const filteredClips = g.clips.filter((c) => {
             const key = (c.storage_key || "").toLowerCase();
             const title = (c.title || "").toLowerCase();
-            return key.includes(q) || title.includes(q) || String(c.id).includes(q);
+            const hook = (c.hook || "").toLowerCase();
+            return key.includes(q) || title.includes(q) || hook.includes(q) || String(c.id).includes(q);
           });
 
           return { ...g, clips: filteredClips };
@@ -859,7 +930,8 @@ export default function ClipsPage() {
       out = out.filter((c) => {
         const key = (c.storage_key || "").toLowerCase();
         const title = (c.title || "").toLowerCase();
-        return key.includes(q) || title.includes(q) || String(c.id).includes(q);
+        const hook = (c.hook || "").toLowerCase();
+        return key.includes(q) || title.includes(q) || hook.includes(q) || String(c.id).includes(q);
       });
     }
 
@@ -1153,7 +1225,11 @@ export default function ClipsPage() {
                                 <ClipMeta clip={c} />
                               </div>
                               <div className="mt-4">
-                                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
+                                <ClipActions
+                                  clip={c}
+                                  onOpenSettings={() => setSettingsClipId(c.id)}
+                                  onSchedule={() => openSchedule(c)}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1174,7 +1250,11 @@ export default function ClipsPage() {
                                   <ClipPreview clip={c} variant="thumb" />
                                   <ClipMeta clip={c} compact />
                                 </div>
-                                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
+                                <ClipActions
+                                  clip={c}
+                                  onOpenSettings={() => setSettingsClipId(c.id)}
+                                  onSchedule={() => openSchedule(c)}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1195,7 +1275,11 @@ export default function ClipsPage() {
                 <ClipMeta clip={c} />
               </div>
               <div className="mt-4">
-                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
+                <ClipActions
+                  clip={c}
+                  onOpenSettings={() => setSettingsClipId(c.id)}
+                  onSchedule={() => openSchedule(c)}
+                />
               </div>
             </div>
           ))}
@@ -1209,7 +1293,11 @@ export default function ClipsPage() {
                   <ClipPreview clip={c} variant="thumb" />
                   <ClipMeta clip={c} compact />
                 </div>
-                <ClipActions clip={c} onOpenSettings={() => setSettingsClipId(c.id)} />
+                <ClipActions
+                  clip={c}
+                  onOpenSettings={() => setSettingsClipId(c.id)}
+                  onSchedule={() => openSchedule(c)}
+                />
               </div>
             </div>
           ))}
@@ -1231,8 +1319,31 @@ export default function ClipsPage() {
           />
         ) : null}
       </Drawer>
+
+      {/* SCHEDULE DRAWER */}
+      <Drawer
+        open={scheduleClipId !== null}
+        onClose={() => setScheduleClipId(null)}
+        title={scheduleClipId ? `Schedule — Clip #${scheduleClipId}` : "Schedule"}
+      >
+        {scheduleClipId ? (
+          <ScheduleForm
+            caption={scheduleCaption}
+            when={scheduleWhen}
+            busy={scheduleBusy}
+            error={scheduleError}
+            onCaptionChange={setScheduleCaption}
+            onWhenChange={setScheduleWhen}
+            onSubmit={createSchedule}
+          />
+        ) : null}
+      </Drawer>
     </div>
   );
+}
+
+export default function ClipsPage() {
+  return <ClipsWorkspace />;
 }
 /* =========================================================
    PerClipSettings (UI-only)
@@ -1341,6 +1452,79 @@ function PerClipSettings({
         </button>
 
         <span className="text-[12px] text-white/45">Clip #{clipId} settings are stored client-side for now.</span>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   ScheduleForm (YouTube scheduler)
+========================================================= */
+function ScheduleForm({
+  caption,
+  when,
+  busy,
+  error,
+  onCaptionChange,
+  onWhenChange,
+  onSubmit,
+}: {
+  caption: string;
+  when: string;
+  busy: boolean;
+  error: string | null;
+  onCaptionChange: (v: string) => void;
+  onWhenChange: (v: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="text-sm font-semibold text-white/85">YouTube scheduling</div>
+        <div className="mt-1 text-[12px] text-white/55">
+          OpusClip-style flow: pick a clip, add a caption, schedule when you want it to post.
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <label className="text-[12px] text-white/60">Caption</label>
+        <textarea
+          className="min-h-[90px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90"
+          value={caption}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          placeholder="New Orbito clip"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <label className="text-[12px] text-white/60">Schedule time (optional)</label>
+        <input
+          type="datetime-local"
+          className="h-11 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white/90"
+          value={when}
+          onChange={(e) => onWhenChange(e.target.value)}
+        />
+        <div className="text-[12px] text-white/45">Leave blank to post immediately.</div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70">
+          {error}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          onClick={onSubmit}
+          className="btn-aurora text-sm px-4 py-2"
+          disabled={busy}
+        >
+          {busy ? "Scheduling..." : "Schedule post"}
+        </button>
+        <div className="text-[12px] text-white/55">
+          YouTube only for now. Connect in Settings → Social Connections.
+        </div>
       </div>
     </div>
   );

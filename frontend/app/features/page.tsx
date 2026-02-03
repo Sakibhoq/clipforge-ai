@@ -115,260 +115,49 @@ export default function FeaturesPage() {
   const snapTimerRef = useRef<number | null>(null);
 
   /* -----------------------------
-     Data — lots of cards (hooky)
+     Data — fewer, stronger cards
   ----------------------------- */
   const cards: FeatureCard[] = useMemo(
     () => [
       {
-        id: "paste-youtube",
+        id: "source",
         kicker: "Source",
         title: (
           <>
-            Paste a <H>YouTube</H> link
+            Paste <H>YouTube</H> or upload once
           </>
         ),
-        desc: <>Drop a link. Orbito ingests the full video and starts forging.</>,
-        bullets: [
-          <>
-            Paste <H>YouTube</H> in seconds — no messy downloads.
-          </>,
-          <>Upload MP4 if you prefer.</>,
-          <>Background processing so you can leave.</>,
-        ],
-        tagLeft: (
-          <>
-            <H>YouTube</H> → <H>Shorts</H>
-          </>
-        ),
-        tagRight: <>Fast start</>,
+        desc: <>Drop a long-form once. Orbito ingests it and starts working immediately.</>,
+        bullets: [<>MP4 or YouTube.</>, <>Background processing.</>, <>No re-upload loops.</>],
+        tagLeft: <>Fast start</>,
+        tagRight: <>Low effort</>,
       },
       {
-        id: "detect-hooks",
+        id: "hooks",
         kicker: "AI",
         title: <>Find hooks people actually watch</>,
-        desc: <>Hook-first selection that avoids filler and keeps attention tight.</>,
-        bullets: [<>High-signal moments.</>, <>No dead air.</>, <>Clean endings.</>],
+        desc: <>We surface the moments with energy, clarity, and payoff.</>,
+        bullets: [<>Avoid dead air.</>, <>Tight pacing.</>, <>Clean endings.</>],
         tagLeft: <>Retention</>,
         tagRight: <>High signal</>,
       },
       {
-        id: "short-form-native",
-        kicker: "Platforms",
-        title: (
-          <>
-            Built for <H>Shorts</H>, <H>Reels</H>, <H>TikTok</H>
-          </>
-        ),
-        desc: <>Exports that look native on every platform — not “reposted long-form.”</>,
-        bullets: [<>Vertical-first.</>, <>Safe crop margins.</>, <>Platform-ready layout.</>],
-        tagLeft: (
-          <>
-            <H>Reels</H> / <H>TikTok</H>
-          </>
-        ),
-        tagRight: <>Native</>,
-      },
-      {
-        id: "captions-premium",
-        kicker: "Captions",
-        title: <>Premium captions that pop</>,
-        desc: <>Clean captions with smart line breaks, timing, and emphasis.</>,
-        bullets: [<>Readable at a glance.</>, <>Emphasis on key words.</>, <>Multiple styles.</>],
-        tagLeft: <>Looks expensive</>,
-        tagRight: <>Fast</>,
-      },
-      {
-        id: "caption-emphasis",
-        kicker: "Captions",
-        title: <>Emphasis that feels intentional</>,
-        desc: <>Highlight the right words so the viewer keeps reading.</>,
-        bullets: [<>Punchy emphasis.</>, <>Better comprehension.</>, <>More watch time.</>],
-        tagLeft: <>Clarity</>,
-        tagRight: <>Hook</>,
-      },
-      {
-        id: "hook-variants",
-        kicker: "Speed",
-        title: <>Generate multiple hook variants</>,
-        desc: <>Different openings, same moment — pick the best performer fast.</>,
-        bullets: [<>A/B-ready.</>, <>Fast iteration.</>, <>No re-editing from scratch.</>],
-        tagLeft: <>Test quickly</>,
-        tagRight: <>More winners</>,
-      },
-      {
-        id: "batch-week",
-        kicker: "Output",
-        title: <>Turn one video into a week of posts</>,
-        desc: <>Batch generation that keeps your cadence alive without burning hours.</>,
-        bullets: [<>Produce in volume.</>, <>Stay consistent.</>, <>Always have a queue.</>],
-        tagLeft: <>Cadence</>,
-        tagRight: <>Volume</>,
-      },
-      {
-        id: "quick-edits",
-        kicker: "Control",
-        title: <>Edit only what matters</>,
-        desc: <>Quick trims, caption fixes, clean previews — no bloated editor UI.</>,
-        bullets: [<>Tighten pacing.</>, <>Fix a word instantly.</>, <>Preview before export.</>],
-        tagLeft: <>Fast edits</>,
-        tagRight: <>Clean</>,
-      },
-      {
-        id: "safe-margins",
+        id: "reframe",
         kicker: "Quality",
-        title: <>Safe margins for UI overlays</>,
-        desc: <>Keep captions and faces clear of platform UI and crops.</>,
-        bullets: [<>No cut-off text.</>, <>Cleaner composition.</>, <>More professional.</>],
-        tagLeft: <>Quality</>,
-        tagRight: <>Polished</>,
+        title: <>Reframe + captions, dialed in</>,
+        desc: <>Speaker-first crops and word-by-word captions that feel premium.</>,
+        bullets: [<>Stable camera path.</>, <>Smart line breaks.</>, <>Tasteful emphasis.</>],
+        tagLeft: <>Looks pro</>,
+        tagRight: <>Readable</>,
       },
       {
-        id: "export-crisp",
-        kicker: "Export",
-        title: <>Crisp exports, zero guessing</>,
-        desc: <>Reliable encoding + clean audio so clips post smoothly every time.</>,
-        bullets: [<>Sharp text.</>, <>Clean audio.</>, <>Fast downloads.</>],
-        tagLeft: <>Post-ready</>,
-        tagRight: <>Reliable</>,
-      },
-      {
-        id: "auto-post",
-        kicker: "Automation",
-        title: (
-          <>
-            Auto-post to <H>Instagram</H>, <H>TikTok</H>, <H>YouTube</H>
-          </>
-        ),
-        desc: <>Connect once, choose a cadence, and keep shipping — automatically.</>,
-        bullets: [<>Schedule ahead.</>, <>Queue content.</>, <>Hands-off publishing.</>],
-        tagLeft: <>Paste once</>,
-        tagRight: <>Forget it</>,
-      },
-      {
-        id: "content-queue",
-        kicker: "Automation",
-        title: <>Always-on content queue</>,
-        desc: <>Your next posts stay lined up even when you’re busy.</>,
-        bullets: [<>Consistent output.</>, <>Less stress.</>, <>No last-minute edits.</>],
-        tagLeft: <>Always ready</>,
-        tagRight: <>Calm</>,
-      },
-      {
-        id: "dashboard",
-        kicker: "Workspace",
-        title: <>One dashboard for everything</>,
-        desc: <>Uploads, jobs, clips, exports — in one calm workspace.</>,
-        bullets: [<>Job status.</>, <>Clip library.</>, <>Download anytime.</>],
-        tagLeft: <>Studio-ready</>,
-        tagRight: <>Simple</>,
-      },
-      {
-        id: "job-pipeline",
-        kicker: "Reliability",
-        title: <>A real processing pipeline</>,
-        desc: <>Jobs, progress, retries, and clear status — built like production.</>,
-        bullets: [<>Visible states.</>, <>Retries.</>, <>Error clarity.</>],
-        tagLeft: <>Trust</>,
-        tagRight: <>Stable</>,
-      },
-      {
-        id: "credits",
-        kicker: "Billing",
-        title: <>Credit-based usage</>,
-        desc: <>Simple pricing tied to output. Scale when the shorts are working.</>,
-        bullets: [<>Start small.</>, <>Upgrade when it earns.</>, <>Clear tiers.</>],
-        tagLeft: <>Aligned</>,
-        tagRight: <>Fair</>,
-      },
-      {
-        id: "re-run",
-        kicker: "Output",
-        title: <>Re-run the same video anytime</>,
-        desc: <>New hooks, new clips, new angles — without re-uploading.</>,
-        bullets: [<>Reuse long-form.</>, <>Fresh outputs.</>, <>Faster content cycles.</>],
-        tagLeft: <>Repeatable</>,
-        tagRight: <>Leverage</>,
-      },
-      {
-        id: "clip-library",
-        kicker: "Library",
-        title: <>A clean clip library</>,
-        desc: <>Every export organized so you can post fast.</>,
-        bullets: [<>Searchable.</>, <>Reusable.</>, <>Always accessible.</>],
-        tagLeft: <>Organized</>,
-        tagRight: <>Fast</>,
-      },
-      {
-        id: "team-ready",
-        kicker: "Collab",
-        title: <>Team-ready workflow</>,
-        desc: <>Share outputs, keep standards, ship consistently.</>,
-        bullets: [<>Clear handoffs.</>, <>Consistent style.</>, <>Faster approvals.</>],
-        tagLeft: <>Team</>,
-        tagRight: <>Smooth</>,
-      },
-      {
-        id: "brand-presets",
+        id: "brand",
         kicker: "Brand",
-        title: <>Your style, saved once</>,
-        desc: <>Keep your captions and look consistent across every clip.</>,
-        bullets: [<>Brand consistency.</>, <>Less tweaking.</>, <>More trust.</>],
-        tagLeft: <>Brand</>,
+        title: <>Your watermark, always on brand</>,
+        desc: <>Keep a consistent mark across every export without manual edits.</>,
+        bullets: [<>Paid toggle.</>, <>Tasteful motion.</>, <>Consistent placement.</>],
+        tagLeft: <>Trust</>,
         tagRight: <>Consistent</>,
-      },
-      {
-        id: "speed",
-        kicker: "Speed",
-        title: <>Faster from idea to post</>,
-        desc: <>Stop spending hours per clip. Ship daily without burning out.</>,
-        bullets: [<>Less editing.</>, <>More posting.</>, <>More compounding.</>],
-        tagLeft: <>Ship daily</>,
-        tagRight: <>No burnout</>,
-      },
-      {
-        id: "studio-foundation",
-        kicker: "Foundation",
-        title: <>Built like a real product</>,
-        desc: <>Not a toy tool. A system you can trust and scale.</>,
-        bullets: [<>Reliable pipeline.</>, <>Clear controls.</>, <>AWS-ready foundation.</>],
-        tagLeft: <>Production</>,
-        tagRight: <>Ready</>,
-      },
-      {
-        id: "face-safe",
-        kicker: "Quality",
-        title: <>Keep faces centered</>,
-        desc: <>Better framing means better watch time.</>,
-        bullets: [<>Cleaner visuals.</>, <>Less awkward crops.</>, <>More professional.</>],
-        tagLeft: <>Visuals</>,
-        tagRight: <>Clean</>,
-      },
-      {
-        id: "subtitles-style",
-        kicker: "Captions",
-        title: <>Styles that match your vibe</>,
-        desc: <>Clean, premium typography — not loud, not cheap.</>,
-        bullets: [<>Premium look.</>, <>Readable.</>, <>Consistent.</>],
-        tagLeft: <>Premium</>,
-        tagRight: <>Stylish</>,
-      },
-      {
-        id: "export-standards",
-        kicker: "Export",
-        title: <>Export standards built-in</>,
-        desc: <>The clip you download is the clip you can post immediately.</>,
-        bullets: [<>No guessing.</>, <>No re-encode.</>, <>No quality loss.</>],
-        tagLeft: <>Ready</>,
-        tagRight: <>Instant</>,
-      },
-      {
-        id: "workflow",
-        kicker: "Workflow",
-        title: <>A workflow that compounds</>,
-        desc: <>The more you post, the easier it gets to keep posting.</>,
-        bullets: [<>Repeatable loop.</>, <>More output.</>, <>More growth.</>],
-        tagLeft: <>Compound</>,
-        tagRight: <>Momentum</>,
       },
     ],
     []
@@ -643,14 +432,28 @@ export default function FeaturesPage() {
             <div className="text-xs text-white/55">• Features</div>
 
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-              Everything you need to win on <span className="grad-text">short-form.</span>
+              A premium workflow for <span className="grad-text">short-form.</span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Orbito turns long-form into a clean, repeatable workflow: paste <H>YouTube</H>, generate <H>Shorts</H>,
-              make quick edits, then post to <H>TikTok</H>, <H>Instagram</H> <H>Reels</H>, and <H>YouTube Shorts</H> —
-              automatically.
+              Orbito turns long-form into short-form with a calm, repeatable system: paste or upload, get high-signal
+              clips, add premium captions, and export instantly. Auto-posting and creator workflows are coming next.
             </p>
+
+            <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
+              <div
+                aria-hidden="true"
+                className="absolute -inset-8 opacity-80 blur-2xl animate-[labGlow_10s_ease-in-out_infinite]"
+                style={{
+                  background:
+                    "conic-gradient(from 120deg, rgba(45,212,191,0.32), rgba(125,211,252,0.32), rgba(167,139,250,0.3), rgba(45,212,191,0.32))",
+                }}
+              />
+              <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
+                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon with AI video +
+                music generation. Join early access inside Orbito.
+              </div>
+            </div>
 
             <div className="mt-8 flex flex-wrap items-center gap-2 text-xs text-white/55">
               <Pill>
@@ -665,7 +468,7 @@ export default function FeaturesPage() {
               <span className="text-white/35">→</span>
               <Pill>edit / export</Pill>
               <span className="text-white/35">→</span>
-              <Pill>auto-post</Pill>
+              <Pill>auto-post (soon)</Pill>
             </div>
 
             {/* WHEEL HEADER */}
@@ -726,7 +529,7 @@ export default function FeaturesPage() {
                         ) : null}
 
                         <div className="mt-5 flex items-center justify-between">
-                          <Link href="/register" className="btn-ghost text-xs">
+                          <Link href="/start-trial" className="btn-ghost text-xs">
                             Try it now
                           </Link>
                           <div className="text-xs text-white/45">{f.tagLeft}</div>
@@ -746,7 +549,7 @@ export default function FeaturesPage() {
               <Link href="/how-it-works" className="btn-ghost">
                 How it works
               </Link>
-              <Link href="/register" className="btn-ghost">
+              <Link href="/start-trial" className="btn-ghost">
                 Start free trial
               </Link>
             </div>
@@ -755,16 +558,16 @@ export default function FeaturesPage() {
             <div className="mt-14 grid gap-4 md:grid-cols-3">
               {[
                 {
-                  t: "Secure account + login",
-                  d: "A clean, premium auth flow that feels trustworthy from the first click.",
+                  t: "Launch-ready billing",
+                  d: "Real credits, real checkout, and clean plan logic from day one.",
                 },
                 {
                   t: "Uploads, jobs, clips — one dashboard",
-                  d: "See what’s processing, what’s ready, and what’s scheduled in one place.",
+                  d: "Track progress and exports in a single, calm workspace.",
                 },
                 {
-                  t: "Built for serious output",
-                  d: "A layout designed for creators who ship daily — fast, calm, and reliable.",
+                  t: "Clipforge Labs (coming soon)",
+                  d: "AI video generation + AI song generation. The next product line lives at clipforge.us.",
                 },
               ].map((x) => (
                 <div
@@ -781,7 +584,7 @@ export default function FeaturesPage() {
             </div>
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
-              <Link href="/register" className="btn-aurora">
+              <Link href="/start-trial" className="btn-aurora">
                 Start free trial
               </Link>
               <Link href="/contact" className="btn-ghost">

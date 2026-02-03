@@ -12,4 +12,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     plan = Column(String, default="free", nullable=False)
 
-    credits = Column(Integer, default=60, nullable=False)
+    credits = Column(Integer, default=0, nullable=False)
+    stripe_customer_id = Column(String, nullable=True)
+    last_stripe_event_id = Column(String, nullable=True)
+    trial_used = Column(Boolean, default=False, nullable=False)

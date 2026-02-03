@@ -1,13 +1,16 @@
-# docker-compose.yml (fixed block)
+version: "3.9"
+
 services:
   frontend:
     build: ./frontend
     command: npm run dev -- --hostname 0.0.0.0 --port 3000
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend:/app
     environment:
-      # IMPORTANT: this runs in the BROWSER, so it must be reachable from your computer
-      NEXT_PUBLIC_API_BASE: "/api"
+      # IMPORTANT: browser-visible base
+      NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8000}"
     depends_on:
       backend:
         condition: service_healthy
@@ -20,36 +23,48 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      # 🔑 MOUNT SOURCE CODE so edits apply immediately
+      - ./backend:/app
       - ./data:/data
 
       # AWS credentials (Codespaces + local dev)
-      # IMPORTANT:
-      # - Codespaces home = /home/codespace
-      # - On EC2 this volume is REMOVED and IAM role is used instead
       - /home/codespace/.aws:/root/.aws:ro
     environment:
       # Core
       SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
-      FRONTEND_ORIGIN: "http://localhost:3000"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
+
+      # Stripe prices
+      STRIPE_PRICE_FREE_MONTHLY: price_1Stiem7Gixo4GiFWKbg8Aj8S
+      STRIPE_PRICE_STARTER_MONTHLY: price_1SthkW7Gixo4GiFWPqBRDlrt
+      STRIPE_PRICE_STUDIO_MONTHLY: price_1Sthma7Gixo4GiFWr9C0K2h3
+      STRIPE_PRICE_CREATOR_MONTHLY: price_1SthhG7Gixo4GiFWpyu5YfTh
+      STRIPE_PRICE_CREATOR_YEARLY: price_1SthiT7Gixo4GiFWH1BsU8om
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
 
       # Storage
       STORAGE_BACKEND: "s3"
       AWS_REGION: "us-east-1"
       S3_BUCKET: "clipforge-uploads-dev-26"
 
-      # URLs
-      FRONTEND_BASE_URL: "http://localhost:3000"
+      # YouTube ingest + automations
+      ENABLE_YOUTUBE_INGEST: "true"
+      AUTOMATION_WEBHOOK_SECRET: "dev_automation_secret"
+      AUTOPOST_PROVIDERS: "youtube"
 
-      # Billing (wired later)
-      STRIPE_SECRET_KEY: ""
-      STRIPE_WEBHOOK_SECRET: ""
+      # URLs
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:3000}"
+
+      # Billing
+      STRIPE_WEBHOOK_SECRET: whsec_XGClnfI1ybtNpdialU6ccHhmh5MAJlU6
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/docs')"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
 
   worker:
     build: ./worker
@@ -58,27 +73,28 @@ services:
         condition: service_healthy
     volumes:
       - ./data:/data
-
-      # Allow worker to import backend code
       - ./backend:/backend
-
-      # AWS credentials (same rule as backend)
       - /home/codespace/.aws:/root/.aws:ro
+      - ./frontend/public:/app/public:ro
     environment:
+      PYTHONFAULTHANDLER: "1"
       # Core
       SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
+      WORKER_WATERMARK_PNG: /app/assets/orbito-mark.png
+      WORKER_WATERMARK_TEXT_FONTFILE: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+      WORKER_WATERMARK_TEXT: "Orbito"
 
       # Storage
       STORAGE_BACKEND: "s3"
       AWS_REGION: "us-east-1"
       S3_BUCKET: "clipforge-uploads-dev-26"
 
-      # Timeouts (fix ffprobe timeout on big uploads)
+      # Timeouts
       WORKER_FFPROBE_TIMEOUT: "180"
 
       # Runtime
       PYTHONPATH: "/backend"
       BACKEND_URL: "http://backend:8000"
-
+      AUTOMATION_WEBHOOK_SECRET: "dev_automation_secret"
     restart: unless-stopped

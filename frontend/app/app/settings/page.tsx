@@ -31,7 +31,8 @@ function Icon({
     | "chev"
     | "warn"
     | "check"
-    | "info";
+    | "info"
+    | "card";
   className?: string;
 }) {
   const common = `inline-block ${className}`;
@@ -83,6 +84,23 @@ function Icon({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      </svg>
+    );
+  }
+
+  if (name === "card") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+        <rect
+          x="3"
+          y="6"
+          width="18"
+          height="12"
+          rx="2.5"
+          stroke="rgba(255,255,255,0.7)"
+          strokeWidth="1.6"
+        />
+        <path d="M3 10h18" stroke="rgba(255,255,255,0.5)" strokeWidth="1.6" />
       </svg>
     );
   }
@@ -336,6 +354,14 @@ type MeResponse = {
   credits: number;
 };
 
+type SocialAccount = {
+  id: number;
+  provider: string;
+  account_id?: string | null;
+  account_name?: string | null;
+  status: string;
+};
+
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -349,6 +375,11 @@ export default function SettingsPage() {
   // /auth/me hydration (graceful)
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(true);
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [socialBusy, setSocialBusy] = useState<string | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const email = me?.email ?? "—";
   const plan = me?.plan ?? "—";
@@ -387,6 +418,35 @@ export default function SettingsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" })
+      .then((d) => {
+        if (!mounted) return;
+        setSocialAccounts(Array.isArray(d) ? d : []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSocialAccounts([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function connectSocial(provider: string) {
+    if (socialBusy) return;
+    setSocialBusy(provider);
+    try {
+      const data = (await apiFetch(`/social/connect/${provider}/start`, { method: "POST" })) as any;
+      const url = data?.url;
+      if (!url) return;
+      window.location.href = url;
+    } finally {
+      setSocialBusy(null);
+    }
+  }
+
   async function logout() {
     try {
       await apiFetch("/auth/logout", { method: "POST" });
@@ -400,6 +460,40 @@ export default function SettingsPage() {
 
     router.push("/login");
     router.refresh();
+  }
+
+  async function cancelSubscription() {
+    if (billingBusy) return;
+    setBillingBusy(true);
+    setActionMsg(null);
+    try {
+      const res = (await apiFetch<{ status: string }>("/billing/cancel", { method: "POST" })) as any;
+      setActionMsg(res?.status ? `Subscription: ${res.status}` : "Subscription update requested.");
+    } catch (e: any) {
+      setActionMsg(e?.detail || e?.message || "Failed to cancel subscription.");
+    } finally {
+      setBillingBusy(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteBusy) return;
+    const ok = window.confirm(
+      "Delete your account? This will disable login and remove access immediately."
+    );
+    if (!ok) return;
+    setDeleteBusy(true);
+    setActionMsg(null);
+    try {
+      await apiFetch("/auth/delete", { method: "POST" });
+      clearCookieEverywhere("cf_token");
+      router.push("/");
+      router.refresh();
+    } catch (e: any) {
+      setActionMsg(e?.detail || e?.message || "Failed to delete account.");
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   function savePrefs() {
@@ -465,11 +559,14 @@ export default function SettingsPage() {
           <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
             Billing
           </Link>
-          <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2">
-            Clips
+          <Link href="/app" className="btn-ghost text-[12px] px-4 py-2">
+            Overview
           </Link>
         </div>
       </div>
+      {actionMsg && (
+        <div className="text-[12px] text-white/60">{actionMsg}</div>
+      )}
 
       {/* Profile strip */}
       <div className="surface-soft relative overflow-hidden p-6">
@@ -539,6 +636,26 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Billing controls */}
+      <Section icon={<Icon name="card" />} title="Billing controls" desc="Manage your subscription.">
+        <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
+          <Row
+            label="Cancel subscription"
+            hint="Stops renewals at period end."
+            right={
+              <button
+                type="button"
+                onClick={cancelSubscription}
+                disabled={billingBusy}
+                className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-60"
+              >
+                {billingBusy ? "Canceling…" : "Cancel"}
+              </button>
+            }
+          />
+        </div>
+      </Section>
 
       {/* Preferences */}
       <Section icon={<Icon name="bolt" />} title="Preferences" desc="These settings affect your local UI experience.">
@@ -622,6 +739,79 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* Social connections */}
+      <Section icon={<Icon name="bolt" />} title="Social Connections" desc="Connect accounts for auto-posting.">
+        <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
+          <Row
+            label="YouTube"
+            hint="Enable auto-posting to Shorts."
+            right={
+              <button
+                type="button"
+                onClick={() => connectSocial("youtube")}
+                className="btn-solid-dark text-[12px] px-4 py-2"
+                disabled={!!socialBusy}
+              >
+                {socialBusy === "youtube" ? "Connecting..." : "Connect"}
+              </button>
+            }
+          />
+          <Divider />
+          <Row
+            label="TikTok"
+            hint="Pending platform approval."
+            right={
+              <button
+                type="button"
+                onClick={() => connectSocial("tiktok")}
+                className="btn-solid-dark text-[12px] px-4 py-2"
+                disabled
+              >
+                Pending
+              </button>
+            }
+          />
+          <Divider />
+          <Row
+            label="Instagram"
+            hint="Pending platform approval."
+            right={
+              <button
+                type="button"
+                onClick={() => connectSocial("instagram")}
+                className="btn-solid-dark text-[12px] px-4 py-2"
+                disabled
+              >
+                Pending
+              </button>
+            }
+          />
+        </div>
+
+        <div className="mt-4 grid gap-2 text-[12px] text-white/55">
+          {socialAccounts.length ? (
+            socialAccounts.map((acc) => (
+              <div
+                key={`${acc.provider}-${acc.id}`}
+                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2"
+              >
+                <div>
+                  <div className="text-white/75 font-semibold capitalize">{acc.provider}</div>
+                  <div className="text-white/45">{acc.account_name || acc.account_id || "Connected"}</div>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
+                  {acc.status}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              No social accounts connected yet.
+            </div>
+          )}
+        </div>
+      </Section>
+
       {/* Notifications */}
       <Section icon={<Icon name="mail" />} title="Notifications" desc="Delivery and noise controls.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
@@ -657,11 +847,11 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
-              Upload
+            <Link href="/app" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
+              Overview
             </Link>
-            <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto">
-              Clips
+            <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto">
+              Studio
             </Link>
           </div>
         </div>
@@ -683,22 +873,23 @@ export default function SettingsPage() {
             Danger zone
           </div>
           <div className="mt-1 text-sm text-white/60">
-            Account deletion is intentionally disabled until backend is ready.
+            Deleting your account will disable login immediately.
           </div>
 
           <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
             <button
               type="button"
-              disabled
+              onClick={deleteAccount}
+              disabled={deleteBusy}
               className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-50 w-full sm:w-auto"
             >
-              Delete account
+              {deleteBusy ? "Deleting…" : "Delete account"}
             </button>
-            <div className="text-[12px] text-white/55">Disabled for safety.</div>
+            <div className="text-[12px] text-white/55">This cannot be undone.</div>
           </div>
 
           <div className="mt-3 text-[12px] text-white/45">
-            Later: we’ll do soft-delete / email tombstone so free credits can’t be abused.
+            We tombstone email addresses to prevent free-credit re-registration.
           </div>
         </div>
       </div>

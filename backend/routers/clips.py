@@ -38,6 +38,8 @@ def list_clips(
             "start_time": clip.start_time,
             "end_time": clip.end_time,
             "duration": clip.duration,
+            "title": clip.title,
+            "hook": clip.hook,
         }
 
     # ---------------------------------------------------------

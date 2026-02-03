@@ -1,10 +1,10 @@
+# /app/routers/upload.py
 import os
 import uuid
 from pathlib import Path
-from typing import Tuple, Optional, Any, Literal
+from typing import Tuple
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -17,15 +17,16 @@ from routers.auth import get_current_user
 
 
 # =====================================================
-# Routers
-# - /upload      (LEGACY local upload, deprecated/disabled)
-# - /uploads     (S3 flow: /uploads/register) ✅
+# Router
+# - /upload  (LEGACY local upload, deprecated/disabled)
+# NOTE:
+#   The ONLY valid S3 flow is:
+#     POST /storage/presign  -> PUT to S3 -> POST /uploads/register
+#   and /uploads/register is owned exclusively by routers/upload_register.py
 # =====================================================
 
 router = APIRouter(tags=["uploads"])
-
 legacy_router = APIRouter(prefix="/upload", tags=["upload"])
-uploads_router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 
 # =====================================================
@@ -187,81 +188,12 @@ async def upload_video(
     db.commit()
     db.refresh(upload)
 
-    # ✅ Job created for this upload (legacy path, no settings)
-    job = Job(upload_id=upload.id, status="queued")
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
+    # LEGACY: historically created a Job here; keep legacy path inert.
+    # If you ever re-enable local uploads for dev, route it through the same
+    # credits_reserved + settings logic as upload_register.py.
     return {
         "upload_id": upload.id,
-        "job_id": job.id,
-        "status": job.status,
+        "status": "stored",
         "bytes_saved": size,
+        "detail": "Stored locally (legacy). Job creation is disabled on this legacy route.",
     }
-
-
-# =====================================================
-# S3 FLOW: /uploads/register  ✅
-# =====================================================
-
-AspectRatio = Literal["9:16", "1:1", "4:5", "16:9", "4:3"]
-
-
-class RegisterUploadBody(BaseModel):
-    original_filename: str = Field(..., min_length=1, max_length=512)
-    storage_key: str = Field(..., min_length=1, max_length=1024)
-
-    # render settings
-    aspect_ratio: AspectRatio
-    captions_enabled: bool = True
-    watermark_enabled: bool = True
-    caption_style_json: Optional[Any] = None
-
-
-@uploads_router.post("/register")
-def register_upload(
-    body: RegisterUploadBody,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    # normalize filename (avoid weird separators)
-    safe_name = _safe_filename(body.original_filename)
-
-    # Free users: watermark forced ON (paid can toggle)
-    plan = (getattr(current_user, "plan", "") or "").lower().strip()
-    is_free = plan == "free"
-    watermark_enabled = True if is_free else bool(body.watermark_enabled)
-
-    upload = Upload(
-        user_id=current_user.id,
-        original_filename=safe_name,
-        storage_key=str(body.storage_key).strip(),
-    )
-    db.add(upload)
-    db.commit()
-    db.refresh(upload)
-
-    # Create job WITH render settings (worker reads from Job)
-    job = Job(
-        upload_id=upload.id,
-        status="queued",
-        aspect_ratio=str(body.aspect_ratio),
-        captions_enabled=bool(body.captions_enabled),
-        watermark_enabled=bool(watermark_enabled),
-        caption_style_json=body.caption_style_json,
-    )
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-
-    return {
-        "upload_id": upload.id,
-        "job_id": job.id,
-        "status": job.status,
-    }
-
-
-# Attach subrouters
-router.include_router(legacy_router)
-router.include_router(uploads_router)

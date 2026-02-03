@@ -3,6 +3,8 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+import secrets
+import time
 import jwt
 
 from core.database import SessionLocal
@@ -112,7 +114,7 @@ def cookie_options(request: Request):
         return {"httponly": True, "secure": True, "samesite": "none", "path": "/"}
 
     # Local http dev (localhost / 127.0.0.1):
-    #   Secure=False, SameSite=Lax is fine
+    #   Secure=False
     if not https:
         return {"httponly": True, "secure": False, "samesite": "none", "path": "/"}
 
@@ -135,7 +137,7 @@ def set_auth_cookie(response: Response, request: Request, token: str):
         key=COOKIE_NAME,
         value=token,
         max_age=max_age,
-        expires=expires_dt,  # ✅ RFC-compliant Expires
+        expires=expires_dt,
         path=opts["path"],
         httponly=opts["httponly"],
         secure=opts["secure"],
@@ -168,6 +170,8 @@ def get_current_user(
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=401, detail="Account disabled")
 
     return user
 
@@ -185,9 +189,12 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="User already exists")
 
+    # ✅ IMPORTANT: registering does NOT grant credits
     user = User(
         email=data.email,
         hashed_password=pwd_context.hash(password),
+        plan="free",
+        credits=0,
     )
 
     db.add(user)
@@ -207,6 +214,8 @@ def login(
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not pwd_context.verify(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=401, detail="Account disabled")
 
     token = create_token(user.email)
     set_auth_cookie(response, request, token)
@@ -248,4 +257,32 @@ def change_password(
     current_user.hashed_password = pwd_context.hash(new_password)
     db.commit()
 
+    return {"ok": True}
+
+
+@router.post("/delete")
+def delete_account(
+    response: Response,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Soft-delete account:
+      - tombstone email to prevent re-use
+      - disable account + wipe credits
+      - clear auth cookie
+    """
+    tombstone = f"deleted+{current_user.id}+{int(time.time())}@orbi.to"
+    current_user.email = tombstone
+    current_user.is_active = False
+    current_user.credits = 0
+    current_user.plan = "free"
+    current_user.trial_used = True
+    current_user.stripe_customer_id = None
+    current_user.last_stripe_event_id = None
+    current_user.hashed_password = pwd_context.hash(secrets.token_urlsafe(32))
+
+    db.commit()
+    clear_auth_cookie(response, request)
     return {"ok": True}

@@ -10,16 +10,25 @@ import { apiFetch } from "@/lib/api";
    Real flow (file):
    1) /storage/presign
    2) PUT to S3 (presigned)
-   3) /uploads/register  -> returns upload_id + job_id
+   3) /uploads/register  -> returns upload_id + job_id (credits deducted here)
    4) Poll /jobs/{id} for status (queued/running/done/failed)
 
    Launch-ready:
    - Hero header card styled like Clips "workspace"
    - Output settings (aspect required, captions toggle, watermark paid-only)
    - Settings + session persistence
+
+   YouTube (User-assisted, reliable):
+   - Paste link -> open in new tab -> user downloads MP4 -> upload via normal flow
+   - No server-side YouTube fetch (avoids bot-wall + silent failures)
+
+   POLISH (Option A):
+   - Remove misleading “we download it” language
+   - Dropzone highlight when YouTube step becomes ready
+   - YouTube trust + preview + disclaimer (shows credits)
 ========================================================= */
 
-const DEV_BUILD_STAMP = "upload-page-2026-01-22-final";
+const DEV_BUILD_STAMP = "upload-page-2026-01-29-youtube-assisted-preview";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -60,12 +69,24 @@ type JobRow = {
 
 type MeResponse = {
   email: string;
-  plan: string; // "free" | "paid" | ...
+  plan: string; // "free" | "starter" | ...
   credits: number;
 };
 
 // IMPORTANT: must match backend RegisterUploadRequest.AspectRatio
-type AspectRatio = "9:16" | "1:1" | "4:3";
+type AspectRatio = "9:16" | "1:1" | "4:5" | "16:9" | "4:3";
+
+// YouTube preview (Option A trust + cost visibility)
+type YouTubePreviewResponse = {
+  video_id?: string;
+  normalized_url?: string;
+  title: string;
+  channel: string | null;
+  duration_seconds: number;
+  thumbnail_url: string | null;
+  credits_required: number;
+  minutes_rounded?: number;
+};
 
 function prettyBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "—";
@@ -77,6 +98,55 @@ function prettyBytes(bytes: number) {
     i++;
   }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatDuration(seconds: number) {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function ceilMinutes(seconds: number) {
+  const s = Math.max(0, Number(seconds || 0));
+  return Math.max(1, Math.ceil(s / 60));
+}
+
+function creditsForSeconds(seconds: number) {
+  // Orbito rule: 2 credits per minute
+  return ceilMinutes(seconds) * 2;
+}
+
+async function getVideoDurationSeconds(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+
+    const cleanup = () => {
+      try {
+        video.src = "";
+        URL.revokeObjectURL(url);
+      } catch {}
+    };
+
+    video.onloadedmetadata = () => {
+      const d = Number(video.duration);
+      cleanup();
+      if (!Number.isFinite(d) || d <= 0) return resolve(0);
+      resolve(d);
+    };
+
+    video.onerror = () => {
+      cleanup();
+      reject(new Error("Could not read video duration."));
+    };
+
+    video.src = url;
+  });
 }
 
 function isValidYoutubeUrl(v: string) {
@@ -92,6 +162,32 @@ function isValidYoutubeUrl(v: string) {
     return false;
   } catch {
     return false;
+  }
+}
+
+function normalizeYoutubeUrl(input: string) {
+  const s = input.trim();
+  if (!s) return "";
+  try {
+    const u = new URL(s);
+    const host = u.hostname.replace("www.", "");
+    if (host === "youtu.be") {
+      const id = u.pathname.replace("/", "").trim();
+      if (!id) return s;
+      const out = new URL("https://www.youtube.com/watch");
+      out.searchParams.set("v", id);
+      return out.toString();
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const v = u.searchParams.get("v")?.trim();
+      if (!v) return s;
+      const out = new URL("https://www.youtube.com/watch");
+      out.searchParams.set("v", v);
+      return out.toString();
+    }
+    return s;
+  } catch {
+    return s;
   }
 }
 
@@ -146,10 +242,12 @@ function ErrorBanner({
   title,
   detail,
   onReset,
+  cta,
 }: {
   title: string;
   detail?: string | null;
   onReset: () => void;
+  cta?: React.ReactNode;
 }) {
   return (
     <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
@@ -159,7 +257,7 @@ function ErrorBanner({
           {detail}
         </div>
       ) : null}
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onReset}
@@ -167,6 +265,7 @@ function ErrorBanner({
         >
           Reset
         </button>
+        {cta ? cta : null}
       </div>
     </div>
   );
@@ -229,17 +328,14 @@ function xhrPutWithProgress(args: {
       onProgress(pct);
     };
 
-    xhr.onerror = () =>
-      reject(new Error("Network error (likely CORS) during S3 upload."));
+    xhr.onerror = () => reject(new Error("Network error (likely CORS) during S3 upload."));
     xhr.onabort = () => reject(new Error("Upload canceled."));
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
       const body = xhr.responseText || "";
       reject(
         new Error(
-          `S3 PUT failed (HTTP ${xhr.status})\n\n${
-            body.slice(0, 3000) || "No response body"
-          }`
+          `S3 PUT failed (HTTP ${xhr.status})\n\n${body.slice(0, 3000) || "No response body"}`
         )
       );
     };
@@ -308,14 +404,19 @@ function clearPersistedSession() {
 const SETTINGS_KEY = "cf_upload_settings_v2";
 
 function loadSettings():
-  | { aspect_ratio: AspectRatio | null; captions_enabled: boolean; watermark_enabled: boolean }
+  | {
+      aspect_ratio: AspectRatio | null;
+      captions_enabled: boolean;
+      watermark_enabled: boolean;
+    }
   | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as any;
-    const ar = typeof p?.aspect_ratio === "string" ? (p.aspect_ratio as AspectRatio) : null;
+    const ar =
+      typeof p?.aspect_ratio === "string" ? (p.aspect_ratio as AspectRatio) : null;
     const ce = typeof p?.captions_enabled === "boolean" ? p.captions_enabled : true;
     const we = typeof p?.watermark_enabled === "boolean" ? p.watermark_enabled : true;
     return { aspect_ratio: ar, captions_enabled: ce, watermark_enabled: we };
@@ -372,7 +473,9 @@ function Toggle({
       <div
         className={cx(
           "mt-0.5 h-5 w-9 rounded-full border px-[2px] transition flex items-center",
-          checked ? "border-white/20 bg-white/[0.10] justify-end" : "border-white/10 bg-white/[0.03] justify-start"
+          checked
+            ? "border-white/20 bg-white/[0.10] justify-end"
+            : "border-white/10 bg-white/[0.03] justify-start"
         )}
       >
         <div
@@ -410,11 +513,24 @@ function AspectSegment({
     </button>
   );
 }
-export default function UploadsPage() {
+
+function isInsufficientCreditsError(e: any) {
+  const status = e?.status ?? e?.response?.status ?? e?.httpStatus;
+  if (status === 402) return true;
+  const msg = String(e?.message || "");
+  return msg.includes("402") || msg.toLowerCase().includes("insufficient credits");
+}
+
+export function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [flow, setFlow] = useState<Flow>("idle");
   const [file, setFile] = useState<File | null>(null);
+
+  // Local file cost preview (exact duration from metadata)
+  const [fileDurationSec, setFileDurationSec] = useState<number | null>(null);
+  const [fileCredits, setFileCredits] = useState<number | null>(null);
+  const [fileDurationLoading, setFileDurationLoading] = useState(false);
 
   const [uploadId, setUploadId] = useState<number | null>(null);
   const [jobId, setJobId] = useState<number | null>(null);
@@ -426,11 +542,15 @@ export default function UploadsPage() {
   const [errorTitle, setErrorTitle] = useState<string>("");
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
-  // URL flow remains UI-only for now
+  // YouTube (user-assisted)
   const [url, setUrl] = useState("");
   const urlOk = useMemo(() => isValidYoutubeUrl(url), [url]);
-  const [urlQueued, setUrlQueued] = useState(false);
-  const [urlJobId, setUrlJobId] = useState<string | null>(null);
+  const [ytStep, setYtStep] = useState<"idle" | "opened" | "ready">("idle");
+
+  const [ytPreview, setYtPreview] = useState<YouTubePreviewResponse | null>(null);
+  const [ytPreviewLoading, setYtPreviewLoading] = useState(false);
+  const [ytPreviewError, setYtPreviewError] = useState<string | null>(null);
+  const ytPreviewAbort = useRef<AbortController | null>(null);
 
   // Me (plan gating)
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -445,6 +565,48 @@ export default function UploadsPage() {
   const pollAbort = useRef<AbortController | null>(null);
   const uploadAbort = useRef<AbortController | null>(null);
 
+  // Dropzone pulse focus (YouTube Step 3)
+  const dropzoneRef = useRef<HTMLDivElement | null>(null);
+  const [pulseOn, setPulseOn] = useState(false);
+  const pulseTimer = useRef<number | null>(null);
+  
+  
+  async function requestCancelJob(targetJobId: number) {
+    try {
+    await apiFetch(`/jobs/${targetJobId}/cancel`, { method: "POST" });
+  } catch {
+    // best-effort
+  }
+}
+
+
+  function pulseDropzone() {
+    try {
+      if (typeof window !== "undefined") {
+        if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+      }
+    } catch {}
+    setPulseOn(true);
+
+    try {
+      dropzoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      pulseTimer.current = window.setTimeout(() => setPulseOn(false), 1400);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (typeof window !== "undefined" && pulseTimer.current) {
+          window.clearTimeout(pulseTimer.current);
+        }
+      } catch {}
+    };
+  }, []);
+
   const steps = useMemo(() => {
     const selectedDone = flow !== "idle" && flow !== "dragging";
     const uploadDone = flow === "processing" || flow === "done";
@@ -454,12 +616,34 @@ export default function UploadsPage() {
 
   const canBrowse =
     !file &&
-    (flow === "idle" ||
-      flow === "dragging" ||
-      flow === "error" ||
-      flow === "canceled");
+    (flow === "idle" || flow === "dragging" || flow === "error" || flow === "canceled");
 
   const settingsOk = !!aspectRatio;
+
+  async function fetchYoutubePreview(targetUrl: string) {
+    ytPreviewAbort.current?.abort();
+    const ac = new AbortController();
+    ytPreviewAbort.current = ac;
+
+    setYtPreviewLoading(true);
+    setYtPreviewError(null);
+
+    try {
+      const data = await apiFetch<YouTubePreviewResponse>("/youtube/preview", {
+        method: "POST",
+        body: { url: targetUrl },
+        signal: ac.signal,
+      });
+      setYtPreview(data);
+    } catch (e: any) {
+      const msg = typeof e?.message === "string" ? e.message : "Could not preview video.";
+      setYtPreview(null);
+      setYtPreviewError(msg);
+    } finally {
+      setYtPreviewLoading(false);
+      ytPreviewAbort.current = null;
+    }
+  }
 
   useEffect(() => {
     console.log("[UploadsPage.build]", DEV_BUILD_STAMP);
@@ -503,6 +687,36 @@ export default function UploadsPage() {
     if (isFree) setWatermarkEnabled(true);
   }, [isFree]);
 
+  // YouTube URL changes: reset step + preview state (debounced preview call)
+  useEffect(() => {
+    const u = url.trim();
+    setYtPreviewError(null);
+
+    if (!u) {
+      setYtPreview(null);
+      setYtPreviewLoading(false);
+      ytPreviewAbort.current?.abort();
+      ytPreviewAbort.current = null;
+      return;
+    }
+
+    if (!urlOk) {
+      setYtPreview(null);
+      setYtPreviewLoading(false);
+      ytPreviewAbort.current?.abort();
+      ytPreviewAbort.current = null;
+      return;
+    }
+
+    const normalized = normalizeYoutubeUrl(u);
+    const t = window.setTimeout(() => {
+      fetchYoutubePreview(normalized);
+    }, 450);
+
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlOk, url]);
+
   function resetFileFlow() {
     pollAbort.current?.abort();
     pollAbort.current = null;
@@ -512,6 +726,10 @@ export default function UploadsPage() {
 
     setFlow("idle");
     setFile(null);
+
+    setFileDurationSec(null);
+    setFileCredits(null);
+    setFileDurationLoading(false);
 
     setUploadId(null);
     setJobId(null);
@@ -527,15 +745,22 @@ export default function UploadsPage() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  function cancelUpload() {
-    uploadAbort.current?.abort();
+  async function cancelUpload() {
+   uploadAbort.current?.abort();
     pollAbort.current?.abort();
     uploadAbort.current = null;
     pollAbort.current = null;
 
+    if (jobId) {
+      await requestCancelJob(jobId);
+    }
+
+    clearPersistedSession();
+
     setStatusText("Canceled.");
     setFlow("canceled");
   }
+
 
   function fail(title: string, detail?: string | null) {
     pollAbort.current?.abort();
@@ -554,13 +779,28 @@ export default function UploadsPage() {
     inputRef.current?.click();
   }
 
-  function onFilePicked(f: File | null) {
+  async function onFilePicked(f: File | null) {
     if (!f) return;
     if (flow === "uploading" || flow === "processing") return;
 
     resetFileFlow();
     setFile(f);
     setFlow("selected");
+
+    setFileDurationSec(null);
+    setFileCredits(null);
+    setFileDurationLoading(true);
+
+    try {
+      const dur = await getVideoDurationSeconds(f);
+      setFileDurationSec(dur);
+      setFileCredits(creditsForSeconds(dur));
+    } catch {
+      setFileDurationSec(null);
+      setFileCredits(null);
+    } finally {
+      setFileDurationLoading(false);
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -570,7 +810,7 @@ export default function UploadsPage() {
 
     const f = e.dataTransfer.files?.[0] ?? null;
     setFlow("idle");
-    onFilePicked(f);
+    void onFilePicked(f);
   }
 
   async function pollJobUntilComplete(targetJobId: number) {
@@ -606,10 +846,7 @@ export default function UploadsPage() {
 
       // 60 minutes max
       if (Date.now() - started > 60 * 60 * 1000) {
-        fail(
-          "Timed out",
-          "Job is taking too long. Check worker logs and try again."
-        );
+        fail("Timed out", "Job is taking too long. Check worker logs and try again.");
         return;
       }
 
@@ -622,10 +859,7 @@ export default function UploadsPage() {
   async function startUpload() {
     if (!file) return;
     if (!settingsOk) {
-      fail(
-        "Choose output settings",
-        "Select an aspect ratio before starting the upload."
-      );
+      fail("Choose output settings", "Select an aspect ratio before starting the upload.");
       return;
     }
     if (flow === "uploading" || flow === "processing") return;
@@ -658,10 +892,7 @@ export default function UploadsPage() {
 
       const required = presign.required_headers ?? null;
       if (!required || Object.keys(required).length === 0) {
-        fail(
-          "Upload misconfigured",
-          "Backend /storage/presign did not return required_headers."
-        );
+        fail("Upload misconfigured", "Backend /storage/presign did not return required_headers.");
         return;
       }
 
@@ -692,8 +923,8 @@ export default function UploadsPage() {
           captions_enabled: captionsEnabled,
           watermark_enabled: isFree ? true : watermarkEnabled,
 
-          // backend expects caption_style (or ignore); we store null via job builder
-          caption_style: null,
+          // backend expects caption_style (or ignore)
+          caption_style_json: null,
         },
         signal: ac.signal,
       });
@@ -721,21 +952,36 @@ export default function UploadsPage() {
       }
 
       const msg =
-        typeof e?.message === "string"
-          ? e.message
+        typeof e?.detail === "string"
+          ? e.detail
+          : e?.detail
+          ? JSON.stringify(e.detail, null, 2)
+          : e?.body
+          ? JSON.stringify(e.body, null, 2)
+          : e?.message
+          ? String(e.message)
           : "Unexpected error occurred.";
+
 
       if (isProbablyCorsNetworkError(e)) {
         fail("Upload failed (CORS)", `${msg}\n\n${formatS3CorsHint()}`);
         return;
       }
 
+      if (isInsufficientCreditsError(e)) {
+        const detail = e?.detail
+          ? typeof e.detail === "string"
+            ? e.detail
+            : JSON.stringify(e.detail, null, 2)
+          : "You don’t have enough credits for this video. Buy credits and try again.";
+        fail("Insufficient credits", detail);
+        return;
+      }
+
       if (e?.detail) {
         try {
           const detailStr =
-            typeof e.detail === "string"
-              ? e.detail
-              : JSON.stringify(e.detail, null, 2);
+            typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail, null, 2);
           fail("Upload failed", detailStr);
           return;
         } catch {}
@@ -747,21 +993,11 @@ export default function UploadsPage() {
     }
   }
 
-  function queueUrl() {
-    if (!urlOk) return;
-    setUrlQueued(true);
-    const id = `job_${Math.floor(100000 + Math.random() * 900000)}`;
-    setUrlJobId(id);
-    setTimeout(() => setUrlQueued(false), 900);
-  }
-
   function onDropzoneClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!canBrowse) return;
     const t = e.target as HTMLElement | null;
     if (t) {
-      const interactive = t.closest(
-        "button, a, input, textarea, select, [role='button']"
-      );
+      const interactive = t.closest("button, a, input, textarea, select, [role='button']");
       if (interactive) return;
     }
     openPicker();
@@ -776,12 +1012,12 @@ export default function UploadsPage() {
   }
 
   const headerSubtitle = useMemo(() => {
-    if (flow === "processing")
-      return "Processing runs in the background — you can leave this page.";
-    if (flow === "done")
-      return "Your clips are ready. Jump to Clips to review and export.";
+    if (flow === "processing") return "Processing runs in the background — you can leave this page.";
+    if (flow === "done") return "Your clips are ready. Jump to Clips to review and export.";
     return "Drop a file or paste a YouTube link. Choose output settings first.";
   }, [flow]);
+
+  const canStartUpload = settingsOk && !fileDurationLoading && fileCredits != null;
 
   return (
     <div className="grid gap-6">
@@ -816,21 +1052,13 @@ export default function UploadsPage() {
                   }
                   done={steps.selectedDone}
                 />
-                <StepChip
-                  label="Upload"
-                  active={flow === "uploading"}
-                  done={steps.uploadDone}
-                />
+                <StepChip label="Upload" active={flow === "uploading"} done={steps.uploadDone} />
                 <StepChip
                   label="Processing"
                   active={flow === "processing"}
                   done={steps.processDone}
                 />
-                <StepChip
-                  label="Ready"
-                  active={flow === "done"}
-                  done={flow === "done"}
-                />
+                <StepChip label="Ready" active={flow === "done"} done={flow === "done"} />
               </div>
             </div>
 
@@ -841,13 +1069,22 @@ export default function UploadsPage() {
               >
                 View clips
               </Link>
-              <Link
-                href="/app/billing"
-                className="btn-solid-dark text-[12px] px-4 py-2"
-              >
+              <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
                 Buy credits
               </Link>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/50">
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+              Credits: <span className="text-white/70">{me?.credits ?? "—"}</span>
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+              Charge rule: <span className="text-white/70">2 credits / minute</span>
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+              Charged at: <span className="text-white/70">Register</span>
+            </span>
           </div>
         </div>
       </div>
@@ -863,16 +1100,15 @@ export default function UploadsPage() {
               background:
                 "radial-gradient(160px 110px at 25% 30%, rgba(167,139,250,0.14), transparent 70%), radial-gradient(180px 130px at 80% 45%, rgba(125,211,252,0.12), transparent 72%), radial-gradient(180px 130px at 50% 85%, rgba(45,212,191,0.10), transparent 72%)",
             }}
-          />
+          >
+            {/* bg only */}
+          </div>
+
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-white/90">
-                  Upload a video
-                </div>
-                <div className="mt-1 text-sm text-white/60">
-                  Pick output settings, then upload.
-                </div>
+                <div className="text-sm font-semibold text-white/90">Upload a video</div>
+                <div className="mt-1 text-sm text-white/60">Pick output settings, then upload.</div>
               </div>
               {file ? (
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
@@ -881,16 +1117,12 @@ export default function UploadsPage() {
               ) : null}
             </div>
 
-            {/* Output settings (cleaner + tighter) */}
+            {/* Output settings */}
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[12px] font-semibold text-white/85">
-                    Output settings
-                  </div>
-                  <div className="mt-1 text-[12px] text-white/55">
-                    Aspect ratio is required.
-                  </div>
+                  <div className="text-[12px] font-semibold text-white/85">Output settings</div>
+                  <div className="mt-1 text-[12px] text-white/55">Aspect ratio is required.</div>
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
@@ -904,18 +1136,14 @@ export default function UploadsPage() {
                     Aspect ratio <span className="text-rose-200/90">*</span>
                   </div>
                   {!settingsOk ? (
-                    <div className="text-[12px] text-rose-200/75">
-                      Required
-                    </div>
+                    <div className="text-[12px] text-rose-200/75">Required</div>
                   ) : (
-                    <div className="text-[12px] text-white/45">
-                      Locked in for this run
-                    </div>
+                    <div className="text-[12px] text-white/45">Locked in for this run</div>
                   )}
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {(["9:16", "1:1", "4:3"] as AspectRatio[]).map((v) => (
+                  {(["9:16", "1:1", "4:5", "16:9", "4:3"] as AspectRatio[]).map((v) => (
                     <AspectSegment
                       key={v}
                       value={v}
@@ -945,9 +1173,7 @@ export default function UploadsPage() {
                   onChange={setWatermarkEnabled}
                   disabled={isFree}
                   label="Watermark"
-                  hint={
-                    isFree ? "Free plan forces watermark ON." : "Paid users can toggle."
-                  }
+                  hint={isFree ? "Free plan forces watermark ON." : "Paid users can toggle."}
                 />
               </div>
             </div>
@@ -958,11 +1184,12 @@ export default function UploadsPage() {
               type="file"
               accept="video/*"
               className="hidden"
-              onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
+              onChange={(e) => void onFilePicked(e.target.files?.[0] ?? null)}
             />
 
             {/* Dropzone */}
             <div
+              ref={dropzoneRef}
               onClick={onDropzoneClick}
               onKeyDown={onDropzoneKeyDown}
               role={canBrowse ? "button" : undefined}
@@ -971,9 +1198,7 @@ export default function UploadsPage() {
                 e.preventDefault();
                 e.stopPropagation();
                 setFlow((s) =>
-                  s === "uploading" || s === "processing" || s === "done"
-                    ? s
-                    : "dragging"
+                  s === "uploading" || s === "processing" || s === "done" ? s : "dragging"
                 );
               }}
               onDragOver={(e) => {
@@ -991,7 +1216,9 @@ export default function UploadsPage() {
                 canBrowse ? "cursor-pointer" : "cursor-default",
                 flow === "dragging"
                   ? "border-white/35 bg-white/[0.06]"
-                  : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]"
+                  : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]",
+                pulseOn &&
+                  "ring-2 ring-emerald-400/30 border-emerald-400/35 bg-emerald-500/[0.06]"
               )}
             >
               <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -1005,26 +1232,30 @@ export default function UploadsPage() {
                       title={errorTitle || "Something went wrong"}
                       detail={errorDetail}
                       onReset={resetFileFlow}
+                      cta={
+                        isInsufficientCreditsError({ message: errorDetail || "" }) ? (
+                          <Link href="/app/billing" className="btn-ghost px-4 py-2 text-[12px]">
+                            Buy credits
+                          </Link>
+                        ) : null
+                      }
                     />
                   </div>
                 ) : flow === "uploading" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
-                    <div className="text-sm font-semibold text-white/85">
-                      Uploading…
-                    </div>
+                    <div className="text-sm font-semibold text-white/85">Uploading…</div>
                     <div className="mt-1 text-xs text-white/55">
                       {file?.name ?? "video"} • {Math.round(progress)}%
                     </div>
                     <div className="mt-4">
                       <ProgressBar value={progress} />
                     </div>
-                    <div className="mt-3 text-[12px] text-white/45">
-                      {statusText || "Uploading…"}
-                    </div>
+                    <div className="mt-3 text-[12px] text-white/45">{statusText || "Uploading…"}</div>
                     <div className="mt-5 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={cancelUpload}
+                        onClick={() => void cancelUpload()}
+
                         className="btn-ghost text-[12px] px-4 py-2"
                       >
                         Cancel
@@ -1067,9 +1298,7 @@ export default function UploadsPage() {
                       ) : null}
                       <div className="flex items-center gap-2">
                         <span>Captions:</span>
-                        <span className="text-white/65">
-                          {captionsEnabled ? "On" : "Off"}
-                        </span>
+                        <span className="text-white/65">{captionsEnabled ? "On" : "Off"}</span>
                         <span className="text-white/25">•</span>
                         <span>Watermark:</span>
                         <span className="text-white/65">
@@ -1087,7 +1316,8 @@ export default function UploadsPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={cancelUpload}
+                        onClick={() => void cancelUpload()}
+
                         className="btn-solid-dark text-[12px] px-4 py-2"
                       >
                         Cancel
@@ -1097,9 +1327,7 @@ export default function UploadsPage() {
                 ) : flow === "done" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
                     <div className="text-sm font-semibold text-white/85">Ready</div>
-                    <div className="mt-1 text-xs text-white/55">
-                      Your clips are available now.
-                    </div>
+                    <div className="mt-1 text-xs text-white/55">Your clips are available now.</div>
 
                     <div className="mt-3 space-y-1 text-[12px] text-white/45">
                       {uploadId ? (
@@ -1132,9 +1360,7 @@ export default function UploadsPage() {
                   </div>
                 ) : flow === "canceled" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
-                    <div className="text-sm font-semibold text-white/85">
-                      Canceled
-                    </div>
+                    <div className="text-sm font-semibold text-white/85">Canceled</div>
                     <div className="mt-1 text-xs text-white/55">
                       Nothing was registered. You can try again.
                     </div>
@@ -1150,22 +1376,36 @@ export default function UploadsPage() {
                   </div>
                 ) : file ? (
                   <div className="mx-auto w-full max-w-sm text-left">
-                    <div className="text-sm font-semibold text-white/85">
-                      Ready to upload
-                    </div>
+                    <div className="text-sm font-semibold text-white/85">Ready to upload</div>
                     <div className="mt-1 text-xs text-white/55">
-                      <span className="text-white/80">{file.name}</span> •{" "}
-                      {prettyBytes(file.size)}
+                      <span className="text-white/80">{file.name}</span> • {prettyBytes(file.size)}
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-white/45">
+                      <span>
+                        Duration:{" "}
+                        <span className="text-white/65">
+                          {fileDurationLoading
+                            ? "Reading…"
+                            : fileDurationSec
+                            ? formatDuration(fileDurationSec)
+                            : "—"}
+                        </span>
+                      </span>
+                      <span className="text-white/25">•</span>
+                      <span>
+                        Cost:{" "}
+                        <span className="text-white/65">
+                          {fileCredits != null ? `${fileCredits} credits` : "—"}
+                        </span>
+                      </span>
                     </div>
 
                     <div className="mt-2 text-[12px] text-white/45">
-                      Output:{" "}
-                      <span className="text-white/65">{aspectRatio ?? "—"}</span>
+                      Output: <span className="text-white/65">{aspectRatio ?? "—"}</span>
                       <span className="text-white/25"> • </span>
                       Captions:{" "}
-                      <span className="text-white/65">
-                        {captionsEnabled ? "On" : "Off"}
-                      </span>
+                      <span className="text-white/65">{captionsEnabled ? "On" : "Off"}</span>
                       <span className="text-white/25"> • </span>
                       Watermark:{" "}
                       <span className="text-white/65">
@@ -1177,10 +1417,10 @@ export default function UploadsPage() {
                       <button
                         type="button"
                         onClick={startUpload}
-                        disabled={!settingsOk}
+                        disabled={!canStartUpload}
                         className={cx(
                           "btn-solid-dark text-[12px] px-4 py-2",
-                          !settingsOk && "opacity-50 cursor-not-allowed"
+                          !canStartUpload && "opacity-50 cursor-not-allowed"
                         )}
                       >
                         Start upload
@@ -1198,6 +1438,14 @@ export default function UploadsPage() {
                       <div className="mt-3 text-[12px] text-rose-200/70">
                         Select an aspect ratio above to continue.
                       </div>
+                    ) : fileDurationLoading ? (
+                      <div className="mt-3 text-[12px] text-white/45">
+                        Reading video duration to calculate credits…
+                      </div>
+                    ) : fileCredits == null ? (
+                      <div className="mt-3 text-[12px] text-white/45">
+                        Couldn’t read duration — you can re-pick the file.
+                      </div>
                     ) : (
                       <div className="mt-3 text-[12px] text-white/45">
                         Tip: Long-form works best (podcasts, interviews).
@@ -1207,13 +1455,9 @@ export default function UploadsPage() {
                 ) : (
                   <div className="relative">
                     <div className="text-sm font-semibold text-white/85">
-                      {flow === "dragging"
-                        ? "Drop to upload"
-                        : "Drop a video file here"}
+                      {flow === "dragging" ? "Drop to upload" : "Drop a video file here"}
                     </div>
-                    <div className="mt-1 text-xs text-white/55">
-                      MP4, MOV — long-form recommended
-                    </div>
+                    <div className="mt-1 text-xs text-white/55">MP4, MOV — long-form recommended</div>
 
                     <div className="mt-4 flex items-center justify-center">
                       <button
@@ -1248,14 +1492,13 @@ export default function UploadsPage() {
 
             <div className="mt-3 text-[12px] text-white/35">
               Dev note: upload headers come from{" "}
-              <span className="text-white/45">
-                /storage/presign.required_headers
-              </span>
-              .
+              <span className="text-white/45">/storage/presign.required_headers</span>.
             </div>
           </div>
         </div>
-        {/* YOUTUBE URL (UI-only) */}
+
+        {/* PART 1 ENDS HERE — YouTube panel continues in Part 2 */}
+        {/* YOUTUBE URL (User-assisted, reliable) */}
         <div className="surface-soft relative overflow-hidden p-6">
           <div
             aria-hidden="true"
@@ -1268,32 +1511,32 @@ export default function UploadsPage() {
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-white/90">
-                  Paste a YouTube link
-                </div>
+                <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
                 <div className="mt-1 text-sm text-white/60">
-                  Fastest way to start. No downloads required.
+                  Open the video in a new tab, download an MP4 locally, then upload it on the left.
                 </div>
               </div>
-              {urlJobId ? (
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
-                  {urlQueued ? "Queueing…" : "Queued"}
-                </div>
-              ) : null}
+
+              <div
+                className={cx(
+                  "rounded-full border bg-white/[0.04] px-3 py-1 text-[12px] text-white/70",
+                  ytStep === "idle" ? "border-white/10" : "border-white/14"
+                )}
+              >
+                {ytStep === "idle" ? "Step 1" : ytStep === "opened" ? "Step 2" : "Ready"}
+              </div>
             </div>
 
             <div className="mt-4 space-y-3">
-              <div className="relative">
-                <input
-                  value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-                    setUrlJobId(null);
-                  }}
-                  placeholder="Paste YouTube link…"
-                  className="field"
-                />
-              </div>
+              <input
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setYtStep("idle");
+                }}
+                placeholder="Paste YouTube link…"
+                className="field"
+              />
 
               {!urlOk && url.trim().length > 0 ? (
                 <div className="text-[12px] text-white/45">
@@ -1301,81 +1544,179 @@ export default function UploadsPage() {
                 </div>
               ) : null}
 
+              {/* Preview card */}
+              {urlOk ? (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                      {ytPreview?.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={ytPreview.thumbnail_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-full w-full" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12px] font-semibold text-white/80">
+                        {ytPreviewLoading
+                          ? "Fetching preview…"
+                          : ytPreview
+                          ? ytPreview.title
+                          : "Preview"}
+                      </div>
+
+                      {ytPreviewError ? (
+                        <div className="mt-1 text-[12px] text-rose-200/70">{ytPreviewError}</div>
+                      ) : ytPreview ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5">
+                            {formatDuration(ytPreview.duration_seconds)}
+                          </span>
+                          {ytPreview.channel ? (
+                            <span className="truncate text-white/50">{ytPreview.channel}</span>
+                          ) : null}
+                          <span className="text-white/25">•</span>
+                          <span className="text-white/55">
+                            Credits:{" "}
+                            <span className="text-white/75">{ytPreview.credits_required}</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-[12px] text-white/45">
+                          Paste a link to see duration + credits.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-[12px] text-white/45">
+                    Credits are charged when you upload the MP4 and Orbito registers the job.
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={queueUrl}
-                  disabled={!urlOk || urlQueued}
+                  onClick={() => {
+                    if (!urlOk) return;
+                    const u = normalizeYoutubeUrl(url);
+                    window.open(u, "_blank", "noopener,noreferrer");
+                    setYtStep("opened");
+                  }}
+                  disabled={!urlOk || ytStep === "ready"}
                   className={cx(
                     "btn-solid-dark px-4 py-2 text-[12px]",
-                    (!urlOk || urlQueued) && "opacity-50 cursor-not-allowed"
+                    (!urlOk || ytStep === "ready") && "opacity-50 cursor-not-allowed"
                   )}
                 >
-                  {urlQueued ? "Queueing…" : "Use link"}
+                  Open video
                 </button>
 
-                <div className="text-[12px] text-white/55">
-                  One link = background processing
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!urlOk) return;
+                    setYtStep("ready");
+                    pulseDropzone();
+                  }}
+                  disabled={!urlOk || ytStep !== "opened"}
+                  className={cx(
+                    "btn-ghost px-4 py-2 text-[12px]",
+                    (!urlOk || ytStep !== "opened") && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  I downloaded it
+                </button>
+
+                <div className="text-[12px] text-white/55">Most reliable method.</div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
+                {ytStep === "idle" ? (
+                  <>
+                    <div className="font-semibold text-white/70">How it works</div>
+                    <div className="mt-1">
+                      1) Open the video • 2) Download MP4 locally • 3) Upload on the left
+                    </div>
+                  </>
+                ) : ytStep === "opened" ? (
+                  <>
+                    <div className="font-semibold text-white/70">Step 2: Download the MP4</div>
+                    <div className="mt-1">
+                      Download the video locally, then click{" "}
+                      <span className="text-white/75">I downloaded it</span>.
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-semibold text-white/70">Step 3: Upload it</div>
+                    <div className="mt-1">
+                      The uploader on the left is highlighted — upload your MP4 there.
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {ytStep === "ready" ? (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <div className="text-sm font-semibold text-white/90">Ready to upload</div>
+                  <div className="mt-1 text-sm text-white/65">
+                    Upload the downloaded video using the left panel.
+                  </div>
+
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-[12px] font-semibold text-white/80">
+                      YouTube download disclaimer
+                    </div>
+                    <div className="mt-2 text-[12px] leading-relaxed text-white/55">
+                      YouTube does not allow Orbito to automatically download videos on your behalf.
+                      To avoid copyright violations and unreliable imports, you’ll need to download
+                      the MP4 locally using a third-party downloader you trust, then upload it here.
+                    </div>
+                    <div className="mt-3 text-[12px] text-white/45">
+                      Automated YouTube imports are planned later.
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Trust / disclaimer (always visible) */}
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                <div className="text-[12px] font-semibold text-white/80">
+                  Why do I download it myself?
+                </div>
+                <div className="mt-2 text-[12px] leading-relaxed text-white/55">
+                  YouTube does not allow us to automatically download videos on your behalf. To keep
+                  Orbito reliable and avoid failed imports, you download the MP4 locally using a tool
+                  you trust, then upload it here.
+                </div>
+                <div className="mt-3 text-[12px] text-white/45">
+                  Fully automated YouTube imports are coming later.
                 </div>
               </div>
 
-              {urlJobId ? (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                  <div className="text-sm font-semibold text-white/85">
-                    Link queued
-                  </div>
-                  <div className="mt-1 text-sm text-white/60">
-                    We’ll process this in the background and publish clips as
-                    they’re ready.
-                  </div>
-                  <div className="mt-3 text-[12px] text-white/45">
-                    Job: <span className="text-white/65">{urlJobId}</span>
-                  </div>
-                  <div className="mt-5 flex flex-wrap items-center gap-2">
-                    <Link
-                      href="/app/clips"
-                      className="btn-ghost text-[12px] px-4 py-2"
-                    >
-                      Go to Clips
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn-solid-dark text-[12px] px-4 py-2"
-                      onClick={() => {
-                        setUrl("");
-                        setUrlJobId(null);
-                      }}
-                    >
-                      New link
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
-                  <div className="font-semibold text-white/70">Coming next</div>
-                  <div className="mt-1">
-                    We’ll wire real URL ingest + credits after launch.
-                  </div>
-                </div>
-              )}
+              <div className="pt-1 text-[12px] text-white/35">
+                Tip: choose the highest-quality MP4 available.
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Upload history placeholder */}
-      <div className="surface-soft p-6">
-        <div className="text-sm font-semibold text-white/85">Upload history</div>
-        <div className="mt-1 text-sm text-white/60">
-          Next: list uploads + last job status + quick link to clips.
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <Link href="/app" className="btn-ghost text-[12px] px-4 py-2">
-            Back to overview
-          </Link>
-        </div>
+      {/* Footer / build stamp */}
+      <div className="pt-1 text-[12px] text-white/30">
+        Build: <span className="text-white/40">{DEV_BUILD_STAMP}</span>
       </div>
     </div>
   );
+}
+
+export default function UploadsPage() {
+  return <UploadWorkspace />;
 }

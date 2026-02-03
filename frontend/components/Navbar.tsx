@@ -176,11 +176,10 @@ function CreditsPill({ credits, loading }: { credits: number | null; loading: bo
   const pathname = usePathname();
   const inApp = pathname?.startsWith("/app");
 
-  const pillClass = inApp
-    ? "px-3.5 py-2 text-[13px]"
-    : "px-3 py-1.5 text-xs";
-
-  const numClass = inApp ? "text-[13px] font-semibold text-white/90 tabular-nums" : "font-semibold text-white/85 tabular-nums";
+  const pillClass = inApp ? "px-3.5 py-2 text-[13px]" : "px-3 py-1.5 text-xs";
+  const numClass = inApp
+    ? "text-[13px] font-semibold text-white/90 tabular-nums"
+    : "font-semibold text-white/85 tabular-nums";
 
   return (
     <div
@@ -214,12 +213,15 @@ export default function Navbar() {
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
 
   const inApp = pathname?.startsWith("/app");
-  const isLanding = pathname === "/";
 
-  // Landing: use fixed (sticky can break if the landing has a different scroll/stack context)
-  const navModeClass = !inApp && isLanding ? "fixed" : "sticky";
+  // ✅ Keep the scroll-safe approach:
+  // - Marketing: FIXED + spacer (guarantees document scroll stays correct with your page backgrounds)
+  // - App: STICKY
+  const navModeClass = inApp ? "sticky" : "fixed";
+  const needsSpacer = !inApp;
 
   // close mobile menu on route change
   useEffect(() => {
@@ -297,6 +299,44 @@ export default function Navbar() {
     router.refresh();
   }
 
+  function goToAuthForTrial() {
+    const next = pathname && pathname.length > 0 ? pathname : "/pricing";
+    router.push(`/register?next=${encodeURIComponent(next)}&intent=free-trial`);
+  }
+
+  async function startFreeTrial() {
+    if (startingTrial) return;
+
+    // If not authed, ALWAYS go to register (your rule)
+    if (!authed) {
+      setOpen(false);
+      goToAuthForTrial();
+      return;
+    }
+
+    setStartingTrial(true);
+    try {
+      // Free trial checkout (card collection enforced in backend)
+      const data = (await apiFetch("/billing/checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "free", interval: "monthly", pack: 1 }),
+      })) as any;
+
+      const url = data?.url;
+      if (!url) {
+        console.error("trial_checkout_failed_no_url", { data });
+        return;
+      }
+
+      setOpen(false);
+      window.location.href = url;
+    } catch (e) {
+      console.error("trial_checkout_failed", e);
+    } finally {
+      setStartingTrial(false);
+    }
+  }
+
   const marketingLinks = useMemo(
     () => [
       { href: "/how-it-works", label: "How it works" },
@@ -310,8 +350,7 @@ export default function Navbar() {
   const appLinks = useMemo(
     () => [
       { href: "/app", label: "Overview" },
-      { href: "/app/upload", label: "Upload" },
-      { href: "/app/clips", label: "Clips" },
+      { href: "/app/studio", label: "Studio" },
       { href: "/app/billing", label: "Billing" },
       { href: "/app/settings", label: "Settings" },
     ],
@@ -324,10 +363,13 @@ export default function Navbar() {
   const shellClass =
     "border border-white/10 bg-black/30 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]";
 
+  // ✅ Visual fix: marketing navbar should feel “in the header”, not floating down
+  const shellMarginTop = inApp ? "mt-4" : "mt-0";
+
   return (
     <>
-      {/* Landing-only spacer so fixed navbar doesn't overlap content */}
-      {!inApp && isLanding && <div aria-hidden="true" className="h-[96px]" />}
+      {/* ✅ Spacer so FIXED marketing navbar never overlaps content */}
+      {needsSpacer && <div aria-hidden="true" className="h-[96px]" />}
 
       <header
         className={`${navModeClass} top-0 z-50 w-full`}
@@ -340,14 +382,14 @@ export default function Navbar() {
         <div className="mx-auto max-w-6xl px-6">
           <div
             className={[
-              "mt-4 flex items-center justify-between rounded-2xl px-6 py-3.5 transition-colors duration-200",
+              `${shellMarginTop} flex items-center justify-between rounded-2xl px-6 py-3.5 transition-colors duration-200`,
               shellClass,
             ].join(" ")}
           >
             <div className="flex items-center gap-8 md:gap-10 min-w-0">
               <Logo />
 
-              <nav className="hidden md:flex items-center gap-3">
+              <nav className="hidden md:flex items-center gap-4">
                 {navLinks.map((l) => (
                   <NavLink key={l.href} href={l.href}>
                     {l.label}
@@ -380,8 +422,13 @@ export default function Navbar() {
                       </svg>
                     </IconButton>
 
-                    <Link href="/register" className="group relative btn-aurora text-xs">
-                      <span className="relative z-[1]">Start free trial</span>
+                    <button
+                      type="button"
+                      onClick={startFreeTrial}
+                      disabled={startingTrial}
+                      className="group relative btn-aurora text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"
@@ -390,7 +437,7 @@ export default function Navbar() {
                             "radial-gradient(18px 18px at 35% 55%, rgba(167,139,250,0.30), transparent 70%), radial-gradient(20px 20px at 60% 45%, rgba(125,211,252,0.26), transparent 72%), radial-gradient(22px 22px at 75% 55%, rgba(45,212,191,0.20), transparent 70%)",
                         }}
                       />
-                    </Link>
+                    </button>
                   </>
                 ) : (
                   <>
@@ -490,12 +537,13 @@ export default function Navbar() {
                       </svg>
                     </IconButton>
 
-                    <Link
-                      href="/register"
-                      onClick={() => setOpen(false)}
-                      className="group relative col-span-2 btn-aurora text-xs text-center"
+                    <button
+                      type="button"
+                      onClick={startFreeTrial}
+                      disabled={startingTrial}
+                      className="group relative col-span-2 btn-aurora text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-[1]">Start free trial</span>
+                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"
@@ -504,7 +552,7 @@ export default function Navbar() {
                             "radial-gradient(18px 18px at 35% 55%, rgba(167,139,250,0.30), transparent 70%), radial-gradient(20px 20px at 60% 45%, rgba(125,211,252,0.26), transparent 72%), radial-gradient(22px 22px at 75% 55%, rgba(45,212,191,0.20), transparent 70%)",
                         }}
                       />
-                    </Link>
+                    </button>
                   </div>
                 ) : (
                   <div className="mt-2 grid gap-2 p-2">

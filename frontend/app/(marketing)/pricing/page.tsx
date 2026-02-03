@@ -3,7 +3,9 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/brand";
+import { apiFetch } from "@/lib/api";
 
 /* =========================================================
    Orbito — Pricing Page (Marketing)
@@ -17,6 +19,10 @@ import { BRAND } from "@/lib/brand";
    Mobile polish:
    - Softer glows on mobile
    - Comparison horizontally scrollable only
+
+   Stripe wiring (Step 1 lifecycle verification):
+   - Starter/Creator buttons now POST to /billing/checkout and redirect to Stripe
+   - Expected response: { url: "https://checkout.stripe.com/..." }
 ========================================================= */
 
 function CheckIcon() {
@@ -427,8 +433,79 @@ function FAQItem({
 }
 
 export default function Page() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [mode, setMode] = useState<BillingMode>("yearly");
   const [pack, setPack] = useState<number>(1);
+
+  const [startingCheckout, setStartingCheckout] = useState<
+    null | "free" | "starter" | "creator"
+  >(null);
+
+  // STEP 1: auth gate for ALL plan CTAs
+  async function requireAuthOrRedirect(): Promise<boolean> {
+    try {
+      await apiFetch("/auth/me", { method: "GET" });
+      return true;
+    } catch {
+      const next = encodeURIComponent(pathname || "/pricing");
+      router.push(`/register?next=${next}`);
+      return false;
+    }
+  }
+
+function checkoutErrorMessage(e: any): string {
+  if (!e) return "Checkout failed. Please try again.";
+  const detail = e?.detail || e?.message || e?.error;
+  if (typeof detail === "string") return detail;
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return "Checkout failed. Please try again.";
+  }
+}
+
+async function startCheckout(plan: "free" | "starter" | "creator") {
+  const ok = await requireAuthOrRedirect();
+  if (!ok) return;
+
+  try {
+    setStartingCheckout(plan);
+
+    const safePack = Math.max(1, Math.min(10, Number(pack) || 1));
+
+    // Free trial is monthly-only
+    const interval =
+      plan === "free" ? "monthly" : plan === "starter" ? "monthly" : mode;
+
+    const payload =
+      plan === "creator"
+        ? { plan, interval, pack: safePack }
+        : { plan, interval };
+
+    const data = (await apiFetch("/billing/checkout-session", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })) as any;
+
+    const url = data?.url;
+
+    if (!url) {
+      console.error("checkout_failed_no_url", { data, payload });
+      alert("Checkout failed. Please try again.");
+      return;
+    }
+
+    window.location.href = url;
+  } catch (e) {
+    console.error("checkout_failed", e);
+    alert(checkoutErrorMessage(e));
+  } finally {
+    setStartingCheckout(null);
+  }
+}
+
 
   const [openBenefits, setOpenBenefits] = useState({
     trial: false,
@@ -590,6 +667,10 @@ export default function Page() {
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
               Credit-based.{" "}
               <span className="grad-text">Scale when it works.</span>
+              <span className="text-[11px] text-white/30 ml-2">
+                v-FINGERPRINT-1
+              </span>{" "}
+              <span className="grad-text">Scale when it works.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
               Start free. Upgrade when you’re ready for more throughput. Packs
@@ -616,9 +697,17 @@ export default function Page() {
               <FeatureBullets items={tierBullets.trial} />
 
               <div className="mt-6">
-                <Link href="/register" className="btn-aurora w-full">
+                <button
+                  type="button"
+                  onClick={() => startCheckout("free")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-aurora w-full",
+                    startingCheckout ? "opacity-80 cursor-not-allowed" : ""
+                  )}
+                >
                   Start free trial
-                </Link>
+                </button>
               </div>
 
               <Disclosure
@@ -657,12 +746,19 @@ export default function Page() {
               <FeatureBullets items={tierBullets.starter} />
 
               <div className="mt-6">
-                <Link
-                  href="/register"
-                  className="btn-ghost w-full py-3 text-base"
+                <button
+                  type="button"
+                  onClick={() => startCheckout("starter")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-ghost w-full py-3 text-base",
+                    startingCheckout ? "opacity-70 cursor-not-allowed" : ""
+                  )}
                 >
-                  Choose Starter
-                </Link>
+                  {startingCheckout === "starter"
+                    ? "Opening Checkout…"
+                    : "Choose Starter"}
+                </button>
               </div>
 
               <Disclosure
@@ -731,9 +827,19 @@ export default function Page() {
               <FeatureBullets items={tierBullets.creator} />
 
               <div className="mt-6">
-                <Link href="/register" className="btn-aurora w-full">
-                  Choose Creator
-                </Link>
+                <button
+                  type="button"
+                  onClick={() => startCheckout("creator")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-aurora w-full",
+                    startingCheckout ? "opacity-80 cursor-not-allowed" : ""
+                  )}
+                >
+                  {startingCheckout === "creator"
+                    ? "Opening Checkout…"
+                    : "Choose Creator"}
+                </button>
               </div>
 
               <Disclosure
@@ -775,10 +881,7 @@ export default function Page() {
               <FeatureBullets items={tierBullets.studio} />
 
               <div className="mt-6">
-                <Link
-                  href="/contact"
-                  className="btn-ghost w-full py-3 text-base"
-                >
+                <Link href="/contact" className="btn-ghost w-full py-3 text-base">
                   Contact sales
                 </Link>
               </div>
@@ -896,9 +999,17 @@ export default function Page() {
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href="/register" className="btn-aurora">
+                <button
+                  type="button"
+                  onClick={() => startCheckout("free")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-aurora",
+                    startingCheckout ? "opacity-80 cursor-not-allowed" : ""
+                  )}
+                >
                   Start free trial
-                </Link>
+                </button>
                 <Link href="/contact" className="btn-ghost">
                   Talk to sales
                 </Link>
@@ -982,9 +1093,17 @@ export default function Page() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Link href="/register" className="btn-aurora">
+                <button
+                  type="button"
+                  onClick={() => startCheckout("free")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-aurora",
+                    startingCheckout ? "opacity-80 cursor-not-allowed" : ""
+                  )}
+                >
                   Start free trial
-                </Link>
+                </button>
                 <Link href="/how-it-works" className="btn-ghost">
                   See how it works
                 </Link>
