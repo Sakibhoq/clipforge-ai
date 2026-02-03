@@ -2016,7 +2016,7 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
     return "".join(parts)
 
 def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> str:
-    """
+    r"""
     Karaoke text with explicit line breaks using \N.
     line_indices are indexes into the words list (order preserved).
     """
