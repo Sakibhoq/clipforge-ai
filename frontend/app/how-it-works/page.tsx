@@ -223,7 +223,7 @@ export default function HowItWorksPage() {
                       <div className="mt-3 flex items-center justify-between text-[11px] text-white/45">
                         <span>result</span>
                         <span className="text-white/55 group-hover:text-white/70 transition-colors">
-                          {x.n === "04" ? "done →" : "continue →"}
+                          continue →
                         </span>
                       </div>
                     </div>
