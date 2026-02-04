@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 /* =========================================================
    Orbito — Clips (LAUNCH-READY)
    Fixes / polish (this pass):
