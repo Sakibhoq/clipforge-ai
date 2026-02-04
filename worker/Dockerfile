@@ -17,16 +17,27 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
+ARG INSTALL_AI_DEPS=1
+ENV INSTALL_AI_DEPS=${INSTALL_AI_DEPS}
+
 RUN pip install --upgrade pip && \
-    pip install --index-url https://download.pytorch.org/whl/cpu torch && \
-    pip install \
-        openai-whisper \
-        requests \
-        python-dotenv \
-        sqlalchemy \
-        boto3 \
-        "numpy==1.26.4" \
-        "opencv-python-headless==4.11.0.86" \
-        "mediapipe==0.10.21"
+    if [ "$INSTALL_AI_DEPS" = "1" ]; then \
+        pip install --index-url https://download.pytorch.org/whl/cpu torch && \
+        pip install \
+            openai-whisper \
+            requests \
+            python-dotenv \
+            sqlalchemy \
+            boto3 \
+            "numpy==1.26.4" \
+            "opencv-python-headless==4.11.0.86" \
+            "mediapipe==0.10.21" ; \
+    else \
+        pip install \
+            requests \
+            python-dotenv \
+            sqlalchemy \
+            boto3 ; \
+    fi
 
 CMD ["python", "worker.py"]

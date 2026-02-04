@@ -710,7 +710,13 @@ def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
         log(f"Loading Whisper model: {WHISPER_MODEL_NAME}")
-        import whisper
+        try:
+            import whisper  # type: ignore
+        except Exception as e:
+            raise RuntimeError(
+                "Whisper is not installed. Rebuild the worker with INSTALL_AI_DEPS=1 "
+                "or install openai-whisper + torch."
+            ) from e
         _whisper_model = whisper.load_model(WHISPER_MODEL_NAME)
         log("Whisper model loaded")
     return _whisper_model

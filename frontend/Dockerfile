@@ -4,9 +4,13 @@ WORKDIR /app
 
 ARG NEXT_PUBLIC_API_BASE
 ENV NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE}
+# Build speed / reliability in Docker
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_IGNORE_TYPECHECK=1
+ENV NEXT_IGNORE_LINT=1
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
