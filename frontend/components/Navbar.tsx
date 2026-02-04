@@ -221,6 +221,7 @@ export default function Navbar() {
   // - Marketing: FIXED + spacer (guarantees document scroll stays correct with your page backgrounds)
   // - App: STICKY
   const navModeClass = inApp ? "sticky" : "fixed";
+  const navTopClass = inApp ? "top-0" : "top-4";
   const needsSpacer = !inApp;
 
   // close mobile menu on route change
@@ -369,10 +370,10 @@ export default function Navbar() {
   return (
     <>
       {/* ✅ Spacer so FIXED marketing navbar never overlaps content */}
-      {needsSpacer && <div aria-hidden="true" className="h-[96px]" />}
+      {needsSpacer && <div aria-hidden="true" className="h-[112px]" />}
 
       <header
-        className={`${navModeClass} top-0 z-50 w-full`}
+        className={`${navModeClass} ${navTopClass} z-50 w-full`}
         style={{
           paddingTop: "env(safe-area-inset-top)",
           paddingLeft: "env(safe-area-inset-left)",
