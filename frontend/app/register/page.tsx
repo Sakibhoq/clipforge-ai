@@ -1,7 +1,7 @@
 // frontend/app/register/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -324,7 +324,7 @@ function errToMessage(err: any) {
   return "Unable to create account. Try a different email.";
 }
 
-export default function RegisterPage() {
+function RegisterPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams?.get("next") || "/app";
@@ -768,5 +768,13 @@ export default function RegisterPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-white/60">Loading…</div>}>
+      <RegisterPageInner />
+    </Suspense>
   );
 }

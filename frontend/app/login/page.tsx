@@ -1,7 +1,7 @@
 // frontend/app/login/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -370,7 +370,7 @@ function errToHelpfulMessage(err: any) {
   return "Unable to sign in. Check email/password.";
 }
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const nextPath = sp.get("next") || "/app";
@@ -825,5 +825,13 @@ export default function LoginPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-white/60">Loading…</div>}>
+      <LoginPageInner />
+    </Suspense>
   );
 }

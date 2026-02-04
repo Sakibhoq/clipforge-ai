@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 type MeResponse = { email: string; plan: string; credits: number };
 
-export default function StartTrialPage() {
+function StartTrialPageInner() {
   const router = useRouter();
 
   useEffect(() => {
@@ -51,5 +51,13 @@ export default function StartTrialPage() {
         <div className="text-sm text-white/70">Starting your free trial…</div>
       </div>
     </div>
+  );
+}
+
+export default function StartTrialPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-white/60">Loading…</div>}>
+      <StartTrialPageInner />
+    </Suspense>
   );
 }
