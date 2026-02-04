@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -1345,7 +1345,11 @@ export function ClipsWorkspace() {
 }
 
 export default function ClipsPage() {
-  return <ClipsWorkspace />;
+  return (
+    <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
+      <ClipsWorkspace />
+    </Suspense>
+  );
 }
 /* =========================================================
    PerClipSettings (UI-only)

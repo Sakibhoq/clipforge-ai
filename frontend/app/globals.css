@@ -63,6 +63,7 @@ html {
   -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -88,6 +89,25 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Mobile performance / Safari polish */
+@media (max-width: 640px) {
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl,
+  .blur-lg {
+    filter: none !important;
+  }
+
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
 }
 
 /* Better defaults for media on mobile */

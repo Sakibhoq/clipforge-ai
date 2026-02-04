@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { UploadWorkspace } from "@/app/app/upload/page";
 import { ClipsWorkspace } from "@/app/app/clips/page";
 
@@ -71,7 +71,9 @@ export default function OverviewPage() {
           <div className="mb-4 text-xs text-white/55">• Upload + Clips</div>
           <div className="grid gap-8">
             <UploadWorkspace />
-            <ClipsWorkspace />
+            <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
+              <ClipsWorkspace />
+            </Suspense>
           </div>
         </section>
       </main>
