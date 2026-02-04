@@ -89,7 +89,7 @@ class S3Storage(Storage):
         """
         Check existence.
         - Returns True if exists
-        - Raises FileNotFoundError if missing
+        - Returns False if missing
         """
         try:
             self.s3.head_object(Bucket=self.bucket, Key=key)
@@ -97,7 +97,7 @@ class S3Storage(Storage):
         except ClientError as e:
             code = str(e.response.get("Error", {}).get("Code", ""))
             if code in ("404", "NoSuchKey", "NotFound"):
-                raise FileNotFoundError(f"S3 key not found: {key}") from e
+                return False
             raise
 
     # ------------------------------------------------------------------

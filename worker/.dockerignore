@@ -1,0 +1,12 @@
+# Keep worker build context minimal.
+
+__pycache__/
+*.py[cod]
+
+.cache/
+.venv/
+venv/
+env/
+
+*.log
+.DS_Store
