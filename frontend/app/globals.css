@@ -80,6 +80,7 @@ body {
   overflow-y: visible;
 
   /* iOS viewport correctness */
+  min-height: 100vh;
   min-height: 100svh;
   min-height: 100dvh;
 
@@ -93,6 +94,30 @@ body {
 
 /* Mobile performance / Safari polish */
 @media (max-width: 640px) {
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl,
+  .blur-lg {
+    filter: none !important;
+  }
+
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* iOS Safari (all sizes): reduce expensive filters + fix viewport fill */
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    min-height: -webkit-fill-available;
+  }
+
   .blur-3xl,
   .blur-2xl,
   .blur-xl,

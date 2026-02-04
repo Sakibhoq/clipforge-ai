@@ -1,7 +1,7 @@
 // frontend/app/reset-password/page.tsx
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -144,7 +144,7 @@ function Rule({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const token = sp.get("token") || "";
@@ -440,5 +440,13 @@ export default function ResetPasswordPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-white/60">Loading…</div>}>
+      <ResetPasswordPageInner />
+    </Suspense>
   );
 }
