@@ -622,8 +622,7 @@ function LoginPageInner() {
                   Sign in to manage uploads, jobs, and clips.
                 </p>
                 <div className="mt-5 text-xs text-white/55">
-                  Providers: <H>Google</H>, <H>Apple</H>, <H>Facebook</H>, <H>TikTok</H>, <H>Discord</H>,{" "}
-                  <H>YouTube</H>, <H>Instagram</H>
+                  Provider: <H>Google</H>
                 </div>
               </div>
 
@@ -635,22 +634,12 @@ function LoginPageInner() {
                   <div className="relative">
                     <div className="text-sm font-semibold text-white/85">Sign in</div>
                     <div className="mt-1 text-xs text-white/55">
-                      Continue with a provider, or use email.
+                      Continue with Google, or use email.
                     </div>
 
                     {/* SOCIAL */}
                     <div className="mt-5 grid gap-2">
-                      {(
-                        [
-                          "google",
-                          "apple",
-                          "facebook",
-                          "tiktok",
-                          "discord",
-                          "youtube",
-                          "instagram",
-                        ] as Provider[]
-                      ).map((p) => (
+                      {(["google"] as Provider[]).map((p) => (
                         <ProviderButton
                           key={p}
                           provider={p}

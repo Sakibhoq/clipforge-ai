@@ -99,8 +99,17 @@ PROVIDERS: Dict[str, Dict[str, object]] = {
     },
 }
 
+# Limit sign-in providers (launch-safe). Default to Google-only.
+ENABLED_PROVIDERS = {
+    p.strip().lower()
+    for p in (os.getenv("OAUTH_ENABLED_PROVIDERS") or "google").split(",")
+    if p.strip()
+}
+
 
 def _provider_conf(provider: str) -> Dict[str, object]:
+    if provider not in ENABLED_PROVIDERS:
+        raise HTTPException(status_code=404, detail="Unknown provider")
     p = PROVIDERS.get(provider)
     if not p:
         raise HTTPException(status_code=404, detail="Unknown provider")
@@ -200,6 +209,8 @@ def oauth_providers():
     """
     out = []
     for key, conf in PROVIDERS.items():
+        if key not in ENABLED_PROVIDERS:
+            continue
         out.append(
             {
                 "provider": key,

@@ -533,8 +533,7 @@ function RegisterPageInner() {
                 </p>
 
                 <div className="mt-6 text-xs text-white/55">
-                  Providers: <H>Google</H>, <H>Apple</H>, <H>Facebook</H>, <H>TikTok</H>, <H>Discord</H>,{" "}
-                  <H>YouTube</H>, <H>Instagram</H>
+                  Provider: <H>Google</H>
                 </div>
               </div>
 
@@ -545,7 +544,7 @@ function RegisterPageInner() {
 
                   <div className="relative">
                     <div className="text-sm font-semibold text-white/85">Sign up</div>
-                    <div className="mt-1 text-xs text-white/55">Choose Social or Email.</div>
+                    <div className="mt-1 text-xs text-white/55">Choose Google or Email.</div>
 
                     {/* MODE TOGGLE */}
                     <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
@@ -585,17 +584,7 @@ function RegisterPageInner() {
 
                     {mode === "social" ? (
                       <div className="mt-4 grid gap-2">
-                        {(
-                          [
-                            "google",
-                            "apple",
-                            "facebook",
-                            "tiktok",
-                            "discord",
-                            "youtube",
-                            "instagram",
-                          ] as Provider[]
-                        ).map((p) => (
+                        {(["google"] as Provider[]).map((p) => (
                           <ProviderButton
                             key={p}
                             provider={p}
