@@ -124,29 +124,29 @@ export default function FeaturesPage() {
         kicker: "Source",
         title: (
           <>
-            Paste <H>YouTube</H> or upload once
+            Paste <H>YouTube</H> or drop a file once
           </>
         ),
-        desc: <>Drop a long-form once. Orbito ingests it and starts working immediately.</>,
-        bullets: [<>MP4 or YouTube.</>, <>Background processing.</>, <>No re-upload loops.</>],
+        desc: <>Drop long‑form once. Orbito processes quietly in the background.</>,
+        bullets: [<>MP4 or YouTube.</>, <>Background processing.</>, <>No busywork.</>],
         tagLeft: <>Fast start</>,
         tagRight: <>Low effort</>,
       },
       {
         id: "hooks",
         kicker: "AI",
-        title: <>Find hooks people actually watch</>,
-        desc: <>We surface the moments with energy, clarity, and payoff.</>,
-        bullets: [<>Avoid dead air.</>, <>Tight pacing.</>, <>Clean endings.</>],
+        title: <>Find hooks people keep watching</>,
+        desc: <>We surface the moments with energy, clarity, and payoff — without the filler.</>,
+        bullets: [<>No dead air.</>, <>Tight pacing.</>, <>Clean endings.</>],
         tagLeft: <>Retention</>,
         tagRight: <>High signal</>,
       },
       {
         id: "reframe",
         kicker: "Quality",
-        title: <>Reframe + captions, dialed in</>,
-        desc: <>Speaker-first crops and word-by-word captions that feel premium.</>,
-        bullets: [<>Stable camera path.</>, <>Smart line breaks.</>, <>Tasteful emphasis.</>],
+        title: <>Reframe + captions, refined</>,
+        desc: <>Speaker-first crops and word-by-word captions with a clean, editorial feel.</>,
+        bullets: [<>Stable framing.</>, <>Smart line breaks.</>, <>Tasteful emphasis.</>],
         tagLeft: <>Looks pro</>,
         tagRight: <>Readable</>,
       },
@@ -154,7 +154,7 @@ export default function FeaturesPage() {
         id: "brand",
         kicker: "Brand",
         title: <>Your watermark, always on brand</>,
-        desc: <>Keep a consistent mark across every export without manual edits.</>,
+        desc: <>Keep a consistent mark across every export with zero manual edits.</>,
         bullets: [<>Paid toggle.</>, <>Tasteful motion.</>, <>Consistent placement.</>],
         tagLeft: <>Trust</>,
         tagRight: <>Consistent</>,
@@ -432,26 +432,27 @@ export default function FeaturesPage() {
             <div className="text-xs text-white/55">• Features</div>
 
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-              A premium workflow for <span className="grad-text">short-form.</span>
+              A premium workflow for <span className="grad-text">short‑form.</span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Orbito turns long-form into short-form with a calm, repeatable system: paste or upload, get high-signal
-              clips, add premium captions, and export instantly. Auto-posting and creator workflows are coming next.
+              Orbito turns long‑form into short‑form with a calm, repeatable system: paste or upload, get high‑signal
+              clips, refine captions, and export cleanly. The core pipeline is ready now — advanced workflows ship as
+              we scale.
             </p>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
               <div
                 aria-hidden="true"
-                className="absolute -inset-8 opacity-80 blur-2xl animate-[labGlow_10s_ease-in-out_infinite]"
+                className="absolute -inset-8 opacity-70 blur-2xl"
                 style={{
                   background:
-                    "conic-gradient(from 120deg, rgba(45,212,191,0.32), rgba(125,211,252,0.32), rgba(167,139,250,0.3), rgba(45,212,191,0.32))",
+                    "conic-gradient(from 120deg, rgba(45,212,191,0.22), rgba(125,211,252,0.22), rgba(167,139,250,0.2), rgba(45,212,191,0.22))",
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon with AI video +
-                music generation. Join early access inside Orbito.
+                <span className="font-semibold text-white/90">The Orbito standard</span> is clean cuts, brand‑safe
+                captions, and exports that post without rework.
               </div>
             </div>
 
@@ -467,8 +468,6 @@ export default function FeaturesPage() {
               </Pill>
               <span className="text-white/35">→</span>
               <Pill>edit / export</Pill>
-              <span className="text-white/35">→</span>
-              <Pill>auto-post (soon)</Pill>
             </div>
 
             {/* WHEEL HEADER */}
@@ -566,8 +565,8 @@ export default function FeaturesPage() {
                   d: "Track progress and exports in a single, calm workspace.",
                 },
                 {
-                  t: "Clipforge Labs (coming soon)",
-                  d: "AI video generation + AI song generation. The next product line lives at clipforge.us.",
+                  t: "Editorial control",
+                  d: "Approve what ships, tweak what matters, keep the rest automated.",
                 },
               ].map((x) => (
                 <div

@@ -154,10 +154,12 @@ function StrikePrice({
   was,
   now,
   suffix,
+  emphasize,
 }: {
   was: string;
   now: string;
   suffix: string;
+  emphasize?: boolean;
 }) {
   return (
     <div className="mt-5">
@@ -165,7 +167,12 @@ function StrikePrice({
         <div className="text-base text-white/55 line-through decoration-white/30 sm:text-lg">
           {was}
         </div>
-        <div className="text-4xl font-semibold tracking-tight sm:text-5xl">
+        <div
+          className={cn(
+            "text-4xl font-semibold tracking-tight sm:text-5xl",
+            emphasize ? "price-glow" : ""
+          )}
+        >
           {now}
         </div>
         <div className="pb-2 text-sm text-white/55">{suffix}</div>
@@ -456,13 +463,23 @@ export default function Page() {
   }
 
 function checkoutErrorMessage(e: any): string {
-  if (!e) return "Checkout failed. Please try again.";
+  if (!e) return "Checkout is temporarily unavailable. Please try again.";
   const detail = e?.detail || e?.message || e?.error;
+  const detailStr = typeof detail === "string" ? detail : "";
+  if (detailStr.toLowerCase().includes("stripe not configured")) {
+    return "Checkout isn’t live yet. Please try again shortly.";
+  }
+  if (detailStr.toLowerCase().includes("price not configured")) {
+    return "Pricing isn’t fully configured yet. Please try again shortly.";
+  }
+  if (detailStr.toLowerCase().includes("failed to fetch")) {
+    return "Network error. Please refresh and try again.";
+  }
   if (typeof detail === "string") return detail;
   try {
     return JSON.stringify(detail);
   } catch {
-    return "Checkout failed. Please try again.";
+    return "Checkout is temporarily unavailable. Please try again.";
   }
 }
 
@@ -666,17 +683,15 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
             <div className="text-xs text-white/50">• Pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
               Credit-based.{" "}
-              <span className="grad-text">Scale when it works.</span>
-              <span className="text-[11px] text-white/30 ml-2">
-                v-FINGERPRINT-1
-              </span>{" "}
-              <span className="grad-text">Scale when it works.</span>
+              <span className="grad-text">Scale when it earns.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free. Upgrade when you’re ready for more throughput. Packs
-              scale Creator only.
+              Start free. Upgrade when the clips prove it. Packs scale Creator only.
             </p>
             <TopMetaRow />
+            <div className="mt-2 text-xs text-white/45">
+              Promo codes are accepted at checkout.
+            </div>
           </div>
 
           <Toggle mode={mode} setMode={setMode} discountLabel={discountLabel} />
@@ -706,7 +721,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
-                  Start free trial
+                  Start free
                 </button>
               </div>
 
@@ -721,7 +736,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/40">
-                Best for first-time testing.
+                Best for a first pass.
               </div>
             </div>
           </div>
@@ -777,7 +792,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
             </div>
           </div>
 
-          <div className="group surface relative p-5 sm:p-6 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+          <div className="group surface creator-highlight relative p-5 sm:p-6 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
             <div className="pointer-events-none absolute -inset-10 opacity-70">
               <div className="absolute inset-0 bg-[radial-gradient(520px_280px_at_40%_25%,rgba(167,139,250,0.18),transparent_62%)]" />
               <div className="absolute inset-0 bg-[radial-gradient(520px_280px_at_70%_45%,rgba(125,211,252,0.14),transparent_62%)]" />
@@ -798,6 +813,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     was={`$${formatMoney(creatorMonthlyWithPack)}`}
                     now={`$${formatMoney(creatorYearlyMonthlyEq)}`}
                     suffix="/mo"
+                    emphasize
                   />
                   <SmallNote>
                     Billed yearly{" "}
@@ -1008,7 +1024,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
-                  Start free trial
+                  Start free
                 </button>
                 <Link href="/contact" className="btn-ghost">
                   Talk to sales
@@ -1102,7 +1118,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
-                  Start free trial
+                  Start free
                 </button>
                 <Link href="/how-it-works" className="btn-ghost">
                   See how it works

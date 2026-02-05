@@ -172,6 +172,7 @@ def _set_oauth_ctx_cookie(response: Response, request: Request, ctx: dict):
         httponly=opts["httponly"],
         secure=opts["secure"],
         samesite=opts["samesite"],
+        domain=opts.get("domain"),
     )
 
 
@@ -182,6 +183,7 @@ def _clear_oauth_ctx_cookie(response: RedirectResponse, request: Request):
         path=opts["path"],
         secure=opts["secure"],
         samesite=opts["samesite"],
+        domain=opts.get("domain"),
     )
 
 
@@ -389,6 +391,18 @@ def oauth_callback(
     email = None
     if isinstance(userinfo, dict):
         email = userinfo.get("email")
+    name = None
+    if isinstance(userinfo, dict):
+        name = (
+            userinfo.get("name")
+            or userinfo.get("display_name")
+            or userinfo.get("username")
+        )
+        if not name:
+            given = userinfo.get("given_name")
+            family = userinfo.get("family_name")
+            if given or family:
+                name = " ".join([p for p in [given, family] if p]).strip() or None
     if not email:
         raise HTTPException(
             status_code=400,
@@ -400,6 +414,7 @@ def oauth_callback(
     if not user:
         random_pw = secrets.token_urlsafe(20)
         user = User(
+            name=name,
             email=email,
             hashed_password=pwd_context.hash(random_pw),
             plan="free",
@@ -408,6 +423,9 @@ def oauth_callback(
         db.add(user)
         db.commit()
         db.refresh(user)
+    elif name and not getattr(user, "name", None):
+        user.name = name
+        db.commit()
 
     # Issue session cookie
     token = create_token(user.email)

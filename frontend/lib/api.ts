@@ -50,6 +50,48 @@ function guessLocalBackendOrigin(): string | null {
   return null;
 }
 
+function normalizeEnvBase(envBase: string): string {
+  const trimmed = envBase.replace(/\/+$/, "");
+
+  if (!isBrowser()) return trimmed;
+  if (!trimmed) return trimmed;
+  if (trimmed.startsWith("/")) return trimmed;
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const pageHost = window.location.hostname.toLowerCase();
+    const pageIsCodespaces = window.location.host.includes(".app.github.dev");
+    const pageIsLocal = pageHost === "localhost" || pageHost === "127.0.0.1";
+
+    const rootDomain = pageHost.replace(/^app\./, "").replace(/^www\./, "");
+    const sameRootApi = host === `api.${rootDomain}`;
+
+    // Prefer same-origin proxy for production to avoid CORS/cookie edge cases.
+    if (!pageIsLocal && !pageIsCodespaces && sameRootApi) {
+      return "/api";
+    }
+
+    const isInternalHost =
+      host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "backend";
+    const isCodespacesHost = host.endsWith(".app.github.dev");
+
+    // If build-time base is internal but page is public, use same-origin proxy.
+    if ((isInternalHost || isCodespacesHost) && !pageIsLocal && !pageIsCodespaces) {
+      return "/api";
+    }
+
+    // If site is https but env base is http, upgrade to https.
+    if (window.location.protocol === "https:" && parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    return trimmed;
+  }
+}
+
 export function getApiBase(): string {
   // Prefer explicit env override (works for EC2 + local + Codespaces)
   const envBase =
@@ -57,7 +99,7 @@ export function getApiBase(): string {
     process.env.NEXT_PUBLIC_API_URL ||
     "";
 
-  if (envBase) return envBase.replace(/\/+$/, "");
+  if (envBase) return normalizeEnvBase(envBase);
 
   // Codespaces fallback (direct to -8000)
   const cs = guessCodespacesBackendOrigin();

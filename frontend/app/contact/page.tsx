@@ -485,17 +485,17 @@ export default function ContactPage() {
               {/* LEFT */}
               <div>
                 <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Contact <span className="grad-text">Orbito</span>
+                  Let’s talk <span className="grad-text">Orbito</span>
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Support, billing, Studio questions, or quick feedback — send a message and we’ll respond fast.
+                  Support, billing, Studio, partnerships, or quick feedback — send a note and we’ll reply promptly.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    Target: within 24 hours
+                    Usually within 24 hours
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     Email-first support
@@ -542,7 +542,7 @@ export default function ContactPage() {
                       <div>
                         <div className="text-sm font-semibold">Message us</div>
                         <p className="mt-2 text-sm leading-relaxed text-white/60">
-                          Send a message directly from this page.
+                          Drop a quick note here — it goes straight to the team.
                         </p>
                       </div>
 

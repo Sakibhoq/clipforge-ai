@@ -204,39 +204,25 @@ function InstagramIcon() {
   );
 }
 
-type Provider = "google" | "apple" | "facebook" | "tiktok" | "discord" | "youtube" | "instagram";
-type ProviderStatus = Record<Provider, boolean>;
+type Provider = "google";
 
-function providerLabel(p: Provider) {
-  if (p === "google") return "Google";
-  if (p === "apple") return "Apple";
-  if (p === "facebook") return "Facebook";
-  if (p === "tiktok") return "TikTok";
-  if (p === "discord") return "Discord";
-  if (p === "youtube") return "YouTube";
-  return "Instagram";
+function providerLabel(_: Provider) {
+  return "Google";
 }
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   if (provider === "google") return <GoogleIcon />;
-  if (provider === "apple") return <AppleIcon />;
-  if (provider === "facebook") return <FacebookIcon />;
-  if (provider === "tiktok") return <TikTokIcon />;
-  if (provider === "discord") return <DiscordIcon />;
-  if (provider === "youtube") return <YouTubeIcon />;
-  return <InstagramIcon />;
+  return null;
 }
 
 function ProviderButton({
   provider,
   onClick,
   disabled,
-  badge,
 }: {
   provider: Provider;
   onClick: () => void;
   disabled?: boolean;
-  badge?: string | null;
 }) {
   const label = providerLabel(provider);
   return (
@@ -255,11 +241,6 @@ function ProviderButton({
         <ProviderIcon provider={provider} />
         Continue with {label}
       </span>
-      {badge ? (
-        <span className="absolute right-3 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
-          {badge}
-        </span>
-      ) : null}
     </button>
   );
 }
@@ -325,7 +306,7 @@ function Divider({ label }: { label: string }) {
 }
 
 type LoginOk = { ok: true };
-type MeResponse = { email: string; plan: string; credits: number };
+type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
 function errToHelpfulMessage(err: any) {
   const status = err?.status;
@@ -373,9 +354,16 @@ function errToHelpfulMessage(err: any) {
 function LoginPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextPath = sp.get("next") || "/app";
+  const nextRaw = sp.get("next") || "/app";
+  const nextPath = useMemo(() => {
+    if (!nextRaw.startsWith("/")) return "/app";
+    if (nextRaw.startsWith("//")) return "/app";
+    if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return "/app";
+    return nextRaw;
+  }, [nextRaw]);
 
   const [checking, setChecking] = useState(true);
+  const [checkSlow, setCheckSlow] = useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -386,7 +374,6 @@ function LoginPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [socialBusy, setSocialBusy] = useState<Provider | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
-  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -403,54 +390,43 @@ function LoginPageInner() {
   // ✅ If already authed (cookie exists on backend origin), redirect away from /login
   useEffect(() => {
     let mounted = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 3500);
+    const softTimeout = window.setTimeout(() => {
+      if (!mounted) return;
+      setCheckSlow(true);
+      setChecking(false);
+    }, 2200);
+    const hardTimeout = window.setTimeout(() => {
+      if (!mounted) return;
+      setChecking(false);
+    }, 4800);
 
     async function checkMe() {
       try {
-        await apiFetch<MeResponse>("/auth/me");
+        await apiFetch<MeResponse>("/auth/me", { signal: controller.signal });
         if (!mounted) return;
-        router.replace(nextPath);
-        router.refresh();
+        window.location.replace(nextPath);
       } catch {
         if (!mounted) return;
         setChecking(false);
+      } finally {
+        window.clearTimeout(timeout);
+        window.clearTimeout(softTimeout);
+        window.clearTimeout(hardTimeout);
       }
     }
 
     checkMe();
     return () => {
       mounted = false;
+      controller.abort();
+      window.clearTimeout(timeout);
+      window.clearTimeout(softTimeout);
+      window.clearTimeout(hardTimeout);
     };
   }, [router, nextPath]);
 
-  useEffect(() => {
-    let mounted = true;
-    apiFetch<{ providers: Array<{ provider: Provider; configured: boolean }> }>("/auth/oauth/providers")
-      .then((res) => {
-        if (!mounted) return;
-        const map: ProviderStatus = {
-          google: false,
-          apple: false,
-          facebook: false,
-          tiktok: false,
-          discord: false,
-          youtube: false,
-          instagram: false,
-        };
-        for (const p of res.providers || []) {
-          if (p.provider in map) {
-            map[p.provider] = !!p.configured;
-          }
-        }
-        setProviderStatus(map);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setProviderStatus(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // keyboard/focus polish: scroll focused input into view on mobile Safari
   function onFieldFocus(target: HTMLInputElement) {
@@ -480,10 +456,6 @@ function LoginPageInner() {
   }
 
   async function onSocial(provider: Provider) {
-    if (providerStatus && providerStatus[provider] === false) {
-      setSocialError(`${providerLabel(provider)} OAuth is not configured yet.`);
-      return;
-    }
     setFormError(null);
     setSocialError(null);
     setSocialBusy(provider);
@@ -520,8 +492,7 @@ function LoginPageInner() {
       await new Promise((r) => setTimeout(r, 60));
       await apiFetch<MeResponse>("/auth/me");
 
-      router.push(nextPath);
-      router.refresh();
+      window.location.replace(nextPath);
     } catch (err: any) {
       setFormError(errToHelpfulMessage(err));
     } finally {
@@ -615,6 +586,11 @@ function LoginPageInner() {
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/65 md:text-[15px]">
                   Sign in to manage uploads, jobs, and clips.
                 </p>
+                {checkSlow && (
+                  <div className="mt-3 text-xs text-white/50">
+                    Session check is taking longer than usual — you can continue below.
+                  </div>
+                )}
                 <div className="mt-5 text-xs text-white/55">
                   Provider: <H>Google</H>
                 </div>
@@ -638,8 +614,7 @@ function LoginPageInner() {
                           key={p}
                           provider={p}
                           onClick={() => onSocial(p)}
-                          disabled={!!socialBusy || submitting || providerStatus?.[p] === false}
-                          badge={providerStatus?.[p] === false ? "Setup needed" : null}
+                          disabled={!!socialBusy || submitting}
                         />
                       ))}
                     </div>

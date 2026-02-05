@@ -4,7 +4,7 @@ import React, { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-type MeResponse = { email: string; plan: string; credits: number };
+type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
 function StartTrialPageInner() {
   const router = useRouter();

@@ -5,8 +5,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { displayNameFromUser } from "@/lib/user";
 
 type MeResponse = {
+  name?: string | null;
   email: string;
   plan: string;
   credits: number;
@@ -57,10 +59,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
         if (!mounted) return;
         setMe(data);
-      } catch {
+      } catch (err: any) {
         if (!mounted) return;
         setMe(null);
-        router.push("/login");
+        if (err?.status === 401) {
+          router.replace("/login");
+        }
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -154,7 +158,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
-  const emailLabel = useMemo(() => me?.email ?? "Account", [me]);
+  const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "orb-1";
@@ -228,7 +232,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Right */}
           <div className="flex items-center gap-3">
             <div className="hidden md:block text-right">
-              <div className="text-xs text-white/60">{loading ? "Loading…" : me ? emailLabel : "Signed out"}</div>
+              <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
               <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
             </div>
 
@@ -269,7 +273,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             >
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="text-xs text-white/60">{loading ? "Loading…" : me ? emailLabel : "Signed out"}</div>
+                <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
                 <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
               </div>
 

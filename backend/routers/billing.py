@@ -189,6 +189,7 @@ def create_checkout_session(
         cancel_url=cancel_url,
         customer=customer_id,
         payment_method_collection="always",
+        allow_promotion_codes=True,
         metadata={
             "user_id": str(user.id),
             "plan": plan,

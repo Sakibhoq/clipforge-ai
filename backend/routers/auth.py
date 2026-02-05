@@ -36,6 +36,7 @@ def get_db():
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
+    name: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -44,6 +45,7 @@ class LoginRequest(BaseModel):
 
 
 class MeResponse(BaseModel):
+    name: str | None = None
     email: EmailStr
     plan: str
     credits: int
@@ -205,6 +207,7 @@ def get_current_user(
 @router.post("/register")
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
     password = (data.password or "").strip()
+    name = (data.name or "").strip() or None
 
     if len(password.encode("utf-8")) > 72:
         raise HTTPException(status_code=400, detail="Password too long")
@@ -214,6 +217,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 
     # ✅ IMPORTANT: registering does NOT grant credits
     user = User(
+        name=name,
         email=data.email,
         hashed_password=pwd_context.hash(password),
         plan="free",
@@ -255,6 +259,7 @@ def logout(response: Response, request: Request):
 @router.get("/me", response_model=MeResponse)
 def me(current_user: User = Depends(get_current_user)):
     return MeResponse(
+        name=getattr(current_user, "name", None),
         email=current_user.email,
         plan=current_user.plan,
         credits=current_user.credits,

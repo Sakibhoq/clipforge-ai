@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   frontend:
     build:
@@ -34,18 +32,17 @@ services:
       SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
-      PUBLIC_API_BASE: "${PUBLIC_API_BASE}"
+      PUBLIC_API_BASE: "${PUBLIC_API_BASE:-}"
       COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
-      COOKIE_DOMAIN=.orbito.cc
 
 
-      # Stripe prices
-      STRIPE_PRICE_FREE_MONTHLY: price_1Stiem7Gixo4GiFWKbg8Aj8S
-      STRIPE_PRICE_STARTER_MONTHLY: price_1SthkW7Gixo4GiFWPqBRDlrt
-      STRIPE_PRICE_STUDIO_MONTHLY: price_1Sthma7Gixo4GiFWr9C0K2h3
-      STRIPE_PRICE_CREATOR_MONTHLY: price_1SthhG7Gixo4GiFWpyu5YfTh
-      STRIPE_PRICE_CREATOR_YEARLY: price_1SthiT7Gixo4GiFWH1BsU8om
-      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+      # Stripe prices (set in .env for live mode)
+      STRIPE_PRICE_FREE_MONTHLY: "${STRIPE_PRICE_FREE_MONTHLY:-}"
+      STRIPE_PRICE_STARTER_MONTHLY: "${STRIPE_PRICE_STARTER_MONTHLY:-}"
+      STRIPE_PRICE_STUDIO_MONTHLY: "${STRIPE_PRICE_STUDIO_MONTHLY:-}"
+      STRIPE_PRICE_CREATOR_MONTHLY: "${STRIPE_PRICE_CREATOR_MONTHLY:-}"
+      STRIPE_PRICE_CREATOR_YEARLY: "${STRIPE_PRICE_CREATOR_YEARLY:-}"
+      STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
 
       # Storage
       STORAGE_BACKEND: "s3"
@@ -61,12 +58,12 @@ services:
       FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:3000}"
 
       # OAuth (Google login)
-      OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID}"
-      OAUTH_GOOGLE_CLIENT_SECRET: "${OAUTH_GOOGLE_CLIENT_SECRET}"
+      OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"
+      OAUTH_GOOGLE_CLIENT_SECRET: "${OAUTH_GOOGLE_CLIENT_SECRET:-}"
       OAUTH_ENABLED_PROVIDERS: "${OAUTH_ENABLED_PROVIDERS:-google}"
 
       # Billing
-      STRIPE_WEBHOOK_SECRET: whsec_XGClnfI1ybtNpdialU6ccHhmh5MAJlU6
+      STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET:-}"
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/docs')"]
       interval: 10s

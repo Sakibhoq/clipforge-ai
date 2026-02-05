@@ -349,6 +349,7 @@ function safeParsePrefs(raw: string | null): LocalPrefs | null {
 }
 
 type MeResponse = {
+  name?: string | null;
   email: string;
   plan: string;
   credits: number;
@@ -381,6 +382,7 @@ export default function SettingsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  const name = me?.name ?? "—";
   const email = me?.email ?? "—";
   const plan = me?.plan ?? "—";
   const credits = typeof me?.credits === "number" ? String(me.credits) : "—";
@@ -605,7 +607,10 @@ export default function SettingsPage() {
               </div>
 
               <div className="mt-1 text-sm text-white/60">
-                Signed in as <span className="text-white/80">{email}</span>
+                Name <span className="text-white/80">{name}</span>
+              </div>
+              <div className="mt-1 text-sm text-white/60">
+                Email <span className="text-white/80">{email}</span>
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -28,7 +28,6 @@ import { apiFetch } from "@/lib/api";
    - YouTube trust + preview + disclaimer (shows credits)
 ========================================================= */
 
-const DEV_BUILD_STAMP = "upload-page-2026-01-29-youtube-assisted-preview";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -68,6 +67,7 @@ type JobRow = {
 };
 
 type MeResponse = {
+  name?: string | null;
   email: string;
   plan: string; // "free" | "starter" | ...
   credits: number;
@@ -646,8 +646,6 @@ export function UploadWorkspace() {
   }
 
   useEffect(() => {
-    console.log("[UploadsPage.build]", DEV_BUILD_STAMP);
-
     apiFetch<MeResponse>("/auth/me")
       .then((d) => setMe(d))
       .catch(() => setMe(null));
@@ -1709,10 +1707,6 @@ export function UploadWorkspace() {
         </div>
       </div>
 
-      {/* Footer / build stamp */}
-      <div className="pt-1 text-[12px] text-white/30">
-        Build: <span className="text-white/40">{DEV_BUILD_STAMP}</span>
-      </div>
     </div>
   );
 }

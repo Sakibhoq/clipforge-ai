@@ -64,11 +64,10 @@ export default function HowItWorksPage() {
       ),
       d: (
         <>
-          Drop your long-form once. Orbito ingests it, stores it, and starts processing in the background — you can
-          leave immediately.
+          Drop long-form once. Orbito ingests, stores, and processes in the background while you keep moving.
         </>
       ),
-      bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Runs while you do other work.</>],
+      bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Runs while you work.</>],
     },
     {
       n: "02",
@@ -76,11 +75,11 @@ export default function HowItWorksPage() {
       t: <>Orbito finds the moments</>,
       d: (
         <>
-          We detect high-signal segments and shape them into drafts built for <H>Shorts</H>, <H>Reels</H>, and{" "}
+          We pull hook-worthy segments and shape them into drafts for <H>Shorts</H>, <H>Reels</H>, and{" "}
           <H>TikTok</H>.
         </>
       ),
-      bullets: [<>High-retention moments.</>, <>Speaker-first framing.</>, <>Clean endings.</>],
+      bullets: [<>Hook-first moments.</>, <>Speaker-first framing.</>, <>Clean endings.</>],
     },
     {
       n: "03",
@@ -88,7 +87,7 @@ export default function HowItWorksPage() {
       t: <>Review, polish, export</>,
       d: (
         <>
-          Pick the best clips, make quick edits, and export platform-ready outputs — captions, framing, and standards
+          Pick the best clips, make quick edits, and export platform-ready outputs — captions, framing, and pacing
           already dialed in.
         </>
       ),
@@ -141,29 +140,29 @@ export default function HowItWorksPage() {
             <div className="text-xs text-white/55">• How it works</div>
 
             <h1 className="mt-3 text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Paste once. <span className="grad-text">Keep posting.</span>
+              Paste once. <span className="grad-text">Stay in flow.</span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Orbito turns long-form into short-form — fast. Paste a <H>YouTube</H> link, get ready-to-post clips for{" "}
-              <H>TikTok</H>, <H>Instagram Reels</H>, and <H>YouTube Shorts</H>.
+              Orbito turns long-form into short-form with a calm, repeatable loop. Paste a <H>YouTube</H> link, then
+              review ready-to-post clips for <H>TikTok</H>, <H>Instagram Reels</H>, and <H>YouTube Shorts</H>.
             </p>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55 md:text-[15px]">
-              Built for creators who want premium output without babysitting timelines.
+              Built for creators who want premium output without living inside a timeline.
             </p>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
               <div
                 aria-hidden="true"
-                className="absolute -inset-8 opacity-70 blur-2xl animate-[labGlow_10s_ease-in-out_infinite]"
+                className="absolute -inset-8 opacity-70 blur-2xl"
                 style={{
                   background:
-                    "conic-gradient(from 120deg, rgba(45,212,191,0.32), rgba(125,211,252,0.32), rgba(167,139,250,0.3), rgba(45,212,191,0.32))",
+                    "conic-gradient(from 120deg, rgba(45,212,191,0.22), rgba(125,211,252,0.22), rgba(167,139,250,0.2), rgba(45,212,191,0.22))",
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                <span className="font-semibold text-white/90">Clipforge Labs</span> launches next with AI video + music
-                generation. Early access will be announced in-app.
+                <span className="font-semibold text-white/90">The Orbito standard</span> is calm workflow, sharp cuts,
+                and exports that look premium out of the box.
               </div>
             </div>
 
@@ -232,15 +231,15 @@ export default function HowItWorksPage() {
               </div>
             </div>
 
-            {/* COMING SOON */}
+            {/* NEXT UP */}
             <div className="mt-10 grid gap-4 md:grid-cols-2">
               <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/45">• Coming soon</div>
-                  <div className="mt-2 text-sm font-semibold">Clipforge Labs</div>
+                  <div className="text-xs text-white/45">• Quality</div>
+                  <div className="mt-2 text-sm font-semibold">Brand-safe, creator-ready</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    AI video generation + AI song generation. The next product line will live at clipforge.us.
+                    Clean captions, steady framing, and exports that ship without cleanup.
                   </div>
                 </div>
               </div>
@@ -248,9 +247,9 @@ export default function HowItWorksPage() {
                 <HoverSheen />
                 <div className="relative">
                   <div className="text-xs text-white/45">• Roadmap</div>
-                  <div className="mt-2 text-sm font-semibold">Auto-posting & creator workflows</div>
+                  <div className="mt-2 text-sm font-semibold">Scheduling & team workflows</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Social scheduling, subscriptions, and storefront tools are next once launch stability is locked in.
+                    Social scheduling and shared workspaces land after launch stability is locked in.
                   </div>
                 </div>
               </div>
@@ -259,7 +258,7 @@ export default function HowItWorksPage() {
             {/* CTA */}
             <div className="mt-12 sm:mt-14 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
               <Link href="/start-trial" className="btn-aurora w-full sm:w-auto text-center active:scale-[0.99]">
-                Start free trial
+                Start free
               </Link>
               <Link href="/pricing" className="btn-ghost w-full sm:w-auto text-center active:scale-[0.99]">
                 Pricing

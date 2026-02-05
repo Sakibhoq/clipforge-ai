@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
 
 function Logo() {
@@ -204,7 +205,7 @@ function CreditsPill({ credits, loading }: { credits: number | null; loading: bo
   );
 }
 
-type MeResponse = { email: string; plan: string; credits: number };
+type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -287,6 +288,7 @@ export default function Navbar() {
 
   const authed = !!me;
   const credits = me?.credits ?? null;
+  const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
   async function logout() {
     try {
@@ -401,6 +403,12 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3">
               <div className="hidden md:flex items-center gap-3">
+                {authed && (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/80">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                    <span className="max-w-[140px] truncate">{displayName}</span>
+                  </div>
+                )}
                 {authed && <CreditsPill credits={credits} loading={meLoading} />}
 
                 {!authed ? (
@@ -504,6 +512,8 @@ export default function Navbar() {
                   {authed && (
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                      <span className="max-w-[120px] truncate text-white/80">{displayName}</span>
+                      <span className="text-white/35">•</span>
                       <span className="text-white/50">Credits</span>
                       <span className="font-semibold text-white/85 tabular-nums">{meLoading ? "…" : credits ?? "—"}</span>
                     </div>

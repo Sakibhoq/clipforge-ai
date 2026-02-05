@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const ignoreBuildErrors = process.env.NEXT_IGNORE_TYPECHECK === "1";
-const ignoreLint = process.env.NEXT_IGNORE_LINT === "1";
 
 const nextConfig: NextConfig = {
   async rewrites() {
@@ -17,9 +16,6 @@ const nextConfig: NextConfig = {
   // Build reliability (Docker): allow opt-in skips to avoid CI crashes on type/lint
   typescript: {
     ignoreBuildErrors,
-  },
-  eslint: {
-    ignoreDuringBuilds: ignoreLint,
   },
 };
 

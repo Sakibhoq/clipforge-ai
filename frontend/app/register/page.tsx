@@ -195,39 +195,25 @@ function InstagramIcon() {
   );
 }
 
-type Provider = "google" | "apple" | "facebook" | "tiktok" | "discord" | "youtube" | "instagram";
-type ProviderStatus = Record<Provider, boolean>;
+type Provider = "google";
 
-function providerLabel(p: Provider) {
-  if (p === "google") return "Google";
-  if (p === "apple") return "Apple";
-  if (p === "facebook") return "Facebook";
-  if (p === "tiktok") return "TikTok";
-  if (p === "discord") return "Discord";
-  if (p === "youtube") return "YouTube";
-  return "Instagram";
+function providerLabel(_: Provider) {
+  return "Google";
 }
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   if (provider === "google") return <GoogleIcon />;
-  if (provider === "apple") return <AppleIcon />;
-  if (provider === "facebook") return <FacebookIcon />;
-  if (provider === "tiktok") return <TikTokIcon />;
-  if (provider === "discord") return <DiscordIcon />;
-  if (provider === "youtube") return <YouTubeIcon />;
-  return <InstagramIcon />;
+  return null;
 }
 
 function ProviderButton({
   provider,
   onClick,
   disabled,
-  badge,
 }: {
   provider: Provider;
   onClick: () => void;
   disabled?: boolean;
-  badge?: string | null;
 }) {
   const label = providerLabel(provider);
   return (
@@ -246,11 +232,6 @@ function ProviderButton({
         <ProviderIcon provider={provider} />
         Continue with {label}
       </span>
-      {badge ? (
-        <span className="absolute right-3 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
-          {badge}
-        </span>
-      ) : null}
     </button>
   );
 }
@@ -342,7 +323,6 @@ function RegisterPageInner() {
   const [formError, setFormError] = useState<string | null>(null);
   const [socialBusy, setSocialBusy] = useState<Provider | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
-  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
 
   // mobile polish: keep focused input visible & avoid awkward jumps
   const lastFocusTsRef = useRef<number>(0);
@@ -353,35 +333,6 @@ function RegisterPageInner() {
     return n.length >= 2 && e.includes("@") && password.length >= 6 && agree && !submitting;
   }, [name, email, password, agree, submitting]);
 
-  useEffect(() => {
-    let mounted = true;
-    apiFetch<{ providers: Array<{ provider: Provider; configured: boolean }> }>("/auth/oauth/providers")
-      .then((res) => {
-        if (!mounted) return;
-        const map: ProviderStatus = {
-          google: false,
-          apple: false,
-          facebook: false,
-          tiktok: false,
-          discord: false,
-          youtube: false,
-          instagram: false,
-        };
-        for (const p of res.providers || []) {
-          if (p.provider in map) {
-            map[p.provider] = !!p.configured;
-          }
-        }
-        setProviderStatus(map);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setProviderStatus(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   function onFieldFocus(target: HTMLInputElement) {
     lastFocusTsRef.current = Date.now();
@@ -407,10 +358,6 @@ function RegisterPageInner() {
   }
 
   async function onSocial(provider: Provider) {
-    if (providerStatus && providerStatus[provider] === false) {
-      setSocialError(`${providerLabel(provider)} OAuth is not configured yet.`);
-      return;
-    }
     setFormError(null);
     setSocialError(null);
     setSocialBusy(provider);
@@ -444,7 +391,7 @@ function RegisterPageInner() {
       // 1) Create user
       await apiFetch<RegisterOk>("/auth/register", {
         method: "POST",
-        body: { email: em, password },
+        body: { name: n, email: em, password },
       });
 
       // 2) Immediately login to set HttpOnly cookie
@@ -453,8 +400,7 @@ function RegisterPageInner() {
         body: { email: em, password },
       });
 
-      router.push("/app");
-      router.refresh();
+      window.location.replace(nextPath);
     } catch (err: any) {
       setFormError(errToMessage(err));
     } finally {
@@ -584,8 +530,7 @@ function RegisterPageInner() {
                             key={p}
                             provider={p}
                             onClick={() => onSocial(p)}
-                            disabled={submitting || !!socialBusy || providerStatus?.[p] === false}
-                            badge={providerStatus?.[p] === false ? "Setup needed" : null}
+                            disabled={submitting || !!socialBusy}
                           />
                         ))}
 

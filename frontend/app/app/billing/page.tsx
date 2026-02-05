@@ -358,13 +358,23 @@ function StatPill({ label, value }: { label: string; value: string }) {
 }
 
 function checkoutErrorMessage(e: any): string {
-  if (!e) return "Checkout failed. Try again.";
+  if (!e) return "Checkout is temporarily unavailable. Please try again.";
   const detail = e?.detail || e?.message || e?.error;
+  const detailStr = typeof detail === "string" ? detail : "";
+  if (detailStr.toLowerCase().includes("stripe not configured")) {
+    return "Checkout isn’t live yet. Please try again shortly.";
+  }
+  if (detailStr.toLowerCase().includes("price not configured")) {
+    return "Pricing isn’t fully configured yet. Please try again shortly.";
+  }
+  if (detailStr.toLowerCase().includes("failed to fetch")) {
+    return "Network error. Please refresh and try again.";
+  }
   if (typeof detail === "string") return detail;
   try {
     return JSON.stringify(detail);
   } catch {
-    return "Checkout failed. Try again.";
+    return "Checkout is temporarily unavailable. Please try again.";
   }
 }
 
@@ -483,7 +493,7 @@ function StudioCtaCard() {
 }
 
 export default function BillingPage() {
-  type MeResponse = { email: string; plan: string; credits: number };
+  type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free_trial");
   const [interval, setInterval] = useState<BillingInterval>("monthly");
@@ -773,7 +783,7 @@ export default function BillingPage() {
           <div>
             <div className="text-sm font-semibold text-white/90">Change plan</div>
             <div className="mt-1 text-sm text-white/60">
-              Upgrade anytime. Downgrades can be scheduled to end of period (when wired).
+              Upgrade anytime. Downgrades can be scheduled to end of period.
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -790,8 +800,9 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-4 text-[12px] text-white/55">
-          Tax is calculated at checkout. Plan changes are handled by Stripe once wired.
+          Tax is calculated at checkout. Plan changes are handled by Stripe during checkout.
         </div>
+        <div className="mt-2 text-[12px] text-white/45">Promo codes can be entered during checkout.</div>
       </SoftCard>
 
       {/* Credit packs */}
