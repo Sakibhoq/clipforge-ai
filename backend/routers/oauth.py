@@ -27,6 +27,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 OAUTH_CTX_COOKIE = "cf_oauth_ctx"
 OAUTH_CTX_TTL_SECONDS = 10 * 60  # 10 minutes
+PUBLIC_API_BASE = os.getenv("PUBLIC_API_BASE") or os.getenv("API_BASE_URL")
 
 
 class OAuthStartRequest(BaseModel):
@@ -141,6 +142,12 @@ def _safe_next_path(next_path: Optional[str]) -> str:
     return next_path
 
 
+def _redirect_uri(request: Request, provider: str) -> str:
+    if PUBLIC_API_BASE:
+        return f"{PUBLIC_API_BASE.rstrip('/')}/auth/oauth/{provider}/callback"
+    return str(request.url_for("oauth_callback", provider=provider))
+
+
 def _base64url(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).decode("utf-8").rstrip("=")
 
@@ -237,7 +244,7 @@ def oauth_start(
     verifier = _code_verifier()
     challenge = _code_challenge(verifier)
 
-    redirect_uri = str(request.url_for("oauth_callback", provider=provider))
+    redirect_uri = _redirect_uri(request, provider)
 
     params = {
         "response_type": "code",
@@ -299,7 +306,7 @@ def oauth_callback(
     if not client_id or not client_secret:
         raise HTTPException(status_code=400, detail="OAuth client not configured")
 
-    redirect_uri = str(request.url_for("oauth_callback", provider=provider))
+    redirect_uri = _redirect_uri(request, provider)
 
     token_data = {
         conf.get("client_id_param", "client_id"): client_id,
