@@ -107,19 +107,40 @@ def _needs_cross_site_cookie(request: Request) -> bool:
 def cookie_options(request: Request):
     https = _is_https(request)
     cross_site = _needs_cross_site_cookie(request)
+    domain = settings.COOKIE_DOMAIN or None
+
+    # If a shared cookie domain is configured (e.g. .orbito.cc),
+    # force SameSite=None to ensure subdomain requests always include the cookie.
+    if domain and https:
+        return {
+            "httponly": True,
+            "secure": True,
+            "samesite": "none",
+            "path": "/",
+            "domain": domain,
+        }
 
     # Codespaces / cross-origin cookie auth:
     #   SameSite=None AND Secure=True (browser requirement)
     if https and cross_site:
-        return {"httponly": True, "secure": True, "samesite": "none", "path": "/"}
+        opts = {"httponly": True, "secure": True, "samesite": "none", "path": "/"}
+        if domain:
+            opts["domain"] = domain
+        return opts
 
     # Local http dev (localhost / 127.0.0.1):
     #   Secure=False
     if not https:
-        return {"httponly": True, "secure": False, "samesite": "none", "path": "/"}
+        opts = {"httponly": True, "secure": False, "samesite": "none", "path": "/"}
+        if domain:
+            opts["domain"] = domain
+        return opts
 
     # Normal production https same-site:
-    return {"httponly": True, "secure": True, "samesite": "lax", "path": "/"}
+    opts = {"httponly": True, "secure": True, "samesite": "lax", "path": "/"}
+    if domain:
+        opts["domain"] = domain
+    return opts
 
 
 def set_auth_cookie(response: Response, request: Request, token: str):
@@ -142,6 +163,7 @@ def set_auth_cookie(response: Response, request: Request, token: str):
         httponly=opts["httponly"],
         secure=opts["secure"],
         samesite=opts["samesite"],
+        domain=opts.get("domain"),
     )
 
 
@@ -152,6 +174,7 @@ def clear_auth_cookie(response: Response, request: Request):
         path=opts["path"],
         secure=opts["secure"],
         samesite=opts["samesite"],
+        domain=opts.get("domain"),
     )
 
 

@@ -27,6 +27,7 @@ class Settings:
     # -----------------------------
     # REQUIRED for auth endpoints (/auth/login, /auth/me).
     SECRET_KEY: str = _env("SECRET_KEY", "") or ""
+    COOKIE_DOMAIN: str | None = _env("COOKIE_DOMAIN")
 
     # -----------------------------
     # Frontend base URL (for Stripe redirect URLs)

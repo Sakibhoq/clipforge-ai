@@ -34,6 +34,10 @@ services:
       SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
+      PUBLIC_API_BASE: "${PUBLIC_API_BASE}"
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
+      COOKIE_DOMAIN=.orbito.cc
+
 
       # Stripe prices
       STRIPE_PRICE_FREE_MONTHLY: price_1Stiem7Gixo4GiFWKbg8Aj8S
