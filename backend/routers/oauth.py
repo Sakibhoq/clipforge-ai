@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 import jwt
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -161,7 +161,7 @@ def _code_challenge(verifier: str) -> str:
     return _base64url(digest)
 
 
-def _set_oauth_ctx_cookie(response: JSONResponse, request: Request, ctx: dict):
+def _set_oauth_ctx_cookie(response: Response, request: Request, ctx: dict):
     token = jwt.encode(ctx, settings.SECRET_KEY, algorithm="HS256")
     opts = cookie_options(request)
     response.set_cookie(
@@ -227,13 +227,7 @@ def oauth_providers():
         )
     return {"providers": out}
 
-
-@router.post("/{provider}/start")
-def oauth_start(
-    provider: str,
-    request: Request,
-    payload: OAuthStartRequest,
-):
+def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]) -> tuple[str, dict]:
     conf = _require_provider_ready(provider)
 
     client_id = _client_id(provider)
@@ -254,12 +248,10 @@ def oauth_start(
         "state": state,
     }
 
-    # PKCE (default on)
     if conf.get("pkce", True):
         params["code_challenge"] = challenge
         params["code_challenge_method"] = "S256"
 
-    # Provider-specific auth params
     if provider == "apple":
         params["response_mode"] = "query"
     if provider in {"google", "youtube"}:
@@ -269,14 +261,36 @@ def oauth_start(
     auth_url = conf["auth_url"]
     url = f"{auth_url}?{urlencode(params)}"
 
-    resp = JSONResponse({"url": url})
     ctx = {
         "provider": provider,
         "state": state,
         "code_verifier": verifier,
-        "next": _safe_next_path(payload.next),
+        "next": _safe_next_path(next_path),
         "iat": int(time.time()),
     }
+    return url, ctx
+
+
+@router.get("/{provider}/start")
+def oauth_start_get(
+    provider: str,
+    request: Request,
+    next: Optional[str] = None,
+):
+    url, ctx = _build_oauth_start(provider, request, next)
+    resp = RedirectResponse(url=url, status_code=307)
+    _set_oauth_ctx_cookie(resp, request, ctx)
+    return resp
+
+
+@router.post("/{provider}/start")
+def oauth_start(
+    provider: str,
+    request: Request,
+    payload: OAuthStartRequest,
+):
+    url, ctx = _build_oauth_start(provider, request, payload.next)
+    resp = JSONResponse({"url": url})
     _set_oauth_ctx_cookie(resp, request, ctx)
     return resp
 

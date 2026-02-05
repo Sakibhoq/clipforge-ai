@@ -50,7 +50,7 @@ function guessLocalBackendOrigin(): string | null {
   return null;
 }
 
-function getApiBase(): string {
+export function getApiBase(): string {
   // Prefer explicit env override (works for EC2 + local + Codespaces)
   const envBase =
     process.env.NEXT_PUBLIC_API_BASE ||

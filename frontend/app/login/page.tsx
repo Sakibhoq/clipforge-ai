@@ -4,7 +4,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 
 /* =========================================================
    Orbito — Login (Cookie Auth, Production)
@@ -488,16 +488,10 @@ function LoginPageInner() {
     setSocialError(null);
     setSocialBusy(provider);
     try {
-      const data = (await apiFetch(`/auth/oauth/${provider}/start`, {
-        method: "POST",
-        body: { next: nextPath },
-      })) as any;
-
-      const url = data?.url;
-      if (!url) {
-        setSocialError("Social login failed. Please try again.");
-        return;
-      }
+      const base = getApiBase();
+      const next = encodeURIComponent(nextPath || "/app");
+      const startPath = `/auth/oauth/${provider}/start?next=${next}`;
+      const url = base === "/api" ? startPath : `${base}${startPath}`;
       window.location.href = url;
     } catch (e) {
       setSocialError(socialErrorMessage(e));
