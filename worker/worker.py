@@ -12,6 +12,7 @@ import math
 import uuid
 import re
 import traceback
+import threading
 import faulthandler
 import signal
 import requests
@@ -468,7 +469,7 @@ def preflight_source_video(*, source_path: Path, job_id: int) -> Tuple[int, int,
 import wave
 import struct
 import math
-from typing import List, Dict
+from typing import List, Dict, Any
 
 # -----------------------------------------------------
 # Audio configuration
@@ -640,6 +641,116 @@ def compute_audio_energy(
     return max(0.0, min(1.0, norm))
 
 # -----------------------------------------------------
+# Voice activity timeline (speech-presence detection)
+# -----------------------------------------------------
+
+VOICE_WINDOW_MS = int(os.getenv("WORKER_VOICE_WINDOW_MS", "30"))
+VOICE_MIN_RUN_S = float(os.getenv("WORKER_VOICE_MIN_RUN_S", "0.30"))
+VOICE_MAX_GAP_S = float(os.getenv("WORKER_VOICE_MAX_GAP_S", "0.22"))
+VOICE_THRESHOLD_STRENGTH = float(os.getenv("WORKER_VOICE_THRESHOLD_STRENGTH", "0.22"))
+
+
+def _percentile_sorted(vals: List[float], p: float) -> float:
+    if not vals:
+        return 0.0
+    i = int(max(0, min(len(vals) - 1, round((len(vals) - 1) * p))))
+    return float(vals[i])
+
+
+def detect_voice_activity(
+    *,
+    wav_path: Path,
+    job_id: int,
+) -> Dict[str, Any]:
+    """
+    Detect speech-presence windows from waveform energy.
+    Returns:
+      - segments: list[(start_s, end_s)]
+      - coverage: voiced ratio in [0..1]
+      - threshold: energy threshold used
+    """
+    log("Detecting voice activity", job_id=job_id)
+
+    try:
+        wf = wave.open(str(wav_path), "rb")
+    except Exception:
+        return {"segments": [], "coverage": 0.0, "threshold": 0.0}
+
+    try:
+        channels = int(wf.getnchannels() or 0)
+        sample_rate = int(wf.getframerate() or AUDIO_SAMPLE_RATE)
+        frame_count = int(wf.getnframes() or 0)
+        frames = wf.readframes(frame_count)
+    finally:
+        wf.close()
+
+    if channels != 1 or sample_rate <= 0 or not frames:
+        return {"segments": [], "coverage": 0.0, "threshold": 0.0}
+
+    samples = struct.unpack("<" + "h" * (len(frames) // 2), frames)
+    if not samples:
+        return {"segments": [], "coverage": 0.0, "threshold": 0.0}
+
+    win = max(1, int(sample_rate * (max(10, VOICE_WINDOW_MS) / 1000.0)))
+    vals: List[float] = []
+    windows: List[tuple] = []
+
+    t = 0.0
+    dt = float(win) / float(sample_rate)
+    for i in range(0, len(samples), win):
+        chunk = samples[i : i + win]
+        if not chunk:
+            continue
+        rms = math.sqrt(sum(s * s for s in chunk) / len(chunk))
+        vals.append(rms)
+        windows.append((t, t + dt, rms))
+        t += dt
+
+    if len(vals) < 8:
+        return {"segments": [], "coverage": 0.0, "threshold": 0.0}
+
+    svals = sorted(float(v) for v in vals)
+    p10 = _percentile_sorted(svals, 0.10)
+    p35 = _percentile_sorted(svals, 0.35)
+    p85 = _percentile_sorted(svals, 0.85)
+
+    spread = max(1e-6, (p85 - p35))
+    threshold = p35 + (spread * max(0.05, min(0.55, VOICE_THRESHOLD_STRENGTH)))
+    floor = p10 * 1.08
+    threshold = max(threshold, floor)
+
+    active_windows: List[tuple] = []
+    for ws, we, rms in windows:
+        if float(rms) >= threshold:
+            active_windows.append((float(ws), float(we)))
+
+    if not active_windows:
+        return {"segments": [], "coverage": 0.0, "threshold": float(threshold)}
+
+    merged: List[List[float]] = [[active_windows[0][0], active_windows[0][1]]]
+    for ws, we in active_windows[1:]:
+        ps, pe = merged[-1]
+        if float(ws) - float(pe) <= float(VOICE_MAX_GAP_S):
+            merged[-1][1] = float(we)
+        else:
+            merged.append([float(ws), float(we)])
+
+    segments: List[tuple] = []
+    for s, e in merged:
+        if float(e) - float(s) >= float(VOICE_MIN_RUN_S):
+            segments.append((float(s), float(e)))
+
+    total_duration = max(1e-6, len(samples) / float(sample_rate))
+    voiced = sum(max(0.0, float(e) - float(s)) for s, e in segments)
+    coverage = max(0.0, min(1.0, voiced / total_duration))
+
+    return {
+        "segments": segments,
+        "coverage": coverage,
+        "threshold": float(threshold),
+    }
+
+# -----------------------------------------------------
 # Combined audio pipeline
 # -----------------------------------------------------
 
@@ -671,10 +782,18 @@ def run_audio_pipeline(
             job_id=job_id,
         )
 
+        voice = detect_voice_activity(
+            wav_path=wav_path,
+            job_id=job_id,
+        )
+
         return {
             "wav_path": wav_path,
             "silences": silences,
             "energy": energy,
+            "voice_segments": voice.get("segments", []),
+            "voice_coverage": float(voice.get("coverage", 0.0)),
+            "voice_threshold": float(voice.get("threshold", 0.0)),
         }
 
     except Exception:
@@ -1156,6 +1275,7 @@ def generate_clip_plans(
 HOOK_CONF_THRESHOLD = float(os.getenv("WORKER_HOOK_CONF_THRESHOLD", "0.55"))
 TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "3"))
 MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "8"))
+MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "4"))
 
 def compute_clip_quality_score(
     *,
@@ -1164,6 +1284,7 @@ def compute_clip_quality_score(
     silences: list,
     audio_energy: float,
     motion_metrics: dict,
+    voice_segments: Optional[List[tuple]] = None,
 ) -> Dict[str, Any]:
     """
     Launch-safe heuristic score in [0..1].
@@ -1195,6 +1316,16 @@ def compute_clip_quality_score(
     # hook score: early words feel punchy
     hook_score = compute_hook_score(words, s, e)
 
+    # voice-presence score: prefer regions with actual speech activity
+    voiced_seconds = 0.0
+    for vs, ve in voice_segments or []:
+        vs = float(vs)
+        ve = float(ve)
+        overlap = max(0.0, min(e, ve) - max(s, vs))
+        voiced_seconds += overlap
+    voice_ratio = max(0.0, min(1.0, voiced_seconds / dur))
+    voice_score = min(1.0, voice_ratio / 0.72)
+
     # silence penalty: if the clip is mostly inside silence intervals, penalize
     silence_seconds = 0.0
     for ss, se in silences or []:
@@ -1205,15 +1336,17 @@ def compute_clip_quality_score(
     silence_penalty = 1.0 - (silence_ratio * 0.75)
 
     score = (
-        0.30 * dur_score +
-        0.35 * speech_score +
-        0.20 * energy_score +
-        0.10 * motion_score +
-        0.05 * hook_score
+        0.24 * dur_score +
+        0.28 * speech_score +
+        0.18 * energy_score +
+        0.12 * motion_score +
+        0.08 * hook_score +
+        0.10 * voice_score
     ) * silence_penalty
 
     score = max(0.0, min(1.0, float(score)))
     clip["quality_score"] = score
+    clip["voice_ratio"] = voice_ratio
     return clip
 
 def select_top_k_clips(clips: list, *, top_k: Optional[int] = None) -> list:
@@ -1303,22 +1436,97 @@ def generate_hook_heuristic(snippet: str) -> Tuple[str, float]:
     conf = 0.6 if len(sentence) >= 14 else 0.4
     return (sentence, conf)
 
-def generate_title_heuristic(snippet: str) -> Tuple[str, float]:
+TITLE_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "been", "being", "but", "by",
+    "for", "from", "had", "has", "have", "he", "her", "here", "hers", "him",
+    "his", "i", "if", "in", "into", "is", "it", "its", "just", "me", "my",
+    "of", "on", "or", "our", "ours", "out", "so", "that", "the", "their",
+    "them", "there", "they", "this", "to", "too", "up", "was", "we", "were",
+    "what", "when", "where", "which", "who", "why", "with", "you", "your",
+}
+
+
+def _title_tokens(text: str) -> List[str]:
+    parts = re.findall(r"[A-Za-z0-9']+", (text or "").lower())
+    out: List[str] = []
+    for p in parts:
+        if len(p) < 3:
+            continue
+        if p in TITLE_STOPWORDS:
+            continue
+        out.append(p)
+    return out
+
+
+def _extract_title_keywords(snippet: str, clip_words: Optional[list]) -> List[str]:
+    counts: Dict[str, int] = {}
+    if clip_words:
+        source = [str(w.get("word", "")) for w in clip_words]
+        text = " ".join(source)
+    else:
+        text = snippet or ""
+
+    for t in _title_tokens(text):
+        counts[t] = counts.get(t, 0) + 1
+
+    if not counts:
+        return []
+
+    ranked = sorted(counts.items(), key=lambda kv: (kv[1], len(kv[0])), reverse=True)
+    return [w for w, _n in ranked[:3]]
+
+
+def _headline_case(s: str) -> str:
+    if not s:
+        return s
+    s = clean_text(s)
+    if not s:
+        return s
+    return s[0].upper() + s[1:]
+
+
+def generate_title_heuristic(
+    snippet: str,
+    *,
+    clip_words: Optional[list] = None,
+    clip_index: Optional[int] = None,
+) -> Tuple[str, float]:
     """
     Simple launch-safe title generator from transcript snippet.
     Returns (title, confidence).
     """
     s = clean_text(snippet or "")
-    if not s:
-        return ("New clip", 0.2)
+    if s:
+        s = re.sub(r"^(um|uh|like|you know)\b[:,]?\s*", "", s, flags=re.IGNORECASE).strip()
 
-    # Remove leading fillers
-    s = re.sub(r"^(um|uh|like|you know)\b[:,]?\s*", "", s, flags=re.IGNORECASE)
-    s = s.strip()
+    kws = _extract_title_keywords(s, clip_words)
+    first_sentence = re.split(r"(?<=[\.\?\!])\s+", s)[0] if s else ""
+    first_sentence = truncate_text(first_sentence, 68)
 
-    # Shorten + Title-ish
-    title = truncate_text(s, 68)
-    conf = 0.65 if len(title) >= 14 else 0.45
+    title = ""
+    conf = 0.35
+
+    if first_sentence and "?" in first_sentence and len(first_sentence) >= 16:
+        title = first_sentence
+        conf = 0.80
+    elif kws and len(kws) >= 2:
+        title = f"{kws[0].capitalize()} and {kws[1]}: key takeaway"
+        conf = 0.76
+    elif kws:
+        title = f"{kws[0].capitalize()} explained in under a minute"
+        conf = 0.72
+    elif first_sentence:
+        title = first_sentence
+        conf = 0.62
+    else:
+        n = int(clip_index or 0) + 1
+        title = f"Highlight {n}"
+        conf = 0.30
+
+    title = _headline_case(truncate_text(title, 68))
+    if not title:
+        n = int(clip_index or 0) + 1
+        return (f"Highlight {n}", 0.25)
     return (title, conf)
 
 def generate_title_llm(snippet: str) -> Optional[str]:
@@ -1359,14 +1567,24 @@ except Exception:
 # -----------------------------------------------------
 
 REFRAME_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_SAMPLE_FPS", "4.0"))
-REFRAME_SMOOTHING = float(os.getenv("WORKER_REFRAME_SMOOTHING", "0.85"))
+REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "8.0"))
+REFRAME_ANALYZE_EVERY_FRAME = os.getenv("WORKER_REFRAME_ANALYZE_EVERY_FRAME", "0") == "1"
+REFRAME_MAX_KEYFRAMES = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES", "220"))
+REFRAME_MAX_KEYFRAMES_PER_CLIP = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP", "120"))
+
+REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.86"))
+REFRAME_SMOOTHING_OBJECT = float(os.getenv("WORKER_REFRAME_SMOOTHING_OBJECT", "0.90"))
+REFRAME_SMOOTHING_FALLBACK = float(os.getenv("WORKER_REFRAME_SMOOTHING_FALLBACK", "0.93"))
+
 REFRAME_CENTER_BIAS_Y = float(os.getenv("WORKER_REFRAME_CENTER_BIAS_Y", "0.62"))
+OBJECT_CENTER_BIAS_Y = float(os.getenv("WORKER_OBJECT_CENTER_BIAS_Y", "0.44"))
 
 # Clamp crop motion per sample (prevents violent jumps if detector glitches)
 REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "120.0"))
 
-# If no faces detected, keep crops biased slightly above center (good for talking heads)
+# If no faces/people detected, keep crops biased slightly above center (good for talking heads)
 FALLBACK_CENTER_BIAS_Y = float(os.getenv("WORKER_FALLBACK_CENTER_BIAS_Y", "0.58"))
+PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "5"))
 
 # -----------------------------------------------------
 # Aspect ratio normalization
@@ -1428,6 +1646,48 @@ def _detect_faces(frame_bgr) -> list:
             minSize=(80, 80),
         )
         return list(faces) if faces is not None else []
+    except Exception:
+        return []
+
+
+_person_hog = None
+
+
+def _get_person_hog():
+    global _person_hog
+    if not _HAS_CV2:
+        return None
+    if _person_hog is None:
+        try:
+            hog = cv2.HOGDescriptor()
+            hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+            _person_hog = hog
+        except Exception:
+            _person_hog = None
+    return _person_hog
+
+
+def _detect_people(frame_bgr) -> list:
+    """
+    Returns list of (x, y, w, h) person boxes (OpenCV HOG).
+    Launch-safe: returns [] if unavailable.
+    """
+    if not _HAS_CV2:
+        return []
+    hog = _get_person_hog()
+    if hog is None:
+        return []
+
+    try:
+        rects, _weights = hog.detectMultiScale(
+            frame_bgr,
+            winStride=(8, 8),
+            padding=(8, 8),
+            scale=1.05,
+        )
+        if rects is None:
+            return []
+        return list(rects)
     except Exception:
         return []
 
@@ -1504,6 +1764,23 @@ def limit_step(
         return prev - max_step
     return cur
 
+
+def compress_camera_samples(samples: list, max_points: int) -> list:
+    """
+    Reduce dense per-frame camera paths to an ffmpeg-safe number of keyframes.
+    Keeps temporal ordering and always retains the last sample.
+    """
+    if not samples:
+        return []
+    if max_points <= 0 or len(samples) <= max_points:
+        return samples
+
+    stride = max(1, int(math.ceil(len(samples) / float(max_points))))
+    reduced = [samples[i] for i in range(0, len(samples), stride)]
+    if reduced[-1][0] != samples[-1][0]:
+        reduced.append(samples[-1])
+    return reduced
+
 # -----------------------------------------------------
 # Camera path builder
 # -----------------------------------------------------
@@ -1514,6 +1791,8 @@ def build_camera_path(
     job_id: int,
     target_w: int,
     target_h: int,
+    analyze_start: Optional[float] = None,
+    analyze_end: Optional[float] = None,
 ) -> Tuple[
     Callable[[float], float],
     Callable[[float], float],
@@ -1563,8 +1842,14 @@ def build_camera_path(
             "sample_step": None,
         }
 
+        range_start = max(0.0, float(analyze_start or 0.0))
+        if analyze_end is None:
+            range_end = range_start + 0.5
+        else:
+            range_end = max(range_start + 0.01, float(analyze_end))
+
         # Provide at least a couple samples for downstream margin calculations.
-        samples = [(0.0, float(cx), float(cy)), (0.5, float(cx), float(cy))]
+        samples = [(range_start, float(cx), float(cy)), (range_end, float(cx), float(cy))]
 
         return (
             lambda _t: float(cx),
@@ -1597,46 +1882,109 @@ def build_camera_path(
         target_h=float(target_h),
     )
 
-    # Sampling step (in seconds) — cap to at least 1 frame step.
-    step = max(1.0 / float(REFRAME_SAMPLE_FPS), 1.0 / float(fps))
+    analysis_start_s = max(0.0, min(float(duration), float(analyze_start or 0.0)))
+    if analyze_end is None:
+        analysis_end_s = float(duration)
+    else:
+        analysis_end_s = max(analysis_start_s, min(float(duration), float(analyze_end)))
+
+    # Sampling cadence:
+    # - sequential frame reads (fast)
+    # - process every Nth frame to meet target sample fps
+    if REFRAME_ANALYZE_EVERY_FRAME:
+        target_fps = float(fps)
+    else:
+        target_fps = max(
+            1.0,
+            min(float(REFRAME_SAMPLE_FPS), float(REFRAME_MAX_SAMPLE_FPS), float(fps)),
+        )
+    step_frames = max(1, int(round(float(fps) / max(1.0, target_fps))))
+    sample_step = float(step_frames) / max(1.0, float(fps))
 
     # Initialize center
     last_x = src_w / 2.0
     last_y = src_h * float(FALLBACK_CENTER_BIAS_Y)
 
     samples = []
-    t = 0.0
+    sample_idx = 0
+    start_frame = max(0, int(math.floor(analysis_start_s * float(fps))))
+    end_frame = max(start_frame, int(math.ceil(analysis_end_s * float(fps))))
+    frame_idx = start_frame
 
-    while t <= duration:
+    face_hits = 0
+    person_hits = 0
+    fallback_hits = 0
+    last_people: List[Any] = []
+
+    dynamic_step_limit = max(18.0, min(float(REFRAME_MAX_STEP_PX), min(crop_w, crop_h) * 0.12))
+
+    try:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, float(start_frame))
+    except Exception:
+        pass
+
+    while True:
+        if frame_idx > end_frame:
+            break
         try:
-            cap.set(cv2.CAP_PROP_POS_MSEC, float(t) * 1000.0)
             ok, frame = cap.read()
         except Exception:
             ok, frame = False, None
 
         if not ok or frame is None:
-            t += step
+            break
+
+        if frame_idx % step_frames != 0:
+            frame_idx += 1
             continue
 
-        faces = _detect_faces(frame)
+        t = min(float(duration), float(frame_idx) / max(1.0, float(fps)))
+        if t > analysis_end_s + 1e-6:
+            break
 
+        faces = _detect_faces(frame)
+        people: list = []
+
+        subject_mode = "fallback"
         if faces:
             # Choose largest face
             x, y, w, h = max(faces, key=lambda f: float(f[2]) * float(f[3]))
             cx = float(x) + float(w) / 2.0
             cy = float(y) + float(h) / 2.0
+            subject_mode = "face"
+            face_hits += 1
         else:
-            # Bias to upper-middle (better for captions + talking heads)
-            cx = src_w / 2.0
-            cy = src_h * float(REFRAME_CENTER_BIAS_Y)
+            # Person detector is heavier; run at a lower cadence and reuse last hit.
+            if sample_idx % max(1, int(PERSON_DETECT_EVERY_N)) == 0 or not last_people:
+                last_people = _detect_people(frame)
+            people = list(last_people or [])
+
+            if people:
+                x, y, w, h = max(people, key=lambda p: float(p[2]) * float(p[3]))
+                cx = float(x) + float(w) / 2.0
+                cy = float(y) + float(h) * float(OBJECT_CENTER_BIAS_Y)
+                subject_mode = "person"
+                person_hits += 1
+            else:
+                # Bias to upper-middle for speaking content
+                cx = src_w / 2.0
+                cy = src_h * float(REFRAME_CENTER_BIAS_Y)
+                fallback_hits += 1
 
         # Clamp sudden detector spikes
-        cx = limit_step(prev=last_x, cur=cx, max_step=REFRAME_MAX_STEP_PX)
-        cy = limit_step(prev=last_y, cur=cy, max_step=REFRAME_MAX_STEP_PX)
+        cx = limit_step(prev=last_x, cur=cx, max_step=dynamic_step_limit)
+        cy = limit_step(prev=last_y, cur=cy, max_step=dynamic_step_limit)
 
-        # Smooth
-        cx = float(REFRAME_SMOOTHING) * last_x + (1.0 - float(REFRAME_SMOOTHING)) * cx
-        cy = float(REFRAME_SMOOTHING) * last_y + (1.0 - float(REFRAME_SMOOTHING)) * cy
+        if subject_mode == "face":
+            smoothing = float(REFRAME_SMOOTHING_FACE)
+        elif subject_mode == "person":
+            smoothing = float(REFRAME_SMOOTHING_OBJECT)
+        else:
+            smoothing = float(REFRAME_SMOOTHING_FALLBACK)
+
+        # Smooth with mode-specific damping
+        cx = smoothing * last_x + (1.0 - smoothing) * cx
+        cy = smoothing * last_y + (1.0 - smoothing) * cy
 
         # Clamp so crop stays inside bounds
         cx, cy = clamp_center_to_bounds(
@@ -1650,7 +1998,8 @@ def build_camera_path(
 
         samples.append((float(t), float(cx), float(cy)))
         last_x, last_y = cx, cy
-        t += step
+        sample_idx += 1
+        frame_idx += 1
 
     cap.release()
 
@@ -1663,7 +2012,12 @@ def build_camera_path(
             crop_w=crop_w, crop_h=crop_h,
             src_w=src_w, src_h=src_h,
         )
-        samples = [(0.0, float(cx), float(cy)), (max(0.5, step), float(cx), float(cy))]
+        fallback_t0 = float(analysis_start_s)
+        fallback_t1 = max(float(analysis_end_s), fallback_t0 + max(0.5, sample_step))
+        samples = [(fallback_t0, float(cx), float(cy)), (fallback_t1, float(cx), float(cy))]
+
+    raw_sample_count = len(samples)
+    samples = compress_camera_samples(samples, max(50, int(REFRAME_MAX_KEYFRAMES)))
 
     times = np.array([s[0] for s in samples], dtype=float)
     xs = np.array([s[1] for s in samples], dtype=float)
@@ -1680,9 +2034,16 @@ def build_camera_path(
         "src_h": src_h,
         "crop_w": crop_w,
         "crop_h": crop_h,
-        "mode": "face_first_cv2",
+        "mode": "face_person_tracking_cv2",
         "duration": float(duration),
-        "sample_step": float(step),
+        "analysis_start": float(analysis_start_s),
+        "analysis_end": float(analysis_end_s),
+        "sample_step": float(sample_step),
+        "raw_samples": int(raw_sample_count),
+        "keyframes": int(len(samples)),
+        "face_hits": int(face_hits if "face_hits" in locals() else 0),
+        "person_hits": int(person_hits if "person_hits" in locals() else 0),
+        "fallback_hits": int(fallback_hits if "fallback_hits" in locals() else 0),
     }
 
     return cam_x, cam_y, samples, meta
@@ -2334,6 +2695,66 @@ def build_lerp_expr(samples: list, axis: str) -> str:
     expr += f"{last:.3f}" + ")" * (len(samples) - 1)
     return expr
 
+def camera_samples_for_clip_window(
+    samples: list,
+    *,
+    clip_start: float,
+    clip_end: float,
+    max_keyframes: int,
+) -> list:
+    """
+    Keep only camera keyframes relevant to the clip window and rebase times to clip-local t.
+    This keeps ffmpeg filter expressions small and much faster to evaluate.
+    """
+    if not samples:
+        return []
+
+    s = float(max(0.0, clip_start))
+    e = float(max(s + 0.01, clip_end))
+    dur = e - s
+
+    before = None
+    inside = []
+    after = None
+
+    for item in samples:
+        if not isinstance(item, (list, tuple)) or len(item) < 3:
+            continue
+        t = float(item[0])
+        if t < s:
+            before = item
+            continue
+        if t > e:
+            after = item
+            break
+        inside.append(item)
+
+    use = []
+    if before is not None:
+        use.append(before)
+    use.extend(inside)
+    if after is not None:
+        use.append(after)
+    if not use:
+        use = [samples[0], samples[-1]] if len(samples) > 1 else [samples[0]]
+
+    rebased = []
+    for item in use:
+        t = max(0.0, min(dur, float(item[0]) - s))
+        rebased.append((t, float(item[1]), float(item[2])))
+
+    rebased.sort(key=lambda x: float(x[0]))
+
+    # Ensure endpoints exist so interpolation is stable across full clip duration.
+    if rebased and rebased[0][0] > 0.0:
+        rebased.insert(0, (0.0, rebased[0][1], rebased[0][2]))
+    if rebased and rebased[-1][0] < dur:
+        rebased.append((dur, rebased[-1][1], rebased[-1][2]))
+    if len(rebased) == 1:
+        rebased.append((dur, rebased[0][1], rebased[0][2]))
+
+    return compress_camera_samples(rebased, max(8, int(max_keyframes or 8)))
+
 def _target_dims_for_aspect(aspect_ratio: Optional[str]) -> Tuple[int, int]:
     a = (aspect_ratio or "9:16").strip()
     if a == "1:1":
@@ -2423,15 +2844,23 @@ def render_clip_mp4(
             if p and isinstance(p, str):
                 vf_chain.append(p)
 
-    # Dynamic crop (GLOBAL reframing)
+    # Dynamic crop (clip-window reframing)
     if camera_samples:
-        cx_expr = build_lerp_expr(camera_samples, "x")
-        cy_expr = build_lerp_expr(camera_samples, "y")
+        clip_camera_samples = camera_samples_for_clip_window(
+            camera_samples,
+            clip_start=clip_start,
+            clip_end=clip_end,
+            max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+        )
+        cx_expr = build_lerp_expr(clip_camera_samples, "x")
+        cy_expr = build_lerp_expr(clip_camera_samples, "y")
+        x_expr = f"max(0,min({src_w-crop_w},{cx_expr}-{crop_w}/2))"
+        y_expr = f"max(0,min({src_h-crop_h},{cy_expr}-{crop_h}/2))"
 
         crop_expr = (
             f"crop={crop_w}:{crop_h}:"
-            f"x=clamp({cx_expr}-{crop_w}/2,0,{src_w-crop_w}):"
-            f"y=clamp({cy_expr}-{crop_h}/2,0,{src_h-crop_h})"
+            f"x='{x_expr}':"
+            f"y='{y_expr}'"
         )
         vf_chain.append(crop_expr)
     else:
@@ -2700,20 +3129,57 @@ def refund_credits_once(*, db, job_id: int, user_id: int, credits_reserved: int)
     )
     return True
 
+
+class JobHeartbeat:
+    """
+    Keep a running job fresh in DB while long steps (Whisper/FFmpeg/upload) run.
+    Prevents accidental stale requeue.
+    """
+
+    def __init__(self, job_id: int):
+        self.job_id = int(job_id)
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        if self._thread is not None:
+            return
+        self._thread = threading.Thread(target=self._loop, name=f"hb-{self.job_id}", daemon=True)
+        self._thread.start()
+
+    def _loop(self) -> None:
+        while not self._stop.wait(max(1.0, float(HEARTBEAT_INTERVAL))):
+            try:
+                with SessionLocal() as db:
+                    heartbeat(db, job_id=self.job_id)
+            except Exception as e:
+                try:
+                    log(f"Heartbeat update failed: {e}", job_id=self.job_id, level="WARN")
+                except Exception:
+                    pass
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+
 # -----------------------------------------------------
 # MAIN JOB RUNNER
 # -----------------------------------------------------
 
 def run_job(job_id: int) -> None:
     log("Starting job pipeline", job_id=job_id)
+    job_t0 = time.perf_counter()
 
     source_path: Optional[Path] = None
+    audio_wav_path: Optional[Path] = None
     clips_created = 0
     charged = False
 
     user_id: Optional[int] = None
     upload_id: Optional[int] = None
     credits_reserved: int = 0
+    hb: Optional[JobHeartbeat] = None
 
     try:
         # ---------------------------------------------
@@ -2736,30 +3202,51 @@ def run_job(job_id: int) -> None:
             raise RuntimeError("Job missing credits_reserved")
         charged = True  # credits were already reserved at upload time
 
+        hb = JobHeartbeat(job_id=job_id)
+        hb.start()
+
         # ---------------------------------------------
         # Download + preflight
         # ---------------------------------------------
+        stage_t = time.perf_counter()
         source_path = download_source_video(storage_key=storage_key, job_id=job_id)
         src_w, src_h, video_duration = preflight_source_video(
             source_path=source_path,
             job_id=job_id,
         )
-
-        # Global camera path (face-first reframing)
-        target_w, target_h = normalize_aspect(aspect_ratio)
-        _cam_x, _cam_y, cam_samples, _cam_meta = build_camera_path(
-            source_video=source_path,
+        log(
+            f"Source ready: {src_w}x{src_h}, duration={video_duration:.1f}s, prep={(time.perf_counter() - stage_t):.1f}s",
             job_id=job_id,
-            target_w=int(target_w),
-            target_h=int(target_h),
+        )
+
+        # Use per-clip camera analysis to avoid full-video tracking cost on long uploads.
+        stage_t = time.perf_counter()
+        target_w, target_h = normalize_aspect(aspect_ratio)
+        cam_samples: List[tuple] = []
+        log(
+            f"Per-clip camera analysis enabled (setup {(time.perf_counter() - stage_t):.1f}s)",
+            job_id=job_id,
         )
 
         # ---------------------------------------------
         # Audio + transcription
         # ---------------------------------------------
+        stage_t = time.perf_counter()
         audio = run_audio_pipeline(source_video=source_path, job_id=job_id)
+        log(
+            f"Audio profile: energy={float(audio.get('energy', 0.0)):.3f} voice_coverage={float(audio.get('voice_coverage', 0.0)):.3f} in {(time.perf_counter() - stage_t):.1f}s",
+            job_id=job_id,
+        )
+        audio_wav_path = Path(str(audio["wav_path"]))
 
-        transcript_raw = transcribe_audio(wav_path=audio["wav_path"], job_id=job_id)
+        try:
+            stage_t = time.perf_counter()
+            transcript_raw = transcribe_audio(wav_path=audio_wav_path, job_id=job_id)
+            log(f"Transcription complete in {(time.perf_counter() - stage_t):.1f}s", job_id=job_id)
+        finally:
+            safe_unlink(audio_wav_path)
+            audio_wav_path = None
+
         transcript = normalize_transcript(transcript_raw)
 
         words = extract_words(transcript)
@@ -2792,6 +3279,7 @@ def run_job(job_id: int) -> None:
                     silences=audio["silences"],
                     audio_energy=audio["energy"],
                     motion_metrics=motion,
+                    voice_segments=audio.get("voice_segments", []),
                 )
             )
 
@@ -2801,127 +3289,185 @@ def run_job(job_id: int) -> None:
             min_clips = 1
 
         top_k = max(TOP_K_CLIPS, min_clips)
-        top_k = min(top_k, MAX_TOP_K_CLIPS)
+        top_k = min(top_k, MAX_TOP_K_CLIPS, MAX_RENDER_CLIPS_PER_JOB)
         top_k = min(top_k, max(1, len(scored)))
 
         selected = select_top_k_clips(scored, top_k=top_k)
         selected = sorted(selected, key=lambda c: float(c.get("start", 0.0)))
+        log(
+            f"Clip selection: planned={len(clip_plans)} scored={len(scored)} selected={len(selected)} (limit={top_k})",
+            job_id=job_id,
+        )
 
         # ---------------------------------------------
         # Render + UPLOAD EACH CLIP (VERIFIED)
         # ---------------------------------------------
         seen_titles: set[str] = set()
+        clip_errors: List[str] = []
+        storage = get_storage()
         for idx, plan in enumerate(selected):
             clip_start = float(plan["start"])
             clip_end = float(plan["end"])
+            clip_t0 = time.perf_counter()
 
             local_out = Path(f"/tmp/job_{job_id}_clip_{idx}.mp4")
+            clip_path = Path(local_out)
 
-            vf_parts: List[str] = []
+            try:
+                vf_parts: List[str] = []
 
-            snippet = clean_text(
-                " ".join(str(w.get("word", "")) for w in words_in_range(words, clip_start, clip_end))
-            )
-            hook, _hook_conf = generate_hook_heuristic(snippet)
-            title, _title_conf = generate_title_heuristic(hook or snippet)
-            if not title or title.strip().lower() in {"new clip", "untitled"}:
-                title = f"Clip {idx + 1}"
-            base_title = title
-            suffix = 2
-            while title.lower() in seen_titles:
-                title = f"{base_title} ({suffix})"
-                suffix += 1
-            seen_titles.add(title.lower())
-
-            render = render_clip_mp4(
-                job_id=job_id,
-                source_video=source_path,
-                out_path=local_out,
-                clip_start=clip_start,
-                clip_end=clip_end,
-                src_w=int(src_w),
-                src_h=int(src_h),
-                aspect_ratio=str(aspect_ratio),
-                vf_parts=vf_parts,
-                camera_samples=cam_samples,
-                captions_enabled=captions_enabled,
-                caption_style_json=caption_style_json,
-                words_all=words,
-                watermark_enabled=watermark_enabled,
-            )
-
-            # -----------------------------
-            # HARD UPLOAD VERIFICATION
-            # -----------------------------
-            clip_key = f"users/{user_id}/clips/{job_id}_{idx}.mp4"
-            clip_path = Path(render["path"])
-
-            log(f"Preparing upload → {clip_key}", job_id=job_id)
-
-            if not clip_path.exists():
-                raise RuntimeError("Rendered clip file missing before upload")
-
-            size = clip_path.stat().st_size
-            if size <= 0:
-                raise RuntimeError("Rendered clip file is 0 bytes")
-
-            log(f"Rendered clip size: {size} bytes", job_id=job_id)
-
-            storage = get_storage()
-            storage.upload(str(clip_path), clip_key, content_type="video/mp4")
-
-            log(f"Upload completed → {clip_key}", job_id=job_id)
-
-            # -----------------------------
-            # DB INSERT (AFTER UPLOAD)
-            # -----------------------------
-            with SessionLocal() as db:
-                db.execute(
-                    text(
-                        """
-                        INSERT INTO clips (
-                            job_id,
-                            upload_id,
-                            storage_key,
-                            start_time,
-                            end_time,
-                            duration,
-                            title,
-                            hook
-                        )
-                        VALUES (
-                            :job_id,
-                            :upload_id,
-                            :key,
-                            :start,
-                            :end,
-                            :dur,
-                            :title,
-                            :hook
-                        )
-                        """
-                    ),
-                    {
-                        "job_id": job_id,
-                        "upload_id": upload_id,
-                        "key": clip_key,
-                        "start": clip_start,
-                        "end": clip_end,
-                        "dur": clip_end - clip_start,
-                        "title": title,
-                        "hook": hook,
-                    },
+                clip_words = words_in_range(words, clip_start, clip_end)
+                snippet = clean_text(" ".join(str(w.get("word", "")) for w in clip_words))
+                hook, _hook_conf = generate_hook_heuristic(snippet)
+                title, _title_conf = generate_title_heuristic(
+                    hook or snippet,
+                    clip_words=clip_words,
+                    clip_index=idx,
                 )
-                db.commit()
+                if not title or title.strip().lower() in {"new clip", "untitled", "highlight"}:
+                    title = f"Clip {idx + 1}"
+                base_title = title
+                suffix = 2
+                while title.lower() in seen_titles:
+                    title = f"{base_title} ({suffix})"
+                    suffix += 1
+                seen_titles.add(title.lower())
 
-            clips_created += 1
-            safe_unlink(clip_path)
+                clip_cam_samples: List[tuple] = []
+                try:
+                    analyze_start = max(0.0, clip_start - 1.0)
+                    analyze_end = min(float(video_duration), clip_end + 1.0)
+                    _cx, _cy, clip_cam_samples, clip_cam_meta = build_camera_path(
+                        source_video=source_path,
+                        job_id=job_id,
+                        target_w=int(target_w),
+                        target_h=int(target_h),
+                        analyze_start=analyze_start,
+                        analyze_end=analyze_end,
+                    )
+                    log(
+                        f"Clip {idx + 1} camera path: keyframes={clip_cam_meta.get('keyframes', len(clip_cam_samples))} window={max(0.0, analyze_end - analyze_start):.1f}s",
+                        job_id=job_id,
+                    )
+                except Exception as cam_err:
+                    clip_cam_samples = []
+                    log(
+                        f"Clip {idx + 1} camera fallback: {cam_err}",
+                        job_id=job_id,
+                        level="WARN",
+                    )
+
+                render = render_clip_mp4(
+                    job_id=job_id,
+                    source_video=source_path,
+                    out_path=local_out,
+                    clip_start=clip_start,
+                    clip_end=clip_end,
+                    src_w=int(src_w),
+                    src_h=int(src_h),
+                    aspect_ratio=str(aspect_ratio),
+                    vf_parts=vf_parts,
+                    camera_samples=clip_cam_samples,
+                    captions_enabled=captions_enabled,
+                    caption_style_json=caption_style_json,
+                    words_all=words,
+                    watermark_enabled=watermark_enabled,
+                )
+
+                # -----------------------------
+                # HARD UPLOAD VERIFICATION
+                # -----------------------------
+                clip_key = f"users/{user_id}/clips/{job_id}_{idx}.mp4"
+                clip_path = Path(render["path"])
+
+                log(f"Preparing upload → {clip_key}", job_id=job_id)
+
+                if not clip_path.exists():
+                    raise RuntimeError("Rendered clip file missing before upload")
+
+                size = clip_path.stat().st_size
+                if size <= 0:
+                    raise RuntimeError("Rendered clip file is 0 bytes")
+
+                log(f"Rendered clip size: {size} bytes", job_id=job_id)
+
+                storage.upload(str(clip_path), clip_key, content_type="video/mp4")
+
+                log(f"Upload completed → {clip_key}", job_id=job_id)
+
+                # -----------------------------
+                # DB INSERT (AFTER UPLOAD)
+                # -----------------------------
+                with SessionLocal() as db:
+                    db.execute(
+                        text(
+                            """
+                            INSERT INTO clips (
+                                job_id,
+                                upload_id,
+                                storage_key,
+                                start_time,
+                                end_time,
+                                duration,
+                                title,
+                                hook
+                            )
+                            VALUES (
+                                :job_id,
+                                :upload_id,
+                                :key,
+                                :start,
+                                :end,
+                                :dur,
+                                :title,
+                                :hook
+                            )
+                            """
+                        ),
+                        {
+                            "job_id": job_id,
+                            "upload_id": upload_id,
+                            "key": clip_key,
+                            "start": clip_start,
+                            "end": clip_end,
+                            "dur": clip_end - clip_start,
+                            "title": title,
+                            "hook": hook,
+                        },
+                    )
+                    db.commit()
+
+                clips_created += 1
+                log(
+                    f"Clip {idx + 1}/{len(selected)} done in {(time.perf_counter() - clip_t0):.1f}s",
+                    job_id=job_id,
+                )
+            except Exception as clip_err:
+                clip_errors.append(f"clip {idx + 1}: {clip_err}")
+                log(f"Clip {idx + 1} skipped: {clip_err}", job_id=job_id, level="WARN")
+                continue
+            finally:
+                safe_unlink(local_out)
+
+        if clips_created <= 0:
+            details = "; ".join(clip_errors[:3]) if clip_errors else "render failed"
+            raise RuntimeError(f"No clips rendered successfully ({details})")
+
+        if clip_errors:
+            log(
+                f"Completed with {len(clip_errors)} skipped clip(s) and {clips_created} successful clip(s)",
+                job_id=job_id,
+                level="WARN",
+            )
 
         with SessionLocal() as db:
             update_job_status(db=db, job_id=job_id, status="done", error=None)
             db.commit()
 
-        log(f"Job completed ({clips_created} clips)", job_id=job_id)
+        log(
+            f"Job completed ({clips_created} clips) in {(time.perf_counter() - job_t0):.1f}s",
+            job_id=job_id,
+        )
         try:
             if user_id:
                 trigger_automations(job_id=int(job_id), user_id=int(user_id))
@@ -2953,6 +3499,13 @@ def run_job(job_id: int) -> None:
         raise
 
     finally:
+        if hb:
+            try:
+                hb.stop()
+            except Exception:
+                pass
+        if audio_wav_path:
+            safe_unlink(audio_wav_path)
         if source_path:
             safe_unlink(source_path)
 
@@ -3030,3 +3583,4 @@ if __name__ == "__main__":
 # =====================================================
 # END SECTION 10 / 10
 # =====================================================
+ 

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { Suspense } from "react";
-import { UploadWorkspace } from "@/app/app/upload/page";
-import { ClipsWorkspace } from "@/app/app/clips/page";
+import React from "react";
+import UploadsPage from "@/app/app/upload/page";
+import ClipsPage from "@/app/app/clips/page";
 
 export default function OverviewPage() {
   return (
@@ -39,10 +39,8 @@ export default function OverviewPage() {
         <section className="mt-8">
           <div className="mb-4 text-xs text-white/55">• Upload + Clips</div>
           <div className="grid gap-8">
-            <UploadWorkspace />
-            <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
-              <ClipsWorkspace />
-            </Suspense>
+            <UploadsPage />
+            <ClipsPage />
           </div>
         </section>
 

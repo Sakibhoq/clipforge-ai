@@ -106,10 +106,31 @@ def _needs_cross_site_cookie(request: Request) -> bool:
     return ".app.github.dev" in origin
 
 
+def _matched_cookie_domain(request: Request, domain: str | None) -> str | None:
+    """
+    Only apply COOKIE_DOMAIN when the request host matches that domain.
+    Prevents dev/Codespaces from forcing cookies onto unrelated domains.
+    """
+    if not domain:
+        return None
+
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.hostname
+        or ""
+    ).lower()
+
+    dom = domain.lstrip(".").lower()
+    if host == dom or host.endswith(f".{dom}"):
+        return domain
+    return None
+
+
 def cookie_options(request: Request):
     https = _is_https(request)
     cross_site = _needs_cross_site_cookie(request)
-    domain = settings.COOKIE_DOMAIN or None
+    domain = _matched_cookie_domain(request, settings.COOKIE_DOMAIN or None)
 
     # If a shared cookie domain is configured (e.g. .orbito.cc),
     # force SameSite=None to ensure subdomain requests always include the cookie.

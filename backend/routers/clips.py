@@ -1,17 +1,45 @@
 # backend/routers/clips.py
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.clip import Clip
 from models.upload import Upload
 from models.user import User
-from storage.s3 import S3Storage
+from storage import get_storage
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+
+
+def _ensure_sqlite_clip_schema(db: Session) -> None:
+    """
+    Self-heal local SQLite schemas that predate additive clip metadata columns.
+    This avoids 500s when older DB files are reused in dev/test.
+    """
+    bind = db.get_bind()
+    if bind is None or bind.dialect.name != "sqlite":
+        return
+
+    cols = {
+        str(row[1])
+        for row in db.execute(text("PRAGMA table_info(clips)")).fetchall()
+        if len(row) > 1
+    }
+
+    if "hook" in cols:
+        return
+
+    try:
+        db.execute(text("ALTER TABLE clips ADD COLUMN hook TEXT"))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        if "duplicate column name" not in str(exc).lower():
+            raise
 
 
 @router.get("")  # ✅ IMPORTANT: no trailing slash -> avoids 307 redirect
@@ -20,6 +48,7 @@ def list_clips(
     grouped: bool = Query(default=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """
     - If upload_id provided: returns flat list of clips for that upload.
@@ -27,14 +56,22 @@ def list_clips(
         grouped=true  -> returns [{ upload: {...}, clips: [...] }, ...]
         grouped=false -> returns flat list of all clips for user
     """
-    storage = S3Storage()
+    _ensure_sqlite_clip_schema(db)
+    storage = get_storage()
+
+    def _clip_url(key: str) -> str:
+        url = storage.presign_get(key)  # type: ignore[attr-defined]
+        if isinstance(url, str) and url.startswith("/"):
+            base = str(request.base_url).rstrip("/")
+            return f"{base}{url}"
+        return url
 
     def clip_dict(clip: Clip):
         return {
             "id": clip.id,
             "upload_id": clip.upload_id,
             "storage_key": clip.storage_key,
-            "url": storage.presign_get(clip.storage_key),
+            "url": _clip_url(clip.storage_key),
             "start_time": clip.start_time,
             "end_time": clip.end_time,
             "duration": clip.duration,

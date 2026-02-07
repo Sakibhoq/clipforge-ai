@@ -32,6 +32,10 @@ function hasAuthCookie(req: NextRequest) {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
+  const isCodespaces =
+    host.includes(".app.github.dev") || host.includes(".githubpreview.dev");
+  const isLocal = host.startsWith("localhost") || host.startsWith("127.0.0.1");
 
   // Skip Next internals + static + well-known files
   if (
@@ -44,10 +48,10 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ✅ DEV/CODESPACES: do NOT enforce auth in middleware
+  // ✅ DEV/CODESPACES/LOCAL: do NOT enforce auth in middleware
   // Cookie is set on backend origin (8000) and not readable on frontend origin (3000).
   // In dev, auth is enforced by /auth/me in the app layout.
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" || isCodespaces || isLocal) {
     return NextResponse.next();
   }
 

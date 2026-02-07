@@ -744,7 +744,7 @@ const DEFAULT_CLIP_SETTINGS: ClipOutputSettings = {
 /* =========================================================
    ClipsPage
 ========================================================= */
-export function ClipsWorkspace() {
+function ClipsWorkspace() {
   const sp = useSearchParams();
   const router = useRouter();
 

@@ -103,6 +103,10 @@ function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function H({ children }: { children: React.ReactNode }) {
+  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+}
+
 function Divider() {
   return <div className="h-px w-full bg-white/10" />;
 }
@@ -130,7 +134,7 @@ function HoverSheen() {
   );
 }
 
-function MiniPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+function MiniPill({ icon, label }: { icon: React.ReactNode; label: React.ReactNode }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[12px] text-white/70">
       <span className="text-white/70">{icon}</span>
@@ -334,9 +338,16 @@ function PacksBar({
 function TopMetaRow() {
   return (
     <div className="mt-6 flex flex-wrap items-center gap-2">
-      <MiniPill icon={<BoltIcon />} label="Fast processing defaults" />
-      <MiniPill icon={<ShieldIcon />} label="Credits = usage currency" />
-      <MiniPill icon={<ClockIcon />} label="Scale when it earns" />
+      <MiniPill
+        icon={<BoltIcon />}
+        label={
+          <>
+            Built for <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>
+          </>
+        }
+      />
+      <MiniPill icon={<ShieldIcon />} label={<>Credits map to real output</>} />
+      <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
     </div>
   );
 }
@@ -682,11 +693,11 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           <div>
             <div className="text-xs text-white/50">• Pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Credit-based.{" "}
-              <span className="grad-text">Scale when it earns.</span>
+              Credit-based. <span className="grad-text">Scale when it works.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free. Upgrade when the clips prove it. Packs scale Creator only.
+              Start free, test real outputs, then scale when your <H>YOUTUBE</H>, <H>TIKTOK</H>, and <H>REELS</H>{" "}
+              workflow proves itself.
             </p>
             <TopMetaRow />
             <div className="mt-2 text-xs text-white/45">
@@ -706,7 +717,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               <TierHeader title="Free Trial" subtitle="Test the full experience" />
               <PlainPrice price="$0" suffix="/trial" />
               <div className="mt-3 text-sm text-white/65">
-                Start instantly with credits included.
+                Start now and ship your first post-quality clips.
               </div>
 
               <FeatureBullets items={tierBullets.trial} />
@@ -755,7 +766,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               </SmallNote>
 
               <div className="mt-4 text-sm text-white/70">
-                Clean and simple — consistent monthly cadence.
+                A clean monthly plan for consistent publishing.
               </div>
 
               <FeatureBullets items={tierBullets.starter} />
@@ -837,7 +848,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               )}
 
               <div className="mt-4 text-sm text-white/70">
-                Priority throughput + packs for scale.
+                More throughput for teams posting at serious volume.
               </div>
 
               <FeatureBullets items={tierBullets.creator} />
@@ -891,7 +902,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               </div>
 
               <div className="mt-4 text-sm text-white/70">
-                Built for brands, agencies, and teams.
+                Built for brands and teams running multi-channel output.
               </div>
 
               <FeatureBullets items={tierBullets.studio} />
@@ -938,8 +949,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     <span className="grad-text">at a glance</span>
                   </h2>
                   <p className="mt-2 max-w-2xl text-sm text-white/65">
-                    Starter stays simple. Creator adds scale + priority. Studio
-                    is built around teams.
+                    Starter keeps it simple. Creator adds speed and scale. Studio is tailored for teams.
                   </p>
                 </div>
 
@@ -1030,7 +1040,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   Talk to sales
                 </Link>
                 <div className="text-xs text-white/45">
-                  Packs only affect Creator pricing + credits.
+                  Packs only affect Creator credits and pricing.
                 </div>
               </div>
             </div>
@@ -1100,11 +1110,11 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               <div>
                 <div className="text-xs text-white/50">• Next</div>
                 <div className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">
-                  Start free.{" "}
-                  <span className="grad-text">Scale when it earns.</span>
+                  Orbito is live now.{" "}
+                  <span className="grad-text">Start posting today.</span>
                 </div>
                 <div className="mt-2 text-sm text-white/65">
-                  Keep it calm. Keep it consistent. Add volume when you want it.
+                  Clipforge Labs at clipforge.us arrives later with AI video and AI song generation.
                 </div>
               </div>
 

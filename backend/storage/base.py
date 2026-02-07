@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 
 
 class Storage(ABC):
     @abstractmethod
-    def save(self, file: BinaryIO, key: str) -> str:
+    def save(self, file: BinaryIO, key: str, content_type: Optional[str] = None) -> str:
         pass
 
     @abstractmethod

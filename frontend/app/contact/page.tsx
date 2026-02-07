@@ -20,6 +20,10 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+function H({ children }: { children: React.ReactNode }) {
+  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+}
+
 function HoverSheen() {
   return (
     <>
@@ -287,7 +291,7 @@ function SendMessageModal({
                   Send a <span className="grad-text">message</span>
                 </h2>
                 <p className="mt-2 text-sm text-white/60">
-                  We read every message. Keep it simple — we’ll do the rest.
+                  We read every message. Keep it short and clear - we will handle the rest.
                 </p>
               </div>
 
@@ -485,20 +489,21 @@ export default function ContactPage() {
               {/* LEFT */}
               <div>
                 <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Let’s talk <span className="grad-text">Orbito</span>
+                  Need help with <span className="grad-text">Orbito</span>?
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Support, billing, Studio, partnerships, or quick feedback — send a note and we’ll reply promptly.
+                  Ask us anything about clipping for <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>, and daily{" "}
+                  <H>POSTS</H>. Support, billing, and setup help are all here.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    Usually within 24 hours
+                    Replies within 24 hours
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
-                    Email-first support
+                    Billing + workflow support
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
                     Screenshots welcome
@@ -542,7 +547,7 @@ export default function ContactPage() {
                       <div>
                         <div className="text-sm font-semibold">Message us</div>
                         <p className="mt-2 text-sm leading-relaxed text-white/60">
-                          Drop a quick note here — it goes straight to the team.
+                          Send a quick note and it goes straight to our team.
                         </p>
                       </div>
 

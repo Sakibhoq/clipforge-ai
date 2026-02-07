@@ -2,10 +2,10 @@
 import { redirect } from "next/navigation";
 
 type Props = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function toQueryString(searchParams?: Props["searchParams"]) {
+function toQueryString(searchParams?: Record<string, string | string[] | undefined>) {
   const params = new URLSearchParams();
 
   if (!searchParams) return "";
@@ -22,8 +22,13 @@ function toQueryString(searchParams?: Props["searchParams"]) {
   return qs ? `?${qs}` : "";
 }
 
-export default function DashboardPage({ searchParams }: Props) {
+export default async function DashboardPage({ searchParams }: Props) {
   // Keep /dashboard as a compatibility route, but always land in the app shell.
   // Preserves query params (e.g. next=/app/upload, upload_id=123, etc.)
-  redirect(`/app${toQueryString(searchParams)}`);
+  try {
+    const resolved = await searchParams;
+    redirect(`/app${toQueryString(resolved)}`);
+  } catch {
+    redirect("/app");
+  }
 }

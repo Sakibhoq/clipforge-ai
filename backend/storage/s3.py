@@ -23,7 +23,7 @@ class S3Storage(Storage):
     # Uploads
     # ------------------------------------------------------------------
 
-    def save(self, fileobj: BinaryIO, key: str, content_type: Optional[str] = None):
+    def save(self, fileobj: BinaryIO, key: str, content_type: Optional[str] = None) -> str:
         """
         Mostly for dev/internal use.
         In production, uploads usually happen via presigned URLs.
@@ -38,6 +38,7 @@ class S3Storage(Storage):
             key,
             ExtraArgs=extra_args or None,
         )
+        return key
 
     def upload(self, path: str, key: str, content_type: Optional[str] = None):
         """

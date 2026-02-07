@@ -3,13 +3,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getDirectApiBase } from "@/lib/api";
 
 /* =========================================================
    Orbito — Uploads (REAL)
    Real flow (file):
    1) /storage/presign
-   2) PUT to S3 (presigned)
+   2) Direct PUT to storage URL
+      - auto-fallback: /storage/upload-proxy if direct upload fails
    3) /uploads/register  -> returns upload_id + job_id (credits deducted here)
    4) Poll /jobs/{id} for status (queued/running/done/failed)
 
@@ -49,6 +50,16 @@ type PresignResponse = {
   put_url: string;
   storage_key: string;
   required_headers?: Record<string, string>;
+};
+
+type ProxyUploadResponse = {
+  storage_key: string;
+};
+
+type ProxyChunkInitResponse = {
+  upload_id: string;
+  storage_key: string;
+  chunk_size: number;
 };
 
 type RegisterResponse = {
@@ -273,10 +284,12 @@ function ErrorBanner({
 
 function isProbablyCorsNetworkError(e: any) {
   const msg = String(e?.message || e || "");
+  const lower = msg.toLowerCase();
+  if (lower.includes("413") || lower.includes("request entity too large")) return false;
   return (
-    msg.toLowerCase().includes("failed to fetch") ||
-    msg.toLowerCase().includes("networkerror") ||
-    msg.toLowerCase().includes("cors")
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("cors")
   );
 }
 
@@ -293,6 +306,59 @@ function formatS3CorsHint() {
   ].join("\n");
 }
 
+function isRequestEntityTooLargeError(e: any) {
+  const status = Number(e?.status ?? e?.response?.status ?? NaN);
+  const msg = String(e?.message || e || "").toLowerCase();
+  return status === 413 || msg.includes("413") || msg.includes("request entity too large");
+}
+
+function format413Hint() {
+  return [
+    "Your gateway/reverse proxy rejected the upload body (HTTP 413).",
+    "",
+    "Fix on EC2 Nginx:",
+    "- set `client_max_body_size 2G;` (or your target limit)",
+    "- reload nginx (`sudo nginx -t && sudo systemctl reload nginx`)",
+    "",
+    "If you use a CDN/proxy in front, also raise its upload/body limit.",
+  ].join("\n");
+}
+
+function compactUploadErrorMessage(raw: any) {
+  const original = String(raw ?? "").trim();
+  if (!original) return "";
+
+  const withoutTags = original
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const normalized = (withoutTags || original).replace(/\s+/g, " ").trim();
+  const lower = normalized.toLowerCase();
+  if (lower.includes("request entity too large") || lower.includes("http 413") || lower.includes(" 413")) {
+    return "Upload too large (HTTP 413 Request Entity Too Large).";
+  }
+  if (normalized.length > 320) return `${normalized.slice(0, 317)}...`;
+  return normalized;
+}
+
+function appendHintOnce(msg: string, hint: string) {
+  const cleanMsg = (msg || "").trim();
+  if (!cleanMsg) return hint;
+  const n = cleanMsg.replace(/\s+/g, " ").toLowerCase();
+  if (
+    n.includes("gateway/reverse proxy rejected the upload body") ||
+    n.includes("client_max_body_size") ||
+    n.includes("request entity too large")
+  ) {
+    return cleanMsg;
+  }
+  return `${cleanMsg}\n\n${hint}`;
+}
+
 function sanitizePutHeaders(h: Record<string, string>) {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(h || {})) {
@@ -301,6 +367,52 @@ function sanitizePutHeaders(h: Record<string, string>) {
     out[k.trim()] = String(v);
   }
   return out;
+}
+
+function isLikelyNetworkFetchError(e: any) {
+  const msg = String(e?.message || e || "").toLowerCase();
+  return msg.includes("failed to fetch") || msg.includes("networkerror") || msg.includes("cors");
+}
+
+function uniqueStrings(items: string[]) {
+  return [...new Set(items.filter(Boolean))];
+}
+
+function uploadEndpointCandidates(path: string) {
+  const direct = getDirectApiBase();
+  return uniqueStrings([
+    path,
+    direct && direct !== "/api" ? `${direct}${path}` : "",
+  ]);
+}
+
+async function apiFetchWithEndpointFallback<T = any>(
+  endpoints: string[],
+  init: any
+): Promise<T> {
+  let lastErr: any = null;
+  for (const endpoint of endpoints) {
+    try {
+      return await apiFetch<T>(endpoint, init);
+    } catch (e: any) {
+      lastErr = e;
+      if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e)) continue;
+      throw e;
+    }
+  }
+  throw lastErr ?? new Error("Request failed");
+}
+
+function buildPutUrlCandidates(rawUrl: string) {
+  if (!rawUrl) return [];
+  if (/^https?:\/\//i.test(rawUrl)) return [rawUrl];
+  if (!rawUrl.startsWith("/")) return [rawUrl];
+
+  const direct = getDirectApiBase();
+  const candidates: string[] = [];
+  if (direct && direct !== "/api") candidates.push(`${direct}${rawUrl}`);
+  candidates.push(rawUrl);
+  return uniqueStrings(candidates);
 }
 
 function xhrPutWithProgress(args: {
@@ -333,9 +445,14 @@ function xhrPutWithProgress(args: {
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
       const body = xhr.responseText || "";
+      if (xhr.status === 413) {
+        reject(new Error("S3 PUT failed (HTTP 413 Request Entity Too Large)."));
+        return;
+      }
+      const compactBody = compactUploadErrorMessage(body);
       reject(
         new Error(
-          `S3 PUT failed (HTTP ${xhr.status})\n\n${body.slice(0, 3000) || "No response body"}`
+          `S3 PUT failed (HTTP ${xhr.status})${compactBody ? `\n\n${compactBody}` : ""}`
         )
       );
     };
@@ -351,6 +468,93 @@ function xhrPutWithProgress(args: {
 
     xhr.send(file);
   });
+}
+
+async function uploadViaBackendProxy(args: {
+  file: File;
+  storageKey?: string | null;
+  signal?: AbortSignal;
+}): Promise<ProxyUploadResponse> {
+  const { file, storageKey, signal } = args;
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  fd.append("content_type", file.type || "video/mp4");
+  if (storageKey) fd.append("storage_key", storageKey);
+  return apiFetchWithEndpointFallback<ProxyUploadResponse>(
+    uploadEndpointCandidates("/storage/upload-proxy"),
+    {
+      method: "POST",
+      body: fd,
+      signal,
+    }
+  );
+}
+
+async function uploadViaBackendProxyChunked(args: {
+  file: File;
+  storageKey?: string | null;
+  signal?: AbortSignal;
+  onProgress?: (pct: number) => void;
+}): Promise<ProxyUploadResponse> {
+  const { file, storageKey, signal, onProgress } = args;
+
+  const init = await apiFetchWithEndpointFallback<ProxyChunkInitResponse>(
+    uploadEndpointCandidates("/storage/upload-proxy-init"),
+    {
+      method: "POST",
+      body: {
+        filename: file.name,
+        content_type: file.type || "video/mp4",
+        content_length: file.size,
+        storage_key: storageKey || undefined,
+      },
+      signal,
+    }
+  );
+
+  const chunkSize = Math.max(64 * 1024, Number(init.chunk_size || 64 * 1024));
+  const totalParts = Math.max(1, Math.ceil(file.size / chunkSize));
+
+  for (let partIndex = 0; partIndex < totalParts; partIndex++) {
+    const start = partIndex * chunkSize;
+    const end = Math.min(file.size, start + chunkSize);
+    const blob = file.slice(start, end);
+
+    const fd = new FormData();
+    fd.append("upload_id", init.upload_id);
+    fd.append("storage_key", init.storage_key);
+    fd.append("part_index", String(partIndex));
+    fd.append("total_parts", String(totalParts));
+    fd.append("chunk", blob, `${file.name}.part-${partIndex}`);
+
+    await apiFetchWithEndpointFallback(
+      uploadEndpointCandidates("/storage/upload-proxy-chunk"),
+      {
+        method: "POST",
+        body: fd,
+        signal,
+      }
+    );
+
+    if (onProgress) {
+      const pct = file.size > 0 ? (end / file.size) * 100 : ((partIndex + 1) / totalParts) * 100;
+      onProgress(Math.max(0, Math.min(100, pct)));
+    }
+  }
+
+  return apiFetchWithEndpointFallback<ProxyUploadResponse>(
+    uploadEndpointCandidates("/storage/upload-proxy-complete"),
+    {
+      method: "POST",
+      body: {
+        upload_id: init.upload_id,
+        storage_key: init.storage_key,
+        total_parts: totalParts,
+        content_type: file.type || "video/mp4",
+      },
+      signal,
+    }
+  );
 }
 
 function loadPersistedSession():
@@ -521,7 +725,7 @@ function isInsufficientCreditsError(e: any) {
   return msg.includes("402") || msg.toLowerCase().includes("insufficient credits");
 }
 
-export function UploadWorkspace() {
+function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [flow, setFlow] = useState<Flow>("idle");
@@ -884,7 +1088,8 @@ export function UploadWorkspace() {
         signal: ac.signal,
       });
 
-      setStorageKey(presign.storage_key);
+      let uploadedStorageKey = presign.storage_key;
+      setStorageKey(uploadedStorageKey);
       setProgress(10);
       setStatusText("Uploading to storage…");
 
@@ -896,16 +1101,109 @@ export function UploadWorkspace() {
 
       const safeHeaders = sanitizePutHeaders(required);
 
-      await xhrPutWithProgress({
-        url: presign.put_url,
-        file,
-        headers: safeHeaders,
-        signal: ac.signal,
-        onProgress: (pct) => {
-          const mapped = 10 + pct * 0.75;
-          setProgress((p) => Math.max(p, Math.min(85, mapped)));
-        },
-      });
+      try {
+        const localChunkFirst = (presign.put_url || "").startsWith("/storage/local-upload");
+        if (localChunkFirst) {
+          setStatusText("Uploading in chunks…");
+          const chunked = await uploadViaBackendProxyChunked({
+            file,
+            storageKey: presign.storage_key,
+            signal: ac.signal,
+            onProgress: (pct) => {
+              const mapped = 10 + pct * 0.72;
+              setProgress((p) => Math.max(p, Math.min(82, mapped)));
+            },
+          });
+          uploadedStorageKey = chunked.storage_key || presign.storage_key;
+          setStorageKey(uploadedStorageKey);
+          setProgress((p) => Math.max(p, 82));
+        } else {
+          const putUrls = buildPutUrlCandidates(presign.put_url);
+          if (putUrls.length === 0) throw new Error("No upload URL from presign.");
+
+          let putSucceeded = false;
+          let lastPutErr: any = null;
+
+          for (const putUrl of putUrls) {
+            try {
+              await xhrPutWithProgress({
+                url: putUrl,
+                file,
+                headers: safeHeaders,
+                signal: ac.signal,
+                onProgress: (pct) => {
+                  const mapped = 10 + pct * 0.75;
+                  setProgress((p) => Math.max(p, Math.min(85, mapped)));
+                },
+              });
+              putSucceeded = true;
+              break;
+            } catch (e: any) {
+              lastPutErr = e;
+              // Try alternate URL when route/proxy/CORS differs per environment.
+              if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e)) continue;
+              break;
+            }
+          }
+
+          if (!putSucceeded) throw lastPutErr ?? new Error("Direct upload failed.");
+        }
+      } catch (directErr: any) {
+        const msg = compactUploadErrorMessage(directErr?.message || directErr || "");
+        if (msg.toLowerCase().includes("canceled")) throw directErr;
+
+        setStatusText("Direct upload failed. Retrying via backend…");
+        setProgress((p) => Math.max(p, 28));
+
+        try {
+          const proxied = await uploadViaBackendProxy({
+            file,
+            storageKey: presign.storage_key,
+            signal: ac.signal,
+          });
+          uploadedStorageKey = proxied.storage_key || presign.storage_key;
+          setStorageKey(uploadedStorageKey);
+          setProgress((p) => Math.max(p, 80));
+        } catch (proxyErr: any) {
+          if (isRequestEntityTooLargeError(proxyErr) || isLikelyNetworkFetchError(proxyErr)) {
+            setStatusText("Fallback blocked. Retrying chunked upload…");
+            setProgress((p) => Math.max(p, 32));
+            try {
+              const chunked = await uploadViaBackendProxyChunked({
+                file,
+                storageKey: presign.storage_key,
+                signal: ac.signal,
+                onProgress: (pct) => {
+                  const mapped = 32 + pct * 0.48;
+                  setProgress((p) => Math.max(p, Math.min(82, mapped)));
+                },
+              });
+              uploadedStorageKey = chunked.storage_key || presign.storage_key;
+              setStorageKey(uploadedStorageKey);
+              setProgress((p) => Math.max(p, 82));
+            } catch (chunkErr: any) {
+              if (
+                isRequestEntityTooLargeError(chunkErr) ||
+                isRequestEntityTooLargeError(proxyErr) ||
+                isRequestEntityTooLargeError(directErr)
+              ) {
+                const tooLargeErr: any = new Error("Upload too large (HTTP 413).");
+                tooLargeErr.status = 413;
+                throw tooLargeErr;
+              }
+              const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
+              const chunkMsg = compactUploadErrorMessage(chunkErr?.message || chunkErr || "");
+              throw new Error(
+                `Direct upload failed: ${msg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}`
+              );
+            }
+          }
+          const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
+          throw new Error(
+            `Direct upload failed: ${msg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}`
+          );
+        }
+      }
 
       setProgress(88);
       setStatusText("Registering upload…");
@@ -914,7 +1212,7 @@ export function UploadWorkspace() {
         method: "POST",
         body: {
           original_filename: file.name,
-          storage_key: presign.storage_key,
+          storage_key: uploadedStorageKey,
 
           // render settings
           aspect_ratio: aspectRatio,
@@ -933,7 +1231,7 @@ export function UploadWorkspace() {
       persistSession({
         uploadId: reg.upload_id,
         jobId: reg.job_id,
-        storageKey: presign.storage_key,
+        storageKey: uploadedStorageKey,
         fileName: file.name,
       });
 
@@ -951,18 +1249,24 @@ export function UploadWorkspace() {
 
       const msg =
         typeof e?.detail === "string"
-          ? e.detail
+          ? compactUploadErrorMessage(e.detail)
           : e?.detail
-          ? JSON.stringify(e.detail, null, 2)
+          ? compactUploadErrorMessage(JSON.stringify(e.detail, null, 2))
           : e?.body
-          ? JSON.stringify(e.body, null, 2)
+          ? compactUploadErrorMessage(JSON.stringify(e.body, null, 2))
           : e?.message
-          ? String(e.message)
+          ? compactUploadErrorMessage(String(e.message))
           : "Unexpected error occurred.";
 
+      if (isRequestEntityTooLargeError(e)) {
+        const hint = format413Hint();
+        const detail = appendHintOnce(msg, hint);
+        fail("Upload failed (size limit)", detail);
+        return;
+      }
 
       if (isProbablyCorsNetworkError(e)) {
-        fail("Upload failed (CORS)", `${msg}\n\n${formatS3CorsHint()}`);
+        fail("Upload failed (CORS)", appendHintOnce(msg, formatS3CorsHint()));
         return;
       }
 
@@ -1510,18 +1814,18 @@ export function UploadWorkspace() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
-                <div className="mt-1 text-sm text-white/60">
-                  Open the video in a new tab, download an MP4 locally, then upload it on the left.
+                <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
+                  Open video, download MP4, then upload on the left.
                 </div>
               </div>
 
               <div
                 className={cx(
-                  "rounded-full border bg-white/[0.04] px-3 py-1 text-[12px] text-white/70",
+                  "shrink-0 whitespace-nowrap rounded-full border bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/75",
                   ytStep === "idle" ? "border-white/10" : "border-white/14"
                 )}
               >
-                {ytStep === "idle" ? "Step 1" : ytStep === "opened" ? "Step 2" : "Ready"}
+                {ytStep === "idle" ? "Step 1/3" : ytStep === "opened" ? "Step 2/3" : "Step 3/3"}
               </div>
             </div>
 
@@ -1639,8 +1943,8 @@ export function UploadWorkspace() {
                 {ytStep === "idle" ? (
                   <>
                     <div className="font-semibold text-white/70">How it works</div>
-                    <div className="mt-1">
-                      1) Open the video • 2) Download MP4 locally • 3) Upload on the left
+                    <div className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                      1) Open video, 2) Download MP4, 3) Upload on the left
                     </div>
                   </>
                 ) : ytStep === "opened" ? (

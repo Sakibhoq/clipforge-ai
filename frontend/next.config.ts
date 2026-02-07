@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: "http://backend:8000/:path*",
       },
+      // Local-storage upload/download helpers returned by /storage/presign in dev.
+      // Keep these same-origin so browser PUT/GET can work without CORS issues.
+      {
+        source: "/storage/:path*",
+        destination: "http://backend:8000/storage/:path*",
+      },
     ];
   },
   // Build reliability (Docker): allow opt-in skips to avoid CI crashes on type/lint

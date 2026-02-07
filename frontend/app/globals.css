@@ -987,11 +987,15 @@ main {
 }
 
 .price-glow {
-  color: rgba(147, 197, 253, 1);
+  display: inline-block;
+  background: linear-gradient(90deg, #7dd3fc 0%, #a78bfa 45%, #5eead4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   text-shadow:
     0 0 18px rgba(125, 211, 252, 0.55),
     0 0 48px rgba(167, 139, 250, 0.35);
-  animation: pricePulse 2.4s ease-in-out infinite;
+  animation: pricePulse 2.2s ease-in-out infinite;
 }
 
 @keyframes pricePulse {
@@ -1003,7 +1007,7 @@ main {
       0 0 40px rgba(167, 139, 250, 0.25);
   }
   50% {
-    transform: translateY(-1px);
+    transform: translateY(-1px) scale(1.02);
     text-shadow:
       0 0 22px rgba(125, 211, 252, 0.7),
       0 0 56px rgba(167, 139, 250, 0.45);

@@ -41,6 +41,17 @@ def get_db() -> Generator[Session, None, None]:
 def _frontend_base_url() -> str:
     return os.getenv("FRONTEND_BASE_URL") or "http://127.0.0.1:3000"
 
+def _allow_free_trial_without_stripe() -> bool:
+    """
+    Dev-only bypass so free trials can work without Stripe configured.
+    Controlled by ALLOW_FREE_TRIAL_WITHOUT_STRIPE=1 or non-production APP_ENV.
+    """
+    flag = (os.getenv("ALLOW_FREE_TRIAL_WITHOUT_STRIPE") or "").strip().lower()
+    if flag in {"1", "true", "yes", "on"}:
+        return True
+    env = (os.getenv("APP_ENV") or "development").strip().lower()
+    return env != "production"
+
 
 def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     interval = interval.lower().strip()
@@ -151,9 +162,6 @@ def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not stripe.api_key:
-        raise HTTPException(status_code=500, detail="Stripe not configured")
-
     plan = payload.plan.strip().lower()
     interval = payload.interval.strip().lower()
 
@@ -162,6 +170,23 @@ def create_checkout_session(
 
     if interval not in ALLOWED_INTERVALS:
         raise HTTPException(status_code=400, detail="Invalid interval")
+
+    # Dev-only: allow free trial credits without Stripe configured
+    if plan == "free" and not stripe.api_key and _allow_free_trial_without_stripe():
+        user = _reload_user(db, current_user)
+        if getattr(user, "trial_used", False):
+            raise HTTPException(status_code=400, detail="Free trial already used")
+
+        user.credits = (user.credits or 0) + _credits_for_plan("free", interval, 1)
+        user.trial_used = True
+        user.plan = "free"
+        db.commit()
+
+        base = _frontend_base_url()
+        return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&trial=local")
+
+    if not stripe.api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
 
     price_id = _price_id_from_env(plan, interval)
     if not price_id:

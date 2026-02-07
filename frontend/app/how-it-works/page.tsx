@@ -59,15 +59,15 @@ export default function HowItWorksPage() {
       meta: "10 seconds",
       t: (
         <>
-          Paste <H>YouTube</H> or upload once
+          Paste <H>YOUTUBE</H> or upload once
         </>
       ),
       d: (
         <>
-          Drop long-form once. Orbito ingests, stores, and processes in the background while you keep moving.
+          Add one long video. Orbito ingests it and starts building clips while you keep working.
         </>
       ),
-      bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Runs while you work.</>],
+      bullets: [<>MP4 or YOUTUBE.</>, <>No setup.</>, <>Runs while you work.</>],
     },
     {
       n: "02",
@@ -75,8 +75,8 @@ export default function HowItWorksPage() {
       t: <>Orbito finds the moments</>,
       d: (
         <>
-          We pull hook-worthy segments and shape them into drafts for <H>Shorts</H>, <H>Reels</H>, and{" "}
-          <H>TikTok</H>.
+          We find the strongest segments and shape them into drafts for <H>TIKTOK</H>, <H>REELS</H>, and{" "}
+          <H>YOUTUBE SHORTS</H>.
         </>
       ),
       bullets: [<>Hook-first moments.</>, <>Speaker-first framing.</>, <>Clean endings.</>],
@@ -87,8 +87,8 @@ export default function HowItWorksPage() {
       t: <>Review, polish, export</>,
       d: (
         <>
-          Pick the best clips, make quick edits, and export platform-ready outputs — captions, framing, and pacing
-          already dialed in.
+          Pick your best clips, make fast edits, and export polished <H>POSTS</H> with captions and framing already
+          dialed in.
         </>
       ),
       bullets: [<>Premium captions.</>, <>Safe margins.</>, <>Ready-to-post exports.</>],
@@ -97,13 +97,15 @@ export default function HowItWorksPage() {
 
   const signals = [
     <>
-      paste <H>YouTube</H>
+      paste <H>YOUTUBE</H>
     </>,
     <>detect hooks</>,
     <>
-      forge <H>Shorts</H>
+      format <H>TIKTOK</H> + <H>REELS</H>
     </>,
-    <>export</>,
+    <>
+      export <H>POSTS</H>
+    </>,
     <>repeat</>,
   ];
 
@@ -140,15 +142,15 @@ export default function HowItWorksPage() {
             <div className="text-xs text-white/55">• How it works</div>
 
             <h1 className="mt-3 text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Paste once. <span className="grad-text">Stay in flow.</span>
+              One upload in. <span className="grad-text">Daily posts out.</span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Orbito turns long-form into short-form with a calm, repeatable loop. Paste a <H>YouTube</H> link, then
-              review ready-to-post clips for <H>TikTok</H>, <H>Instagram Reels</H>, and <H>YouTube Shorts</H>.
+              Orbito turns long-form into polished short-form. Paste a <H>YOUTUBE</H> link, then review clips for{" "}
+              <H>TIKTOK</H>, <H>REELS</H>, and <H>POSTS</H>.
             </p>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55 md:text-[15px]">
-              Built for creators who want premium output without living inside a timeline.
+              Built for creators who want premium output without living on the editing timeline.
             </p>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
@@ -161,8 +163,8 @@ export default function HowItWorksPage() {
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                <span className="font-semibold text-white/90">The Orbito standard</span> is calm workflow, sharp cuts,
-                and exports that look premium out of the box.
+                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon - AI video + AI
+                song generation at clipforge.us.
               </div>
             </div>
 
@@ -237,9 +239,9 @@ export default function HowItWorksPage() {
                 <HoverSheen />
                 <div className="relative">
                   <div className="text-xs text-white/45">• Quality</div>
-                  <div className="mt-2 text-sm font-semibold">Brand-safe, creator-ready</div>
+                  <div className="mt-2 text-sm font-semibold">Built for clean publishing</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Clean captions, steady framing, and exports that ship without cleanup.
+                    Captions, framing, and exports tuned for <H>YOUTUBE</H>, <H>TIKTOK</H>, and <H>REELS</H>.
                   </div>
                 </div>
               </div>
@@ -247,9 +249,9 @@ export default function HowItWorksPage() {
                 <HoverSheen />
                 <div className="relative">
                   <div className="text-xs text-white/45">• Roadmap</div>
-                  <div className="mt-2 text-sm font-semibold">Scheduling & team workflows</div>
+                  <div className="mt-2 text-sm font-semibold">Clipforge Labs • coming soon</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Social scheduling and shared workspaces land after launch stability is locked in.
+                    After Orbito launch, clipforge.us introduces AI video and AI song generation.
                   </div>
                 </div>
               </div>

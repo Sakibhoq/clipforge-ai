@@ -301,18 +301,30 @@ export default function Page() {
     () => [
       {
         id: "paste",
-        t: <>Paste a link or upload once</>,
-        d: <>Drop one link in. Orbito finds the moments that hold attention.</>,
+        t: (
+          <>
+            Paste <H>YOUTUBE</H> or upload
+          </>
+        ),
+        d: <>One link in. Orbito finds the best moments.</>,
       },
       {
         id: "generate",
-        t: <>Choose your top cuts</>,
-        d: <>Review the shortlist, tweak captions, keep the tone on-brand.</>,
+        t: <>Pick the hits</>,
+        d: <>Review fast, tweak captions, approve.</>,
       },
       {
         id: "export",
-        t: <>Export and post</>,
-        d: <>Export clean files ready for Shorts, Reels, and TikTok.</>,
+        t: (
+          <>
+            Post everywhere
+          </>
+        ),
+        d: (
+          <>
+            <H>TIKTOK</H> · <H>REELS</H> · <H>YOUTUBE SHORTS</H>
+          </>
+        ),
       },
     ],
     []
@@ -322,18 +334,18 @@ export default function Page() {
     () => [
       {
         id: "moments",
-        title: <>Moments worth sharing</>,
-        desc: <>Highlights, hooks, and clean segments — already refined.</>,
+        title: <>Hooks built for scroll</>,
+        desc: <>Orbito finds moments people finish, save, and share.</>,
       },
       {
         id: "captions",
-        title: <>Captions + smart reframing</>,
-        desc: <>Word-by-word captions and speaker-first crops built for vertical.</>,
+        title: <>Captions + smart framing</>,
+        desc: <>Clean captions and speaker-focused framing for premium vertical clips.</>,
       },
       {
         id: "export",
-        title: <>Export-ready outputs</>,
-        desc: <>Crisp video, clean audio, and formats that post cleanly.</>,
+        title: <>Post-ready exports</>,
+        desc: <>Crisp video, clean audio, and formats tuned for every platform.</>,
       },
     ],
     []
@@ -344,8 +356,8 @@ export default function Page() {
       {
         id: "hiw-1",
         n: "1",
-        title: "Create your account",
-        desc: "Get starter credits to test the pipeline on your first video.",
+        title: "Start in minutes",
+        desc: "Create your account and run a first clip fast.",
       },
       {
         id: "hiw-2",
@@ -364,8 +376,8 @@ export default function Page() {
       {
         id: "hiw-3",
         n: "3",
-        title: "Review & edit (optional)",
-        desc: "Approve clips, tweak captions, export — or stay hands‑off.",
+        title: "Approve and post",
+        desc: "Publish to YOUTUBE, TIKTOK, and REELS in one flow.",
       },
     ],
     []
@@ -391,21 +403,15 @@ export default function Page() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  Long‑form in. Editorial shorts out.
+                  <H>YOUTUBE</H> in. <H>POSTS</H> out.
                 </div>
 
                 <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
-                  Paste a <H>YouTube</H> link.
-                  <br />
-                  Get shorts that feel unmistakably yours.
+                  Turn <H>YOUTUBE</H> into premium <H>POSTS</H>.
                 </h1>
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                  {BRAND.name} finds the moments your audience leans into, reframes them for vertical, and delivers
-                  clips that sound like your voice. Keep momentum without living in the timeline.
-                </p>
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/60 sm:text-[15px]">
-                  Build a library that compounds over time — steady output, calm workflow, higher leverage.
+                  {BRAND.name} delivers clean clips with captions and framing, ready for <H>TIKTOK</H> and <H>REELS</H>.
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -415,14 +421,14 @@ export default function Page() {
                   <a href="/how-it-works" className="btn-ghost">
                     See how it works
                   </a>
-                  <div className="text-xs text-white/50">Pay for output, not hours.</div>
+                  <div className="text-xs text-white/50">More output. Less editing.</div>
                 </div>
 
                 <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
                   <span className="text-white/75">
-                    Paste <H>YouTube</H> / upload
+                    Paste <H>YOUTUBE</H> / upload
                   </span>{" "}
-                  → AI clips → quick review → export
+                  → AI selects hooks → quick polish → post
                 </div>
               </div>
 
@@ -453,9 +459,9 @@ export default function Page() {
 
                 <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
                   {[
-                    { k: "Speed", v: "Minutes to first cut" },
-                    { k: "Reach", v: "Shorts, Reels, TikTok" },
-                    { k: "Consistency", v: "A steady release cadence" },
+                    { k: "Speed", v: "Minutes to first post" },
+                    { k: "Reach", v: "YOUTUBE • TIKTOK • REELS" },
+                    { k: "Consistency", v: "Daily cadence" },
                   ].map((x) => (
                       <div
                         key={x.k}
@@ -480,12 +486,12 @@ export default function Page() {
         <section id="features" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              Shorts that feel intentional —
+              Premium <H>POSTS</H> that feel intentional —
               <br className="hidden md:block" />
-              wherever your audience watches.
+              anywhere your audience watches.
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              {BRAND.name} is built for creators who want premium output without the editor grind.
+              Built for creators who want serious output without spending all day in an editor.
             </p>
           </div>
 
@@ -519,10 +525,10 @@ export default function Page() {
         <section id="how" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              Set the loop once. <span className="grad-text">Ship with intent.</span>
+              One workflow. <span className="grad-text">Daily POSTS.</span>
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              One link becomes a steady stream of <H>Shorts</H> — with control when you want it.
+              One <H>YOUTUBE</H> link becomes ready clips for <H>TIKTOK</H>, <H>REELS</H>, and <H>POSTS</H>.
             </p>
           </div>
 
@@ -575,27 +581,28 @@ export default function Page() {
             />
             <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">The Orbito standard</span>
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Clipforge Labs</span>
                 <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
-                  premium by default
+                  clipforge.us • coming soon
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Calm workflow. High‑signal output.
+                Clipforge Labs is next.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Fewer, better clips that look like a human editor touched them. That’s the bar.
+                Orbito is live now for clipping. Clipforge Labs at clipforge.us will launch AI video and AI song
+                generation later.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {[
                   {
-                    t: "Brand-safe captions",
-                    d: "Readable, balanced, and ready for client or public release.",
+                    t: "AI video studio (future)",
+                    d: "Generate original scenes and social-ready visuals from prompts.",
                   },
                   {
-                    t: "Clean exports",
-                    d: "Formats that post cleanly without rework or resizing.",
+                    t: "AI song studio (future)",
+                    d: "Create original tracks that match each clip's mood and pace.",
                   },
                 ].map((x) => (
                   <div key={x.t} className="surface-soft relative overflow-hidden p-5">

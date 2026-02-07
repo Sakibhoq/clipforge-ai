@@ -50,6 +50,49 @@ function guessLocalBackendOrigin(): string | null {
   return null;
 }
 
+function isLocalPageHost(): boolean {
+  if (!isBrowser()) return false;
+  const host = window.location.hostname.toLowerCase();
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function isInternalBackendUrl(urlStr: string): boolean {
+  try {
+    const u = new URL(urlStr);
+    const h = u.hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "backend";
+  } catch {
+    return false;
+  }
+}
+
+function guessPublicApiOriginFromPage(): string | null {
+  if (!isBrowser()) return null;
+
+  const host = window.location.hostname.toLowerCase();
+  const proto = window.location.protocol;
+
+  // Skip local/codespaces hosts.
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".app.github.dev") ||
+    host.endsWith(".githubpreview.dev")
+  ) {
+    return null;
+  }
+
+  // If already on api host, use it.
+  if (host.startsWith("api.")) return `${proto}//${host}`;
+
+  // app.orbito.cc / www.orbito.cc -> api.orbito.cc
+  if (host.startsWith("app.")) return `${proto}//api.${host.slice(4)}`;
+  if (host.startsWith("www.")) return `${proto}//api.${host.slice(4)}`;
+
+  // orbito.cc -> api.orbito.cc
+  return `${proto}//api.${host}`;
+}
+
 function normalizeEnvBase(envBase: string): string {
   const trimmed = envBase.replace(/\/+$/, "");
 
@@ -61,23 +104,29 @@ function normalizeEnvBase(envBase: string): string {
     const parsed = new URL(trimmed);
     const host = parsed.hostname.toLowerCase();
     const pageHost = window.location.hostname.toLowerCase();
-    const pageIsCodespaces = window.location.host.includes(".app.github.dev");
+    const pageHostFull = window.location.host.toLowerCase();
+    const pageIsCodespaces =
+      pageHostFull.includes(".app.github.dev") || pageHostFull.includes(".githubpreview.dev");
     const pageIsLocal = pageHost === "localhost" || pageHost === "127.0.0.1";
 
-    const rootDomain = pageHost.replace(/^app\./, "").replace(/^www\./, "");
-    const sameRootApi = host === `api.${rootDomain}`;
-
-    // Prefer same-origin proxy for production to avoid CORS/cookie edge cases.
-    if (!pageIsLocal && !pageIsCodespaces && sameRootApi) {
-      return "/api";
-    }
+    // NOTE: Do NOT force /api for production api subdomains.
+    // app.orbito.cc should talk directly to api.orbito.cc.
 
     const isInternalHost =
       host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "backend";
-    const isCodespacesHost = host.endsWith(".app.github.dev");
+    const isCodespacesHost =
+      host.endsWith(".app.github.dev") || host.endsWith(".githubpreview.dev");
 
-    // If build-time base is internal but page is public, use same-origin proxy.
+    // Codespaces should never call production APIs directly.
+    // Use same-origin /api proxy to keep cookies on the preview domain.
+    if (pageIsCodespaces && !isCodespacesHost && !isInternalHost) {
+      return "/api";
+    }
+
+    // If build-time base is internal but page is public, prefer inferred public api host.
     if ((isInternalHost || isCodespacesHost) && !pageIsLocal && !pageIsCodespaces) {
+      const guessed = guessPublicApiOriginFromPage();
+      if (guessed) return guessed;
       return "/api";
     }
 
@@ -99,7 +148,13 @@ export function getApiBase(): string {
     process.env.NEXT_PUBLIC_API_URL ||
     "";
 
-  if (envBase) return normalizeEnvBase(envBase);
+  if (envBase) {
+    const normalized = normalizeEnvBase(envBase);
+    // Ignore internal build-time bases when page is not actually local.
+    if (!(isInternalBackendUrl(normalized) && !isLocalPageHost())) {
+      return normalized;
+    }
+  }
 
   // Codespaces fallback (direct to -8000)
   const cs = guessCodespacesBackendOrigin();
@@ -109,8 +164,45 @@ export function getApiBase(): string {
   const local = guessLocalBackendOrigin();
   if (local) return local;
 
-  // Last resort: same-origin proxy (only if you actually implemented it)
+  // Public host fallback (app.<domain> -> api.<domain>)
+  const inferred = guessPublicApiOriginFromPage();
+  if (inferred) return inferred;
+
+  // Last resort: same-origin proxy
   return "/api";
+}
+
+/**
+ * Direct backend origin for large/binary upload paths.
+ * Avoids same-origin frontend proxy limits (often causes HTTP 413).
+ */
+export function getDirectApiBase(): string {
+  const envBase =
+    process.env.NEXT_PUBLIC_API_BASE ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "";
+  if (envBase) {
+    const normalized = normalizeEnvBase(envBase);
+    // For direct uploads, never keep an internal localhost/backend base on non-local pages.
+    if (
+      normalized !== "/api" &&
+      !(isInternalBackendUrl(normalized) && !isLocalPageHost())
+    ) {
+      return normalized;
+    }
+  }
+
+  const cs = guessCodespacesBackendOrigin();
+  if (cs) return cs;
+
+  const local = guessLocalBackendOrigin();
+  if (local) return local;
+
+  const inferred = guessPublicApiOriginFromPage();
+  if (inferred) return inferred;
+
+  // Final fallback (may still be proxied/same-origin).
+  return getApiBase();
 }
 
 async function readJsonSafe(res: Response) {

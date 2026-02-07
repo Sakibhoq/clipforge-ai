@@ -33,6 +33,7 @@ services:
       DATABASE_URL: "sqlite:////data/app.db"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
       PUBLIC_API_BASE: "${PUBLIC_API_BASE:-}"
+      # Codespaces should not set cookie domain to a custom prod domain
       COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
 
 
@@ -45,7 +46,8 @@ services:
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
 
       # Storage
-      STORAGE_BACKEND: "s3"
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "us-east-1"
       S3_BUCKET: "clipforge-uploads-dev-26"
 
@@ -95,7 +97,10 @@ services:
       WORKER_WATERMARK_TEXT: "Orbito"
 
       # Storage
-      STORAGE_BACKEND: "s3"
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      # Local dev cookie domain disabled unless explicitly set
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
+      LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "us-east-1"
       S3_BUCKET: "clipforge-uploads-dev-26"
 

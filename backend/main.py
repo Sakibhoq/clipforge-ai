@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 
 # Load repo-root .env
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront
 from routers import storage as storage_router
 from routers import upload_register
+from core.db_init import init_db
 
 # ---------------------------------------------------------
 # Feature flags
@@ -28,6 +30,13 @@ ENABLE_YOUTUBE_INGEST = (os.getenv("ENABLE_YOUTUBE_INGEST") or "").strip().lower
 app = FastAPI(title="Clipforge API")
 
 # ---------------------------------------------------------
+# DB init (sqlite dev convenience)
+# ---------------------------------------------------------
+@app.on_event("startup")
+def _startup_db() -> None:
+    init_db()
+
+# ---------------------------------------------------------
 # Optional: YouTube automated ingest (DISABLED by default in prod)
 # ---------------------------------------------------------
 if ENABLE_YOUTUBE_INGEST:
@@ -40,19 +49,40 @@ if ENABLE_YOUTUBE_INGEST:
 # ---------------------------------------------------------
 APP_ENV = (os.getenv("APP_ENV") or "development").lower().strip()
 FRONTEND_ORIGIN = (os.getenv("FRONTEND_ORIGIN") or "http://localhost:3000").strip()
+COOKIE_DOMAIN = (os.getenv("COOKIE_DOMAIN") or "").strip()
 DEV_CODESPACES_ORIGIN_REGEX = (
     os.getenv("DEV_CODESPACES_ORIGIN_REGEX")
     or r"^https://[a-z0-9-]+-3000\.app\.github\.dev$"
 )
 
-allow_origins = [FRONTEND_ORIGIN]
+allow_origins = [FRONTEND_ORIGIN] if FRONTEND_ORIGIN else []
 allow_origin_regex = None
+
+FRONTEND_ORIGIN_REGEX = (os.getenv("FRONTEND_ORIGIN_REGEX") or "").strip()
+regexes: list[str] = []
+if FRONTEND_ORIGIN_REGEX:
+    regexes.append(FRONTEND_ORIGIN_REGEX)
+
+# Always allow cookie-domain subdomains when configured (works for prod + staging).
+if COOKIE_DOMAIN:
+    root = COOKIE_DOMAIN.lstrip(".")
+    if root:
+        regexes.append(rf"^https://([a-z0-9-]+\.)?{re.escape(root)}$")
 
 if APP_ENV != "production":
     for o in ["http://localhost:3000", "http://127.0.0.1:3000"]:
         if o not in allow_origins:
             allow_origins.append(o)
-    allow_origin_regex = DEV_CODESPACES_ORIGIN_REGEX
+    regexes.append(DEV_CODESPACES_ORIGIN_REGEX)
+
+if not regexes and FRONTEND_ORIGIN.startswith("https://"):
+    # Fallback: allow subdomains of the frontend root.
+    root = FRONTEND_ORIGIN.replace("https://", "", 1)
+    root = root.replace("app.", "", 1).replace("www.", "", 1)
+    regexes.append(rf"^https://([a-z0-9-]+\.)?{re.escape(root)}$")
+
+if regexes:
+    allow_origin_regex = "|".join(f"(?:{r})" for r in regexes)
 
 app.add_middleware(
     CORSMiddleware,
