@@ -2167,6 +2167,7 @@ CAPTION_MAX_CHARS_PER_LINE = int(os.getenv("WORKER_CAPTION_MAX_CHARS_PER_LINE", 
 CAPTION_MAX_LINES = int(os.getenv("WORKER_CAPTION_MAX_LINES", "2"))
 CAPTION_MAX_BLOCK_SECONDS = float(os.getenv("WORKER_CAPTION_MAX_BLOCK_SECONDS", "2.8"))
 CAPTION_BREAK_PAUSE_SECONDS = float(os.getenv("WORKER_CAPTION_BREAK_PAUSE_SECONDS", "0.65"))
+CAPTION_MAX_TOKEN_CHARS = int(os.getenv("WORKER_CAPTION_MAX_TOKEN_CHARS", "18"))
 
 # Karaoke timing safety
 KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "2"))     # 0.02s
@@ -2262,6 +2263,15 @@ def ass_escape(text: str) -> str:
     Escape ASS control chars. Also normalize whitespace.
     """
     t = clean_text(text or "")
+    return _ass_escape_raw(t)
+
+
+def _ass_escape_raw(text: str) -> str:
+    """
+    Escape ASS control chars without trimming leading/trailing spaces.
+    Use this for per-token karaoke rendering where spacing matters.
+    """
+    t = str(text or "")
     t = t.replace("\\", r"\\")
     t = t.replace("{", r"\{").replace("}", r"\}")
     t = t.replace("\n", r"\N")
@@ -2293,17 +2303,17 @@ def _format_karaoke_token(raw_token: str, *, is_first_in_line: bool) -> str:
         return ""
 
     if is_first_in_line:
-        return ass_escape(raw.lstrip())
+        return _ass_escape_raw(raw.lstrip())
 
     # Preserve explicit leading whitespace from model output.
     if raw[:1].isspace():
-        return ass_escape(raw)
+        return _ass_escape_raw(raw)
 
     stripped = raw.lstrip()
     if _token_attaches_left(stripped):
-        return ass_escape(stripped)
+        return _ass_escape_raw(stripped)
 
-    return ass_escape(" " + stripped)
+    return _ass_escape_raw(" " + stripped)
 
 # -----------------------------------------------------
 # Face-aware margin lift (source-space normalized)
@@ -2503,6 +2513,78 @@ def _wrap_word_indices(words: list) -> list[list[int]]:
 
     return [line for line in lines if line][:CAPTION_MAX_LINES]
 
+
+def _split_caption_token(token: str) -> list[str]:
+    """
+    Split very long tokens so they can wrap inside frame width.
+    """
+    t = clean_text(token).strip()
+    if not t:
+        return []
+
+    limit = max(8, int(CAPTION_MAX_TOKEN_CHARS))
+    if len(t) <= limit:
+        return [t]
+
+    parts: list[str] = []
+    rest = t
+    while len(rest) > limit:
+        cut = limit
+        # Prefer natural breakpoints before hard cut.
+        lo = max(1, limit // 2)
+        for i in range(limit, lo - 1, -1):
+            if i >= len(rest):
+                continue
+            prev = rest[i - 1]
+            nxt = rest[i]
+            if prev in "-_/.,:;" or (prev.islower() and nxt.isupper()):
+                cut = i
+                break
+        parts.append(rest[:cut])
+        rest = rest[cut:]
+
+    if rest:
+        parts.append(rest)
+    return [p for p in parts if p]
+
+
+def _expand_caption_words(words: list) -> list[dict]:
+    """
+    Expand words into subtitle-safe tokens; splits overlong words and
+    distributes timing across the split pieces.
+    """
+    out: list[dict] = []
+    for w in words:
+        try:
+            ws = float(w["start"])
+            we = float(w["end"])
+            token = str(w["word"])
+        except Exception:
+            continue
+
+        pieces = _split_caption_token(token)
+        if not pieces:
+            continue
+        if len(pieces) == 1:
+            out.append({"start": ws, "end": we, "word": pieces[0]})
+            continue
+
+        total = max(we - ws, 0.001)
+        total_len = max(1, sum(len(p) for p in pieces))
+        cur_start = ws
+        for i, p in enumerate(pieces):
+            if i == len(pieces) - 1:
+                cur_end = we
+            else:
+                frac = len(p) / float(total_len)
+                cur_end = min(we, cur_start + (total * frac))
+                if cur_end <= cur_start:
+                    cur_end = min(we, cur_start + 0.01)
+            out.append({"start": cur_start, "end": cur_end, "word": p})
+            cur_start = cur_end
+
+    return out
+
 def build_caption_blocks(*, clip_words: list) -> list:
     """
     Convert word list into blocks with timing + wrapped lines:
@@ -2524,7 +2606,14 @@ def build_caption_blocks(*, clip_words: list) -> list:
             last_end = None
             return
 
-        raw_tokens = [str(w["word"]) for w in cur if w.get("word")]
+        block_words = _expand_caption_words(cur)
+        if not block_words:
+            cur = []
+            block_start = None
+            last_end = None
+            return
+
+        raw_tokens = [str(w["word"]) for w in block_words if w.get("word")]
         line_indices = _wrap_word_indices(raw_tokens)
         lines = []
         for idxs in line_indices:
@@ -2535,7 +2624,7 @@ def build_caption_blocks(*, clip_words: list) -> list:
                     parts.append(tok)
             if parts:
                 lines.append(" ".join(parts))
-        blocks.append((float(block_start), float(last_end), cur[:], lines, line_indices))
+        blocks.append((float(block_start), float(last_end), block_words, lines, line_indices))
 
         cur = []
         block_start = None
