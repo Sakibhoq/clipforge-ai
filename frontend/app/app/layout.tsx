@@ -78,31 +78,47 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Mobile polish: lock body scroll when menu is open + close on route change
+  // Mobile polish: lock body scroll when menu is open + close on route change.
+  // Avoid global touchmove preventDefault because it can cause mobile browser freezes.
   useEffect(() => {
     if (!mobileOpen) return;
 
+    const scrollY = window.scrollY || window.pageYOffset || 0;
     const prevOverflow = document.body.style.overflow;
-    const prevTouchAction = (document.body.style as any).touchAction;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevLeft = document.body.style.left;
+    const prevRight = document.body.style.right;
+    const prevWidth = document.body.style.width;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const prevOverscroll = document.documentElement.style.overscrollBehaviorY;
 
+    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) document.body.style.paddingRight = `${scrollBarWidth}px`;
     document.body.style.overflow = "hidden";
-    (document.body.style as any).touchAction = "none";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    document.documentElement.style.overscrollBehaviorY = "none";
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMobileOpen(false);
     };
     window.addEventListener("keydown", onKey);
 
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-
     return () => {
       document.body.style.overflow = prevOverflow;
-      (document.body.style as any).touchAction = prevTouchAction || "";
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.left = prevLeft;
+      document.body.style.right = prevRight;
+      document.body.style.width = prevWidth;
+      document.body.style.paddingRight = prevPaddingRight;
+      document.documentElement.style.overscrollBehaviorY = prevOverscroll;
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("touchmove", onTouchMove as any);
+      window.scrollTo(0, scrollY);
     };
   }, [mobileOpen]);
 

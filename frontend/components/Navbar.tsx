@@ -240,27 +240,42 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  // MOBILE POLISH: lock body scroll when menu is open
+  // MOBILE POLISH: lock body scroll when menu is open.
+  // Avoid global touchmove preventDefault (can freeze interactions on mobile Safari/Chrome).
   useEffect(() => {
     if (!open) return;
 
+    const scrollY = window.scrollY || window.pageYOffset || 0;
     const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevLeft = document.body.style.left;
+    const prevRight = document.body.style.right;
+    const prevWidth = document.body.style.width;
     const prevPaddingRight = document.body.style.paddingRight;
+    const prevOverscroll = document.documentElement.style.overscrollBehaviorY;
 
     const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
     if (scrollBarWidth > 0) document.body.style.paddingRight = `${scrollBarWidth}px`;
 
     document.body.style.overflow = "hidden";
-
-    const preventTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener("touchmove", preventTouchMove, { passive: false });
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+    document.documentElement.style.overscrollBehaviorY = "none";
 
     return () => {
-      window.removeEventListener("touchmove", preventTouchMove);
       document.body.style.overflow = prevOverflow;
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.left = prevLeft;
+      document.body.style.right = prevRight;
+      document.body.style.width = prevWidth;
       document.body.style.paddingRight = prevPaddingRight;
+      document.documentElement.style.overscrollBehaviorY = prevOverscroll;
+      window.scrollTo(0, scrollY);
     };
   }, [open]);
 

@@ -96,13 +96,24 @@ app.add_middleware(
 # ---------------------------------------------------------
 # Security headers
 # ---------------------------------------------------------
+def _request_is_https(request: Request) -> bool:
+    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    if xf_proto:
+        return xf_proto == "https"
+    return request.url.scheme == "https"
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
+    if APP_ENV == "production" and _request_is_https(request):
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
     return response
 
 # ---------------------------------------------------------

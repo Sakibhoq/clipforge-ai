@@ -17,7 +17,7 @@ services:
 
   backend:
     build: ./backend
-    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers
+    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
     ports:
       - "8000:8000"
     volumes:
@@ -29,6 +29,7 @@ services:
       - /home/codespace/.aws:/root/.aws:ro
     environment:
       # Core
+      APP_ENV: "${APP_ENV:-development}"
       SECRET_KEY: "4piiJ882BKvmUlMcy0BGBnSuVMK3WDoeXAxHUdyNFfzQqjfRlQzElT_DPVtemWuZGANIsGR78J0t8ClLZIs4YQ"
       DATABASE_URL: "sqlite:////data/app.db"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
