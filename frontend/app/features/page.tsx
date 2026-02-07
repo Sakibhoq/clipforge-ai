@@ -401,6 +401,8 @@ export default function FeaturesPage() {
       { label: "How it works", href: "/how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
+      { label: "Privacy", href: "/privacy-policy" },
+      { label: "Terms", href: "/terms-of-service" },
     ],
     []
   );

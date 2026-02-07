@@ -294,6 +294,16 @@ function Divider({ label }: { label: string }) {
 type RegisterOk = { message: string };
 type LoginOk = { ok: true };
 
+function passwordRules(pw: string) {
+  const s = pw || "";
+  const length = s.length >= 8;
+  const upper = /[A-Z]/.test(s);
+  const lower = /[a-z]/.test(s);
+  const number = /[0-9]/.test(s);
+  const special = /[^A-Za-z0-9]/.test(s);
+  return { length, upper, lower, number, special, ok: length && upper && lower && number && special };
+}
+
 function errToMessage(err: any) {
   const detail = err?.detail;
   if (Array.isArray(detail)) {
@@ -330,7 +340,7 @@ function RegisterPageInner() {
   const canSubmitEmail = useMemo(() => {
     const n = name.trim();
     const e = email.trim();
-    return n.length >= 2 && e.includes("@") && password.length >= 6 && agree && !submitting;
+    return n.length >= 2 && e.includes("@") && passwordRules(password).ok && agree && !submitting;
   }, [name, email, password, agree, submitting]);
 
 
@@ -383,7 +393,11 @@ function RegisterPageInner() {
 
     if (n.length < 2) return setFormError("Enter your name.");
     if (!em || !em.includes("@")) return setFormError("Enter a valid email.");
-    if (password.length < 6) return setFormError("Password must be at least 6 characters.");
+    if (!passwordRules(password).ok) {
+      return setFormError(
+        "Password must be at least 8 characters and include 1 uppercase, 1 lowercase, 1 number, and 1 special character."
+      );
+    }
     if (!agree) return setFormError("You must accept the Terms and Privacy Policy.");
 
     setSubmitting(true);
@@ -604,6 +618,10 @@ function RegisterPageInner() {
                               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                             </button>
                           </div>
+                          <div className="text-[11px] text-white/45">
+                            Use at least 8 characters with 1 uppercase, 1 lowercase, 1 number, and 1 special
+                            character.
+                          </div>
                         </div>
 
                         <label className="flex items-start gap-2 pt-1 text-[12px] text-white/65">
@@ -616,14 +634,14 @@ function RegisterPageInner() {
                           <span>
                             I agree to the{" "}
                             <Link
-                              href="/terms"
+                              href="/terms-of-service"
                               className="text-white/75 underline decoration-white/15 underline-offset-4 hover:text-white/90"
                             >
                               Terms
                             </Link>{" "}
                             and{" "}
                             <Link
-                              href="/privacy"
+                              href="/privacy-policy"
                               className="text-white/75 underline decoration-white/15 underline-offset-4 hover:text-white/90"
                             >
                               Privacy Policy

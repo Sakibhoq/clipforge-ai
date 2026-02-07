@@ -293,6 +293,8 @@ export default function Page() {
       { label: "How it works", href: "/how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
+      { label: "Privacy", href: "/privacy-policy" },
+      { label: "Terms", href: "/terms-of-service" },
     ],
     []
   );
@@ -403,11 +405,11 @@ export default function Page() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  <H>YOUTUBE</H> in. <H>POSTS</H> out.
+                  <H>YouTube</H> in. <H>POSTS</H> out.
                 </div>
 
                 <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
-                  Turn <H>YOUTUBE</H> into premium <H>POSTS</H>.
+                  Turn <H>YouTube</H> into premium <H>POSTS</H>.
                 </h1>
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
@@ -426,7 +428,7 @@ export default function Page() {
 
                 <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
                   <span className="text-white/75">
-                    Paste <H>YOUTUBE</H> / upload
+                    Paste <H>YouTube</H> / upload
                   </span>{" "}
                   → AI selects hooks → quick polish → post
                 </div>

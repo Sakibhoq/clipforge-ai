@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+import re
 import secrets
 import time
 import jwt
@@ -17,6 +18,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 COOKIE_NAME = "cf_token"
 TOKEN_TTL_DAYS = 7
+PASSWORD_MIN_LENGTH = 8
 
 
 # =========================
@@ -201,6 +203,35 @@ def clear_auth_cookie(response: Response, request: Request):
     )
 
 
+def _is_strong_password(password: str) -> bool:
+    s = password or ""
+    if len(s) < PASSWORD_MIN_LENGTH:
+        return False
+    if not re.search(r"[A-Z]", s):
+        return False
+    if not re.search(r"[a-z]", s):
+        return False
+    if not re.search(r"[0-9]", s):
+        return False
+    if not re.search(r"[^A-Za-z0-9]", s):
+        return False
+    return True
+
+
+def _validate_password_or_400(password: str):
+    if len(password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password too long")
+
+    if not _is_strong_password(password):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Password must be at least 8 characters and include at least 1 uppercase letter, "
+                "1 lowercase letter, 1 number, and 1 special character."
+            ),
+        )
+
+
 # =========================
 # Auth dependency
 # =========================
@@ -230,8 +261,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     password = (data.password or "").strip()
     name = (data.name or "").strip() or None
 
-    if len(password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password too long")
+    _validate_password_or_400(password)
 
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="User already exists")
@@ -300,8 +330,7 @@ def change_password(
     if not new_password:
         raise HTTPException(status_code=400, detail="Missing new password")
 
-    if len(new_password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password too long")
+    _validate_password_or_400(new_password)
 
     current_user.hashed_password = pwd_context.hash(new_password)
     db.commit()

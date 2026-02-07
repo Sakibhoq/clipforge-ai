@@ -281,6 +281,8 @@ export default function HowItWorksPage() {
                     { label: "How it works", href: "/how-it-works" },
                     { label: "Pricing", href: "/pricing" },
                     { label: "Contact", href: "/contact" },
+                    { label: "Privacy", href: "/privacy-policy" },
+                    { label: "Terms", href: "/terms-of-service" },
                   ].map((i) => (
                     <a key={i.href} href={i.href} className="hover:text-white/70">
                       {i.label}

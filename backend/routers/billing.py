@@ -57,13 +57,17 @@ def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     interval = interval.lower().strip()
 
     if interval in {"month", "monthly"}:
-        suffix = "MONTHLY"
+        suffixes = ("MONTHLY", "MONTH")
     elif interval in {"year", "yearly"}:
-        suffix = "YEARLY"
+        suffixes = ("YEARLY", "YEAR")
     else:
         return None
 
-    return os.getenv(f"STRIPE_PRICE_{plan.upper()}_{suffix}")
+    for suffix in suffixes:
+        value = (os.getenv(f"STRIPE_PRICE_{plan.upper()}_{suffix}") or "").strip()
+        if value:
+            return value
+    return None
 
 
 def _reload_user(db: Session, current_user: User) -> User:
