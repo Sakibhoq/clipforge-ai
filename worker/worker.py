@@ -2267,6 +2267,44 @@ def ass_escape(text: str) -> str:
     t = t.replace("\n", r"\N")
     return t
 
+
+_ATTACH_LEFT_PUNCT_RE = re.compile(r"^[\.,!\?:;%\)\]\}…]")
+_ATTACH_LEFT_CONTRACTION_RE = re.compile(r"^(?:n['’]t|['’](?:s|d|m|re|ve|ll|t))\b", re.IGNORECASE)
+
+
+def _token_attaches_left(token: str) -> bool:
+    s = (token or "").lstrip()
+    if not s:
+        return False
+    if _ATTACH_LEFT_PUNCT_RE.match(s):
+        return True
+    if _ATTACH_LEFT_CONTRACTION_RE.match(s):
+        return True
+    return False
+
+
+def _format_karaoke_token(raw_token: str, *, is_first_in_line: bool) -> str:
+    """
+    Whisper words can come with or without leading spaces.
+    Preserve explicit whitespace, but inject a space when tokens are bare words.
+    """
+    raw = str(raw_token or "")
+    if not raw:
+        return ""
+
+    if is_first_in_line:
+        return ass_escape(raw.lstrip())
+
+    # Preserve explicit leading whitespace from model output.
+    if raw[:1].isspace():
+        return ass_escape(raw)
+
+    stripped = raw.lstrip()
+    if _token_attaches_left(stripped):
+        return ass_escape(stripped)
+
+    return ass_escape(" " + stripped)
+
 # -----------------------------------------------------
 # Face-aware margin lift (source-space normalized)
 # -----------------------------------------------------
@@ -2365,6 +2403,7 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
     where NN is centiseconds duration.
     """
     parts = []
+    token_index = 0
     for w in words:
         try:
             start = float(w["start"])
@@ -2377,8 +2416,10 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
         dur_cs = int(round(dur * 100.0))
         dur_cs = _karaoke_clamp_cs(dur_cs)
 
-        # Whisper tokens often include leading spaces; preserve them.
-        parts.append(rf"{{\k{dur_cs}}}{ass_escape(token)}")
+        formatted = _format_karaoke_token(token, is_first_in_line=(token_index == 0))
+        if formatted:
+            parts.append(rf"{{\k{dur_cs}}}{formatted}")
+            token_index += 1
 
     return "".join(parts)
 
@@ -2392,6 +2433,7 @@ def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> 
 
     parts = []
     for li, idxs in enumerate(line_indices or []):
+        token_index = 0
         for wi in idxs:
             if wi >= len(words):
                 continue
@@ -2406,7 +2448,11 @@ def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> 
             dur = max(0.0, end - start)
             dur_cs = int(round(dur * 100.0))
             dur_cs = _karaoke_clamp_cs(dur_cs)
-            parts.append(rf"{{\k{dur_cs}}}{ass_escape(token)}")
+            formatted = _format_karaoke_token(token, is_first_in_line=(token_index == 0))
+            if not formatted:
+                continue
+            parts.append(rf"{{\k{dur_cs}}}{formatted}")
+            token_index += 1
 
         if li < len(line_indices) - 1:
             parts.append(r"\N")
@@ -2659,7 +2705,7 @@ WATERMARK_TEXT_SIZE = int(os.getenv("WORKER_WATERMARK_TEXT_SIZE", "96"))
 
 # Pulse timing (seconds)
 WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "10.0"))
-WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "2.0"))
+WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "3.0"))
 WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 
 # -----------------------------------------------------
@@ -2669,6 +2715,18 @@ WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 def _ffq(path: Path) -> str:
     # ffmpeg filter args are sensitive; keep this simple and safe
     return str(path).replace("\\", "/").replace("'", r"\'")
+
+
+def _ff_drawtext_escape(text: str) -> str:
+    """
+    Escape drawtext text option safely.
+    """
+    t = str(text or "")
+    t = t.replace("\\", r"\\")
+    t = t.replace(":", r"\:")
+    t = t.replace("'", r"\'")
+    t = t.replace("%", r"\%")
+    return t
 
 def build_lerp_expr(samples: list, axis: str) -> str:
     """
@@ -2914,7 +2972,7 @@ def render_clip_mp4(
     cmd: List[str]
 
     if watermark_enabled and os.path.exists(WATERMARK_PNG_PATH):
-        # Premium vertical watermark (left-center), pulsed every 10s for 2s.
+        # Premium watermark (left-center), pulsed every 10s for 3s by default.
         wm_q = WATERMARK_PNG_PATH.replace("\\", "/")
 
         # Pulse alpha for text (fade in/out)
@@ -2935,8 +2993,8 @@ def render_clip_mp4(
 
         enable_expr = f"between(mod(t\\,{period}),0,{on_time})"
 
-        # Vertical text (stacked letters)
-        vertical_text = "\\n".join(list((WATERMARK_TEXT or "ORBITO").strip()))
+        watermark_text = clean_text((WATERMARK_TEXT or "Orbito").strip()) or "Orbito"
+        watermark_text_escaped = _ff_drawtext_escape(watermark_text)
         text_font_arg = (
             f"fontfile='{_ffq(Path(WATERMARK_TEXT_FONTFILE))}':"
             if WATERMARK_TEXT_FONTFILE
@@ -2954,9 +3012,8 @@ def render_clip_mp4(
             f"[v2];"
             f"[v2]drawtext="
             f"{text_font_arg}"
-            f"text='{vertical_text}':"
+            f"text='{watermark_text_escaped}':"
             f"fontsize={WATERMARK_TEXT_SIZE}:"
-            f"line_spacing=6:"
             f"fontcolor=white@1.0:"
             f"alpha='{alpha_expr}':"
             f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
