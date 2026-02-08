@@ -830,6 +830,8 @@ function ClipsWorkspace() {
   // Crop drawer state (backend-wired)
   const [cropClip, setCropClip] = useState<ClipDTO | null>(null);
   const [cropRect, setCropRect] = useState<ClipCropRect>(DEFAULT_CROP_RECT);
+  const [cropTrimStart, setCropTrimStart] = useState(0);
+  const [cropTrimEnd, setCropTrimEnd] = useState(0);
   const [cropBusy, setCropBusy] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
 
@@ -854,6 +856,9 @@ function ClipsWorkspace() {
   function openCrop(clip: ClipDTO) {
     setCropClip(clip);
     setCropRect(DEFAULT_CROP_RECT);
+    const d = Math.max(0.5, safeNum(clip.duration, 0));
+    setCropTrimStart(0);
+    setCropTrimEnd(d);
     setCropError(null);
   }
 
@@ -875,9 +880,16 @@ function ClipsWorkspace() {
     setCropBusy(true);
     setCropError(null);
     try {
+      const total = Math.max(0.5, safeNum(cropClip.duration, 0));
+      const start = Math.max(0, Math.min(cropTrimStart, total));
+      const end = Math.max(start + 0.35, Math.min(cropTrimEnd || total, total));
       await apiFetch(`/clips/${cropClip.id}/crop`, {
         method: "POST",
-        body: cropRect,
+        body: {
+          ...cropRect,
+          trim_start: start,
+          trim_end: end,
+        },
       });
       setCropClip(null);
       setReloadTick((v) => v + 1);
@@ -1443,9 +1455,15 @@ function ClipsWorkspace() {
           <CropForm
             clip={cropClip}
             rect={cropRect}
+            trimStart={cropTrimStart}
+            trimEnd={cropTrimEnd}
             busy={cropBusy}
             error={cropError}
             onChange={updateCropRect}
+            onTrimChange={(start, end) => {
+              setCropTrimStart(start);
+              setCropTrimEnd(end);
+            }}
             onSubmit={createCrop}
           />
         ) : null}
@@ -1579,16 +1597,22 @@ function PerClipSettings({
 function CropForm({
   clip,
   rect,
+  trimStart,
+  trimEnd,
   busy,
   error,
   onChange,
+  onTrimChange,
   onSubmit,
 }: {
   clip: ClipDTO;
   rect: ClipCropRect;
+  trimStart: number;
+  trimEnd: number;
   busy: boolean;
   error: string | null;
   onChange: (patch: Partial<ClipCropRect>) => void;
+  onTrimChange: (start: number, end: number) => void;
   onSubmit: () => void;
 }) {
   type DragMode = "move" | "resize";
@@ -1616,6 +1640,34 @@ function CropForm({
 
   function percent(v: number) {
     return Math.round(v * 100);
+  }
+
+  const minTrim = 0.35;
+  const effectiveDuration = Math.max(minTrim, duration || safeNum(clip.duration, minTrim));
+  const trimStartSafe = Math.max(0, Math.min(trimStart, Math.max(0, effectiveDuration - minTrim)));
+  const trimEndSafe = Math.max(trimStartSafe + minTrim, Math.min(trimEnd || effectiveDuration, effectiveDuration));
+  const trimLen = Math.max(0, trimEndSafe - trimStartSafe);
+
+  function setTrimRange(nextStart: number, nextEnd: number) {
+    const cap = Math.max(minTrim, effectiveDuration);
+    let s = Math.max(0, Math.min(nextStart, cap - minTrim));
+    let e = Math.max(minTrim, Math.min(nextEnd, cap));
+    if (e - s < minTrim) {
+      if (e >= cap) s = Math.max(0, e - minTrim);
+      else e = Math.min(cap, s + minTrim);
+    }
+    onTrimChange(s, e);
+    if (scrub < s || scrub > e) {
+      syncScrub(s);
+    }
+  }
+
+  function setTrimStartFromPlayhead() {
+    setTrimRange(scrub, trimEndSafe);
+  }
+
+  function setTrimEndFromPlayhead() {
+    setTrimRange(trimStartSafe, scrub);
   }
 
   function applyRect(next: ClipCropRect) {
@@ -1708,7 +1760,7 @@ function CropForm({
   function syncScrub(v: number) {
     const video = videoRef.current;
     if (!video || !Number.isFinite(v)) return;
-    const next = Math.max(0, Math.min(duration || 0, v));
+    const next = Math.max(0, Math.min(effectiveDuration, v));
     video.currentTime = next;
     setScrub(next);
   }
@@ -1716,6 +1768,10 @@ function CropForm({
   function togglePlayback() {
     const video = videoRef.current;
     if (!video) return;
+    if (video.currentTime < trimStartSafe || video.currentTime > trimEndSafe) {
+      video.currentTime = trimStartSafe;
+      setScrub(trimStartSafe);
+    }
     if (video.paused) {
       void video.play();
       setPlaying(true);
@@ -1796,6 +1852,48 @@ function CropForm({
             </button>
           </label>
 
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 grid gap-3">
+            <div>
+              <div className="text-[12px] font-medium text-white/75">Trim range</div>
+              <div className="mt-1 text-[11px] text-white/50">
+                Clip length: {formatTime(trimLen)} ({trimLen.toFixed(1)}s)
+              </div>
+            </div>
+
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">Start: {formatTime(trimStartSafe)}</label>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(minTrim, effectiveDuration - minTrim)}
+                step={0.05}
+                value={trimStartSafe}
+                onChange={(e) => setTrimRange(Number(e.target.value), trimEndSafe)}
+              />
+            </div>
+
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">End: {formatTime(trimEndSafe)}</label>
+              <input
+                type="range"
+                min={Math.min(minTrim, effectiveDuration)}
+                max={Math.max(minTrim, effectiveDuration)}
+                step={0.05}
+                value={trimEndSafe}
+                onChange={(e) => setTrimRange(trimStartSafe, Number(e.target.value))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={setTrimStartFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
+                Set start @ playhead
+              </button>
+              <button type="button" onClick={setTrimEndFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
+                Set end @ playhead
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-3">
             <div className="grid gap-1">
               <label className="text-[12px] text-white/70">Width: {percent(rect.w)}%</label>
@@ -1857,12 +1955,24 @@ function CropForm({
               muted
               onLoadedMetadata={(e) => {
                 const d = Number((e.currentTarget as HTMLVideoElement).duration || 0);
-                setDuration(Number.isFinite(d) ? d : 0);
+                const clean = Number.isFinite(d) ? Math.max(minTrim, d) : minTrim;
+                setDuration(clean);
+                setTrimRange(trimStartSafe, Math.min(trimEndSafe, clean));
                 setScrub(0);
               }}
               onTimeUpdate={(e) => {
                 const t = Number((e.currentTarget as HTMLVideoElement).currentTime || 0);
-                if (Number.isFinite(t)) setScrub(t);
+                if (!Number.isFinite(t)) return;
+                if (t > trimEndSafe) {
+                  (e.currentTarget as HTMLVideoElement).currentTime = trimStartSafe;
+                  setScrub(trimStartSafe);
+                  return;
+                }
+                if (t < trimStartSafe) {
+                  setScrub(trimStartSafe);
+                  return;
+                }
+                setScrub(t);
               }}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
@@ -1896,15 +2006,15 @@ function CropForm({
                 {playing ? "Pause" : "Play"}
               </button>
               <div className="text-[12px] text-white/60 tabular-nums">
-                {formatTime(scrub)} / {formatTime(duration || 0)}
+                {formatTime(scrub)} / {formatTime(effectiveDuration)}
               </div>
             </div>
             <input
               type="range"
               min={0}
-              max={Math.max(0.01, duration || 0.01)}
+              max={Math.max(0.01, effectiveDuration)}
               step={0.05}
-              value={Math.min(scrub, Math.max(0.01, duration || 0.01))}
+              value={Math.min(scrub, Math.max(0.01, effectiveDuration))}
               onChange={(e) => syncScrub(Number(e.target.value))}
               className="mt-3 w-full"
             />
@@ -1924,6 +2034,13 @@ function CropForm({
             className="btn-ghost text-[12px] px-3 py-2"
           >
             Reset crop
+          </button>
+          <button
+            type="button"
+            onClick={() => setTrimRange(0, effectiveDuration)}
+            className="btn-ghost text-[12px] px-3 py-2"
+          >
+            Reset trim
           </button>
           <button
             type="button"

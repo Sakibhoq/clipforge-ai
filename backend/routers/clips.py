@@ -166,6 +166,8 @@ class ClipCropRequest(BaseModel):
     y: float = Field(default=0.0, ge=0.0, le=1.0)
     w: float = Field(default=1.0, gt=0.0, le=1.0)
     h: float = Field(default=1.0, gt=0.0, le=1.0)
+    trim_start: float = Field(default=0.0, ge=0.0)
+    trim_end: Optional[float] = Field(default=None, ge=0.0)
 
 
 @router.get("/{clip_id}/download")
@@ -241,6 +243,14 @@ def crop_clip(
         _copy_stream_to_path(body, src_path)
         src_w, src_h, detected_duration = _probe_video(src_path)
 
+        trim_start = float(payload.trim_start or 0.0)
+        trim_start = max(0.0, min(trim_start, detected_duration))
+
+        trim_end = detected_duration if payload.trim_end is None else float(payload.trim_end)
+        trim_end = max(0.0, min(trim_end, detected_duration))
+        if (trim_end - trim_start) < 0.35:
+            raise HTTPException(status_code=422, detail="Trim range is too short")
+
         crop_w = min(_even_floor(src_w), _even_floor(round(src_w * float(payload.w))))
         crop_h = min(_even_floor(src_h), _even_floor(round(src_h * float(payload.h))))
         if crop_w < 2 or crop_h < 2:
@@ -262,6 +272,10 @@ def crop_clip(
             "-y",
             "-i",
             src_path,
+            "-ss",
+            f"{trim_start:.3f}",
+            "-to",
+            f"{trim_end:.3f}",
             "-vf",
             f"crop={crop_w}:{crop_h}:{x}:{y}",
             "-c:v",
@@ -293,13 +307,16 @@ def crop_clip(
                 storage.save(f, new_key, content_type="video/mp4")
 
         title_base = (clip.title or f"Clip {clip.id}").strip() or f"Clip {clip.id}"
+        clip_base_start = float(clip.start_time or 0.0)
+        new_start = clip_base_start + trim_start
+        new_end = clip_base_start + trim_end
         new_clip = Clip(
             upload_id=clip.upload_id,
             job_id=clip.job_id,
             storage_key=new_key,
-            start_time=float(clip.start_time or 0.0),
-            end_time=float(clip.end_time or 0.0),
-            duration=float(clip.duration or detected_duration),
+            start_time=new_start,
+            end_time=new_end,
+            duration=max(0.0, new_end - new_start),
             title=f"{title_base} (Cropped)",
             hook=clip.hook,
         )
