@@ -83,25 +83,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mobileOpen) return;
 
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    const prevOverflow = document.body.style.overflow;
-    const prevPosition = document.body.style.position;
-    const prevTop = document.body.style.top;
-    const prevLeft = document.body.style.left;
-    const prevRight = document.body.style.right;
-    const prevWidth = document.body.style.width;
-    const prevPaddingRight = document.body.style.paddingRight;
-    const prevOverscroll = document.documentElement.style.overscrollBehaviorY;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevPaddingRight = body.style.paddingRight;
+    const prevOverscroll = html.style.overscrollBehaviorY;
 
-    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
-    if (scrollBarWidth > 0) document.body.style.paddingRight = `${scrollBarWidth}px`;
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.width = "100%";
-    document.documentElement.style.overscrollBehaviorY = "none";
+    const scrollBarWidth = window.innerWidth - html.clientWidth;
+    if (scrollBarWidth > 0) body.style.paddingRight = `${scrollBarWidth}px`;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehaviorY = "none";
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMobileOpen(false);
@@ -109,16 +102,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", onKey);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.position = prevPosition;
-      document.body.style.top = prevTop;
-      document.body.style.left = prevLeft;
-      document.body.style.right = prevRight;
-      document.body.style.width = prevWidth;
-      document.body.style.paddingRight = prevPaddingRight;
-      document.documentElement.style.overscrollBehaviorY = prevOverscroll;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      body.style.paddingRight = prevPaddingRight;
+      html.style.overscrollBehaviorY = prevOverscroll;
       window.removeEventListener("keydown", onKey);
-      window.scrollTo(0, scrollY);
     };
   }, [mobileOpen]);
 
