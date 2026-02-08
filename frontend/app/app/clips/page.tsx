@@ -108,6 +108,9 @@ function socialLabel(p: string) {
   return p || "Social";
 }
 
+const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"] as const;
+type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
+
 /* ---------- Aspect ratio helpers ---------- */
 function aspectStringToCss(ar?: string | null) {
   if (!ar) return undefined;
@@ -627,14 +630,12 @@ function ClipMeta({
 
 function ClipActions({
   clip,
-  onOpenSettings,
   onSchedule,
-  onCrop,
+  onEdit,
 }: {
   clip: ClipDTO;
-  onOpenSettings: () => void;
   onSchedule: () => void;
-  onCrop: () => void;
+  onEdit: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const title = autoTitle(clip);
@@ -673,26 +674,13 @@ function ClipActions({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onOpenSettings();
+          onEdit();
         }}
         className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
-        aria-label="Output settings"
-      >
-        <Icon name="sliders" />
-        Output
-      </button>
-
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onCrop();
-        }}
-        className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
-        aria-label="Crop"
+        aria-label="Edit"
       >
         <Icon name="crop" />
-        Crop
+        Edit
       </button>
 
       <button
@@ -711,18 +699,6 @@ function ClipActions({
         <Icon name="download" />
         {downloading ? "Downloading…" : "Download"}
       </button>
-
-      <a
-        href={clip.url}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
-        aria-label="Open"
-      >
-        <Icon name="play" />
-        Open
-      </a>
     </div>
   );
 }
@@ -854,9 +830,9 @@ function ClipsWorkspace() {
   const [settingsClipId, setSettingsClipId] = useState<number | null>(null);
   const [clipSettings, setClipSettings] = useState<Record<number, ClipOutputSettings>>({});
 
-  // Schedule drawer state (YouTube scheduler)
+  // Schedule drawer state
   const [scheduleClipId, setScheduleClipId] = useState<number | null>(null);
-  const [scheduleProvider, setScheduleProvider] = useState("youtube");
+  const [scheduleSelectedProviders, setScheduleSelectedProviders] = useState<SupportedSocialProvider[]>([]);
   const [scheduleCaption, setScheduleCaption] = useState("");
   const [scheduleWhen, setScheduleWhen] = useState("");
   const [scheduleBusy, setScheduleBusy] = useState(false);
@@ -871,22 +847,26 @@ function ClipsWorkspace() {
   const [cropBusy, setCropBusy] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
 
-  const scheduleProviders = useMemo(() => {
+  const connectedScheduleProviders = useMemo(() => {
     const connected = new Set(
       socialAccounts
         .filter((a) => String(a.status || "").toLowerCase() === "connected")
         .map((a) => String(a.provider || "").toLowerCase())
-        .filter((p) => ["youtube", "tiktok", "instagram", "facebook"].includes(p))
+        .filter((p): p is SupportedSocialProvider =>
+          (SUPPORTED_SOCIAL_PROVIDERS as readonly string[]).includes(p)
+        )
     );
-    if (!connected.size) return ["youtube"];
-    return Array.from(connected);
+    return SUPPORTED_SOCIAL_PROVIDERS.filter((p) => connected.has(p));
   }, [socialAccounts]);
 
   useEffect(() => {
-    if (!scheduleProviders.includes(scheduleProvider)) {
-      setScheduleProvider(scheduleProviders[0] || "youtube");
-    }
-  }, [scheduleProviders, scheduleProvider]);
+    setScheduleSelectedProviders((prev) => {
+      const connected = prev.filter((p) => connectedScheduleProviders.includes(p));
+      if (connected.length > 0) return connected;
+      if (connectedScheduleProviders.length > 0) return [connectedScheduleProviders[0]];
+      return [];
+    });
+  }, [connectedScheduleProviders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -917,7 +897,12 @@ function ClipsWorkspace() {
 
   function openSchedule(clip: ClipDTO) {
     setScheduleClipId(clip.id);
-    setScheduleProvider((prev) => (scheduleProviders.includes(prev) ? prev : scheduleProviders[0] || "youtube"));
+    setScheduleSelectedProviders((prev) => {
+      const connected = prev.filter((p) => connectedScheduleProviders.includes(p));
+      if (connected.length > 0) return connected;
+      if (connectedScheduleProviders.length > 0) return [connectedScheduleProviders[0]];
+      return [];
+    });
     setScheduleCaption(autoTitle(clip));
     setScheduleWhen("");
     setScheduleError(null);
@@ -972,19 +957,33 @@ function ClipsWorkspace() {
 
   async function createSchedule() {
     if (!scheduleClipId || scheduleBusy) return;
+    if (scheduleSelectedProviders.length === 0) {
+      setScheduleError("Select at least one connected platform.");
+      return;
+    }
     setScheduleBusy(true);
     setScheduleError(null);
     try {
       const scheduledAt = scheduleWhen ? new Date(scheduleWhen).toISOString() : undefined;
-      await apiFetch("/social/posts", {
-        method: "POST",
-        body: {
-          provider: scheduleProvider,
-          clip_id: scheduleClipId,
-          caption: scheduleCaption || "New Orbito clip",
-          scheduled_at: scheduledAt,
-        },
-      });
+      const failed: string[] = [];
+      for (const provider of scheduleSelectedProviders) {
+        try {
+          await apiFetch("/social/posts", {
+            method: "POST",
+            body: {
+              provider,
+              clip_id: scheduleClipId,
+              caption: scheduleCaption || "New Orbito clip",
+              scheduled_at: scheduledAt,
+            },
+          });
+        } catch {
+          failed.push(socialLabel(provider));
+        }
+      }
+      if (failed.length > 0) {
+        throw new Error(`Could not schedule for: ${failed.join(", ")}`);
+      }
       setScheduleClipId(null);
     } catch (e: any) {
       const detail = e?.detail || e?.message || "Scheduling failed.";
@@ -1397,9 +1396,8 @@ function ClipsWorkspace() {
                               <div className="mt-4">
                                 <ClipActions
                                   clip={c}
-                                  onOpenSettings={() => setSettingsClipId(c.id)}
                                   onSchedule={() => openSchedule(c)}
-                                  onCrop={() => openCrop(c)}
+                                  onEdit={() => openCrop(c)}
                                 />
                               </div>
                             </div>
@@ -1423,9 +1421,8 @@ function ClipsWorkspace() {
                                 </div>
                                 <ClipActions
                                   clip={c}
-                                  onOpenSettings={() => setSettingsClipId(c.id)}
                                   onSchedule={() => openSchedule(c)}
-                                  onCrop={() => openCrop(c)}
+                                  onEdit={() => openCrop(c)}
                                 />
                               </div>
                             </div>
@@ -1449,9 +1446,8 @@ function ClipsWorkspace() {
               <div className="mt-4">
                 <ClipActions
                   clip={c}
-                  onOpenSettings={() => setSettingsClipId(c.id)}
                   onSchedule={() => openSchedule(c)}
-                  onCrop={() => openCrop(c)}
+                  onEdit={() => openCrop(c)}
                 />
               </div>
             </div>
@@ -1468,9 +1464,8 @@ function ClipsWorkspace() {
                 </div>
                 <ClipActions
                   clip={c}
-                  onOpenSettings={() => setSettingsClipId(c.id)}
                   onSchedule={() => openSchedule(c)}
-                  onCrop={() => openCrop(c)}
+                  onEdit={() => openCrop(c)}
                 />
               </div>
             </div>
@@ -1502,13 +1497,13 @@ function ClipsWorkspace() {
       >
         {scheduleClipId ? (
           <ScheduleForm
-            provider={scheduleProvider}
-            providers={scheduleProviders}
+            providers={connectedScheduleProviders}
+            selectedProviders={scheduleSelectedProviders}
             caption={scheduleCaption}
             when={scheduleWhen}
             busy={scheduleBusy}
             error={scheduleError}
-            onProviderChange={setScheduleProvider}
+            onProvidersChange={setScheduleSelectedProviders}
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
             onSubmit={createSchedule}
@@ -1520,8 +1515,8 @@ function ClipsWorkspace() {
       <Drawer
         open={cropClip !== null}
         onClose={() => setCropClip(null)}
-        title={cropClip ? `Crop — Clip #${cropClip.id}` : "Crop"}
-        subtitle="Studio crop editor"
+        title={cropClip ? `Edit — Clip #${cropClip.id}` : "Edit"}
+        subtitle="Studio editor"
         variant="studio"
       >
         {cropClip ? (
@@ -1688,13 +1683,15 @@ function CropForm({
   onTrimChange: (start: number, end: number) => void;
   onSubmit: () => void;
 }) {
-  type DragMode = "move" | "resize";
+  type DragMode = "move" | "resize" | "draw";
   type DragState = {
     mode: DragMode;
     startX: number;
     startY: number;
     stageW: number;
     stageH: number;
+    stageLeft: number;
+    stageTop: number;
     startRect: ClipCropRect;
     ratio: number;
   };
@@ -1710,6 +1707,10 @@ function CropForm({
 
   const previewAspect =
     whToCss(clip.width, clip.height) || aspectStringToCss(clip.aspect_ratio) || "9 / 16";
+
+  function clamp01(v: number) {
+    return Math.max(0, Math.min(1, v));
+  }
 
   function percent(v: number) {
     return Math.round(v * 100);
@@ -1778,6 +1779,29 @@ function CropForm({
     const dx = (ev.clientX - state.startX) / Math.max(1, state.stageW);
     const dy = (ev.clientY - state.startY) / Math.max(1, state.stageH);
 
+    if (state.mode === "draw") {
+      const curX = clamp01((ev.clientX - state.stageLeft) / Math.max(1, state.stageW));
+      const curY = clamp01((ev.clientY - state.stageTop) / Math.max(1, state.stageH));
+      const sx = clamp01(state.startRect.x);
+      const sy = clamp01(state.startRect.y);
+      let w = Math.max(0.1, Math.abs(curX - sx));
+      let h = Math.max(0.1, Math.abs(curY - sy));
+      let x = Math.min(sx, curX);
+      let y = Math.min(sy, curY);
+      if (lockAspect) {
+        const ratio = Math.max(0.2, state.ratio || 1);
+        if (w / Math.max(0.001, h) > ratio) {
+          h = w / ratio;
+        } else {
+          w = h * ratio;
+        }
+      }
+      if (x + w > 1) x = Math.max(0, 1 - w);
+      if (y + h > 1) y = Math.max(0, 1 - h);
+      applyRect({ x, y, w, h });
+      return;
+    }
+
     if (state.mode === "move") {
       applyRect({
         ...state.startRect,
@@ -1823,7 +1847,32 @@ function CropForm({
       startY: e.clientY,
       stageW: bounds.width,
       stageH: bounds.height,
+      stageLeft: bounds.left,
+      stageTop: bounds.top,
       startRect: { ...rect },
+      ratio: rect.w / Math.max(0.0001, rect.h),
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", stopDrag, { once: true });
+  }
+
+  function beginDraw(e: React.PointerEvent) {
+    const stage = stageRef.current;
+    if (!stage || e.target !== stage) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const bounds = stage.getBoundingClientRect();
+    const x = clamp01((e.clientX - bounds.left) / Math.max(1, bounds.width));
+    const y = clamp01((e.clientY - bounds.top) / Math.max(1, bounds.height));
+    dragRef.current = {
+      mode: "draw",
+      startX: e.clientX,
+      startY: e.clientY,
+      stageW: bounds.width,
+      stageH: bounds.height,
+      stageLeft: bounds.left,
+      stageTop: bounds.top,
+      startRect: { x, y, w: rect.w, h: rect.h },
       ratio: rect.w / Math.max(0.0001, rect.h),
     };
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -1870,9 +1919,9 @@ function CropForm({
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_220px]">
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-4 h-fit">
           <div>
-            <div className="text-sm font-semibold text-white/85">Crop controls</div>
+            <div className="text-sm font-semibold text-white/85">Edit controls</div>
             <div className="mt-1 text-[12px] text-white/55">
-              Build a cropped variant. Original clip stays unchanged.
+              Build an edited variant. Original clip stays unchanged.
             </div>
           </div>
 
@@ -1925,46 +1974,10 @@ function CropForm({
             </button>
           </label>
 
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 grid gap-3">
-            <div>
-              <div className="text-[12px] font-medium text-white/75">Trim range</div>
-              <div className="mt-1 text-[11px] text-white/50">
-                Clip length: {formatTime(trimLen)} ({trimLen.toFixed(1)}s)
-              </div>
-            </div>
-
-            <div className="grid gap-1">
-              <label className="text-[12px] text-white/70">Start: {formatTime(trimStartSafe)}</label>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(minTrim, effectiveDuration - minTrim)}
-                step={0.05}
-                value={trimStartSafe}
-                onChange={(e) => setTrimRange(Number(e.target.value), trimEndSafe)}
-              />
-            </div>
-
-            <div className="grid gap-1">
-              <label className="text-[12px] text-white/70">End: {formatTime(trimEndSafe)}</label>
-              <input
-                type="range"
-                min={Math.min(minTrim, effectiveDuration)}
-                max={Math.max(minTrim, effectiveDuration)}
-                step={0.05}
-                value={trimEndSafe}
-                onChange={(e) => setTrimRange(trimStartSafe, Number(e.target.value))}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={setTrimStartFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
-                Set start @ playhead
-              </button>
-              <button type="button" onClick={setTrimEndFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
-                Set end @ playhead
-              </button>
-            </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/60">
+            Drag the crop box with mouse.
+            <br />
+            Drag outside the box on preview to draw a new crop area.
           </div>
 
           <div className="grid gap-3">
@@ -2019,7 +2032,12 @@ function CropForm({
             </div>
           </div>
 
-          <div ref={stageRef} className="relative mx-auto mt-4 w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspect }}>
+          <div
+            ref={stageRef}
+            className="relative mx-auto mt-4 w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/10 bg-black"
+            style={{ aspectRatio: previewAspect }}
+            onPointerDown={beginDraw}
+          >
             <video
               ref={videoRef}
               src={clip.url}
@@ -2092,6 +2110,45 @@ function CropForm({
               className="mt-3 w-full"
             />
           </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="flex items-center justify-between gap-2 text-[12px] text-white/75">
+              <span className="font-medium">Trim timeline</span>
+              <span>
+                {formatTime(trimStartSafe)} - {formatTime(trimEndSafe)} ({trimLen.toFixed(1)}s)
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              <label className="text-[12px] text-white/65">Start</label>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(minTrim, effectiveDuration - minTrim)}
+                step={0.05}
+                value={trimStartSafe}
+                onChange={(e) => setTrimRange(Number(e.target.value), trimEndSafe)}
+              />
+              <label className="text-[12px] text-white/65">End</label>
+              <input
+                type="range"
+                min={Math.min(minTrim, effectiveDuration)}
+                max={Math.max(minTrim, effectiveDuration)}
+                step={0.05}
+                value={trimEndSafe}
+                onChange={(e) => setTrimRange(trimStartSafe, Number(e.target.value))}
+              />
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={setTrimStartFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
+                Set start @ playhead
+              </button>
+              <button type="button" onClick={setTrimEndFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
+                Set end @ playhead
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-3 h-fit">
@@ -2106,7 +2163,7 @@ function CropForm({
             onClick={() => applyRect(DEFAULT_CROP_RECT)}
             className="btn-ghost text-[12px] px-3 py-2"
           >
-            Reset crop
+            Reset frame
           </button>
           <button
             type="button"
@@ -2125,7 +2182,7 @@ function CropForm({
             )}
           >
             <Icon name="crop" />
-            {busy ? "Cropping…" : "Create cropped clip"}
+            {busy ? "Saving…" : "Create edited clip"}
           </button>
         </div>
       </div>
@@ -2140,54 +2197,123 @@ function CropForm({
 }
 
 /* =========================================================
-   ScheduleForm (YouTube scheduler)
+   ScheduleForm
 ========================================================= */
 function ScheduleForm({
-  provider,
   providers,
+  selectedProviders,
   caption,
   when,
   busy,
   error,
-  onProviderChange,
+  onProvidersChange,
   onCaptionChange,
   onWhenChange,
   onSubmit,
 }: {
-  provider: string;
-  providers: string[];
+  providers: SupportedSocialProvider[];
+  selectedProviders: SupportedSocialProvider[];
   caption: string;
   when: string;
   busy: boolean;
   error: string | null;
-  onProviderChange: (v: string) => void;
+  onProvidersChange: (v: SupportedSocialProvider[]) => void;
   onCaptionChange: (v: string) => void;
   onWhenChange: (v: string) => void;
   onSubmit: () => void;
 }) {
+  const connectedSet = useMemo(() => new Set(providers), [providers]);
+
+  function toggleProvider(provider: SupportedSocialProvider) {
+    if (!connectedSet.has(provider)) return;
+    if (selectedProviders.includes(provider)) {
+      onProvidersChange(selectedProviders.filter((p) => p !== provider));
+      return;
+    }
+    const next = SUPPORTED_SOCIAL_PROVIDERS.filter((p) => [...selectedProviders, provider].includes(p));
+    onProvidersChange(next);
+  }
+
+  function selectAllConnected() {
+    onProvidersChange([...providers]);
+  }
+
+  function clearSelection() {
+    onProvidersChange([]);
+  }
+
   return (
     <div className="grid gap-4">
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
         <div className="text-sm font-semibold text-white/85">Social scheduling</div>
         <div className="mt-1 text-[12px] text-white/55">
-          Pick platform, add caption, and choose post time.
+          Pick one or more platforms, add caption, and choose post time.
         </div>
       </div>
 
       <div className="grid gap-2">
-        <label className="text-[12px] text-white/60">Platform</label>
-        <select
-          className="h-11 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white/90"
-          value={provider}
-          onChange={(e) => onProviderChange(e.target.value)}
-          disabled={busy}
-        >
-          {providers.map((p) => (
-            <option key={p} value={p} className="bg-[#151820] text-white">
-              {socialLabel(p)}
-            </option>
-          ))}
-        </select>
+        <label className="text-[12px] text-white/60">Platforms</label>
+        <details className="rounded-2xl border border-white/10 bg-white/[0.03] p-3" open>
+          <summary className="cursor-pointer list-none text-sm text-white/90">
+            {selectedProviders.length > 0
+              ? `${selectedProviders.length} selected`
+              : "No platform selected"}
+          </summary>
+          <div className="mt-3 grid gap-3 border-t border-white/10 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={selectAllConnected}
+                className="btn-ghost px-3 py-1.5 text-[11px]"
+                disabled={busy || providers.length === 0}
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="btn-ghost px-3 py-1.5 text-[11px]"
+                disabled={busy || selectedProviders.length === 0}
+              >
+                Clear
+              </button>
+            </div>
+            <div className="grid gap-2">
+              {SUPPORTED_SOCIAL_PROVIDERS.map((provider) => {
+                const connected = connectedSet.has(provider);
+                const checked = selectedProviders.includes(provider);
+                return (
+                  <label
+                    key={provider}
+                    className={cx(
+                      "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
+                      connected
+                        ? "border-white/10 bg-white/[0.02] text-white/90"
+                        : "border-white/5 bg-white/[0.01] text-white/45"
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleProvider(provider)}
+                        disabled={busy || !connected}
+                        className="h-4 w-4 accent-cyan-400"
+                      />
+                      {socialLabel(provider)}
+                    </span>
+                    <span className="text-[11px] text-white/55">
+                      {connected ? "Connected" : "Connect in Settings"}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </details>
+        <div className="text-[12px] text-white/45">
+          Choose all connected platforms to schedule the same clip everywhere.
+        </div>
       </div>
 
       <div className="grid gap-2">
@@ -2224,7 +2350,7 @@ function ScheduleForm({
           className="btn-aurora text-sm px-4 py-2"
           disabled={busy}
         >
-          {busy ? "Scheduling..." : "Schedule post"}
+          {busy ? "Scheduling..." : "Schedule post(s)"}
         </button>
         <div className="text-[12px] text-white/55">
           Connect platforms in Settings -&gt; Social Connections.
