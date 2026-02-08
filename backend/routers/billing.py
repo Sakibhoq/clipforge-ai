@@ -20,6 +20,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 ALLOWED_PLANS = {"free", "starter", "creator", "studio"}
 ALLOWED_INTERVALS = {"month", "monthly", "year", "yearly"}
+MONTHLY_ONLY_PLANS = {"free", "starter", "studio"}
 
 
 # ------------------------------------------------------------------
@@ -174,6 +175,12 @@ def create_checkout_session(
 
     if interval not in ALLOWED_INTERVALS:
         raise HTTPException(status_code=400, detail="Invalid interval")
+
+    if plan in MONTHLY_ONLY_PLANS and interval in {"year", "yearly"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{plan.capitalize()} supports monthly billing only",
+        )
 
     # Dev-only: allow free trial credits without Stripe configured
     if plan == "free" and not stripe.api_key and _allow_free_trial_without_stripe():

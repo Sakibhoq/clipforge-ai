@@ -91,11 +91,9 @@ def main() -> int:
     ok &= _check_env("STRIPE_SECRET_KEY", required=False, redact=True)
     ok &= _check_env("STRIPE_WEBHOOK_SECRET", required=False, redact=True)
     _check_env("STRIPE_PRICE_STARTER_MONTHLY", required=False, redact=True)
-    _check_env("STRIPE_PRICE_STARTER_YEARLY", required=False, redact=True)
     _check_env("STRIPE_PRICE_CREATOR_MONTHLY", required=False, redact=True)
     _check_env("STRIPE_PRICE_CREATOR_YEARLY", required=False, redact=True)
     _check_env("STRIPE_PRICE_STUDIO_MONTHLY", required=False, redact=True)
-    _check_env("STRIPE_PRICE_STUDIO_YEARLY", required=False, redact=True)
 
     # Storage
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower()
