@@ -483,6 +483,10 @@ SILENCE_DB = os.getenv("WORKER_SILENCE_DB", "-35dB")
 SILENCE_MIN_DUR = os.getenv("WORKER_SILENCE_MIN_DUR", "0.35")
 
 FFMPEG_TIMEOUT = int(os.getenv("WORKER_FFMPEG_TIMEOUT", "120"))
+SILENCEDETECT_TIMEOUT = int(os.getenv("WORKER_SILENCEDETECT_TIMEOUT", str(max(FFMPEG_TIMEOUT, 180))))
+SILENCEDETECT_MAX_SOURCE_SECONDS = float(
+    os.getenv("WORKER_SILENCEDETECT_MAX_SOURCE_SECONDS", "1800")  # 30 min
+)
 
 # -----------------------------------------------------
 # Audio extraction
@@ -554,9 +558,10 @@ def detect_silence_intervals(
     # silencedetect writes to stderr
     _, stderr = run_subprocess(
         cmd,
-        timeout=FFMPEG_TIMEOUT,
+        timeout=SILENCEDETECT_TIMEOUT,
         desc="ffmpeg silencedetect",
         allow_stderr=True,
+        job_id=int(job_id),
     )
 
     intervals: List[tuple] = []
@@ -758,6 +763,7 @@ def run_audio_pipeline(
     *,
     source_video: Path,
     job_id: int,
+    source_duration: Optional[float] = None,
 ) -> Dict:
     """
     Full audio prep:
@@ -772,10 +778,27 @@ def run_audio_pipeline(
             job_id=job_id,
         )
 
-        silences = detect_silence_intervals(
-            source_video=source_video,
-            job_id=job_id,
+        silences: List[tuple] = []
+        should_skip_silence = (
+            source_duration is not None
+            and float(source_duration) > float(SILENCEDETECT_MAX_SOURCE_SECONDS)
         )
+        if should_skip_silence:
+            log(
+                f"Skipping silencedetect for long source ({float(source_duration):.1f}s > {float(SILENCEDETECT_MAX_SOURCE_SECONDS):.1f}s)",
+                job_id=job_id,
+                level="WARN",
+            )
+        else:
+            try:
+                silences = detect_silence_intervals(
+                    source_video=source_video,
+                    job_id=job_id,
+                )
+            except Exception as e:
+                # Silence detection improves boundary polish, but must never fail the job.
+                log(f"Silencedetect skipped: {e}", job_id=job_id, level="WARN")
+                silences = []
 
         energy = compute_audio_energy(
             wav_path=wav_path,
@@ -2501,11 +2524,12 @@ CAPTION_MAX_LINES = int(os.getenv("WORKER_CAPTION_MAX_LINES", "2"))
 CAPTION_MAX_BLOCK_SECONDS = float(os.getenv("WORKER_CAPTION_MAX_BLOCK_SECONDS", "2.8"))
 CAPTION_BREAK_PAUSE_SECONDS = float(os.getenv("WORKER_CAPTION_BREAK_PAUSE_SECONDS", "0.65"))
 CAPTION_MAX_TOKEN_CHARS = int(os.getenv("WORKER_CAPTION_MAX_TOKEN_CHARS", "18"))
-# Slight positive delay to avoid early word reveal from ASR-leading timestamps.
-CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.05"))
+# Positive delay to compensate Whisper-leading timestamps so words do not appear
+# before speech starts. Keep configurable via env for fine tuning.
+CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.12"))
 
 # Karaoke timing safety
-KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "2"))     # 0.02s
+KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "1"))     # 0.01s
 KARAOKE_MAX_CS = int(os.getenv("WORKER_KARAOKE_MAX_CS", "250"))   # 2.50s
 
 # -----------------------------------------------------
@@ -2881,6 +2905,42 @@ def build_karaoke_text_for_lines(
 
     return "".join(parts)
 
+
+def _effective_word_span(
+    words: list,
+    *,
+    window_start: float,
+    window_end: float,
+) -> Optional[Tuple[float, float]]:
+    """
+    Returns the effective [start, end] of visible karaoke words after timing delay
+    and clipping to the block window.
+    """
+    first_start: Optional[float] = None
+    last_end: Optional[float] = None
+    for w in words:
+        try:
+            ws = float(w["start"])
+            we = float(w["end"])
+        except Exception:
+            continue
+        clipped = _clip_word_window(
+            ws,
+            we,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        if clipped is None:
+            continue
+        cws, cwe = clipped
+        if first_start is None:
+            first_start = cws
+        last_end = cwe
+
+    if first_start is None or last_end is None or last_end <= first_start:
+        return None
+    return float(first_start), float(last_end)
+
 # -----------------------------------------------------
 # Caption chunking
 # -----------------------------------------------------
@@ -3118,8 +3178,17 @@ def build_ass_subtitles_for_clip(
 
     events = []
     for (b_start, b_end, b_words, lines, line_indices) in blocks:
-        s = max(float(clip_start), float(b_start))
-        e = min(float(clip_end), float(b_end))
+        raw_s = max(float(clip_start), float(b_start))
+        raw_e = min(float(clip_end), float(b_end))
+        span = _effective_word_span(
+            b_words,
+            window_start=raw_s,
+            window_end=raw_e,
+        )
+        if span is not None:
+            s, e = span
+        else:
+            s, e = raw_s, raw_e
         if e <= s:
             continue
 
@@ -3912,7 +3981,11 @@ def run_job(job_id: int) -> None:
         # Audio + transcription
         # ---------------------------------------------
         stage_t = time.perf_counter()
-        audio = run_audio_pipeline(source_video=source_path, job_id=job_id)
+        audio = run_audio_pipeline(
+            source_video=source_path,
+            job_id=job_id,
+            source_duration=video_duration,
+        )
         log(
             f"Audio profile: energy={float(audio.get('energy', 0.0)):.3f} voice_coverage={float(audio.get('voice_coverage', 0.0)):.3f} in {(time.perf_counter() - stage_t):.1f}s",
             job_id=job_id,
