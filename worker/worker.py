@@ -3276,7 +3276,7 @@ WATERMARK_TEXT_FONTFILE = os.getenv("WORKER_WATERMARK_TEXT_FONTFILE", "").strip(
 WATERMARK_TEXT_SIZE = int(os.getenv("WORKER_WATERMARK_TEXT_SIZE", "96"))
 
 # Pulse timing (seconds)
-WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "10.0"))
+WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "20.0"))
 WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "3.0"))
 WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 
@@ -3662,7 +3662,7 @@ def render_clip_mp4(
     cmd: List[str]
 
     if watermark_enabled and os.path.exists(WATERMARK_PNG_PATH):
-        # Premium watermark (left-center), pulsed every 10s for 3s by default.
+        # Premium watermark (left-center), pulsed every 20s for 3s by default.
         wm_q = WATERMARK_PNG_PATH.replace("\\", "/")
 
         # Pulse alpha for text (fade in/out)

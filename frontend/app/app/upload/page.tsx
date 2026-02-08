@@ -1475,6 +1475,10 @@ function UploadWorkspace() {
               <div>
                 <div className="text-sm font-semibold text-white/90">Upload a video</div>
                 <div className="mt-1 text-sm text-white/60">Pick output settings, then upload.</div>
+                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/65">
+                  Large files can take longer to process. For faster, best results, upload shorter videos (about 10-20
+                  minutes). Podcasts and mostly still videos usually produce the most reliable clips.
+                </div>
               </div>
               {file ? (
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
