@@ -764,30 +764,45 @@ export default function SettingsPage() {
           <Divider />
           <Row
             label="TikTok"
-            hint="Pending platform approval."
+            hint="Connect for scheduled posting."
             right={
               <button
                 type="button"
                 onClick={() => connectSocial("tiktok")}
                 className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled
+                disabled={!!socialBusy}
               >
-                Pending
+                {socialBusy === "tiktok" ? "Connecting..." : "Connect"}
               </button>
             }
           />
           <Divider />
           <Row
             label="Instagram"
-            hint="Pending platform approval."
+            hint="Connect for scheduled posting."
             right={
               <button
                 type="button"
                 onClick={() => connectSocial("instagram")}
                 className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled
+                disabled={!!socialBusy}
               >
-                Pending
+                {socialBusy === "instagram" ? "Connecting..." : "Connect"}
+              </button>
+            }
+          />
+          <Divider />
+          <Row
+            label="Facebook"
+            hint="Connect for scheduled posting."
+            right={
+              <button
+                type="button"
+                onClick={() => connectSocial("facebook")}
+                className="btn-solid-dark text-[12px] px-4 py-2"
+                disabled={!!socialBusy}
+              >
+                {socialBusy === "facebook" ? "Connecting..." : "Connect"}
               </button>
             }
           />

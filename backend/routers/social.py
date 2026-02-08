@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import secrets
 import time
@@ -55,25 +56,63 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "auth_url": "https://www.tiktok.com/v2/auth/authorize/",
         "token_url": "https://open.tiktokapis.com/v2/oauth/token/",
         "userinfo_url": "https://open.tiktokapis.com/v2/user/info/",
-        "scopes": ["user.info.basic", "video.upload"],
+        "scopes": ["user.info.basic", "video.upload", "video.publish"],
         "pkce": True,
         "client_id_param": "client_key",
         "client_secret_param": "client_secret",
     },
     "instagram": {
         "label": "Instagram",
-        "auth_url": "https://api.instagram.com/oauth/authorize",
-        "token_url": "https://api.instagram.com/oauth/access_token",
-        "userinfo_url": "https://graph.instagram.com/me",
-        "scopes": ["user_profile"],
+        # Uses Facebook Login to obtain Graph permissions needed for publishing.
+        "auth_url": "https://www.facebook.com/v20.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",
+        "userinfo_url": "https://graph.facebook.com/me",
+        "scopes": [
+            "pages_show_list",
+            "pages_read_engagement",
+            "business_management",
+            "instagram_basic",
+            "instagram_content_publish",
+        ],
+        "pkce": True,
+    },
+    "facebook": {
+        "label": "Facebook",
+        "auth_url": "https://www.facebook.com/v20.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",
+        "userinfo_url": "https://graph.facebook.com/me",
+        "scopes": [
+            "pages_show_list",
+            "pages_read_engagement",
+            "pages_manage_posts",
+            "publish_video",
+        ],
         "pkce": True,
     },
 }
 
 
 def _allowed_autopost_providers() -> set:
-    raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube").strip()
+    raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube,tiktok,instagram,facebook").strip()
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def _safe_json_dumps(v: Any) -> str:
+    try:
+        return json.dumps(v or {})
+    except Exception:
+        return "{}"
+
+
+def _safe_json_loads(v: Any) -> dict:
+    if not v:
+        return {}
+    if isinstance(v, dict):
+        return v
+    try:
+        return json.loads(str(v))
+    except Exception:
+        return {}
 
 
 def _provider_conf(provider: str) -> Dict[str, Any]:
@@ -84,11 +123,21 @@ def _provider_conf(provider: str) -> Dict[str, Any]:
 
 
 def _client_id(provider: str) -> Optional[str]:
-    return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_ID")
+    val = os.getenv(f"OAUTH_{provider.upper()}_CLIENT_ID")
+    if val:
+        return val
+    if provider == "instagram":
+        return os.getenv("OAUTH_FACEBOOK_CLIENT_ID")
+    return None
 
 
 def _client_secret(provider: str) -> Optional[str]:
-    return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_SECRET")
+    val = os.getenv(f"OAUTH_{provider.upper()}_CLIENT_SECRET")
+    if val:
+        return val
+    if provider == "instagram":
+        return os.getenv("OAUTH_FACEBOOK_CLIENT_SECRET")
+    return None
 
 
 def _require_provider_ready(provider: str) -> Dict[str, Any]:
@@ -140,6 +189,88 @@ def _clear_social_ctx_cookie(response: RedirectResponse, request: Request):
         secure=opts["secure"],
         samesite=opts["samesite"],
     )
+
+
+def _public_api_base() -> str:
+    return (
+        (
+            os.getenv("PUBLIC_API_BASE")
+            or os.getenv("API_BASE_URL")
+            or os.getenv("BACKEND_PUBLIC_BASE")
+            or os.getenv("FRONTEND_BASE_URL")
+            or ""
+        )
+        .strip()
+        .rstrip("/")
+    )
+
+
+def _absolute_storage_url(storage, key: str) -> str:
+    """
+    Return a publicly reachable URL for providers that ingest by URL.
+    """
+    try:
+        url = storage.presign_get(key, expires_in=3600)  # type: ignore[attr-defined]
+    except TypeError:
+        url = storage.presign_get(key)  # type: ignore[attr-defined]
+    url = str(url)
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    if not url.startswith("/"):
+        raise RuntimeError("Storage URL is not absolute")
+    base = _public_api_base()
+    if not base:
+        raise RuntimeError("PUBLIC_API_BASE/API_BASE_URL is required for social posting in local-storage mode")
+    return f"{base}{url}"
+
+
+def _meta_pages(access_token: str) -> List[dict]:
+    """
+    List pages available to the connected Meta user token.
+    """
+    resp = requests.get(
+        "https://graph.facebook.com/v20.0/me/accounts",
+        params={
+            "fields": "id,name,access_token,instagram_business_account{id,username}",
+            "limit": 50,
+            "access_token": access_token,
+        },
+        timeout=25,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Meta pages fetch failed: {resp.text[:250]}")
+    data = resp.json() if resp.text else {}
+    rows = data.get("data")
+    return rows if isinstance(rows, list) else []
+
+
+def _meta_pick_page(access_token: str, preferred_page_id: Optional[str] = None) -> dict:
+    pages = _meta_pages(access_token)
+    if not pages:
+        raise RuntimeError("No Facebook Pages found for this account")
+    if preferred_page_id:
+        for page in pages:
+            if str(page.get("id") or "") == str(preferred_page_id):
+                return page
+    return pages[0]
+
+
+def _meta_pick_instagram(access_token: str, preferred_ig_id: Optional[str] = None) -> dict:
+    pages = _meta_pages(access_token)
+    with_ig = []
+    for page in pages:
+        ig = page.get("instagram_business_account") or {}
+        ig_id = str(ig.get("id") or "").strip()
+        if ig_id:
+            with_ig.append(page)
+    if not with_ig:
+        raise RuntimeError("No Instagram Business account linked to this Facebook account")
+    if preferred_ig_id:
+        for page in with_ig:
+            ig = page.get("instagram_business_account") or {}
+            if str(ig.get("id") or "") == str(preferred_ig_id):
+                return page
+    return with_ig[0]
 
 
 # ---------------------------------------------------------
@@ -206,11 +337,13 @@ def connect_start(
 
     redirect_uri = str(request.url_for("social_connect_callback", provider=provider))
 
+    scope_sep = "," if provider in {"facebook", "instagram", "tiktok"} else " "
+    client_id_param = conf.get("client_id_param", "client_id")
     params = {
         "response_type": "code",
-        "client_id": client_id,
+        client_id_param: client_id,
         "redirect_uri": redirect_uri,
-        "scope": " ".join(conf.get("scopes", [])),
+        "scope": scope_sep.join(conf.get("scopes", [])),
         "state": state,
     }
     if conf.get("pkce", True):
@@ -322,16 +455,37 @@ def connect_callback(
             u = userinfo_resp.json().get("data", {}).get("user", {})
             account_id = u.get("open_id") or u.get("union_id")
             account_name = u.get("display_name")
-    elif provider == "instagram":
+    elif provider in {"instagram", "facebook"}:
         userinfo_resp = requests.get(
             conf["userinfo_url"],
-            params={"fields": "id,username", "access_token": access_token},
+            params={"fields": "id,name", "access_token": access_token},
             timeout=20,
         )
         if userinfo_resp.status_code < 400:
             u = userinfo_resp.json()
             account_id = u.get("id")
-            account_name = u.get("username")
+            account_name = u.get("name")
+
+    # For Meta providers, store best default target IDs for posting.
+    if provider == "facebook":
+        try:
+            page = _meta_pick_page(access_token, preferred_page_id=account_id)
+            account_id = str(page.get("id") or account_id or "")
+            account_name = str(page.get("name") or account_name or "Facebook Page")
+        except Exception:
+            pass
+    elif provider == "instagram":
+        try:
+            page = _meta_pick_instagram(access_token, preferred_ig_id=account_id)
+            ig = page.get("instagram_business_account") or {}
+            ig_id = str(ig.get("id") or "").strip()
+            ig_name = str(ig.get("username") or "").strip()
+            if ig_id:
+                account_id = ig_id
+            if ig_name:
+                account_name = ig_name
+        except Exception:
+            pass
 
     existing = (
         db.query(SocialAccount)
@@ -350,7 +504,7 @@ def connect_callback(
     existing.token_expires_at = (
         int(time.time()) + int(expires_in or 0) if expires_in else None
     )
-    existing.scopes = scopes
+    existing.scopes = scopes if isinstance(scopes, str) else _safe_json_dumps(scopes)
     existing.status = "connected"
 
     db.commit()
@@ -415,6 +569,47 @@ def _refresh_google_token(provider: str, refresh_token: str) -> Optional[dict]:
     return resp.json()
 
 
+def _refresh_tiktok_token(provider: str, refresh_token: str) -> Optional[dict]:
+    client_id = _client_id(provider)
+    client_secret = _client_secret(provider)
+    if not client_id or not client_secret:
+        return None
+    resp = requests.post(
+        "https://open.tiktokapis.com/v2/oauth/token/",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_key": client_id,
+            "client_secret": client_secret,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        timeout=25,
+    )
+    if resp.status_code >= 400:
+        return None
+    return resp.json()
+
+
+def _refresh_facebook_token(provider: str, access_token: str) -> Optional[dict]:
+    client_id = _client_id(provider)
+    client_secret = _client_secret(provider)
+    if not client_id or not client_secret:
+        return None
+    resp = requests.get(
+        "https://graph.facebook.com/v20.0/oauth/access_token",
+        params={
+            "grant_type": "fb_exchange_token",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "fb_exchange_token": access_token,
+        },
+        timeout=25,
+    )
+    if resp.status_code >= 400:
+        return None
+    return resp.json()
+
+
 def _youtube_upload_video(access_token: str, title: str, description: str, video_path: str) -> str:
     init_resp = requests.post(
         "https://www.googleapis.com/upload/youtube/v3/videos"
@@ -449,6 +644,120 @@ def _youtube_upload_video(access_token: str, title: str, description: str, video
 
     data = upload_resp.json() if upload_resp.text else {}
     return data.get("id") or ""
+
+
+def _facebook_upload_video(page_access_token: str, page_id: str, title: str, description: str, video_url: str) -> str:
+    resp = requests.post(
+        f"https://graph-video.facebook.com/v20.0/{page_id}/videos",
+        data={
+            "file_url": video_url,
+            "title": title,
+            "description": description,
+            "published": "true",
+            "access_token": page_access_token,
+        },
+        timeout=60,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Facebook upload failed: {resp.text[:300]}")
+    data = resp.json() if resp.text else {}
+    return str(data.get("id") or "")
+
+
+def _instagram_publish_reel(
+    page_access_token: str,
+    ig_user_id: str,
+    caption: str,
+    video_url: str,
+) -> str:
+    create_resp = requests.post(
+        f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
+        data={
+            "media_type": "REELS",
+            "video_url": video_url,
+            "caption": caption[:2200],
+            "access_token": page_access_token,
+        },
+        timeout=45,
+    )
+    if create_resp.status_code >= 400:
+        raise RuntimeError(f"Instagram media create failed: {create_resp.text[:300]}")
+
+    created = create_resp.json() if create_resp.text else {}
+    container_id = str(created.get("id") or "")
+    if not container_id:
+        raise RuntimeError("Instagram container id missing")
+
+    # Wait until media container is ready.
+    deadline = time.time() + 120
+    status_code = ""
+    while time.time() < deadline:
+        st_resp = requests.get(
+            f"https://graph.facebook.com/v20.0/{container_id}",
+            params={
+                "fields": "status_code,status,error_message",
+                "access_token": page_access_token,
+            },
+            timeout=25,
+        )
+        if st_resp.status_code >= 400:
+            raise RuntimeError(f"Instagram status check failed: {st_resp.text[:250]}")
+        st = st_resp.json() if st_resp.text else {}
+        status_code = str(st.get("status_code") or st.get("status") or "").upper()
+        if status_code in {"FINISHED", "READY"}:
+            break
+        if status_code in {"ERROR", "EXPIRED"}:
+            em = str(st.get("error_message") or "Instagram media processing failed")
+            raise RuntimeError(em[:300])
+        time.sleep(3)
+
+    if status_code not in {"FINISHED", "READY"}:
+        raise RuntimeError("Instagram media processing timed out")
+
+    pub_resp = requests.post(
+        f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish",
+        data={
+            "creation_id": container_id,
+            "access_token": page_access_token,
+        },
+        timeout=35,
+    )
+    if pub_resp.status_code >= 400:
+        raise RuntimeError(f"Instagram publish failed: {pub_resp.text[:300]}")
+    pub = pub_resp.json() if pub_resp.text else {}
+    return str(pub.get("id") or container_id)
+
+
+def _tiktok_publish_video(access_token: str, title: str, description: str, video_url: str) -> str:
+    privacy = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip() or "PUBLIC_TO_EVERYONE"
+    text = (description or title or "New Orbito clip").strip()
+    payload = {
+        "post_info": {
+            "title": text[:150],
+            "privacy_level": privacy,
+            "disable_duet": False,
+            "disable_comment": False,
+            "disable_stitch": False,
+        },
+        "source_info": {
+            "source": "PULL_FROM_URL",
+            "video_url": video_url,
+        },
+    }
+    resp = requests.post(
+        "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        json=payload,
+        timeout=45,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"TikTok publish init failed: {resp.text[:300]}")
+    data = resp.json() if resp.text else {}
+    d = data.get("data") if isinstance(data, dict) else {}
+    return str((d or {}).get("publish_id") or (d or {}).get("video_id") or "")
 
 
 @router.post("/posts", response_model=SocialPostResponse)
@@ -540,19 +849,35 @@ def dispatch_posts(
                 .filter(SocialAccount.user_id == current_user.id, SocialAccount.provider == post.provider)
                 .first()
             )
+            # Instagram publishing uses Meta Graph permissions; a connected Facebook
+            # account can be used as fallback token source.
+            if (not account or not account.access_token) and post.provider == "instagram":
+                account = (
+                    db.query(SocialAccount)
+                    .filter(SocialAccount.user_id == current_user.id, SocialAccount.provider == "facebook")
+                    .first()
+                )
             if not account or not account.access_token:
                 raise RuntimeError("No connected account")
 
             access_token = account.access_token
             if account.token_expires_at and account.token_expires_at < int(time.time()):
-                if account.refresh_token:
-                    refreshed = _refresh_google_token(post.provider, account.refresh_token)
-                    if refreshed and refreshed.get("access_token"):
-                        access_token = refreshed["access_token"]
-                        account.access_token = access_token
-                        if refreshed.get("expires_in"):
-                            account.token_expires_at = int(time.time()) + int(refreshed["expires_in"])
-                        db.commit()
+                refreshed = None
+                if account.provider == "youtube" and account.refresh_token:
+                    refreshed = _refresh_google_token(account.provider, account.refresh_token)
+                elif account.provider == "tiktok" and account.refresh_token:
+                    refreshed = _refresh_tiktok_token(account.provider, account.refresh_token)
+                elif account.provider in {"facebook", "instagram"}:
+                    refreshed = _refresh_facebook_token(account.provider, access_token)
+
+                if refreshed and refreshed.get("access_token"):
+                    access_token = str(refreshed["access_token"])
+                    account.access_token = access_token
+                    if refreshed.get("refresh_token"):
+                        account.refresh_token = str(refreshed.get("refresh_token"))
+                    if refreshed.get("expires_in"):
+                        account.token_expires_at = int(time.time()) + int(refreshed["expires_in"])
+                    db.commit()
                 else:
                     raise RuntimeError("Access token expired")
 
@@ -574,8 +899,33 @@ def dispatch_posts(
             if post.provider == "youtube":
                 remote_id = _youtube_upload_video(access_token, title, desc, tmp_path)
                 post.remote_id = remote_id
+            elif post.provider == "facebook":
+                clip_url = _absolute_storage_url(storage, post.storage_key)
+                page = _meta_pick_page(access_token, preferred_page_id=account.account_id)
+                page_id = str(page.get("id") or "")
+                page_token = str(page.get("access_token") or "")
+                if not page_id or not page_token:
+                    raise RuntimeError("Facebook Page access token missing")
+                remote_id = _facebook_upload_video(page_token, page_id, title, desc, clip_url)
+                post.remote_id = remote_id
+            elif post.provider == "instagram":
+                clip_url = _absolute_storage_url(storage, post.storage_key)
+                page = _meta_pick_instagram(access_token, preferred_ig_id=account.account_id)
+                ig = page.get("instagram_business_account") or {}
+                ig_user_id = str(ig.get("id") or "").strip()
+                page_token = str(page.get("access_token") or "").strip()
+                if not ig_user_id:
+                    raise RuntimeError("No Instagram Business account linked")
+                if not page_token:
+                    raise RuntimeError("Facebook Page access token missing for Instagram publish")
+                remote_id = _instagram_publish_reel(page_token, ig_user_id, desc, clip_url)
+                post.remote_id = remote_id
+            elif post.provider == "tiktok":
+                clip_url = _absolute_storage_url(storage, post.storage_key)
+                remote_id = _tiktok_publish_video(access_token, title, desc, clip_url)
+                post.remote_id = remote_id
             else:
-                raise RuntimeError("Provider integration pending")
+                raise RuntimeError(f"Unsupported provider: {post.provider}")
 
             post.status = "posted"
             post.posted_at = datetime.now(timezone.utc)

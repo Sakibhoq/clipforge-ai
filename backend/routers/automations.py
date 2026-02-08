@@ -21,7 +21,7 @@ router = APIRouter(prefix="/automations", tags=["automations"])
 
 
 def _allowed_autopost_providers() -> set:
-    raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube").strip()
+    raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube,tiktok,instagram,facebook").strip()
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
 
 

@@ -78,6 +78,14 @@ type GroupDTO = {
   clips: ClipDTO[];
 };
 
+type SocialAccountDTO = {
+  id: number;
+  provider: string;
+  account_id?: string | null;
+  account_name?: string | null;
+  status: string;
+};
+
 /* ---------- Formatting helpers ---------- */
 function formatTime(seconds: number) {
   const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -89,6 +97,15 @@ function formatTime(seconds: number) {
 function safeNum(v: any, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function socialLabel(p: string) {
+  const s = (p || "").toLowerCase();
+  if (s === "youtube") return "YouTube";
+  if (s === "tiktok") return "TikTok";
+  if (s === "instagram") return "Instagram";
+  if (s === "facebook") return "Facebook";
+  return p || "Social";
 }
 
 /* ---------- Aspect ratio helpers ---------- */
@@ -839,10 +856,12 @@ function ClipsWorkspace() {
 
   // Schedule drawer state (YouTube scheduler)
   const [scheduleClipId, setScheduleClipId] = useState<number | null>(null);
+  const [scheduleProvider, setScheduleProvider] = useState("youtube");
   const [scheduleCaption, setScheduleCaption] = useState("");
   const [scheduleWhen, setScheduleWhen] = useState("");
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
 
   // Crop drawer state (backend-wired)
   const [cropClip, setCropClip] = useState<ClipDTO | null>(null);
@@ -851,6 +870,39 @@ function ClipsWorkspace() {
   const [cropTrimEnd, setCropTrimEnd] = useState(0);
   const [cropBusy, setCropBusy] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
+
+  const scheduleProviders = useMemo(() => {
+    const connected = new Set(
+      socialAccounts
+        .filter((a) => String(a.status || "").toLowerCase() === "connected")
+        .map((a) => String(a.provider || "").toLowerCase())
+        .filter((p) => ["youtube", "tiktok", "instagram", "facebook"].includes(p))
+    );
+    if (!connected.size) return ["youtube"];
+    return Array.from(connected);
+  }, [socialAccounts]);
+
+  useEffect(() => {
+    if (!scheduleProviders.includes(scheduleProvider)) {
+      setScheduleProvider(scheduleProviders[0] || "youtube");
+    }
+  }, [scheduleProviders, scheduleProvider]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<SocialAccountDTO[]>("/social/accounts", { method: "GET" })
+      .then((rows) => {
+        if (cancelled) return;
+        setSocialAccounts(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSocialAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function getSettingsFor(id: number): ClipOutputSettings {
     return clipSettings[id] || DEFAULT_CLIP_SETTINGS;
@@ -865,6 +917,7 @@ function ClipsWorkspace() {
 
   function openSchedule(clip: ClipDTO) {
     setScheduleClipId(clip.id);
+    setScheduleProvider((prev) => (scheduleProviders.includes(prev) ? prev : scheduleProviders[0] || "youtube"));
     setScheduleCaption(autoTitle(clip));
     setScheduleWhen("");
     setScheduleError(null);
@@ -926,7 +979,7 @@ function ClipsWorkspace() {
       await apiFetch("/social/posts", {
         method: "POST",
         body: {
-          provider: "youtube",
+          provider: scheduleProvider,
           clip_id: scheduleClipId,
           caption: scheduleCaption || "New Orbito clip",
           scheduled_at: scheduledAt,
@@ -1449,10 +1502,13 @@ function ClipsWorkspace() {
       >
         {scheduleClipId ? (
           <ScheduleForm
+            provider={scheduleProvider}
+            providers={scheduleProviders}
             caption={scheduleCaption}
             when={scheduleWhen}
             busy={scheduleBusy}
             error={scheduleError}
+            onProviderChange={setScheduleProvider}
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
             onSubmit={createSchedule}
@@ -2087,18 +2143,24 @@ function CropForm({
    ScheduleForm (YouTube scheduler)
 ========================================================= */
 function ScheduleForm({
+  provider,
+  providers,
   caption,
   when,
   busy,
   error,
+  onProviderChange,
   onCaptionChange,
   onWhenChange,
   onSubmit,
 }: {
+  provider: string;
+  providers: string[];
   caption: string;
   when: string;
   busy: boolean;
   error: string | null;
+  onProviderChange: (v: string) => void;
   onCaptionChange: (v: string) => void;
   onWhenChange: (v: string) => void;
   onSubmit: () => void;
@@ -2106,10 +2168,26 @@ function ScheduleForm({
   return (
     <div className="grid gap-4">
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-sm font-semibold text-white/85">YouTube scheduling</div>
+        <div className="text-sm font-semibold text-white/85">Social scheduling</div>
         <div className="mt-1 text-[12px] text-white/55">
-          OpusClip-style flow: pick a clip, add a caption, schedule when you want it to post.
+          Pick platform, add caption, and choose post time.
         </div>
+      </div>
+
+      <div className="grid gap-2">
+        <label className="text-[12px] text-white/60">Platform</label>
+        <select
+          className="h-11 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white/90"
+          value={provider}
+          onChange={(e) => onProviderChange(e.target.value)}
+          disabled={busy}
+        >
+          {providers.map((p) => (
+            <option key={p} value={p} className="bg-[#151820] text-white">
+              {socialLabel(p)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid gap-2">
@@ -2149,7 +2227,7 @@ function ScheduleForm({
           {busy ? "Scheduling..." : "Schedule post"}
         </button>
         <div className="text-[12px] text-white/55">
-          YouTube only for now. Connect in Settings → Social Connections.
+          Connect platforms in Settings -&gt; Social Connections.
         </div>
       </div>
     </div>
