@@ -1805,18 +1805,18 @@ REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "10.0"
 REFRAME_ANALYZE_EVERY_FRAME = os.getenv("WORKER_REFRAME_ANALYZE_EVERY_FRAME", "0") == "1"
 REFRAME_MAX_KEYFRAMES = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES", "220"))
 REFRAME_MAX_KEYFRAMES_PER_CLIP = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP", "120"))
-REFRAME_SMOOTH_WINDOW = int(os.getenv("WORKER_REFRAME_SMOOTH_WINDOW", "2"))
+REFRAME_SMOOTH_WINDOW = int(os.getenv("WORKER_REFRAME_SMOOTH_WINDOW", "3"))
 
-REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.92"))
-REFRAME_SMOOTHING_OBJECT = float(os.getenv("WORKER_REFRAME_SMOOTHING_OBJECT", "0.94"))
-REFRAME_SMOOTHING_FALLBACK = float(os.getenv("WORKER_REFRAME_SMOOTHING_FALLBACK", "0.96"))
-REFRAME_DEADZONE_PX = float(os.getenv("WORKER_REFRAME_DEADZONE_PX", "10.0"))
+REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.94"))
+REFRAME_SMOOTHING_OBJECT = float(os.getenv("WORKER_REFRAME_SMOOTHING_OBJECT", "0.955"))
+REFRAME_SMOOTHING_FALLBACK = float(os.getenv("WORKER_REFRAME_SMOOTHING_FALLBACK", "0.97"))
+REFRAME_DEADZONE_PX = float(os.getenv("WORKER_REFRAME_DEADZONE_PX", "12.0"))
 
 REFRAME_CENTER_BIAS_Y = float(os.getenv("WORKER_REFRAME_CENTER_BIAS_Y", "0.62"))
 OBJECT_CENTER_BIAS_Y = float(os.getenv("WORKER_OBJECT_CENTER_BIAS_Y", "0.44"))
 
 # Clamp crop motion per sample (prevents violent jumps if detector glitches)
-REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "90.0"))
+REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "72.0"))
 
 # If no faces/people detected, keep crops biased slightly above center (good for talking heads)
 FALLBACK_CENTER_BIAS_Y = float(os.getenv("WORKER_FALLBACK_CENTER_BIAS_Y", "0.58"))
@@ -1824,6 +1824,14 @@ FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "1"))
 PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "3"))
 REFRAME_FACE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_FACE_DETECT_MAX_WIDTH", "640"))
 REFRAME_PEOPLE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_PEOPLE_DETECT_MAX_WIDTH", "576"))
+
+# Adaptive context-mode triggers (for tutorial/screen/group/no-face segments)
+ADAPTIVE_CONTEXT_MODE = os.getenv("WORKER_ADAPTIVE_CONTEXT_MODE", "1") == "1"
+ADAPTIVE_CONTEXT_VERTICAL_ONLY = os.getenv("WORKER_ADAPTIVE_CONTEXT_VERTICAL_ONLY", "1") == "1"
+ADAPTIVE_CONTEXT_MULTI_FACE_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MULTI_FACE_RATIO", "0.22"))
+ADAPTIVE_CONTEXT_FACELESS_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FACELESS_RATIO", "0.55"))
+ADAPTIVE_CONTEXT_UI_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_RATIO", "0.38"))
+ADAPTIVE_CONTEXT_UI_EDGE_DENSITY = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_EDGE_DENSITY", "0.085"))
 
 
 def _resize_for_detection(frame_bgr, max_width: int):
@@ -1982,6 +1990,57 @@ def _detect_people(frame_bgr) -> list:
         ]
     except Exception:
         return []
+
+
+def _estimate_ui_edge_density(frame_bgr) -> float:
+    """
+    Lightweight heuristic for screen/tutorial-like frames:
+    more sharp edges and UI lines usually => higher density.
+    """
+    if not _HAS_CV2 or frame_bgr is None:
+        return 0.0
+    try:
+        detect_frame, _scale = _resize_for_detection(frame_bgr, 480)
+        gray = cv2.cvtColor(detect_frame, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 70, 180)
+        if edges is None or edges.size <= 0:
+            return 0.0
+        return float(np.count_nonzero(edges)) / float(edges.size)
+    except Exception:
+        return 0.0
+
+
+def should_use_context_layout(
+    *,
+    aspect_ratio: Optional[str],
+    camera_meta: Optional[dict],
+) -> bool:
+    """
+    Decide whether to preserve full source context (blur-fill layout) instead of
+    aggressive face-first crop.
+    """
+    if not ADAPTIVE_CONTEXT_MODE:
+        return False
+    a = (aspect_ratio or "9:16").strip()
+    if ADAPTIVE_CONTEXT_VERTICAL_ONLY and a != "9:16":
+        return False
+    if not camera_meta:
+        return False
+
+    try:
+        multi_ratio = float(camera_meta.get("multi_face_ratio", 0.0))
+        faceless_ratio = float(camera_meta.get("faceless_ratio", 0.0))
+        ui_ratio = float(camera_meta.get("ui_like_ratio", 0.0))
+    except Exception:
+        return False
+
+    if multi_ratio >= float(ADAPTIVE_CONTEXT_MULTI_FACE_RATIO):
+        return True
+    if faceless_ratio >= float(ADAPTIVE_CONTEXT_FACELESS_RATIO):
+        return True
+    if ui_ratio >= float(ADAPTIVE_CONTEXT_UI_RATIO):
+        return True
+    return False
 
 # -----------------------------------------------------
 # Crop window helpers
@@ -2247,6 +2306,11 @@ def build_camera_path(
     face_hits = 0
     person_hits = 0
     fallback_hits = 0
+    sample_total = 0
+    multi_face_hits = 0
+    faceless_hits = 0
+    person_only_hits = 0
+    ui_like_hits = 0
     last_faces: List[Any] = []
     last_people: List[Any] = []
 
@@ -2278,6 +2342,7 @@ def build_camera_path(
         if t > analysis_end_s + 1e-6:
             break
 
+        sample_total += 1
         if sample_idx % max(1, int(FACE_DETECT_EVERY_N)) == 0 or not last_faces:
             last_faces = _detect_faces(frame)
         faces = list(last_faces or [])
@@ -2285,6 +2350,8 @@ def build_camera_path(
 
         subject_mode = "fallback"
         if faces:
+            if len(faces) >= 2:
+                multi_face_hits += 1
             # Choose largest face
             x, y, w, h = max(faces, key=lambda f: float(f[2]) * float(f[3]))
             cx = float(x) + float(w) / 2.0
@@ -2298,12 +2365,19 @@ def build_camera_path(
             people = list(last_people or [])
 
             if people:
+                if len(people) >= 2:
+                    multi_face_hits += 1
+                person_only_hits += 1
                 x, y, w, h = max(people, key=lambda p: float(p[2]) * float(p[3]))
                 cx = float(x) + float(w) / 2.0
                 cy = float(y) + float(h) * float(OBJECT_CENTER_BIAS_Y)
                 subject_mode = "person"
                 person_hits += 1
             else:
+                faceless_hits += 1
+                edge_density = _estimate_ui_edge_density(frame)
+                if edge_density >= float(ADAPTIVE_CONTEXT_UI_EDGE_DENSITY):
+                    ui_like_hits += 1
                 # Bias to upper-middle for speaking content
                 cx = src_w / 2.0
                 cy = src_h * float(REFRAME_CENTER_BIAS_Y)
@@ -2400,6 +2474,15 @@ def build_camera_path(
         "face_hits": int(face_hits if "face_hits" in locals() else 0),
         "person_hits": int(person_hits if "person_hits" in locals() else 0),
         "fallback_hits": int(fallback_hits if "fallback_hits" in locals() else 0),
+        "sample_total": int(sample_total),
+        "multi_face_hits": int(multi_face_hits),
+        "faceless_hits": int(faceless_hits),
+        "person_only_hits": int(person_only_hits),
+        "ui_like_hits": int(ui_like_hits),
+        "multi_face_ratio": float(multi_face_hits) / float(max(1, sample_total)),
+        "faceless_ratio": float(faceless_hits) / float(max(1, sample_total)),
+        "person_only_ratio": float(person_only_hits) / float(max(1, sample_total)),
+        "ui_like_ratio": float(ui_like_hits) / float(max(1, sample_total)),
     }
 
     return cam_x, cam_y, samples, meta
@@ -2526,7 +2609,7 @@ CAPTION_BREAK_PAUSE_SECONDS = float(os.getenv("WORKER_CAPTION_BREAK_PAUSE_SECOND
 CAPTION_MAX_TOKEN_CHARS = int(os.getenv("WORKER_CAPTION_MAX_TOKEN_CHARS", "18"))
 # Positive delay to compensate Whisper-leading timestamps so words do not appear
 # before speech starts. Keep configurable via env for fine tuning.
-CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.12"))
+CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.22"))
 
 # Karaoke timing safety
 KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "1"))     # 0.01s
@@ -3529,6 +3612,7 @@ def render_clip_mp4(
     src_h: Optional[int] = None,
     aspect_ratio: Optional[str] = None,
     camera_samples: Optional[list] = None,
+    camera_meta: Optional[dict] = None,
 
     # captions
     captions_enabled: bool = False,
@@ -3546,6 +3630,7 @@ def render_clip_mp4(
     """
     Launch-safe render:
       - dynamic crop using camera_samples (source-pixel centers)
+      - adaptive context-preserve blur-fill for multi-face / no-face / UI-like clips
       - optional ASS captions (burn-in)
       - optional watermark (PNG + animated text)
     """
@@ -3562,6 +3647,21 @@ def render_clip_mp4(
         raise RuntimeError("Missing source dimensions for reframing")
 
     target_w, target_h = _target_dims_for_aspect(aspect_ratio)
+    use_context_layout = should_use_context_layout(
+        aspect_ratio=aspect_ratio,
+        camera_meta=camera_meta,
+    )
+    if use_context_layout:
+        try:
+            log(
+                "Using context-preserve framing "
+                f"(multi={float((camera_meta or {}).get('multi_face_ratio', 0.0)):.2f}, "
+                f"faceless={float((camera_meta or {}).get('faceless_ratio', 0.0)):.2f}, "
+                f"ui={float((camera_meta or {}).get('ui_like_ratio', 0.0)):.2f})",
+                job_id=job_id,
+            )
+        except Exception:
+            pass
 
     # -------------------------------------------------
     # Crop window (in source pixels)
@@ -3579,46 +3679,6 @@ def render_clip_mp4(
 
     crop_w = max(2, min(int(src_w), int(crop_w)))
     crop_h = max(2, min(int(src_h), int(crop_h)))
-
-    # -------------------------------------------------
-    # Filters
-    # -------------------------------------------------
-
-    vf_chain: List[str] = []
-
-    # Base VF parts hook (if you have extra things to add)
-    if vf_parts:
-        for p in (vf_parts or []):
-            if p and isinstance(p, str):
-                vf_chain.append(p)
-
-    # Dynamic crop (clip-window reframing)
-    if camera_samples:
-        clip_camera_samples = camera_samples_for_clip_window(
-            camera_samples,
-            clip_start=clip_start,
-            clip_end=clip_end,
-            max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
-        )
-        cx_expr = build_lerp_expr(clip_camera_samples, "x")
-        cy_expr = build_lerp_expr(clip_camera_samples, "y")
-        x_expr = f"max(0,min({src_w-crop_w},{cx_expr}-{crop_w}/2))"
-        y_expr = f"max(0,min({src_h-crop_h},{cy_expr}-{crop_h}/2))"
-
-        crop_expr = (
-            f"crop={crop_w}:{crop_h}:"
-            f"x='{x_expr}':"
-            f"y='{y_expr}'"
-        )
-        vf_chain.append(crop_expr)
-    else:
-        vf_chain.append(
-            f"crop={crop_w}:{crop_h}:"
-            f"x={(src_w-crop_w)//2}:y={(src_h-crop_h)//2}"
-        )
-
-    # Scale to target
-    vf_chain.append(f"scale={target_w}:{target_h}")
 
     # Captions (burn-in ASS)
     captions_ass_path: Optional[Path] = None
@@ -3643,14 +3703,72 @@ def render_clip_mp4(
             except Exception:
                 pass
 
-    if captions_ass_path:
-        vf_chain.append(f"subtitles='{_ffq(captions_ass_path)}'")
+    # -------------------------------------------------
+    # Base video filters (either simple -vf chain or labeled filter_complex)
+    # -------------------------------------------------
+    base_uses_complex = False
+    base_filter_complex = ""
+    vf = ""
 
-    # fps
-    vf_chain.append(f"fps={int(fps)}")
+    if use_context_layout:
+        # Preserve full frame context for vertical output by placing a scaled
+        # foreground over a blurred background copy.
+        post_chain: List[str] = []
+        if captions_ass_path:
+            post_chain.append(f"subtitles='{_ffq(captions_ass_path)}'")
+        post_chain.append(f"fps={int(fps)}")
+        post = ",".join(post_chain)
 
-    # We'll do watermark with filter_complex (overlay) so we can animate bobbing cleanly.
-    vf = ",".join(vf_chain)
+        base_filter_complex = (
+            f"[0:v]split=2[vbg][vfg];"
+            f"[vbg]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},gblur=sigma=26:steps=2[vbgb];"
+            f"[vfg]scale={target_w}:{target_h}:force_original_aspect_ratio=decrease[vfgf];"
+            f"[vbgb][vfgf]overlay=(W-w)/2:(H-h)/2,{post}[v1]"
+        )
+        base_uses_complex = True
+    else:
+        vf_chain: List[str] = []
+
+        # Base VF parts hook (if you have extra things to add)
+        if vf_parts:
+            for p in (vf_parts or []):
+                if p and isinstance(p, str):
+                    vf_chain.append(p)
+
+        # Dynamic crop (clip-window reframing)
+        if camera_samples:
+            clip_camera_samples = camera_samples_for_clip_window(
+                camera_samples,
+                clip_start=clip_start,
+                clip_end=clip_end,
+                max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+            )
+            cx_expr = build_lerp_expr(clip_camera_samples, "x")
+            cy_expr = build_lerp_expr(clip_camera_samples, "y")
+            x_expr = f"max(0,min({src_w-crop_w},{cx_expr}-{crop_w}/2))"
+            y_expr = f"max(0,min({src_h-crop_h},{cy_expr}-{crop_h}/2))"
+
+            crop_expr = (
+                f"crop={crop_w}:{crop_h}:"
+                f"x='{x_expr}':"
+                f"y='{y_expr}'"
+            )
+            vf_chain.append(crop_expr)
+        else:
+            vf_chain.append(
+                f"crop={crop_w}:{crop_h}:"
+                f"x={(src_w-crop_w)//2}:y={(src_h-crop_h)//2}"
+            )
+
+        # Scale to target
+        vf_chain.append(f"scale={target_w}:{target_h}")
+
+        if captions_ass_path:
+            vf_chain.append(f"subtitles='{_ffq(captions_ass_path)}'")
+
+        vf_chain.append(f"fps={int(fps)}")
+        vf = ",".join(vf_chain)
 
     # -------------------------------------------------
     # Build command
@@ -3691,27 +3809,50 @@ def render_clip_mp4(
             else f"font='{WATERMARK_TEXT_FONT}':"
         )
 
-        filter_complex = (
-            f"[0:v]{vf}[v1];"
-            f"[1:v]scale={WATERMARK_LOGO_W}:-1,format=rgba,"
-            f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
-            f"[v1][wm]overlay="
-            f"x={WATERMARK_LEFT_PAD}:"
-            f"y=(H-h)/2:"
-            f"enable='{enable_expr}'"
-            f"[v2];"
-            f"[v2]drawtext="
-            f"{text_font_arg}"
-            f"text='{watermark_text_escaped}':"
-            f"fontsize={WATERMARK_TEXT_SIZE}:"
-            f"fontcolor=white@1.0:"
-            f"alpha='{alpha_expr}':"
-            f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
-            f"borderw=2:bordercolor=black@0.35:"
-            f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
-            f"y=(H-text_h)/2"
-            f"[vout]"
-        )
+        if base_uses_complex:
+            filter_complex = (
+                f"{base_filter_complex};"
+                f"[1:v]scale={WATERMARK_LOGO_W}:-1,format=rgba,"
+                f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
+                f"[v1][wm]overlay="
+                f"x={WATERMARK_LEFT_PAD}:"
+                f"y=(H-h)/2:"
+                f"enable='{enable_expr}'"
+                f"[v2];"
+                f"[v2]drawtext="
+                f"{text_font_arg}"
+                f"text='{watermark_text_escaped}':"
+                f"fontsize={WATERMARK_TEXT_SIZE}:"
+                f"fontcolor=white@1.0:"
+                f"alpha='{alpha_expr}':"
+                f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
+                f"borderw=2:bordercolor=black@0.35:"
+                f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
+                f"y=(H-text_h)/2"
+                f"[vout]"
+            )
+        else:
+            filter_complex = (
+                f"[0:v]{vf}[v1];"
+                f"[1:v]scale={WATERMARK_LOGO_W}:-1,format=rgba,"
+                f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
+                f"[v1][wm]overlay="
+                f"x={WATERMARK_LEFT_PAD}:"
+                f"y=(H-h)/2:"
+                f"enable='{enable_expr}'"
+                f"[v2];"
+                f"[v2]drawtext="
+                f"{text_font_arg}"
+                f"text='{watermark_text_escaped}':"
+                f"fontsize={WATERMARK_TEXT_SIZE}:"
+                f"fontcolor=white@1.0:"
+                f"alpha='{alpha_expr}':"
+                f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
+                f"borderw=2:bordercolor=black@0.35:"
+                f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
+                f"y=(H-text_h)/2"
+                f"[vout]"
+            )
 
         cmd = [
             "ffmpeg",
@@ -3737,27 +3878,50 @@ def render_clip_mp4(
         ]
     else:
         # fallback: no watermark, and no crash if png missing
-        cmd = [
-            "ffmpeg",
-            "-hide_banner",
-            "-y",
-            "-ss", f"{clip_start:.6f}",
-            "-t", f"{clip_dur:.6f}",
-            "-i", str(source_video),
-            "-vf", vf,
-            "-map", "0:v:0",
-            "-map", "0:a?",
-            "-c:v", "libx264",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-ac", "2",
-            "-ar", "44100",
-            "-pix_fmt", "yuv420p",
-            "-preset", "veryfast",
-            "-movflags", "+faststart",
-            "-shortest",
-            str(out_path),
-        ]
+        if base_uses_complex:
+            cmd = [
+                "ffmpeg",
+                "-hide_banner",
+                "-y",
+                "-ss", f"{clip_start:.6f}",
+                "-t", f"{clip_dur:.6f}",
+                "-i", str(source_video),
+                "-filter_complex", base_filter_complex,
+                "-map", "[v1]",
+                "-map", "0:a?",
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-ac", "2",
+                "-ar", "44100",
+                "-pix_fmt", "yuv420p",
+                "-preset", "veryfast",
+                "-movflags", "+faststart",
+                "-shortest",
+                str(out_path),
+            ]
+        else:
+            cmd = [
+                "ffmpeg",
+                "-hide_banner",
+                "-y",
+                "-ss", f"{clip_start:.6f}",
+                "-t", f"{clip_dur:.6f}",
+                "-i", str(source_video),
+                "-vf", vf,
+                "-map", "0:v:0",
+                "-map", "0:a?",
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-ac", "2",
+                "-ar", "44100",
+                "-pix_fmt", "yuv420p",
+                "-preset", "veryfast",
+                "-movflags", "+faststart",
+                "-shortest",
+                str(out_path),
+            ]
 
     try:
         run_subprocess(
@@ -4113,6 +4277,7 @@ def run_job(job_id: int) -> None:
                 seen_titles.add(title.lower())
 
                 clip_cam_samples: List[tuple] = []
+                clip_cam_meta: Dict[str, Any] = {}
                 try:
                     analyze_start = max(0.0, clip_start - 1.0)
                     analyze_end = min(float(video_duration), clip_end + 1.0)
@@ -4130,6 +4295,7 @@ def run_job(job_id: int) -> None:
                     )
                 except Exception as cam_err:
                     clip_cam_samples = []
+                    clip_cam_meta = {}
                     log(
                         f"Clip {idx + 1} camera fallback: {cam_err}",
                         job_id=job_id,
@@ -4147,6 +4313,7 @@ def run_job(job_id: int) -> None:
                     aspect_ratio=str(aspect_ratio),
                     vf_parts=vf_parts,
                     camera_samples=clip_cam_samples,
+                    camera_meta=clip_cam_meta,
                     captions_enabled=captions_enabled,
                     caption_style_json=caption_style_json,
                     words_all=words,
