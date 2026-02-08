@@ -480,9 +480,9 @@ async def local_upload(
     token: str,
 ):
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower().strip()
-    env = (os.getenv("APP_ENV") or "development").strip().lower()
-
-    if backend == "s3" or env == "production":
+    # Allow local storage upload whenever STORAGE_BACKEND=local.
+    # Production/local deployments rely on this path + signed key token.
+    if backend == "s3":
         raise HTTPException(status_code=403, detail="Local uploads are disabled")
 
     key = _validate_local_key(key)
@@ -512,9 +512,9 @@ def local_get(
     response_content_disposition: Optional[str] = None,
 ):
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower().strip()
-    env = (os.getenv("APP_ENV") or "development").strip().lower()
-
-    if backend == "s3" or env == "production":
+    # Allow local storage reads whenever STORAGE_BACKEND=local.
+    # Signed key token still protects direct object access.
+    if backend == "s3":
         raise HTTPException(status_code=404, detail="Not found")
 
     key = _validate_local_key(key)
