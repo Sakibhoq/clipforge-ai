@@ -121,6 +121,19 @@ def _clip_dict(clip: Clip, storage, request: Optional[Request]):
     }
 
 
+def _clip_storage_exists(storage, key: str) -> bool:
+    k = (key or "").strip()
+    if not k:
+        return False
+    try:
+        if hasattr(storage, "exists"):
+            return bool(storage.exists(k))
+    except Exception:
+        # Fail-open to avoid hiding clips on transient storage HEAD errors.
+        return True
+    return True
+
+
 def _ensure_sqlite_clip_schema(db: Session) -> None:
     """
     Self-heal local SQLite schemas that predate additive clip metadata columns.
@@ -175,26 +188,8 @@ def download_clip(
     safe_name = _sanitize_download_name(preferred)
     storage = get_storage()
 
-    # Keep downloads same-origin so "Download" never opens a raw media page.
-    if hasattr(storage, "presign_get"):
-        try:
-            signed = storage.presign_get(  # type: ignore[attr-defined]
-                clip.storage_key,
-                expires_in=3600,
-                response_content_disposition=f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quote(safe_name)}',
-            )
-            if isinstance(signed, str) and signed.startswith("/"):
-                base = ""  # same-origin relative URL
-                signed = f"{base}{signed}"
-            from fastapi.responses import RedirectResponse
-
-            return RedirectResponse(url=signed, status_code=307)
-        except TypeError:
-            # Storage backend does not support response_content_disposition.
-            pass
-        except Exception:
-            # Fallback to backend stream below.
-            pass
+    if not _clip_storage_exists(storage, clip.storage_key):
+        raise HTTPException(status_code=404, detail="Clip file not found")
 
     try:
         body = storage.open(clip.storage_key)
@@ -359,6 +354,7 @@ def list_clips(
             .order_by(Clip.start_time.asc(), Clip.id.asc())
             .all()
         )
+        clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
 
     # ---------------------------------------------------------
@@ -384,10 +380,13 @@ def list_clips(
     )
 
     if not grouped:
-        return [_clip_dict(c, storage, request) for c in all_clips]
+        visible = [c for c in all_clips if _clip_storage_exists(storage, c.storage_key)]
+        return [_clip_dict(c, storage, request) for c in visible]
 
     by_upload = {}
     for c in all_clips:
+        if not _clip_storage_exists(storage, c.storage_key):
+            continue
         by_upload.setdefault(c.upload_id, []).append(c)
 
     out = []

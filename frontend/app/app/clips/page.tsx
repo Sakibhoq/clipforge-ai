@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -134,14 +134,25 @@ function downloadNameFromKey(storageKey: string, fallbackName?: string) {
   return derived.endsWith(".mp4") ? derived : `${derived}.mp4`;
 }
 
-function triggerDownload(url: string, filename: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+async function triggerDownload(url: string, filename: string) {
+  const resp = await fetch(url, { credentials: "include" });
+  if (!resp.ok) {
+    throw new Error(`Download failed (${resp.status})`);
+  }
+
+  const blob = await resp.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  }
 }
 /* ---------- Icons ---------- */
 function Icon({
@@ -600,7 +611,7 @@ function ClipActions({
     try {
       setDownloading(true);
       const dlUrl = `/api/clips/${clip.id}/download?filename=${encodeURIComponent(filename)}`;
-      triggerDownload(dlUrl, filename);
+      await triggerDownload(dlUrl, filename);
     } catch {
       // Last-resort fallback.
       window.location.assign(clip.url);
@@ -1425,9 +1436,12 @@ function ClipsWorkspace() {
         open={cropClip !== null}
         onClose={() => setCropClip(null)}
         title={cropClip ? `Crop — Clip #${cropClip.id}` : "Crop"}
+        subtitle="Studio crop editor"
+        variant="studio"
       >
         {cropClip ? (
           <CropForm
+            clip={cropClip}
             rect={cropRect}
             busy={cropBusy}
             error={cropError}
@@ -1563,80 +1577,366 @@ function PerClipSettings({
    CropForm (backend-wired)
 ========================================================= */
 function CropForm({
+  clip,
   rect,
   busy,
   error,
   onChange,
   onSubmit,
 }: {
+  clip: ClipDTO;
   rect: ClipCropRect;
   busy: boolean;
   error: string | null;
   onChange: (patch: Partial<ClipCropRect>) => void;
   onSubmit: () => void;
 }) {
+  type DragMode = "move" | "resize";
+  type DragState = {
+    mode: DragMode;
+    startX: number;
+    startY: number;
+    stageW: number;
+    stageH: number;
+    startRect: ClipCropRect;
+    ratio: number;
+  };
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+
+  const [duration, setDuration] = useState(0);
+  const [scrub, setScrub] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [lockAspect, setLockAspect] = useState(true);
+
+  const previewAspect =
+    whToCss(clip.width, clip.height) || aspectStringToCss(clip.aspect_ratio) || "9 / 16";
+
   function percent(v: number) {
     return Math.round(v * 100);
   }
 
+  function applyRect(next: ClipCropRect) {
+    const clamped: ClipCropRect = {
+      x: Math.min(1, Math.max(0, next.x)),
+      y: Math.min(1, Math.max(0, next.y)),
+      w: Math.min(1, Math.max(0.1, next.w)),
+      h: Math.min(1, Math.max(0.1, next.h)),
+    };
+    if (clamped.x + clamped.w > 1) clamped.x = Math.max(0, 1 - clamped.w);
+    if (clamped.y + clamped.h > 1) clamped.y = Math.max(0, 1 - clamped.h);
+    onChange(clamped);
+  }
+
+  function applyPreset(preset: "fit" | "vertical" | "square" | "landscape") {
+    if (preset === "fit") {
+      applyRect({ x: 0, y: 0, w: 1, h: 1 });
+      return;
+    }
+    if (preset === "vertical") {
+      applyRect({ x: 0.19, y: 0, w: 0.62, h: 1 });
+      return;
+    }
+    if (preset === "square") {
+      applyRect({ x: 0.11, y: 0.11, w: 0.78, h: 0.78 });
+      return;
+    }
+    applyRect({ x: 0, y: 0.22, w: 1, h: 0.56 });
+  }
+
+  function onPointerMove(ev: PointerEvent) {
+    const state = dragRef.current;
+    if (!state) return;
+
+    const dx = (ev.clientX - state.startX) / Math.max(1, state.stageW);
+    const dy = (ev.clientY - state.startY) / Math.max(1, state.stageH);
+
+    if (state.mode === "move") {
+      applyRect({
+        ...state.startRect,
+        x: state.startRect.x + dx,
+        y: state.startRect.y + dy,
+      });
+      return;
+    }
+
+    let w = state.startRect.w + dx;
+    let h = state.startRect.h + dy;
+
+    if (lockAspect) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        h = w / state.ratio;
+      } else {
+        w = h * state.ratio;
+      }
+    }
+
+    applyRect({
+      ...state.startRect,
+      w,
+      h,
+    });
+  }
+
+  function stopDrag() {
+    dragRef.current = null;
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", stopDrag);
+  }
+
+  function beginDrag(e: React.PointerEvent, mode: DragMode) {
+    e.preventDefault();
+    e.stopPropagation();
+    const stage = stageRef.current;
+    if (!stage) return;
+    const bounds = stage.getBoundingClientRect();
+    dragRef.current = {
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      stageW: bounds.width,
+      stageH: bounds.height,
+      startRect: { ...rect },
+      ratio: rect.w / Math.max(0.0001, rect.h),
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", stopDrag, { once: true });
+  }
+
+  function syncScrub(v: number) {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(v)) return;
+    const next = Math.max(0, Math.min(duration || 0, v));
+    video.currentTime = next;
+    setScrub(next);
+  }
+
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      void video.play();
+      setPlaying(true);
+    } else {
+      video.pause();
+      setPlaying(false);
+    }
+  }
+
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-sm font-semibold text-white/85">Create a cropped variant</div>
-        <div className="mt-1 text-[12px] text-white/55">
-          This creates a new clip. Your original clip remains unchanged.
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 text-[12px] font-medium text-white/70">
+          <span className="rounded-full border border-white/15 bg-white/[0.03] px-3 py-1">
+            {clip.aspect_ratio || "9:16"}
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/[0.03] px-3 py-1">Layout: Fill</span>
+          <span className="rounded-full border border-white/15 bg-white/[0.03] px-3 py-1">Tracker: Smart</span>
+          <span className="rounded-full border border-white/15 bg-white/[0.03] px-3 py-1">Manual crop</span>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-4">
-        <div className="text-[12px] text-white/55">Crop area</div>
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_220px]">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-4 h-fit">
+          <div>
+            <div className="text-sm font-semibold text-white/85">Crop controls</div>
+            <div className="mt-1 text-[12px] text-white/55">
+              Build a cropped variant. Original clip stays unchanged.
+            </div>
+          </div>
 
-        <div className="grid gap-2">
-          <label className="text-[12px] text-white/70">Width: {percent(rect.w)}%</label>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={percent(rect.w)}
-            onChange={(e) => onChange({ w: Number(e.target.value) / 100 })}
-          />
+          <div className="grid gap-2">
+            <div className="text-[12px] font-medium text-white/70">Quick layouts</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => applyPreset("fit")} className="btn-ghost text-[12px] px-3 py-2">
+                Fit
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("vertical")}
+                className="btn-ghost text-[12px] px-3 py-2"
+              >
+                9:16
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("square")}
+                className="btn-ghost text-[12px] px-3 py-2"
+              >
+                1:1
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("landscape")}
+                className="btn-ghost text-[12px] px-3 py-2"
+              >
+                16:9
+              </button>
+            </div>
+          </div>
+
+          <label className="inline-flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <span className="text-[12px] text-white/70">Lock aspect</span>
+            <button
+              type="button"
+              onClick={() => setLockAspect((v) => !v)}
+              className={cx(
+                "inline-flex h-6 w-11 items-center rounded-full border transition",
+                lockAspect ? "border-emerald-400/30 bg-emerald-400/10" : "border-white/15 bg-white/[0.04]"
+              )}
+            >
+              <span
+                className={cx(
+                  "ml-0.5 h-5 w-5 rounded-full transition",
+                  lockAspect ? "translate-x-5 bg-emerald-200/90" : "bg-white/40"
+                )}
+              />
+            </button>
+          </label>
+
+          <div className="grid gap-3">
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">Width: {percent(rect.w)}%</label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                value={percent(rect.w)}
+                onChange={(e) => applyRect({ ...rect, w: Number(e.target.value) / 100 })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">Height: {percent(rect.h)}%</label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                value={percent(rect.h)}
+                onChange={(e) => applyRect({ ...rect, h: Number(e.target.value) / 100 })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">Left: {percent(rect.x)}%</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={percent(rect.x)}
+                onChange={(e) => applyRect({ ...rect, x: Number(e.target.value) / 100 })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <label className="text-[12px] text-white/70">Top: {percent(rect.y)}%</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={percent(rect.y)}
+                onChange={(e) => applyRect({ ...rect, y: Number(e.target.value) / 100 })}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="grid gap-2">
-          <label className="text-[12px] text-white/70">Height: {percent(rect.h)}%</label>
-          <input
-            type="range"
-            min={10}
-            max={100}
-            value={percent(rect.h)}
-            onChange={(e) => onChange({ h: Number(e.target.value) / 100 })}
-          />
+        <div className="rounded-2xl border border-white/10 bg-black/55 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-white/85">Preview</div>
+            <div className="text-[12px] text-white/55">
+              X {percent(rect.x)}% • Y {percent(rect.y)}% • W {percent(rect.w)}% • H {percent(rect.h)}%
+            </div>
+          </div>
+
+          <div ref={stageRef} className="relative mx-auto mt-4 w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: previewAspect }}>
+            <video
+              ref={videoRef}
+              src={clip.url}
+              className="h-full w-full object-cover"
+              playsInline
+              muted
+              onLoadedMetadata={(e) => {
+                const d = Number((e.currentTarget as HTMLVideoElement).duration || 0);
+                setDuration(Number.isFinite(d) ? d : 0);
+                setScrub(0);
+              }}
+              onTimeUpdate={(e) => {
+                const t = Number((e.currentTarget as HTMLVideoElement).currentTime || 0);
+                if (Number.isFinite(t)) setScrub(t);
+              }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+            />
+
+            <div
+              className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.28)] cursor-move"
+              style={{
+                left: `${rect.x * 100}%`,
+                top: `${rect.y * 100}%`,
+                width: `${rect.w * 100}%`,
+                height: `${rect.h * 100}%`,
+              }}
+              onPointerDown={(e) => beginDrag(e, "move")}
+            >
+              <div className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white/80">
+                Crop
+              </div>
+              <button
+                type="button"
+                aria-label="Resize crop"
+                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/60 bg-cyan-200 shadow"
+                onPointerDown={(e) => beginDrag(e, "resize")}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={togglePlayback} className="btn-ghost text-[12px] px-3 py-1.5 min-w-[78px]">
+                {playing ? "Pause" : "Play"}
+              </button>
+              <div className="text-[12px] text-white/60 tabular-nums">
+                {formatTime(scrub)} / {formatTime(duration || 0)}
+              </div>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0.01, duration || 0.01)}
+              step={0.05}
+              value={Math.min(scrub, Math.max(0.01, duration || 0.01))}
+              onChange={(e) => syncScrub(Number(e.target.value))}
+              className="mt-3 w-full"
+            />
+          </div>
         </div>
 
-        <div className="grid gap-2">
-          <label className="text-[12px] text-white/70">Left: {percent(rect.x)}%</label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={percent(rect.x)}
-            onChange={(e) => onChange({ x: Number(e.target.value) / 100 })}
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <label className="text-[12px] text-white/70">Top: {percent(rect.y)}%</label>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={percent(rect.y)}
-            onChange={(e) => onChange({ y: Number(e.target.value) / 100 })}
-          />
-        </div>
-
-        <div className="text-[12px] text-white/50">
-          X {percent(rect.x)}% • Y {percent(rect.y)}% • W {percent(rect.w)}% • H {percent(rect.h)}%
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-3 h-fit">
+          <div className="text-sm font-semibold text-white/85">Editor actions</div>
+          <div className="grid gap-2 text-[12px] text-white/60">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">AI tracker: enabled</div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">Motion smoothing: medium</div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">Snap to safe frame</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => applyRect(DEFAULT_CROP_RECT)}
+            className="btn-ghost text-[12px] px-3 py-2"
+          >
+            Reset crop
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy}
+            className={cx(
+              "btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center justify-center gap-2",
+              busy && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            <Icon name="crop" />
+            {busy ? "Cropping…" : "Create cropped clip"}
+          </button>
         </div>
       </div>
 
@@ -1645,19 +1945,6 @@ function CropForm({
           {error}
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={busy}
-        className={cx(
-          "btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center justify-center gap-2",
-          busy && "opacity-70 cursor-not-allowed"
-        )}
-      >
-        <Icon name="crop" />
-        {busy ? "Cropping…" : "Create cropped clip"}
-      </button>
     </div>
   );
 }
@@ -1742,11 +2029,15 @@ function Drawer({
   open,
   onClose,
   title,
+  subtitle = "Per-clip preferences (wiring next).",
+  variant = "side",
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string;
+  variant?: "side" | "studio";
   children: React.ReactNode;
 }) {
   React.useEffect(() => {
@@ -1787,11 +2078,18 @@ function Drawer({
         }}
       />
 
-      <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]">
+      <div
+        className={cx(
+          "absolute border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]",
+          variant === "studio"
+            ? "inset-2 sm:inset-4 rounded-3xl border"
+            : "right-0 top-0 h-full w-full max-w-md border-l"
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white/90">{title}</div>
-            <div className="mt-1 text-sm text-white/55">Per-clip preferences (wiring next).</div>
+            {subtitle && <div className="mt-1 text-sm text-white/55">{subtitle}</div>}
           </div>
           <button
             type="button"
@@ -1803,7 +2101,9 @@ function Drawer({
           </button>
         </div>
 
-        <div className="mt-5 pr-1">{children}</div>
+        <div className={cx("mt-5 pr-1", variant === "studio" && "h-[calc(100%-64px)] overflow-y-auto pr-2")}>
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -1055,13 +1055,13 @@ CLIP_MIN_SECONDS = float(
     os.getenv("WORKER_CLIP_MIN_SECONDS", "20.0")
 )
 CLIP_TARGET_SECONDS = float(
-    os.getenv("WORKER_CLIP_TARGET_SECONDS", "35.0")
+    os.getenv("WORKER_CLIP_TARGET_SECONDS", "55.0")
 )
 CLIP_MAX_SECONDS = float(
-    os.getenv("WORKER_CLIP_MAX_SECONDS", "60.0")
+    os.getenv("WORKER_CLIP_MAX_SECONDS", "65.0")
 )
 MIN_CLIPS_PER_MINUTE = float(
-    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.8")
+    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.6")
 )
 
 SILENCE_PADDING = float(
@@ -1418,6 +1418,50 @@ def generate_clip_plans(
 
     return final
 
+
+def generate_even_timeline_plans(
+    *,
+    video_duration: float,
+    min_clips: int,
+) -> List[Dict[str, float]]:
+    """
+    Deterministic non-overlapping fallback plans spread across the full timeline.
+    Used when speech-driven segmentation collapses to too few clips.
+    """
+    safe_duration = max(0.0, float(video_duration))
+    if safe_duration <= 0.25:
+        return []
+
+    desired_min = max(1, int(min_clips or 1))
+    preferred_len = max(CLIP_MIN_SECONDS, min(CLIP_MAX_SECONDS, CLIP_TARGET_SECONDS))
+    preferred_count = max(1, int(math.ceil(safe_duration / max(1.0, preferred_len))))
+    target_count = max(desired_min, preferred_count)
+
+    max_possible = max(1, int(math.floor(safe_duration / max(1.0, CLIP_MIN_SECONDS))))
+    count = max(1, min(target_count, max_possible))
+
+    seg_len = safe_duration / float(count)
+    if seg_len > CLIP_MAX_SECONDS:
+        count = max(1, int(math.ceil(safe_duration / max(1.0, CLIP_MAX_SECONDS))))
+        seg_len = safe_duration / float(count)
+    if seg_len < CLIP_MIN_SECONDS and count > 1:
+        count = max(1, int(math.floor(safe_duration / max(1.0, CLIP_MIN_SECONDS))))
+        seg_len = safe_duration / float(count)
+
+    plans: List[Dict[str, float]] = []
+    s = 0.0
+    for i in range(count):
+        e = safe_duration if i == (count - 1) else min(safe_duration, s + seg_len)
+        dur = max(0.0, e - s)
+        if dur >= max(1.0, min(CLIP_MIN_SECONDS, safe_duration)):
+            plans.append({"start": s, "end": e, "duration": dur})
+        s = e
+
+    if not plans:
+        e = min(safe_duration, max(CLIP_MIN_SECONDS, CLIP_TARGET_SECONDS))
+        plans = [{"start": 0.0, "end": e, "duration": e}]
+    return plans
+
 # =====================================================
 # END SECTION 5 / 10
 # =====================================================
@@ -1426,9 +1470,9 @@ def generate_clip_plans(
 # -----------------------------------------------------
 
 HOOK_CONF_THRESHOLD = float(os.getenv("WORKER_HOOK_CONF_THRESHOLD", "0.55"))
-TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "3"))
-MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "8"))
-MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "4"))
+TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "6"))
+MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "12"))
+MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "8"))
 
 def compute_clip_quality_score(
     *,
@@ -3272,6 +3316,7 @@ def render_clip_mp4(
 
     fps: int = 30,
     vf_parts: Optional[List[str]] = None,
+    allow_caption_retry: bool = True,
     **_unused: Any,
 ) -> Dict[str, Any]:
     """
@@ -3517,6 +3562,37 @@ def render_clip_mp4(
             desc="ffmpeg render mp4",
             job_id=job_id,
         )
+    except Exception as render_err:
+        # Captions are optional. If libass/subtitles fails for a given source, retry once
+        # without captions so the job can still complete with usable clips.
+        if allow_caption_retry and captions_ass_path:
+            try:
+                log(
+                    f"Render retry without captions: {render_err}",
+                    job_id=job_id,
+                    level="WARN",
+                )
+            except Exception:
+                pass
+            return render_clip_mp4(
+                job_id=job_id,
+                source_video=source_video,
+                clip_start=clip_start,
+                clip_end=clip_end,
+                out_path=out_path,
+                src_w=src_w,
+                src_h=src_h,
+                aspect_ratio=aspect_ratio,
+                camera_samples=camera_samples,
+                captions_enabled=False,
+                words_all=None,
+                caption_style_json=caption_style_json,
+                watermark_enabled=watermark_enabled,
+                fps=fps,
+                vf_parts=vf_parts,
+                allow_caption_retry=False,
+            )
+        raise
     finally:
         if captions_ass_path:
             safe_unlink(captions_ass_path)
@@ -3761,6 +3837,27 @@ def run_job(job_id: int) -> None:
             video_duration=float(video_duration),
         )
 
+        try:
+            min_clips_for_duration = max(
+                1,
+                int(math.ceil((video_duration / 60.0) * MIN_CLIPS_PER_MINUTE)),
+            )
+        except Exception:
+            min_clips_for_duration = 1
+
+        if len(clip_plans) < min_clips_for_duration:
+            fallback_plans = generate_even_timeline_plans(
+                video_duration=float(video_duration),
+                min_clips=min_clips_for_duration,
+            )
+            if fallback_plans:
+                log(
+                    f"Clip plan fallback applied: had={len(clip_plans)} generated={len(fallback_plans)}",
+                    job_id=job_id,
+                    level="WARN",
+                )
+                clip_plans = fallback_plans
+
         # ---------------------------------------------
         # Score + select (viral-ish heuristic)
         # ---------------------------------------------
@@ -3895,6 +3992,12 @@ def run_job(job_id: int) -> None:
                 log(f"Rendered clip size: {size} bytes", job_id=job_id)
 
                 storage.upload(str(clip_path), clip_key, content_type="video/mp4")
+                if hasattr(storage, "exists"):
+                    try:
+                        if not storage.exists(clip_key):
+                            raise RuntimeError("Storage object missing after upload")
+                    except Exception as verify_err:
+                        raise RuntimeError(f"Upload verification failed: {verify_err}")
 
                 log(f"Upload completed → {clip_key}", job_id=job_id)
 
