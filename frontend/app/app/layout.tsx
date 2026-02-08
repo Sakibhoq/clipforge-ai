@@ -78,23 +78,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Mobile polish: lock body scroll when menu is open + close on route change.
-  // Avoid global touchmove preventDefault because it can cause mobile browser freezes.
+  // Mobile polish: only handle Esc close.
+  // Avoid body/html scroll-lock tricks on mobile Safari/Chrome; they can freeze the page.
   useEffect(() => {
     if (!mobileOpen) return;
-
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    const prevPaddingRight = body.style.paddingRight;
-    const prevOverscroll = html.style.overscrollBehaviorY;
-
-    const scrollBarWidth = window.innerWidth - html.clientWidth;
-    if (scrollBarWidth > 0) body.style.paddingRight = `${scrollBarWidth}px`;
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    html.style.overscrollBehaviorY = "none";
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMobileOpen(false);
@@ -102,10 +89,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", onKey);
 
     return () => {
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
-      body.style.paddingRight = prevPaddingRight;
-      html.style.overscrollBehaviorY = prevOverscroll;
       window.removeEventListener("keydown", onKey);
     };
   }, [mobileOpen]);

@@ -240,33 +240,6 @@ export default function Navbar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  // MOBILE SAFE: use a light scroll lock only.
-  // Avoid fixed-body tricks on iOS/Chrome mobile; they can cause page freeze.
-  useEffect(() => {
-    if (!open) return;
-
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyOverflow = body.style.overflow;
-    const prevPaddingRight = body.style.paddingRight;
-    const prevOverscroll = html.style.overscrollBehaviorY;
-
-    const scrollBarWidth = window.innerWidth - html.clientWidth;
-    if (scrollBarWidth > 0) body.style.paddingRight = `${scrollBarWidth}px`;
-
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    html.style.overscrollBehaviorY = "none";
-
-    return () => {
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
-      body.style.paddingRight = prevPaddingRight;
-      html.style.overscrollBehaviorY = prevOverscroll;
-    };
-  }, [open]);
-
   // cookie-auth: fetch /auth/me to determine authed + credits
   useEffect(() => {
     let cancelled = false;
@@ -495,20 +468,12 @@ export default function Navbar() {
           </div>
 
           {open && (
-            <div className="md:hidden relative">
-              <button
-                type="button"
-                aria-label="Close menu overlay"
-                className="fixed inset-0 z-40 cursor-default"
-                onClick={() => setOpen(false)}
-              />
-
-              <div
-                className="absolute left-0 right-0 z-50 mt-3 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur"
-                style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
-                role="dialog"
-                aria-label="Mobile navigation"
-              >
+            <div
+              className="md:hidden mt-3 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur"
+              style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
+              role="dialog"
+              aria-label="Mobile navigation"
+            >
                 <div className="px-3 py-2 flex items-center justify-between">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Navigate</div>
 
@@ -581,7 +546,6 @@ export default function Navbar() {
                     </button>
                   </div>
                 )}
-              </div>
             </div>
           )}
         </div>
