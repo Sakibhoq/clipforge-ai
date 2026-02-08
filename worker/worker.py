@@ -2692,9 +2692,9 @@ def build_ass_header(
     margin_v: int,
 ) -> str:
     """
-    Two styles:
-      - Base: regular subtitle layer
-      - Karaoke: highlight layer (SecondaryColour used as highlight)
+    One karaoke style:
+      - PrimaryColour: spoken-word highlight color
+      - SecondaryColour: unsung-word color (default transparent to avoid early text)
     """
     fmt = (
         "Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
@@ -2703,12 +2703,14 @@ def build_ass_header(
     )
 
     # Single-layer karaoke:
-    # - SecondaryColour = base text (unsung)
-    # - PrimaryColour = highlight (sung)
+    # - SecondaryColour = unsung text
+    # - PrimaryColour = sung text
     karaoke_primary = os.getenv("WORKER_KARAOKE_HIGHLIGHT", "&H0000FFFF")  # bright yellow
+    # Hide words until their \k timing begins (prevents "early" captions).
+    karaoke_unsung = os.getenv("WORKER_KARAOKE_UNSUNG", "&HFF000000")
     karaoke = (
         f"Style: Karaoke,{style['font']},{int(style['font_size'])},"
-        f"{karaoke_primary},{style['primary_color']},{style['outline_color']},&H00000000,"
+        f"{karaoke_primary},{karaoke_unsung},{style['outline_color']},&H00000000,"
         f"{int(style['bold'])},{int(style['italic'])},0,0,100,100,0,0,"
         f"1,{int(style['outline'])},{int(style['shadow'])},"
         f"{int(style['alignment'])},{int(style['margin_h'])},{int(style['margin_h'])},{int(margin_v)},1"
@@ -2739,13 +2741,35 @@ def _karaoke_clamp_cs(v_cs: int) -> int:
         return KARAOKE_MAX_CS
     return int(v_cs)
 
-def build_karaoke_text(words: Iterable[dict]) -> str:
+def _clip_word_window(
+    ws: float,
+    we: float,
+    *,
+    window_start: Optional[float] = None,
+    window_end: Optional[float] = None,
+) -> Optional[Tuple[float, float]]:
+    if window_start is not None:
+        ws = max(float(window_start), ws)
+    if window_end is not None:
+        we = min(float(window_end), we)
+    if we <= ws:
+        return None
+    return float(ws), float(we)
+
+
+def build_karaoke_text(
+    words: Iterable[dict],
+    *,
+    window_start: Optional[float] = None,
+    window_end: Optional[float] = None,
+) -> str:
     """
     Builds \k karaoke string. Each token:
       {\kNN}word
     where NN is centiseconds duration.
     """
     parts = []
+    prev_end = float(window_start) if window_start is not None else None
     token_index = 0
     for w in words:
         try:
@@ -2755,6 +2779,21 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
         except Exception:
             continue
 
+        clipped = _clip_word_window(
+            start,
+            end,
+            window_start=window_start,
+            window_end=window_end,
+        )
+        if clipped is None:
+            continue
+        start, end = clipped
+
+        # Preserve inter-word pauses so words don't appear before they're spoken.
+        if prev_end is not None and start > (prev_end + 0.005):
+            gap_cs = _karaoke_clamp_cs(int(round((start - prev_end) * 100.0)))
+            parts.append(rf"{{\k{gap_cs}}}")
+
         dur = max(0.0, end - start)
         dur_cs = int(round(dur * 100.0))
         dur_cs = _karaoke_clamp_cs(dur_cs)
@@ -2762,11 +2801,18 @@ def build_karaoke_text(words: Iterable[dict]) -> str:
         formatted = _format_karaoke_token(token, is_first_in_line=(token_index == 0))
         if formatted:
             parts.append(rf"{{\k{dur_cs}}}{formatted}")
+            prev_end = end
             token_index += 1
 
     return "".join(parts)
 
-def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> str:
+def build_karaoke_text_for_lines(
+    words: list,
+    line_indices: list[list[int]],
+    *,
+    window_start: Optional[float] = None,
+    window_end: Optional[float] = None,
+) -> str:
     r"""
     Karaoke text with explicit line breaks using \N.
     line_indices are indexes into the words list (order preserved).
@@ -2775,7 +2821,10 @@ def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> 
         return ""
 
     parts = []
+    prev_end = float(window_start) if window_start is not None else None
+    emitted_any = False
     for li, idxs in enumerate(line_indices or []):
+        line_parts = []
         token_index = 0
         for wi in idxs:
             if wi >= len(words):
@@ -2788,20 +2837,43 @@ def build_karaoke_text_for_lines(words: list, line_indices: list[list[int]]) -> 
             except Exception:
                 continue
 
+            clipped = _clip_word_window(
+                start,
+                end,
+                window_start=window_start,
+                window_end=window_end,
+            )
+            if clipped is None:
+                continue
+            start, end = clipped
+
+            # Preserve inter-word pauses so words don't appear before they're spoken.
+            if prev_end is not None and start > (prev_end + 0.005):
+                gap_cs = _karaoke_clamp_cs(int(round((start - prev_end) * 100.0)))
+                line_parts.append(rf"{{\k{gap_cs}}}")
+
             dur = max(0.0, end - start)
             dur_cs = int(round(dur * 100.0))
             dur_cs = _karaoke_clamp_cs(dur_cs)
             formatted = _format_karaoke_token(token, is_first_in_line=(token_index == 0))
             if not formatted:
                 continue
-            parts.append(rf"{{\k{dur_cs}}}{formatted}")
+            line_parts.append(rf"{{\k{dur_cs}}}{formatted}")
+            prev_end = end
+            emitted_any = True
             token_index += 1
 
-        if li < len(line_indices) - 1:
-            parts.append(r"\N")
+        if line_parts:
+            parts.extend(line_parts)
+            if li < len(line_indices) - 1:
+                parts.append(r"\N")
 
-    if not parts:
-        return build_karaoke_text(words)
+    if not emitted_any:
+        return build_karaoke_text(
+            words,
+            window_start=window_start,
+            window_end=window_end,
+        )
 
     return "".join(parts)
 
@@ -3047,7 +3119,12 @@ def build_ass_subtitles_for_clip(
         if e <= s:
             continue
 
-        karaoke_text = build_karaoke_text_for_lines(b_words, line_indices)
+        karaoke_text = build_karaoke_text_for_lines(
+            b_words,
+            line_indices,
+            window_start=s,
+            window_end=e,
+        )
         if not karaoke_text:
             plain = ass_escape(clean_text(" ".join(str(w.get("word", "")) for w in b_words)))
             karaoke_text = plain
