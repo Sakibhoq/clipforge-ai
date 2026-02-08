@@ -1832,6 +1832,8 @@ ADAPTIVE_CONTEXT_MULTI_FACE_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MUL
 ADAPTIVE_CONTEXT_FACELESS_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FACELESS_RATIO", "0.55"))
 ADAPTIVE_CONTEXT_UI_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_RATIO", "0.38"))
 ADAPTIVE_CONTEXT_UI_EDGE_DENSITY = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_EDGE_DENSITY", "0.085"))
+ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING", "0.55"))
+ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES", "90"))
 
 
 def _resize_for_detection(frame_bgr, max_width: int):
@@ -2311,8 +2313,11 @@ def build_camera_path(
     faceless_hits = 0
     person_only_hits = 0
     ui_like_hits = 0
+    context_hits = 0
     last_faces: List[Any] = []
     last_people: List[Any] = []
+    layout_samples: List[Tuple[float, float]] = []
+    layout_state = 0.0
 
     dynamic_step_limit = max(14.0, min(float(REFRAME_MAX_STEP_PX), min(crop_w, crop_h) * 0.08))
     deadzone_px = max(0.0, float(REFRAME_DEADZONE_PX))
@@ -2347,11 +2352,14 @@ def build_camera_path(
             last_faces = _detect_faces(frame)
         faces = list(last_faces or [])
         people: list = []
+        edge_density = 0.0
 
         subject_mode = "fallback"
+        prefer_context = False
         if faces:
             if len(faces) >= 2:
                 multi_face_hits += 1
+                prefer_context = True
             # Choose largest face
             x, y, w, h = max(faces, key=lambda f: float(f[2]) * float(f[3]))
             cx = float(x) + float(w) / 2.0
@@ -2367,6 +2375,7 @@ def build_camera_path(
             if people:
                 if len(people) >= 2:
                     multi_face_hits += 1
+                    prefer_context = True
                 person_only_hits += 1
                 x, y, w, h = max(people, key=lambda p: float(p[2]) * float(p[3]))
                 cx = float(x) + float(w) / 2.0
@@ -2375,13 +2384,30 @@ def build_camera_path(
                 person_hits += 1
             else:
                 faceless_hits += 1
+                prefer_context = True
                 edge_density = _estimate_ui_edge_density(frame)
                 if edge_density >= float(ADAPTIVE_CONTEXT_UI_EDGE_DENSITY):
                     ui_like_hits += 1
+                    prefer_context = True
                 # Bias to upper-middle for speaking content
                 cx = src_w / 2.0
                 cy = src_h * float(REFRAME_CENTER_BIAS_Y)
                 fallback_hits += 1
+
+        if not ADAPTIVE_CONTEXT_MODE:
+            prefer_context = False
+
+        target_layout = 1.0 if prefer_context else 0.0
+        if sample_idx <= 0:
+            layout_state = target_layout
+        else:
+            ls = max(0.0, min(0.995, float(ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING)))
+            layout_state = (ls * layout_state) + ((1.0 - ls) * target_layout)
+            if abs(layout_state - target_layout) <= 0.035:
+                layout_state = target_layout
+        layout_samples.append((float(t), float(layout_state)))
+        if target_layout >= 0.5:
+            context_hits += 1
 
         # Clamp sudden detector spikes.
         dt = max(0.001, float(t) - float(last_t))
@@ -2437,6 +2463,7 @@ def build_camera_path(
         fallback_t0 = float(analysis_start_s)
         fallback_t1 = max(float(analysis_end_s), fallback_t0 + max(0.5, sample_step))
         samples = [(fallback_t0, float(cx), float(cy)), (fallback_t1, float(cx), float(cy))]
+        layout_samples = [(fallback_t0, 1.0), (fallback_t1, 1.0)]
 
     raw_sample_count = len(samples)
     samples = smooth_camera_samples(
@@ -2448,6 +2475,13 @@ def build_camera_path(
         window=max(1, int(REFRAME_SMOOTH_WINDOW)),
     )
     samples = compress_camera_samples(samples, max(50, int(REFRAME_MAX_KEYFRAMES)))
+    if layout_samples:
+        layout_triples = [(float(t), float(v), float(v)) for (t, v) in layout_samples]
+        layout_triples = compress_camera_samples(
+            layout_triples,
+            max(16, int(ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES)),
+        )
+        layout_samples = [(float(t), float(vx)) for (t, vx, _vy) in layout_triples]
 
     times = np.array([s[0] for s in samples], dtype=float)
     xs = np.array([s[1] for s in samples], dtype=float)
@@ -2479,10 +2513,13 @@ def build_camera_path(
         "faceless_hits": int(faceless_hits),
         "person_only_hits": int(person_only_hits),
         "ui_like_hits": int(ui_like_hits),
+        "context_hits": int(context_hits),
         "multi_face_ratio": float(multi_face_hits) / float(max(1, sample_total)),
         "faceless_ratio": float(faceless_hits) / float(max(1, sample_total)),
         "person_only_ratio": float(person_only_hits) / float(max(1, sample_total)),
         "ui_like_ratio": float(ui_like_hits) / float(max(1, sample_total)),
+        "context_ratio": float(context_hits) / float(max(1, sample_total)),
+        "layout_samples": layout_samples,
     }
 
     return cam_x, cam_y, samples, meta
@@ -3525,6 +3562,100 @@ def build_lerp_expr(samples: list, axis: str) -> str:
     expr += f"{last:.3f}" + ")" * (len(samples) - 1)
     return expr
 
+def build_lerp_scalar_expr(samples: list, *, time_var: str = "t") -> str:
+    """
+    Builds an ffmpeg-safe lerp() expression from scalar samples:
+      samples[(t, value)].
+    """
+    if not samples:
+        return "0"
+    if len(samples) == 1:
+        return f"{float(samples[0][1]):.3f}"
+
+    expr = ""
+    for i in range(len(samples) - 1):
+        t0, v0 = samples[i]
+        t1, v1 = samples[i + 1]
+        seg = (
+            f"if(between({time_var},{float(t0):.3f},{float(t1):.3f}),"
+            f"lerp({float(v0):.3f},{float(v1):.3f},({time_var}-{float(t0):.3f})/{max(float(t1)-float(t0),0.001):.6f}),"
+        )
+        expr += seg
+    expr += f"{float(samples[-1][1]):.3f}" + ")" * (len(samples) - 1)
+    return expr
+
+def scalar_samples_for_clip_window(
+    samples: list,
+    *,
+    clip_start: float,
+    clip_end: float,
+    max_keyframes: int,
+) -> list:
+    """
+    Keep scalar keyframes relevant to the clip window and rebase to clip-local t.
+    Input format: samples[(abs_t, value)].
+    Output format: samples[(local_t, value)].
+    """
+    if not samples:
+        return []
+
+    s = float(max(0.0, clip_start))
+    e = float(max(s + 0.01, clip_end))
+    dur = e - s
+
+    clean: list[tuple[float, float]] = []
+    for item in samples:
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            continue
+        try:
+            t = float(item[0])
+            v = float(item[1])
+        except Exception:
+            continue
+        clean.append((t, v))
+    if not clean:
+        return []
+    clean.sort(key=lambda x: float(x[0]))
+
+    before: Optional[tuple[float, float]] = None
+    inside: list[tuple[float, float]] = []
+    after: Optional[tuple[float, float]] = None
+
+    for t, v in clean:
+        if t < s:
+            before = (t, v)
+            continue
+        if t > e:
+            after = (t, v)
+            break
+        inside.append((t, v))
+
+    use: list[tuple[float, float]] = []
+    if before is not None:
+        use.append(before)
+    use.extend(inside)
+    if after is not None:
+        use.append(after)
+    if not use:
+        use = [clean[0], clean[-1]] if len(clean) > 1 else [clean[0]]
+
+    rebased: list[tuple[float, float]] = []
+    for t, v in use:
+        lt = max(0.0, min(dur, float(t) - s))
+        rebased.append((lt, max(0.0, min(1.0, float(v)))))
+
+    rebased.sort(key=lambda x: float(x[0]))
+    if rebased and rebased[0][0] > 0.0:
+        rebased.insert(0, (0.0, rebased[0][1]))
+    if rebased and rebased[-1][0] < dur:
+        rebased.append((dur, rebased[-1][1]))
+    if len(rebased) == 1:
+        rebased.append((dur, rebased[0][1]))
+
+    triples = [(float(t), float(v), float(v)) for (t, v) in rebased]
+    triples = compress_camera_samples(triples, max(8, int(max_keyframes or 8)))
+    return [(float(t), float(vx)) for (t, vx, _vy) in triples]
+
 def camera_samples_for_clip_window(
     samples: list,
     *,
@@ -3651,7 +3782,32 @@ def render_clip_mp4(
         aspect_ratio=aspect_ratio,
         camera_meta=camera_meta,
     )
-    if use_context_layout:
+    mixed_layout = False
+    clip_layout_samples: List[Tuple[float, float]] = []
+    aspect_norm = (aspect_ratio or "9:16").strip()
+    if ADAPTIVE_CONTEXT_MODE and aspect_norm == "9:16" and camera_meta:
+        raw_layout_samples = camera_meta.get("layout_samples")
+        if isinstance(raw_layout_samples, list) and raw_layout_samples:
+            clip_layout_samples = scalar_samples_for_clip_window(
+                raw_layout_samples,
+                clip_start=clip_start,
+                clip_end=clip_end,
+                max_keyframes=max(12, int(REFRAME_MAX_KEYFRAMES_PER_CLIP // 2)),
+            )
+            if clip_layout_samples:
+                layout_min = min(float(v) for _, v in clip_layout_samples)
+                layout_max = max(float(v) for _, v in clip_layout_samples)
+                mixed_layout = bool(layout_min <= 0.35 and layout_max >= 0.65)
+
+    if mixed_layout:
+        try:
+            log(
+                "Using adaptive mixed framing (face + context in one clip)",
+                job_id=job_id,
+            )
+        except Exception:
+            pass
+    elif use_context_layout:
         try:
             log(
                 "Using context-preserve framing "
@@ -3710,7 +3866,46 @@ def render_clip_mp4(
     base_filter_complex = ""
     vf = ""
 
-    if use_context_layout:
+    if mixed_layout:
+        post_chain: List[str] = []
+        if captions_ass_path:
+            post_chain.append(f"subtitles='{_ffq(captions_ass_path)}'")
+        post_chain.append(f"fps={int(fps)}")
+        post = ",".join(post_chain)
+
+        if camera_samples:
+            clip_camera_samples = camera_samples_for_clip_window(
+                camera_samples,
+                clip_start=clip_start,
+                clip_end=clip_end,
+                max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+            )
+            cx_expr = build_lerp_expr(clip_camera_samples, "x")
+            cy_expr = build_lerp_expr(clip_camera_samples, "y")
+            x_expr = f"max(0,min({src_w-crop_w},{cx_expr}-{crop_w}/2))"
+            y_expr = f"max(0,min({src_h-crop_h},{cy_expr}-{crop_h}/2))"
+        else:
+            x_expr = f"{(src_w-crop_w)//2}"
+            y_expr = f"{(src_h-crop_h)//2}"
+
+        weight_expr = build_lerp_scalar_expr(clip_layout_samples, time_var="T")
+        weight_expr = f"max(0,min(1,{weight_expr}))"
+        blend_expr = f"A*(1-({weight_expr}))+B*({weight_expr})"
+
+        base_filter_complex = (
+            f"[0:v]split=2[vface0][vctx0];"
+            f"[vface0]crop={crop_w}:{crop_h}:x='{x_expr}':y='{y_expr}',"
+            f"scale={target_w}:{target_h}[vface];"
+            f"[vctx0]split=2[vbg][vfg];"
+            f"[vbg]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},gblur=sigma=26:steps=2[vbgb];"
+            f"[vfg]scale={target_w}:{target_h}:force_original_aspect_ratio=decrease[vfgf];"
+            f"[vbgb][vfgf]overlay=(W-w)/2:(H-h)/2[vctx];"
+            f"[vface][vctx]blend=all_expr='{blend_expr}'[vblend];"
+            f"[vblend]{post}[v1]"
+        )
+        base_uses_complex = True
+    elif use_context_layout:
         # Preserve full frame context for vertical output by placing a scaled
         # foreground over a blurred background copy.
         post_chain: List[str] = []
