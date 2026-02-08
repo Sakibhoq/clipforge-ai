@@ -841,7 +841,14 @@ function UploadWorkspace() {
       });
       setYtPreview(data);
     } catch (e: any) {
-      const msg = typeof e?.message === "string" ? e.message : "Could not preview video.";
+      const msg =
+        typeof e?.detail === "string"
+          ? e.detail
+          : typeof e?.body?.detail === "string"
+          ? e.body.detail
+          : typeof e?.message === "string"
+          ? e.message
+          : "Could not preview video.";
       setYtPreview(null);
       setYtPreviewError(msg);
     } finally {
@@ -1303,6 +1310,10 @@ function UploadWorkspace() {
       return;
     }
     if (flow === "uploading" || flow === "processing" || ytIngestBusy) return;
+
+    ytPreviewAbort.current?.abort();
+    ytPreviewAbort.current = null;
+    setYtPreviewLoading(false);
 
     setYtIngestBusy(true);
     setErrorTitle("");
@@ -1974,10 +1985,10 @@ function UploadWorkspace() {
                 <button
                   type="button"
                   onClick={ingestYoutubeDirect}
-                  disabled={!urlOk || ytPreviewLoading || ytIngestBusy || flow === "uploading" || flow === "processing"}
+                  disabled={!urlOk || ytIngestBusy || flow === "uploading" || flow === "processing"}
                   className={cx(
                     "btn-aurora px-4 py-2 text-[12px]",
-                    (!urlOk || ytPreviewLoading || ytIngestBusy || flow === "uploading" || flow === "processing") &&
+                    (!urlOk || ytIngestBusy || flow === "uploading" || flow === "processing") &&
                       "opacity-50 cursor-not-allowed"
                   )}
                 >

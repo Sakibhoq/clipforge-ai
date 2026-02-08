@@ -54,6 +54,8 @@ services:
 
       # YouTube ingest + automations
       ENABLE_YOUTUBE_INGEST: "true"
+      YOUTUBE_API_KEY: "${YOUTUBE_API_KEY:-}"
+      YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-/app/youtube_cookies.txt}"
       AUTOMATION_WEBHOOK_SECRET: "${AUTOMATION_WEBHOOK_SECRET:-dev_automation_secret}"
       AUTOPOST_PROVIDERS: "${AUTOPOST_PROVIDERS:-youtube,tiktok,instagram,facebook}"
 

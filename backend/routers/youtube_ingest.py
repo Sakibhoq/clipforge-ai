@@ -198,6 +198,57 @@ def _youtube_api_preview(video_id: str) -> dict:
     }
 
 
+def _yt_dlp_preview(video_url: str) -> dict:
+    """
+    Fallback preview path when YouTube Data API is unavailable.
+    Uses yt-dlp metadata extraction only (no download).
+    """
+    cmd = [
+        "yt-dlp",
+        "--dump-single-json",
+        "--skip-download",
+        "--no-playlist",
+        "--no-warnings",
+        video_url,
+    ]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+    except subprocess.TimeoutExpired:
+        raise HTTPException(504, "yt-dlp preview timed out")
+
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        raise HTTPException(502, f"yt-dlp preview failed: {err[:220]}")
+
+    raw = (proc.stdout or "").strip()
+    if not raw:
+        raise HTTPException(502, "yt-dlp preview returned empty output")
+
+    try:
+        data = json.loads(raw)
+    except Exception:
+        raise HTTPException(502, "Invalid yt-dlp preview response")
+
+    title = (data.get("title") or "").strip()
+    channel = (data.get("channel") or data.get("uploader") or "").strip() or None
+    thumb = data.get("thumbnail")
+    duration_raw = data.get("duration")
+    try:
+        duration_seconds = int(float(duration_raw or 0))
+    except Exception:
+        duration_seconds = 0
+
+    if not title or duration_seconds <= 0:
+        raise HTTPException(502, "Invalid yt-dlp metadata")
+
+    return {
+        "title": title,
+        "channel": channel,
+        "duration_seconds": duration_seconds,
+        "thumbnail_url": thumb if isinstance(thumb, str) and thumb else None,
+    }
+
+
 def _minutes_rounded(duration_seconds: int) -> int:
     return max(1, int(math.ceil(max(0, int(duration_seconds)) / 60.0)))
 
@@ -390,10 +441,26 @@ def _download_youtube_video(url: str, video_id: str) -> str:
         "bv*+ba/b",
         "--merge-output-format",
         "mp4",
+        "--no-playlist",
+        "--no-warnings",
+        "--retries",
+        "3",
+        "--fragment-retries",
+        "3",
+        "--socket-timeout",
+        "30",
         "-o",
         outtmpl,
         url,
     ]
+    cookies_path = (os.getenv("YTDLP_COOKIES_FILE") or "").strip()
+    if not cookies_path:
+        default_cookies = "/app/youtube_cookies.txt"
+        if os.path.isfile(default_cookies):
+            cookies_path = default_cookies
+    if cookies_path and os.path.isfile(cookies_path):
+        cmd[1:1] = ["--cookies", cookies_path]
+
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise HTTPException(502, f"yt-dlp failed: {proc.stderr.strip() or proc.stdout.strip()}")
@@ -417,10 +484,21 @@ def preview_youtube(
     if not video_id:
         raise HTTPException(422, "Invalid YouTube URL")
 
-    meta = _youtube_api_preview(video_id)
+    normalized = _normalize_youtube_url(video_id)
+    try:
+        meta = _youtube_api_preview(video_id)
+    except HTTPException as api_exc:
+        try:
+            meta = _yt_dlp_preview(normalized)
+        except HTTPException:
+            api_detail = str(api_exc.detail or "Preview unavailable")
+            raise HTTPException(
+                502,
+                f"Could not preview video right now. You can still click Import with Orbito. ({api_detail})",
+            )
+
     mins = _minutes_rounded(meta["duration_seconds"])
     credits = mins * 2
-    normalized = _normalize_youtube_url(video_id)
 
     return {
         "video_id": video_id,
