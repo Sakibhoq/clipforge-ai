@@ -1682,6 +1682,20 @@ def _headline_case(s: str) -> str:
     return s[0].upper() + s[1:]
 
 
+def _slugify_filename_base(text: str, *, fallback: str = "clip", max_len: int = 64) -> str:
+    s = clean_text(text or "")
+    if not s:
+        return fallback
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^A-Za-z0-9\s\-_]+", "", s)
+    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
+    if not s:
+        return fallback
+    if len(s) > max_len:
+        s = s[:max_len].strip("-")
+    return s or fallback
+
+
 def generate_title_heuristic(
     snippet: str,
     *,
@@ -1763,28 +1777,30 @@ except Exception:
 # Reframing configuration
 # -----------------------------------------------------
 
-REFRAME_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_SAMPLE_FPS", "4.0"))
-REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "8.0"))
+REFRAME_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_SAMPLE_FPS", "6.0"))
+REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "10.0"))
 REFRAME_ANALYZE_EVERY_FRAME = os.getenv("WORKER_REFRAME_ANALYZE_EVERY_FRAME", "0") == "1"
 REFRAME_MAX_KEYFRAMES = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES", "220"))
 REFRAME_MAX_KEYFRAMES_PER_CLIP = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP", "120"))
+REFRAME_SMOOTH_WINDOW = int(os.getenv("WORKER_REFRAME_SMOOTH_WINDOW", "2"))
 
-REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.86"))
-REFRAME_SMOOTHING_OBJECT = float(os.getenv("WORKER_REFRAME_SMOOTHING_OBJECT", "0.90"))
-REFRAME_SMOOTHING_FALLBACK = float(os.getenv("WORKER_REFRAME_SMOOTHING_FALLBACK", "0.93"))
+REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.92"))
+REFRAME_SMOOTHING_OBJECT = float(os.getenv("WORKER_REFRAME_SMOOTHING_OBJECT", "0.94"))
+REFRAME_SMOOTHING_FALLBACK = float(os.getenv("WORKER_REFRAME_SMOOTHING_FALLBACK", "0.96"))
+REFRAME_DEADZONE_PX = float(os.getenv("WORKER_REFRAME_DEADZONE_PX", "10.0"))
 
 REFRAME_CENTER_BIAS_Y = float(os.getenv("WORKER_REFRAME_CENTER_BIAS_Y", "0.62"))
 OBJECT_CENTER_BIAS_Y = float(os.getenv("WORKER_OBJECT_CENTER_BIAS_Y", "0.44"))
 
 # Clamp crop motion per sample (prevents violent jumps if detector glitches)
-REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "120.0"))
+REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "90.0"))
 
 # If no faces/people detected, keep crops biased slightly above center (good for talking heads)
 FALLBACK_CENTER_BIAS_Y = float(os.getenv("WORKER_FALLBACK_CENTER_BIAS_Y", "0.58"))
-FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "2"))
-PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "5"))
-REFRAME_FACE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_FACE_DETECT_MAX_WIDTH", "720"))
-REFRAME_PEOPLE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_PEOPLE_DETECT_MAX_WIDTH", "640"))
+FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "1"))
+PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "3"))
+REFRAME_FACE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_FACE_DETECT_MAX_WIDTH", "640"))
+REFRAME_PEOPLE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_PEOPLE_DETECT_MAX_WIDTH", "576"))
 
 
 def _resize_for_detection(frame_bgr, max_width: int):
@@ -2034,6 +2050,47 @@ def compress_camera_samples(samples: list, max_points: int) -> list:
         reduced.append(samples[-1])
     return reduced
 
+
+def smooth_camera_samples(
+    samples: list,
+    *,
+    src_w: float,
+    src_h: float,
+    crop_w: float,
+    crop_h: float,
+    window: int,
+) -> list:
+    if not samples or window <= 0 or len(samples) < 3:
+        return samples
+
+    out: list = []
+    n = len(samples)
+    for i, (t, _x, _y) in enumerate(samples):
+        left = max(0, i - window)
+        right = min(n - 1, i + window)
+        sx = 0.0
+        sy = 0.0
+        sw = 0.0
+        for j in range(left, right + 1):
+            dist = abs(i - j)
+            w = float((window + 1) - dist)
+            _tj, xj, yj = samples[j]
+            sx += xj * w
+            sy += yj * w
+            sw += w
+        cx = sx / max(1e-6, sw)
+        cy = sy / max(1e-6, sw)
+        cx, cy = clamp_center_to_bounds(
+            cx=cx,
+            cy=cy,
+            crop_w=crop_w,
+            crop_h=crop_h,
+            src_w=src_w,
+            src_h=src_h,
+        )
+        out.append((float(t), float(cx), float(cy)))
+    return out
+
 # -----------------------------------------------------
 # Camera path builder
 # -----------------------------------------------------
@@ -2170,7 +2227,9 @@ def build_camera_path(
     last_faces: List[Any] = []
     last_people: List[Any] = []
 
-    dynamic_step_limit = max(18.0, min(float(REFRAME_MAX_STEP_PX), min(crop_w, crop_h) * 0.12))
+    dynamic_step_limit = max(14.0, min(float(REFRAME_MAX_STEP_PX), min(crop_w, crop_h) * 0.08))
+    deadzone_px = max(0.0, float(REFRAME_DEADZONE_PX))
+    last_t = analysis_start_s
 
     try:
         cap.set(cv2.CAP_PROP_POS_FRAMES, float(start_frame))
@@ -2227,9 +2286,12 @@ def build_camera_path(
                 cy = src_h * float(REFRAME_CENTER_BIAS_Y)
                 fallback_hits += 1
 
-        # Clamp sudden detector spikes
-        cx = limit_step(prev=last_x, cur=cx, max_step=dynamic_step_limit)
-        cy = limit_step(prev=last_y, cur=cy, max_step=dynamic_step_limit)
+        # Clamp sudden detector spikes.
+        dt = max(0.001, float(t) - float(last_t))
+        dt_scale = max(0.35, min(2.0, dt / max(0.001, sample_step)))
+        step_cap = dynamic_step_limit * dt_scale
+        cx = limit_step(prev=last_x, cur=cx, max_step=step_cap)
+        cy = limit_step(prev=last_y, cur=cy, max_step=step_cap)
 
         if subject_mode == "face":
             smoothing = float(REFRAME_SMOOTHING_FACE)
@@ -2241,6 +2303,12 @@ def build_camera_path(
         # Smooth with mode-specific damping
         cx = smoothing * last_x + (1.0 - smoothing) * cx
         cy = smoothing * last_y + (1.0 - smoothing) * cy
+
+        # Ignore micro-jitter from detector noise.
+        if abs(cx - last_x) < deadzone_px:
+            cx = last_x
+        if abs(cy - last_y) < deadzone_px:
+            cy = last_y
 
         # Clamp so crop stays inside bounds
         cx, cy = clamp_center_to_bounds(
@@ -2254,6 +2322,7 @@ def build_camera_path(
 
         samples.append((float(t), float(cx), float(cy)))
         last_x, last_y = cx, cy
+        last_t = float(t)
         sample_idx += 1
         frame_idx += 1
 
@@ -2273,6 +2342,14 @@ def build_camera_path(
         samples = [(fallback_t0, float(cx), float(cy)), (fallback_t1, float(cx), float(cy))]
 
     raw_sample_count = len(samples)
+    samples = smooth_camera_samples(
+        samples,
+        src_w=src_w,
+        src_h=src_h,
+        crop_w=crop_w,
+        crop_h=crop_h,
+        window=max(1, int(REFRAME_SMOOTH_WINDOW)),
+    )
     samples = compress_camera_samples(samples, max(50, int(REFRAME_MAX_KEYFRAMES)))
 
     times = np.array([s[0] for s in samples], dtype=float)
@@ -3053,18 +3130,15 @@ WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "10.0"
 WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "3.0"))
 WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 
-# Burned-in subtitle suppression (lower band mask)
-REMOVE_BURNT_CAPTIONS = os.getenv("WORKER_REMOVE_BURNT_CAPTIONS", "1") == "1"
-REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS = (
-    os.getenv("WORKER_REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS", "1") == "1"
-)
-BURNT_CAPTION_BAND_RATIO = float(os.getenv("WORKER_BURNT_CAPTION_BAND_RATIO", "0.13"))
-BURNT_CAPTION_MIN_BAND_PX = int(os.getenv("WORKER_BURNT_CAPTION_MIN_BAND_PX", "140"))
-BURNT_CAPTION_MASK_ALPHA = float(os.getenv("WORKER_BURNT_CAPTION_MASK_ALPHA", "0.96"))
-BURNT_CAPTION_MASK_COLOR = (os.getenv("WORKER_BURNT_CAPTION_MASK_COLOR", "black") or "black").strip()
-BURNT_CAPTION_MODE = (os.getenv("WORKER_BURNT_CAPTION_MODE", "delogo") or "delogo").strip().lower()
-BURNT_CAPTION_PAD_SECONDS = float(os.getenv("WORKER_BURNT_CAPTION_PAD_SECONDS", "0.10"))
-BURNT_CAPTION_MERGE_GAP_SECONDS = float(os.getenv("WORKER_BURNT_CAPTION_MERGE_GAP_SECONDS", "0.25"))
+# Burned-in subtitle suppression was removed to avoid wiping user captions.
+# Keep legacy constants defined so older helper functions remain harmless.
+BURNT_CAPTION_BAND_RATIO = 0.13
+BURNT_CAPTION_MIN_BAND_PX = 140
+BURNT_CAPTION_MASK_ALPHA = 0.96
+BURNT_CAPTION_MASK_COLOR = "black"
+BURNT_CAPTION_MODE = "delogo"
+BURNT_CAPTION_PAD_SECONDS = 0.10
+BURNT_CAPTION_MERGE_GAP_SECONDS = 0.25
 
 # -----------------------------------------------------
 # FFmpeg helpers
@@ -3396,26 +3470,6 @@ def render_clip_mp4(
     # Scale to target
     vf_chain.append(f"scale={target_w}:{target_h}")
 
-    # Optional baked-subtitle suppression band (applied before our ASS captions).
-    apply_burnt_caption_mask = bool(
-        REMOVE_BURNT_CAPTIONS
-        and (captions_enabled or not REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS)
-    )
-    if apply_burnt_caption_mask:
-        intervals = _burnt_caption_intervals_from_words(
-            words_all=words_all,
-            clip_start=float(clip_start),
-            clip_end=float(clip_end),
-        )
-        if intervals:
-            vf_chain.append(
-                _burnt_caption_suppression_filter(
-                    target_w=int(target_w),
-                    target_h=int(target_h),
-                    intervals=intervals,
-                )
-            )
-
     # Captions (burn-in ASS)
     captions_ass_path: Optional[Path] = None
     if captions_enabled and words_all:
@@ -3562,36 +3616,7 @@ def render_clip_mp4(
             desc="ffmpeg render mp4",
             job_id=job_id,
         )
-    except Exception as render_err:
-        # Captions are optional. If libass/subtitles fails for a given source, retry once
-        # without captions so the job can still complete with usable clips.
-        if allow_caption_retry and captions_ass_path:
-            try:
-                log(
-                    f"Render retry without captions: {render_err}",
-                    job_id=job_id,
-                    level="WARN",
-                )
-            except Exception:
-                pass
-            return render_clip_mp4(
-                job_id=job_id,
-                source_video=source_video,
-                clip_start=clip_start,
-                clip_end=clip_end,
-                out_path=out_path,
-                src_w=src_w,
-                src_h=src_h,
-                aspect_ratio=aspect_ratio,
-                camera_samples=camera_samples,
-                captions_enabled=False,
-                words_all=None,
-                caption_style_json=caption_style_json,
-                watermark_enabled=watermark_enabled,
-                fps=fps,
-                vf_parts=vf_parts,
-                allow_caption_retry=False,
-            )
+    except Exception:
         raise
     finally:
         if captions_ass_path:
@@ -3977,7 +4002,9 @@ def run_job(job_id: int) -> None:
                 # -----------------------------
                 # HARD UPLOAD VERIFICATION
                 # -----------------------------
-                clip_key = f"users/{user_id}/clips/{job_id}_{idx}.mp4"
+                clip_stem = _slugify_filename_base(title, fallback=f"clip-{idx + 1}")
+                clip_file = f"{clip_stem}-{job_id}-{idx + 1}.mp4"
+                clip_key = f"users/{user_id}/clips/{clip_file}"
                 clip_path = Path(render["path"])
 
                 log(f"Preparing upload → {clip_key}", job_id=job_id)

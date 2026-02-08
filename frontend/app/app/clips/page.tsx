@@ -128,9 +128,24 @@ function sanitizeFilename(name: string) {
   return s || "clip";
 }
 
+function looksMachineFilename(base: string) {
+  const b = (base || "").toLowerCase();
+  return (
+    /^\d+_\d+\.mp4$/.test(b) ||
+    /^\d+_crop_[a-f0-9]+\.mp4$/.test(b) ||
+    /^clip-\d+(-cropped)?\.mp4$/.test(b)
+  );
+}
+
 function downloadNameFromKey(storageKey: string, fallbackName?: string) {
+  const fallbackRaw = (fallbackName || "").trim();
+  if (fallbackRaw) {
+    const fallbackBase = sanitizeFilename(fallbackRaw.replace(/\.mp4$/i, ""));
+    return `${fallbackBase}.mp4`;
+  }
+
   const base = (storageKey || "").split("/").pop() || "";
-  const derived = base ? base : sanitizeFilename(fallbackName || "clip") + ".mp4";
+  const derived = base && !looksMachineFilename(base) ? base : "clip.mp4";
   return derived.endsWith(".mp4") ? derived : `${derived}.mp4`;
 }
 
@@ -586,7 +601,9 @@ function ClipMeta({
       <div className="mt-1 text-[12px] text-white/55">
         {formatTime(clip.start_time)} → {formatTime(clip.end_time)} • {Math.round(clip.duration)}s
       </div>
-      <div className={cx("mt-2 text-[12px] text-white/45 truncate", compact && "mt-1")}>{clip.storage_key}</div>
+      <div className={cx("mt-2 text-[12px] text-white/45 truncate", compact && "mt-1")}>
+        {downloadNameFromKey(clip.storage_key, autoTitle(clip))}
+      </div>
     </div>
   );
 }
@@ -604,7 +621,7 @@ function ClipActions({
 }) {
   const [downloading, setDownloading] = useState(false);
   const title = autoTitle(clip);
-  const filename = downloadNameFromKey(clip.storage_key, `${title}.mp4`);
+  const filename = downloadNameFromKey(clip.storage_key, title);
 
   async function onDownload() {
     if (downloading) return;

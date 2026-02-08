@@ -1,6 +1,7 @@
 # backend/routers/clips.py
 import json
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -30,6 +31,31 @@ def _sanitize_download_name(name: str) -> str:
     if not cleaned.lower().endswith(".mp4"):
         cleaned += ".mp4"
     return cleaned
+
+
+def _slugify_filename_base(text: str, fallback: str = "clip", max_len: int = 64) -> str:
+    s = str(text or "").strip()
+    if not s:
+        return fallback
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^A-Za-z0-9\s\-_]+", "", s)
+    s = re.sub(r"[\s_]+", "-", s).strip("-").lower()
+    if not s:
+        return fallback
+    if len(s) > max_len:
+        s = s[:max_len].strip("-")
+    return s or fallback
+
+
+def _clip_download_name(clip: Clip, override: Optional[str] = None) -> str:
+    if override:
+        return _sanitize_download_name(override)
+    title = (clip.title or "").strip()
+    if title:
+        return _sanitize_download_name(f"{title}.mp4")
+    if clip.storage_key:
+        return _sanitize_download_name(clip.storage_key.split("/")[-1])
+    return _sanitize_download_name(f"clip-{clip.id}.mp4")
 
 
 def _stream_filelike(body, chunk_size: int = 1024 * 1024):
@@ -186,8 +212,7 @@ def download_clip(
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
 
-    preferred = filename or (clip.storage_key.split("/")[-1] if clip.storage_key else f"clip-{clip.id}.mp4")
-    safe_name = _sanitize_download_name(preferred)
+    safe_name = _clip_download_name(clip, filename)
     storage = get_storage()
 
     if not _clip_storage_exists(storage, clip.storage_key):
@@ -298,15 +323,22 @@ def crop_clip(
             raise HTTPException(status_code=500, detail=detail[-400:])
 
         parent = clip.storage_key.rsplit("/", 1)[0] if "/" in clip.storage_key else f"users/{current_user.id}/clips"
-        new_key = f"{parent}/{clip.id}_crop_{uuid.uuid4().hex[:10]}.mp4"
+        title_base = (clip.title or f"Clip {clip.id}").strip() or f"Clip {clip.id}"
+        cropped_title = f"{title_base} (Cropped)"
+        stem = _slugify_filename_base(cropped_title, fallback=f"clip-{clip.id}-cropped")
+        new_key = f"{parent}/{stem}.mp4"
+        if hasattr(storage, "exists"):
+            try:
+                if storage.exists(new_key):
+                    new_key = f"{parent}/{stem}-{uuid.uuid4().hex[:8]}.mp4"
+            except Exception:
+                pass
 
         if hasattr(storage, "upload"):
             storage.upload(out_path, new_key, content_type="video/mp4")  # type: ignore[attr-defined]
         else:
             with open(out_path, "rb") as f:
                 storage.save(f, new_key, content_type="video/mp4")
-
-        title_base = (clip.title or f"Clip {clip.id}").strip() or f"Clip {clip.id}"
         clip_base_start = float(clip.start_time or 0.0)
         new_start = clip_base_start + trim_start
         new_end = clip_base_start + trim_end
@@ -317,7 +349,7 @@ def crop_clip(
             start_time=new_start,
             end_time=new_end,
             duration=max(0.0, new_end - new_start),
-            title=f"{title_base} (Cropped)",
+            title=cropped_title,
             hook=clip.hook,
         )
         db.add(new_clip)
