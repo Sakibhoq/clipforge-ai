@@ -45,6 +45,7 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
             "openid",
             "email",
             "profile",
+            "https://www.googleapis.com/auth/youtube.readonly",
             "https://www.googleapis.com/auth/youtube.upload",
         ],
         "pkce": True,

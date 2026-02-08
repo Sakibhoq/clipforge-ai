@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-type Channel = { id: number; channel_id: string; title?: string | null; last_polled_at?: string | null };
+type Channel = { id: number; channel_id: string; channel_title?: string | null; last_polled_at?: string | null };
 type QueueItem = { id: number; youtube_url: string; status: string };
 type Rule = { id: number; name: string; trigger: string; action: string; enabled: boolean };
 type Storefront = {
@@ -54,6 +54,7 @@ export default function StudioPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [storefrontForm, setStorefrontForm] = useState<Storefront>({});
   const [status, setStatus] = useState<string | null>(null);
+  const [socialBusy, setSocialBusy] = useState<string | null>(null);
 
   async function refreshAll() {
     setLoading(true);
@@ -97,6 +98,32 @@ export default function StudioPage() {
       refreshAll();
     } catch (e: any) {
       setStatus(e?.detail || e?.message || "Failed to subscribe.");
+    }
+  }
+
+  async function connectSocial(provider: string) {
+    if (socialBusy) return;
+    setSocialBusy(provider);
+    setStatus(null);
+    try {
+      const data = (await apiFetch(`/social/connect/${provider}/start`, { method: "POST" })) as any;
+      const url = data?.url;
+      if (!url || typeof url !== "string") throw new Error("Connect URL missing");
+      window.location.assign(url);
+    } catch (e: any) {
+      setStatus(e?.detail || e?.message || "Could not start social connect.");
+      setSocialBusy(null);
+    }
+  }
+
+  async function connectOwnedChannels() {
+    setStatus(null);
+    try {
+      const rows = await apiFetch<Channel[]>("/youtube/channels/connect-owned", { method: "POST" });
+      setStatus(`Added ${Array.isArray(rows) ? rows.length : 0} connected channel(s).`);
+      refreshAll();
+    } catch (e: any) {
+      setStatus(e?.detail || e?.message || "Failed to add connected channels.");
     }
   }
 
@@ -206,11 +233,29 @@ export default function StudioPage() {
             desc="Subscribe channels, queue videos, and dispatch ingestion jobs."
           >
             <div className="grid gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => connectSocial("youtube")}
+                  className="btn-solid-dark text-[12px] px-4 py-2"
+                  disabled={!!socialBusy}
+                >
+                  {socialBusy === "youtube" ? "Connecting..." : "Connect YouTube"}
+                </button>
+                <button
+                  type="button"
+                  onClick={connectOwnedChannels}
+                  className="btn-ghost text-[12px] px-4 py-2"
+                >
+                  Add my connected channels
+                </button>
+              </div>
+
               <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                 <input
                   value={channelInput}
                   onChange={(e) => setChannelInput(e.target.value)}
-                  placeholder="Channel ID or URL"
+                  placeholder="Channel ID (UC...) or @handle"
                   className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
                 />
                 <button type="button" onClick={subscribeChannel} className="btn-solid-dark text-[12px] px-4 py-2">
@@ -240,7 +285,7 @@ export default function StudioPage() {
                   {channels.map((c) => (
                     <div key={c.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                       <div className="text-sm text-white/80">
-                        {c.title || c.channel_id}
+                        {c.channel_title || c.channel_id}
                         <div className="text-[11px] text-white/45">{c.channel_id}</div>
                       </div>
                       <button

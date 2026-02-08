@@ -754,6 +754,7 @@ function UploadWorkspace() {
   const [ytPreview, setYtPreview] = useState<YouTubePreviewResponse | null>(null);
   const [ytPreviewLoading, setYtPreviewLoading] = useState(false);
   const [ytPreviewError, setYtPreviewError] = useState<string | null>(null);
+  const [ytIngestBusy, setYtIngestBusy] = useState(false);
   const ytPreviewAbort = useRef<AbortController | null>(null);
 
   // Me (plan gating)
@@ -1295,6 +1296,69 @@ function UploadWorkspace() {
     }
   }
 
+  async function ingestYoutubeDirect() {
+    if (!urlOk) return;
+    if (!settingsOk) {
+      fail("Choose output settings", "Select an aspect ratio before importing from YouTube.");
+      return;
+    }
+    if (flow === "uploading" || flow === "processing" || ytIngestBusy) return;
+
+    setYtIngestBusy(true);
+    setErrorTitle("");
+    setErrorDetail(null);
+    setFlow("processing");
+    setProgress(8);
+    setStatusText("Importing from YouTube…");
+
+    try {
+      const normalized = normalizeYoutubeUrl(url);
+      const reg = await apiFetch<RegisterResponse>("/youtube/ingest", {
+        method: "POST",
+        body: {
+          url: normalized,
+          aspect_ratio: aspectRatio,
+          captions_enabled: captionsEnabled,
+          watermark_enabled: isFree ? true : watermarkEnabled,
+          caption_style_json: null,
+          create_new_job: true,
+        },
+      });
+
+      setUploadId(reg.upload_id);
+      setJobId(reg.job_id);
+      setStorageKey(null);
+
+      persistSession({
+        uploadId: reg.upload_id,
+        jobId: reg.job_id,
+        storageKey: null,
+        fileName: ytPreview?.title || normalized,
+      });
+
+      setProgress(92);
+      setStatusText(reg.status === "queued" ? "Queued…" : "Processing…");
+      await pollJobUntilComplete(reg.job_id);
+    } catch (e: any) {
+      const msg =
+        typeof e?.detail === "string"
+          ? compactUploadErrorMessage(e.detail)
+          : e?.detail
+          ? compactUploadErrorMessage(JSON.stringify(e.detail, null, 2))
+          : e?.message
+          ? compactUploadErrorMessage(String(e.message))
+          : "YouTube import failed.";
+
+      if (isInsufficientCreditsError(e)) {
+        fail("Insufficient credits", msg || "Not enough credits for this import.");
+      } else {
+        fail("YouTube import failed", msg);
+      }
+    } finally {
+      setYtIngestBusy(false);
+    }
+  }
+
   function onDropzoneClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!canBrowse) return;
     const t = e.target as HTMLElement | null;
@@ -1815,7 +1879,7 @@ function UploadWorkspace() {
               <div>
                 <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
                 <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
-                  Open video, download MP4, then upload on the left.
+                  Paste link, click import, done.
                 </div>
               </div>
 
@@ -1905,6 +1969,19 @@ function UploadWorkspace() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={ingestYoutubeDirect}
+                  disabled={!urlOk || ytPreviewLoading || ytIngestBusy || flow === "uploading" || flow === "processing"}
+                  className={cx(
+                    "btn-aurora px-4 py-2 text-[12px]",
+                    (!urlOk || ytPreviewLoading || ytIngestBusy || flow === "uploading" || flow === "processing") &&
+                      "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {ytIngestBusy ? "Importing..." : "Import with Orbito"}
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     if (!urlOk) return;
                     const u = normalizeYoutubeUrl(url);
@@ -1936,75 +2013,40 @@ function UploadWorkspace() {
                   I downloaded it
                 </button>
 
-                <div className="text-[12px] text-white/55">Most reliable method.</div>
+                <div className="text-[12px] text-white/55">Use manual buttons only if direct import fails.</div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
-                {ytStep === "idle" ? (
-                  <>
-                    <div className="font-semibold text-white/70">How it works</div>
-                    <div className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
-                      1) Open video, 2) Download MP4, 3) Upload on the left
-                    </div>
-                  </>
-                ) : ytStep === "opened" ? (
-                  <>
-                    <div className="font-semibold text-white/70">Step 2: Download the MP4</div>
-                    <div className="mt-1">
-                      Download the video locally, then click{" "}
-                      <span className="text-white/75">I downloaded it</span>.
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="font-semibold text-white/70">Step 3: Upload it</div>
-                    <div className="mt-1">
-                      The uploader on the left is highlighted — upload your MP4 there.
-                    </div>
-                  </>
-                )}
+                <div className="font-semibold text-white/80">Simple steps</div>
+                <div className="mt-2 space-y-1">
+                  <div>1) Paste a YouTube link.</div>
+                  <div>2) Click <span className="text-white/80">Import with Orbito</span>.</div>
+                  <div>3) Wait while clips process in the background.</div>
+                </div>
+                <div className="mt-3 text-white/45">
+                  If a video is blocked for direct import: click <span className="text-white/75">Open video</span>, download MP4, click <span className="text-white/75">I downloaded it</span>, then upload on the left.
+                </div>
               </div>
 
               {ytStep === "ready" ? (
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <div className="text-sm font-semibold text-white/90">Ready to upload</div>
+                  <div className="text-sm font-semibold text-white/90">Manual upload ready</div>
                   <div className="mt-1 text-sm text-white/65">
-                    Upload the downloaded video using the left panel.
+                    Upload the downloaded MP4 using the left panel.
                   </div>
 
                   <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-[12px] font-semibold text-white/80">
-                      YouTube download disclaimer
-                    </div>
+                    <div className="text-[12px] font-semibold text-white/80">Manual fallback</div>
                     <div className="mt-2 text-[12px] leading-relaxed text-white/55">
-                      YouTube does not allow Orbito to automatically download videos on your behalf.
-                      To avoid copyright violations and unreliable imports, you’ll need to download
-                      the MP4 locally using a third-party downloader you trust, then upload it here.
+                      Direct import can fail on some videos. In that case, download MP4 locally and upload it here.
                     </div>
-                    <div className="mt-3 text-[12px] text-white/45">
-                      Automated YouTube imports are planned later.
-                    </div>
+                    <div className="mt-3 text-[12px] text-white/45">Direct import remains the default for supported videos.</div>
                   </div>
                 </div>
               ) : null}
 
-              {/* Trust / disclaimer (always visible) */}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                <div className="text-[12px] font-semibold text-white/80">
-                  Why do I download it myself?
-                </div>
-                <div className="mt-2 text-[12px] leading-relaxed text-white/55">
-                  YouTube does not allow us to automatically download videos on your behalf. To keep
-                  Orbito reliable and avoid failed imports, you download the MP4 locally using a tool
-                  you trust, then upload it here.
-                </div>
-                <div className="mt-3 text-[12px] text-white/45">
-                  Fully automated YouTube imports are coming later.
-                </div>
-              </div>
-
               <div className="pt-1 text-[12px] text-white/35">
-                Tip: choose the highest-quality MP4 available.
+                Tip: use direct import first for the fastest flow.
               </div>
             </div>
           </div>

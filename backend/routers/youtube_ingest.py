@@ -11,11 +11,14 @@ import tempfile
 import subprocess
 import glob
 import uuid
+import time
+import requests
 from datetime import datetime, timezone
 
 from models.user import User
 from models.youtube_channel import YouTubeChannel
 from models.youtube_ingest import YouTubeIngestItem
+from models.social_account import SocialAccount
 from routers.auth import get_current_user
 from core.database import get_db
 from sqlalchemy.orm import Session
@@ -270,6 +273,111 @@ def _list_channel_uploads(channel_id: str, max_results: int = 10) -> List[dict]:
     return out
 
 
+def _refresh_youtube_access_token(refresh_token: str) -> Optional[dict]:
+    client_id = (os.getenv("OAUTH_YOUTUBE_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("OAUTH_YOUTUBE_CLIENT_SECRET") or "").strip()
+    if not client_id or not client_secret or not refresh_token:
+        return None
+
+    try:
+        resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=20,
+        )
+    except Exception:
+        return None
+
+    if resp.status_code >= 400:
+        return None
+    try:
+        return resp.json()
+    except Exception:
+        return None
+
+
+def _youtube_access_token_for_user(db: Session, user_id: int) -> str:
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == user_id,
+            SocialAccount.provider == "youtube",
+            SocialAccount.status == "connected",
+        )
+        .first()
+    )
+    if not account or not account.access_token:
+        raise HTTPException(
+            400,
+            "YouTube is not connected. Connect your YouTube account in Settings > Social first.",
+        )
+
+    access_token = account.access_token
+    now = int(time.time())
+    expires_at = int(account.token_expires_at or 0)
+
+    # Refresh a little before expiry to avoid API failures mid-request.
+    if expires_at and expires_at <= (now + 60):
+        refreshed = _refresh_youtube_access_token(account.refresh_token or "")
+        if refreshed and refreshed.get("access_token"):
+            access_token = str(refreshed["access_token"])
+            account.access_token = access_token
+            if refreshed.get("expires_in"):
+                account.token_expires_at = now + int(refreshed["expires_in"])
+            db.commit()
+        else:
+            raise HTTPException(
+                401,
+                "YouTube token expired and refresh failed. Reconnect your YouTube account.",
+            )
+
+    return access_token
+
+
+def _list_owned_channels(access_token: str) -> List[dict]:
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/youtube/v3/channels",
+            params={"part": "snippet", "mine": "true", "maxResults": 50},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20,
+        )
+    except Exception as e:
+        raise HTTPException(502, f"YouTube API request failed: {e}")
+
+    if resp.status_code == 401:
+        raise HTTPException(401, "YouTube authorization expired. Reconnect your account.")
+    if resp.status_code >= 400:
+        msg = resp.text[:240] if resp.text else "unknown error"
+        raise HTTPException(502, f"YouTube API error: {msg}")
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise HTTPException(502, "Invalid YouTube API response")
+
+    items = data.get("items") or []
+    out: List[dict] = []
+    for it in items:
+        cid = (it.get("id") or "").strip()
+        if not cid:
+            continue
+        snippet = it.get("snippet") or {}
+        out.append(
+            {
+                "channel_id": cid,
+                "title": (snippet.get("title") or "").strip() or None,
+            }
+        )
+    return out
+
+
 def _download_youtube_video(url: str, video_id: str) -> str:
     """
     Download YouTube video to a temp mp4. Returns file path.
@@ -376,6 +484,58 @@ def subscribe_channel(
         "active": row.active,
         "last_polled_at": row.last_polled_at.isoformat() if row.last_polled_at else None,
     }
+
+
+@router.post("/channels/connect-owned", response_model=List[YouTubeChannelResponse])
+def connect_owned_channels(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Discover channels from the user's connected YouTube OAuth account
+    and upsert them into youtube_channels.
+    """
+    access_token = _youtube_access_token_for_user(db, current_user.id)
+    owned = _list_owned_channels(access_token)
+    if not owned:
+        raise HTTPException(404, "No channels found on connected YouTube account")
+
+    rows: List[YouTubeChannel] = []
+    for ch in owned:
+        channel_id = ch["channel_id"]
+        title = ch.get("title")
+        row = (
+            db.query(YouTubeChannel)
+            .filter(YouTubeChannel.user_id == current_user.id, YouTubeChannel.channel_id == channel_id)
+            .first()
+        )
+        if not row:
+            row = YouTubeChannel(
+                user_id=current_user.id,
+                channel_id=channel_id,
+                channel_title=title,
+                active=True,
+            )
+            db.add(row)
+        else:
+            row.channel_title = title or row.channel_title
+            row.active = True
+        rows.append(row)
+
+    db.commit()
+    for row in rows:
+        db.refresh(row)
+
+    return [
+        {
+            "id": r.id,
+            "channel_id": r.channel_id,
+            "channel_title": r.channel_title,
+            "active": r.active,
+            "last_polled_at": r.last_polled_at.isoformat() if r.last_polled_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.get("/channels", response_model=List[YouTubeChannelResponse])
