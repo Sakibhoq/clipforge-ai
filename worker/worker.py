@@ -2501,6 +2501,8 @@ CAPTION_MAX_LINES = int(os.getenv("WORKER_CAPTION_MAX_LINES", "2"))
 CAPTION_MAX_BLOCK_SECONDS = float(os.getenv("WORKER_CAPTION_MAX_BLOCK_SECONDS", "2.8"))
 CAPTION_BREAK_PAUSE_SECONDS = float(os.getenv("WORKER_CAPTION_BREAK_PAUSE_SECONDS", "0.65"))
 CAPTION_MAX_TOKEN_CHARS = int(os.getenv("WORKER_CAPTION_MAX_TOKEN_CHARS", "18"))
+# Slight positive delay to avoid early word reveal from ASR-leading timestamps.
+CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.05"))
 
 # Karaoke timing safety
 KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "2"))     # 0.02s
@@ -2748,6 +2750,8 @@ def _clip_word_window(
     window_start: Optional[float] = None,
     window_end: Optional[float] = None,
 ) -> Optional[Tuple[float, float]]:
+    ws += float(CAPTION_WORD_DELAY_SECONDS)
+    we += float(CAPTION_WORD_DELAY_SECONDS)
     if window_start is not None:
         ws = max(float(window_start), ws)
     if window_end is not None:
