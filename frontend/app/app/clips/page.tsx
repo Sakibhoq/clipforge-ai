@@ -153,6 +153,7 @@ function Icon({
     | "grid"
     | "list"
     | "spark"
+    | "crop"
     | "download"
     | "play"
     | "filter"
@@ -222,6 +223,20 @@ function Icon({
       <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
         <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="rgba(255,255,255,0.7)" strokeWidth="1.6" />
         <path d="M7 3v4M17 3v4M3.5 9h17" stroke="rgba(255,255,255,0.6)" strokeWidth="1.6" />
+      </svg>
+    );
+  }
+
+  if (name === "crop") {
+    return (
+      <svg className={common} viewBox="0 0 24 24" width="16" height="16" fill="none">
+        <path
+          d="M7 3v14.5a2.5 2.5 0 0 0 2.5 2.5H21M3 7h11.5A2.5 2.5 0 0 1 17 9.5V21"
+          stroke="rgba(255,255,255,0.72)"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -569,10 +584,12 @@ function ClipActions({
   clip,
   onOpenSettings,
   onSchedule,
+  onCrop,
 }: {
   clip: ClipDTO;
   onOpenSettings: () => void;
   onSchedule: () => void;
+  onCrop: () => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const title = autoTitle(clip);
@@ -618,6 +635,19 @@ function ClipActions({
       >
         <Icon name="sliders" />
         Output
+      </button>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCrop();
+        }}
+        className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
+        aria-label="Crop"
+      >
+        <Icon name="crop" />
+        Crop
       </button>
 
       <button
@@ -728,6 +758,20 @@ const DEFAULT_CLIP_SETTINGS: ClipOutputSettings = {
   caption_pos: "Bottom",
 };
 
+type ClipCropRect = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+const DEFAULT_CROP_RECT: ClipCropRect = {
+  x: 0,
+  y: 0,
+  w: 1,
+  h: 1,
+};
+
 /* =========================================================
    ClipsPage
 ========================================================= */
@@ -744,6 +788,7 @@ function ClipsWorkspace() {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   const [groups, setGroups] = useState<GroupDTO[]>([]);
   const [clips, setClips] = useState<ClipDTO[]>([]);
@@ -771,6 +816,12 @@ function ClipsWorkspace() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
+  // Crop drawer state (backend-wired)
+  const [cropClip, setCropClip] = useState<ClipDTO | null>(null);
+  const [cropRect, setCropRect] = useState<ClipCropRect>(DEFAULT_CROP_RECT);
+  const [cropBusy, setCropBusy] = useState(false);
+  const [cropError, setCropError] = useState<string | null>(null);
+
   function getSettingsFor(id: number): ClipOutputSettings {
     return clipSettings[id] || DEFAULT_CLIP_SETTINGS;
   }
@@ -787,6 +838,43 @@ function ClipsWorkspace() {
     setScheduleCaption(autoTitle(clip));
     setScheduleWhen("");
     setScheduleError(null);
+  }
+
+  function openCrop(clip: ClipDTO) {
+    setCropClip(clip);
+    setCropRect(DEFAULT_CROP_RECT);
+    setCropError(null);
+  }
+
+  function updateCropRect(patch: Partial<ClipCropRect>) {
+    setCropRect((prev) => {
+      const next: ClipCropRect = { ...prev, ...patch };
+      next.w = Math.min(1, Math.max(0.1, next.w));
+      next.h = Math.min(1, Math.max(0.1, next.h));
+      next.x = Math.min(1, Math.max(0, next.x));
+      next.y = Math.min(1, Math.max(0, next.y));
+      if (next.x + next.w > 1) next.x = Math.max(0, 1 - next.w);
+      if (next.y + next.h > 1) next.y = Math.max(0, 1 - next.h);
+      return next;
+    });
+  }
+
+  async function createCrop() {
+    if (!cropClip || cropBusy) return;
+    setCropBusy(true);
+    setCropError(null);
+    try {
+      await apiFetch(`/clips/${cropClip.id}/crop`, {
+        method: "POST",
+        body: cropRect,
+      });
+      setCropClip(null);
+      setReloadTick((v) => v + 1);
+    } catch (e: any) {
+      setCropError(toErrorText(e));
+    } finally {
+      setCropBusy(false);
+    }
   }
 
   async function createSchedule() {
@@ -856,7 +944,7 @@ function ClipsWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [uploadId]);
+  }, [uploadId, reloadTick]);
 
   // Filters
   const activeFilterCount = (query ? 1 : 0) + (sort !== "newest" ? 1 : 0);
@@ -1218,6 +1306,7 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onOpenSettings={() => setSettingsClipId(c.id)}
                                   onSchedule={() => openSchedule(c)}
+                                  onCrop={() => openCrop(c)}
                                 />
                               </div>
                             </div>
@@ -1243,6 +1332,7 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onOpenSettings={() => setSettingsClipId(c.id)}
                                   onSchedule={() => openSchedule(c)}
+                                  onCrop={() => openCrop(c)}
                                 />
                               </div>
                             </div>
@@ -1268,6 +1358,7 @@ function ClipsWorkspace() {
                   clip={c}
                   onOpenSettings={() => setSettingsClipId(c.id)}
                   onSchedule={() => openSchedule(c)}
+                  onCrop={() => openCrop(c)}
                 />
               </div>
             </div>
@@ -1286,6 +1377,7 @@ function ClipsWorkspace() {
                   clip={c}
                   onOpenSettings={() => setSettingsClipId(c.id)}
                   onSchedule={() => openSchedule(c)}
+                  onCrop={() => openCrop(c)}
                 />
               </div>
             </div>
@@ -1324,6 +1416,23 @@ function ClipsWorkspace() {
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
             onSubmit={createSchedule}
+          />
+        ) : null}
+      </Drawer>
+
+      {/* CROP DRAWER */}
+      <Drawer
+        open={cropClip !== null}
+        onClose={() => setCropClip(null)}
+        title={cropClip ? `Crop — Clip #${cropClip.id}` : "Crop"}
+      >
+        {cropClip ? (
+          <CropForm
+            rect={cropRect}
+            busy={cropBusy}
+            error={cropError}
+            onChange={updateCropRect}
+            onSubmit={createCrop}
           />
         ) : null}
       </Drawer>
@@ -1446,6 +1555,109 @@ function PerClipSettings({
 
         <span className="text-[12px] text-white/45">Clip #{clipId} settings are stored client-side for now.</span>
       </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   CropForm (backend-wired)
+========================================================= */
+function CropForm({
+  rect,
+  busy,
+  error,
+  onChange,
+  onSubmit,
+}: {
+  rect: ClipCropRect;
+  busy: boolean;
+  error: string | null;
+  onChange: (patch: Partial<ClipCropRect>) => void;
+  onSubmit: () => void;
+}) {
+  function percent(v: number) {
+    return Math.round(v * 100);
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="text-sm font-semibold text-white/85">Create a cropped variant</div>
+        <div className="mt-1 text-[12px] text-white/55">
+          This creates a new clip. Your original clip remains unchanged.
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 grid gap-4">
+        <div className="text-[12px] text-white/55">Crop area</div>
+
+        <div className="grid gap-2">
+          <label className="text-[12px] text-white/70">Width: {percent(rect.w)}%</label>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            value={percent(rect.w)}
+            onChange={(e) => onChange({ w: Number(e.target.value) / 100 })}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <label className="text-[12px] text-white/70">Height: {percent(rect.h)}%</label>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            value={percent(rect.h)}
+            onChange={(e) => onChange({ h: Number(e.target.value) / 100 })}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <label className="text-[12px] text-white/70">Left: {percent(rect.x)}%</label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={percent(rect.x)}
+            onChange={(e) => onChange({ x: Number(e.target.value) / 100 })}
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <label className="text-[12px] text-white/70">Top: {percent(rect.y)}%</label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={percent(rect.y)}
+            onChange={(e) => onChange({ y: Number(e.target.value) / 100 })}
+          />
+        </div>
+
+        <div className="text-[12px] text-white/50">
+          X {percent(rect.x)}% • Y {percent(rect.y)}% • W {percent(rect.w)}% • H {percent(rect.h)}%
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl border border-rose-300/20 bg-rose-300/10 px-4 py-3 text-sm text-rose-100/85">
+          {error}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={busy}
+        className={cx(
+          "btn-solid-dark text-[12px] px-4 py-2 inline-flex items-center justify-center gap-2",
+          busy && "opacity-70 cursor-not-allowed"
+        )}
+      >
+        <Icon name="crop" />
+        {busy ? "Cropping…" : "Create cropped clip"}
+      </button>
     </div>
   );
 }

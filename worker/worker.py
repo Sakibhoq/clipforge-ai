@@ -1100,6 +1100,159 @@ def snap_to_silence(
             end = s
     return start, end
 
+
+def _clip_word_bounds(
+    words: List[Dict[str, Any]],
+    start: float,
+    end: float,
+) -> tuple:
+    first_idx: Optional[int] = None
+    last_idx: Optional[int] = None
+
+    for i, w in enumerate(words):
+        ws = float(w.get("start", 0.0))
+        we = float(w.get("end", 0.0))
+        if we > start and ws < end:
+            if first_idx is None:
+                first_idx = i
+            last_idx = i
+        elif last_idx is not None and ws >= end:
+            break
+
+    return first_idx, last_idx
+
+
+def _is_natural_end(words: List[Dict[str, Any]], idx: int) -> bool:
+    if idx < 0 or idx >= len(words):
+        return False
+    current = words[idx]
+    current_end = float(current.get("end", 0.0))
+    current_word = str(current.get("word", ""))
+    if ends_with_punctuation(current_word):
+        return True
+
+    if idx + 1 >= len(words):
+        return True
+    next_start = float(words[idx + 1].get("start", current_end))
+    gap = max(0.0, next_start - current_end)
+    return gap >= (UTTERANCE_PAUSE_SECONDS * 0.85)
+
+
+def refine_clip_boundaries(
+    *,
+    clip_plans: List[Dict[str, float]],
+    words: List[Dict[str, Any]],
+    video_duration: float,
+) -> List[Dict[str, float]]:
+    """
+    Refine boundaries so clips end on natural speech boundaries
+    (punctuation/pause) and avoid abrupt mid-speech cutoffs.
+    """
+    if not clip_plans or not words:
+        return clip_plans
+
+    refined: List[Dict[str, float]] = []
+    safe_video_duration = max(0.0, float(video_duration))
+
+    ordered = sorted(clip_plans, key=lambda c: float(c.get("start", 0.0)))
+    for plan in ordered:
+        orig_start = clamp(float(plan.get("start", 0.0)), 0.0, safe_video_duration)
+        orig_end = clamp(float(plan.get("end", orig_start)), orig_start, safe_video_duration)
+        if orig_end <= orig_start:
+            continue
+
+        first_idx, last_idx = _clip_word_bounds(words, orig_start, orig_end)
+        if first_idx is None or last_idx is None:
+            refined.append(
+                {
+                    "start": orig_start,
+                    "end": orig_end,
+                    "duration": orig_end - orig_start,
+                }
+            )
+            continue
+
+        start = float(words[first_idx].get("start", orig_start))
+        end = float(words[last_idx].get("end", orig_end))
+
+        # Extend to a nearby natural boundary so endings do not feel chopped.
+        max_search = min(len(words) - 1, last_idx + 24)
+        natural_end = end
+        for i in range(last_idx, max_search + 1):
+            cand_end = float(words[i].get("end", natural_end))
+            if cand_end - start > (CLIP_MAX_SECONDS + 0.35):
+                break
+            if cand_end + 0.10 < orig_end:
+                continue
+            if _is_natural_end(words, i):
+                natural_end = cand_end
+                break
+        end = natural_end
+
+        # Enforce minimum duration by extending to the next word boundary.
+        if end - start < CLIP_MIN_SECONDS:
+            target = min(safe_video_duration, start + CLIP_MIN_SECONDS)
+            i = last_idx
+            while i < len(words) and float(words[i].get("end", 0.0)) < target:
+                i += 1
+            if i < len(words):
+                end = float(words[i].get("end", target))
+            else:
+                end = target
+
+        # Enforce maximum duration while preferring natural endpoints.
+        if end - start > CLIP_MAX_SECONDS:
+            target = start + CLIP_MAX_SECONDS
+            best_end: Optional[float] = None
+            i = first_idx
+            while i < len(words):
+                cand_end = float(words[i].get("end", 0.0))
+                if cand_end > target:
+                    break
+                if _is_natural_end(words, i):
+                    best_end = cand_end
+                i += 1
+            if best_end is not None and (best_end - start) >= max(1.0, CLIP_MIN_SECONDS * 0.75):
+                end = best_end
+            else:
+                end = target
+
+        start = clamp(start, 0.0, safe_video_duration)
+        end = clamp(end, start, safe_video_duration)
+        if end - start < 0.25:
+            continue
+
+        refined.append(
+            {
+                "start": start,
+                "end": end,
+                "duration": end - start,
+            }
+        )
+
+    if not refined:
+        return clip_plans
+
+    # Defensive no-overlap pass.
+    no_overlap: List[Dict[str, float]] = []
+    for clip in refined:
+        if not no_overlap:
+            no_overlap.append(clip)
+            continue
+        prev = no_overlap[-1]
+        if clip["start"] < prev["end"]:
+            trimmed_start = prev["end"]
+            if clip["end"] - trimmed_start < max(2.0, CLIP_MIN_SECONDS * 0.5):
+                continue
+            clip = {
+                "start": trimmed_start,
+                "end": clip["end"],
+                "duration": clip["end"] - trimmed_start,
+            }
+        no_overlap.append(clip)
+
+    return no_overlap or clip_plans
+
 # -----------------------------------------------------
 # Core segmentation
 # -----------------------------------------------------
@@ -3600,6 +3753,11 @@ def run_job(job_id: int) -> None:
         clip_plans = generate_clip_plans(
             utterances=utterances,
             silences=audio["silences"],
+            video_duration=float(video_duration),
+        )
+        clip_plans = refine_clip_boundaries(
+            clip_plans=clip_plans,
+            words=words,
             video_duration=float(video_duration),
         )
 
