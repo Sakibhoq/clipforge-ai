@@ -1,7 +1,9 @@
 # backend/routers/clips.py
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,29 @@ from storage import get_storage
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+
+
+def _sanitize_download_name(name: str) -> str:
+    cleaned = "".join(ch for ch in (name or "clip.mp4") if ch not in '/\\:*?"<>|').strip()
+    if not cleaned:
+        cleaned = "clip.mp4"
+    if not cleaned.lower().endswith(".mp4"):
+        cleaned += ".mp4"
+    return cleaned
+
+
+def _stream_filelike(body, chunk_size: int = 1024 * 1024):
+    try:
+        while True:
+            chunk = body.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    finally:
+        try:
+            body.close()
+        except Exception:
+            pass
 
 
 def _ensure_sqlite_clip_schema(db: Session) -> None:
@@ -40,6 +65,60 @@ def _ensure_sqlite_clip_schema(db: Session) -> None:
         db.rollback()
         if "duplicate column name" not in str(exc).lower():
             raise
+
+
+@router.get("/{clip_id}/download")
+def download_clip(
+    clip_id: int,
+    filename: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    clip = (
+        db.query(Clip)
+        .join(Upload, Clip.upload_id == Upload.id)
+        .filter(Clip.id == clip_id, Upload.user_id == current_user.id)
+        .first()
+    )
+    if not clip:
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    preferred = filename or (clip.storage_key.split("/")[-1] if clip.storage_key else f"clip-{clip.id}.mp4")
+    safe_name = _sanitize_download_name(preferred)
+    storage = get_storage()
+
+    # Keep downloads same-origin so "Download" never opens a raw media page.
+    if hasattr(storage, "presign_get"):
+        try:
+            signed = storage.presign_get(  # type: ignore[attr-defined]
+                clip.storage_key,
+                expires_in=3600,
+                response_content_disposition=f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quote(safe_name)}',
+            )
+            if isinstance(signed, str) and signed.startswith("/"):
+                base = ""  # same-origin relative URL
+                signed = f"{base}{signed}"
+            from fastapi.responses import RedirectResponse
+
+            return RedirectResponse(url=signed, status_code=307)
+        except TypeError:
+            # Storage backend does not support response_content_disposition.
+            pass
+        except Exception:
+            # Fallback to backend stream below.
+            pass
+
+    try:
+        body = storage.open(clip.storage_key)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Clip file not found")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to open clip file")
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quote(safe_name)}'
+    }
+    return StreamingResponse(_stream_filelike(body), media_type="video/mp4", headers=headers)
 
 
 @router.get("")  # ✅ IMPORTANT: no trailing slash -> avoids 307 redirect

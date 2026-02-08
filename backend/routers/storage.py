@@ -509,6 +509,7 @@ async def local_upload(
 def local_get(
     key: str,
     token: str,
+    response_content_disposition: Optional[str] = None,
 ):
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower().strip()
     env = (os.getenv("APP_ENV") or "development").strip().lower()
@@ -527,4 +528,7 @@ def local_get(
 
     from fastapi.responses import FileResponse
 
-    return FileResponse(path, media_type="video/mp4")
+    headers = {}
+    if response_content_disposition:
+        headers["Content-Disposition"] = response_content_disposition
+    return FileResponse(path, media_type="video/mp4", headers=headers)

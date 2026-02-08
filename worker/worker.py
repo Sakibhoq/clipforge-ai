@@ -1584,7 +1584,33 @@ REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "120.0"))
 
 # If no faces/people detected, keep crops biased slightly above center (good for talking heads)
 FALLBACK_CENTER_BIAS_Y = float(os.getenv("WORKER_FALLBACK_CENTER_BIAS_Y", "0.58"))
+FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "2"))
 PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "5"))
+REFRAME_FACE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_FACE_DETECT_MAX_WIDTH", "720"))
+REFRAME_PEOPLE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_PEOPLE_DETECT_MAX_WIDTH", "640"))
+
+
+def _resize_for_detection(frame_bgr, max_width: int):
+    """
+    Downscale before detection for speed, then map boxes back to source pixels.
+    Returns (frame_for_detection, scale_from_source_to_detection).
+    """
+    if not _HAS_CV2 or frame_bgr is None:
+        return frame_bgr, 1.0
+    if max_width <= 0:
+        return frame_bgr, 1.0
+
+    h, w = frame_bgr.shape[:2]
+    if w <= 0 or h <= 0 or w <= max_width:
+        return frame_bgr, 1.0
+
+    scale = float(max_width) / float(w)
+    new_h = max(1, int(round(float(h) * scale)))
+    try:
+        resized = cv2.resize(frame_bgr, (int(max_width), int(new_h)), interpolation=cv2.INTER_AREA)
+        return resized, scale
+    except Exception:
+        return frame_bgr, 1.0
 
 # -----------------------------------------------------
 # Aspect ratio normalization
@@ -1638,14 +1664,30 @@ def _detect_faces(frame_bgr) -> list:
     if cascade is None:
         return []
     try:
-        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        detect_frame, scale = _resize_for_detection(frame_bgr, int(REFRAME_FACE_DETECT_MAX_WIDTH))
+        gray = cv2.cvtColor(detect_frame, cv2.COLOR_BGR2GRAY)
         faces = cascade.detectMultiScale(
             gray,
             scaleFactor=1.1,
             minNeighbors=4,
             minSize=(80, 80),
         )
-        return list(faces) if faces is not None else []
+        if faces is None:
+            return []
+        out = list(faces)
+        if float(scale) >= 0.999:
+            return out
+
+        inv = 1.0 / float(scale)
+        return [
+            (
+                int(round(float(x) * inv)),
+                int(round(float(y) * inv)),
+                int(round(float(w) * inv)),
+                int(round(float(h) * inv)),
+            )
+            for (x, y, w, h) in out
+        ]
     except Exception:
         return []
 
@@ -1679,15 +1721,29 @@ def _detect_people(frame_bgr) -> list:
         return []
 
     try:
+        detect_frame, scale = _resize_for_detection(frame_bgr, int(REFRAME_PEOPLE_DETECT_MAX_WIDTH))
         rects, _weights = hog.detectMultiScale(
-            frame_bgr,
+            detect_frame,
             winStride=(8, 8),
             padding=(8, 8),
             scale=1.05,
         )
         if rects is None:
             return []
-        return list(rects)
+        out = list(rects)
+        if float(scale) >= 0.999:
+            return out
+
+        inv = 1.0 / float(scale)
+        return [
+            (
+                int(round(float(x) * inv)),
+                int(round(float(y) * inv)),
+                int(round(float(w) * inv)),
+                int(round(float(h) * inv)),
+            )
+            for (x, y, w, h) in out
+        ]
     except Exception:
         return []
 
@@ -1914,6 +1970,7 @@ def build_camera_path(
     face_hits = 0
     person_hits = 0
     fallback_hits = 0
+    last_faces: List[Any] = []
     last_people: List[Any] = []
 
     dynamic_step_limit = max(18.0, min(float(REFRAME_MAX_STEP_PX), min(crop_w, crop_h) * 0.12))
@@ -1942,7 +1999,9 @@ def build_camera_path(
         if t > analysis_end_s + 1e-6:
             break
 
-        faces = _detect_faces(frame)
+        if sample_idx % max(1, int(FACE_DETECT_EVERY_N)) == 0 or not last_faces:
+            last_faces = _detect_faces(frame)
+        faces = list(last_faces or [])
         people: list = []
 
         subject_mode = "fallback"
@@ -2797,6 +2856,19 @@ WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "10.0"
 WATERMARK_PULSE_ON = float(os.getenv("WORKER_WATERMARK_PULSE_ON", "3.0"))
 WATERMARK_PULSE_FADE = float(os.getenv("WORKER_WATERMARK_PULSE_FADE", "0.6"))
 
+# Burned-in subtitle suppression (lower band mask)
+REMOVE_BURNT_CAPTIONS = os.getenv("WORKER_REMOVE_BURNT_CAPTIONS", "1") == "1"
+REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS = (
+    os.getenv("WORKER_REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS", "1") == "1"
+)
+BURNT_CAPTION_BAND_RATIO = float(os.getenv("WORKER_BURNT_CAPTION_BAND_RATIO", "0.13"))
+BURNT_CAPTION_MIN_BAND_PX = int(os.getenv("WORKER_BURNT_CAPTION_MIN_BAND_PX", "140"))
+BURNT_CAPTION_MASK_ALPHA = float(os.getenv("WORKER_BURNT_CAPTION_MASK_ALPHA", "0.96"))
+BURNT_CAPTION_MASK_COLOR = (os.getenv("WORKER_BURNT_CAPTION_MASK_COLOR", "black") or "black").strip()
+BURNT_CAPTION_MODE = (os.getenv("WORKER_BURNT_CAPTION_MODE", "delogo") or "delogo").strip().lower()
+BURNT_CAPTION_PAD_SECONDS = float(os.getenv("WORKER_BURNT_CAPTION_PAD_SECONDS", "0.10"))
+BURNT_CAPTION_MERGE_GAP_SECONDS = float(os.getenv("WORKER_BURNT_CAPTION_MERGE_GAP_SECONDS", "0.25"))
+
 # -----------------------------------------------------
 # FFmpeg helpers
 # -----------------------------------------------------
@@ -2816,6 +2888,113 @@ def _ff_drawtext_escape(text: str) -> str:
     t = t.replace("'", r"\'")
     t = t.replace("%", r"\%")
     return t
+
+
+def _burnt_caption_mask_filter(*, target_h: int) -> str:
+    """
+    Returns a drawbox filter to suppress typical baked-in subtitles near the bottom.
+    """
+    th = max(2, int(target_h))
+    ratio = max(0.05, min(0.30, float(BURNT_CAPTION_BAND_RATIO)))
+    band = max(int(BURNT_CAPTION_MIN_BAND_PX), int(round(th * ratio)))
+    band = max(32, min(th - 2, band))
+    y = max(0, th - band)
+    alpha = max(0.65, min(1.0, float(BURNT_CAPTION_MASK_ALPHA)))
+    color = BURNT_CAPTION_MASK_COLOR or "black"
+    return f"drawbox=x=0:y={y}:w=iw:h={band}:color={color}@{alpha}:t=fill"
+
+
+def _merge_time_intervals(intervals: list[tuple[float, float]], *, gap: float) -> list[tuple[float, float]]:
+    if not intervals:
+        return []
+    clean = [(float(s), float(e)) for (s, e) in intervals if e > s]
+    if not clean:
+        return []
+    clean.sort(key=lambda x: x[0])
+    merged: list[tuple[float, float]] = [clean[0]]
+    for s, e in clean[1:]:
+        ps, pe = merged[-1]
+        if s <= pe + max(0.0, float(gap)):
+            merged[-1] = (ps, max(pe, e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
+def _burnt_caption_intervals_from_words(
+    *,
+    words_all: Optional[list],
+    clip_start: float,
+    clip_end: float,
+) -> list[tuple[float, float]]:
+    """
+    Approximate burned-subtitle appearance windows from transcript block timings.
+    Returns clip-local intervals.
+    """
+    if not words_all:
+        return []
+    clip_words = words_in_range(words_all, clip_start, clip_end)
+    blocks = build_caption_blocks(clip_words=clip_words)
+    if not blocks:
+        return []
+
+    dur = max(0.01, float(clip_end) - float(clip_start))
+    pad = max(0.0, float(BURNT_CAPTION_PAD_SECONDS))
+    raw: list[tuple[float, float]] = []
+    for item in blocks:
+        try:
+            b_start = float(item[0])
+            b_end = float(item[1])
+        except Exception:
+            continue
+        s = max(0.0, (b_start - float(clip_start)) - pad)
+        e = min(dur, (b_end - float(clip_start)) + pad)
+        if e > s:
+            raw.append((s, e))
+
+    return _merge_time_intervals(raw, gap=float(BURNT_CAPTION_MERGE_GAP_SECONDS))
+
+
+def _intervals_enable_expr(intervals: list[tuple[float, float]]) -> str:
+    if not intervals:
+        return "0"
+    parts = [f"between(t\\,{max(0.0, s):.3f}\\,{max(0.0, e):.3f})" for (s, e) in intervals if e > s]
+    if not parts:
+        return "0"
+    return "+".join(parts)
+
+
+def _burnt_caption_suppression_filter(
+    *,
+    target_w: int,
+    target_h: int,
+    intervals: list[tuple[float, float]],
+) -> str:
+    """
+    Build ffmpeg filter for subtitle suppression.
+    Modes:
+      - delogo (default): blur/inpaint-ish band (no black bar)
+      - mask: opaque/semi-opaque drawbox
+    """
+    th = max(2, int(target_h))
+    tw = max(2, int(target_w))
+    ratio = max(0.05, min(0.30, float(BURNT_CAPTION_BAND_RATIO)))
+    band = max(int(BURNT_CAPTION_MIN_BAND_PX), int(round(th * ratio)))
+    band = max(32, min(th - 2, band))
+    y = max(0, th - band)
+    enable = _intervals_enable_expr(intervals)
+
+    mode = BURNT_CAPTION_MODE
+    if mode == "mask":
+        alpha = max(0.65, min(1.0, float(BURNT_CAPTION_MASK_ALPHA)))
+        color = BURNT_CAPTION_MASK_COLOR or "black"
+        return (
+            f"drawbox=x=0:y={y}:w={tw}:h={band}:"
+            f"color={color}@{alpha}:t=fill:enable='{enable}'"
+        )
+
+    # default: delogo keeps background cleaner than a black mask.
+    return f"delogo=x=0:y={y}:w={tw}:h={band}:show=0:enable='{enable}'"
 
 def build_lerp_expr(samples: list, axis: str) -> str:
     """
@@ -3018,6 +3197,26 @@ def render_clip_mp4(
 
     # Scale to target
     vf_chain.append(f"scale={target_w}:{target_h}")
+
+    # Optional baked-subtitle suppression band (applied before our ASS captions).
+    apply_burnt_caption_mask = bool(
+        REMOVE_BURNT_CAPTIONS
+        and (captions_enabled or not REMOVE_BURNT_CAPTIONS_ONLY_WHEN_CAPTIONS)
+    )
+    if apply_burnt_caption_mask:
+        intervals = _burnt_caption_intervals_from_words(
+            words_all=words_all,
+            clip_start=float(clip_start),
+            clip_end=float(clip_end),
+        )
+        if intervals:
+            vf_chain.append(
+                _burnt_caption_suppression_filter(
+                    target_w=int(target_w),
+                    target_h=int(target_h),
+                    intervals=intervals,
+                )
+            )
 
     # Captions (burn-in ASS)
     captions_ass_path: Optional[Path] = None

@@ -134,28 +134,14 @@ function downloadNameFromKey(storageKey: string, fallbackName?: string) {
   return derived.endsWith(".mp4") ? derived : `${derived}.mp4`;
 }
 
-/**
- * Direct download:
- * - Fetch the video as a Blob and trigger a save dialog.
- * - If fetch is blocked by CORS (common on some S3 configs), caller should fall back.
- */
-async function downloadDirect(url: string, filename: string) {
-  const res = await fetch(url, { method: "GET" });
-  if (!res.ok) throw new Error(`Download failed (${res.status})`);
-  const blob = await res.blob();
-
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = filename;
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
+function triggerDownload(url: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 /* ---------- Icons ---------- */
 function Icon({
@@ -596,12 +582,13 @@ function ClipActions({
     if (downloading) return;
     try {
       setDownloading(true);
-      await downloadDirect(clip.url, filename);
+      const dlUrl = `/api/clips/${clip.id}/download?filename=${encodeURIComponent(filename)}`;
+      triggerDownload(dlUrl, filename);
     } catch {
-      // If blob download fails (often CORS), fall back to a normal navigation download.
-      window.location.href = clip.url;
+      // Last-resort fallback.
+      window.location.assign(clip.url);
     } finally {
-      setDownloading(false);
+      window.setTimeout(() => setDownloading(false), 400);
     }
   }
 

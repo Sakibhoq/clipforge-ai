@@ -168,17 +168,25 @@ class S3Storage(Storage):
     # Presigned GET (used by /clips API)
     # ------------------------------------------------------------------
 
-    def presign_get(self, key: str, expires_in: int = 3600) -> str:
+    def presign_get(
+        self,
+        key: str,
+        expires_in: int = 3600,
+        response_content_disposition: Optional[str] = None,
+    ) -> str:
         """
         Generate a presigned GET URL for playback/download.
         """
+        params = {
+            "Bucket": self.bucket,
+            "Key": key,
+        }
+        if response_content_disposition:
+            params["ResponseContentDisposition"] = response_content_disposition
         try:
             return self.s3.generate_presigned_url(
                 "get_object",
-                Params={
-                    "Bucket": self.bucket,
-                    "Key": key,
-                },
+                Params=params,
                 ExpiresIn=expires_in,
             )
         except ClientError as e:

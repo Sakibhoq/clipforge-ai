@@ -93,11 +93,20 @@ class LocalStorage(Storage):
 
         return float(dur)
 
-    def presign_get(self, key: str, expires_in: int = 3600) -> str:
+    def presign_get(
+        self,
+        key: str,
+        expires_in: int = 3600,
+        response_content_disposition: Optional[str] = None,
+    ) -> str:
         """
         Local dev playback URL. Tokenized in storage router.
         """
+        import urllib.parse
         from routers.storage import _sign_storage_key
 
         token = _sign_storage_key(key)
-        return f"/storage/local-get?key={key}&token={token}"
+        url = f"/storage/local-get?key={urllib.parse.quote(key)}&token={token}"
+        if response_content_disposition:
+            url += f"&response_content_disposition={urllib.parse.quote(response_content_disposition)}"
+        return url
