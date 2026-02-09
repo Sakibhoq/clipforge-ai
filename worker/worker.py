@@ -1834,6 +1834,17 @@ ADAPTIVE_CONTEXT_UI_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_RATIO", 
 ADAPTIVE_CONTEXT_UI_EDGE_DENSITY = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_EDGE_DENSITY", "0.085"))
 ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING", "0.55"))
 ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES", "90"))
+ADAPTIVE_CONTEXT_MIX_ENABLE_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MIX_ENABLE_MIN", "0.18"))
+ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN", "0.82"))
+
+# Background context path optimization (keeps look, reduces render cost)
+CONTEXT_BG_SCALE = float(os.getenv("WORKER_CONTEXT_BG_SCALE", "0.75"))
+CONTEXT_BG_BLUR_SIGMA = float(os.getenv("WORKER_CONTEXT_BG_BLUR_SIGMA", "22.0"))
+CONTEXT_BG_BLUR_STEPS = int(os.getenv("WORKER_CONTEXT_BG_BLUR_STEPS", "1"))
+
+# Prune near-static keyframes before ffmpeg expression build.
+REFRAME_KEYFRAME_MIN_MOVE_PX = float(os.getenv("WORKER_REFRAME_KEYFRAME_MIN_MOVE_PX", "2.0"))
+REFRAME_KEYFRAME_MIN_DT = float(os.getenv("WORKER_REFRAME_KEYFRAME_MIN_DT", "0.10"))
 
 
 def _resize_for_detection(frame_bgr, max_width: int):
@@ -2133,6 +2144,59 @@ def compress_camera_samples(samples: list, max_points: int) -> list:
     if reduced[-1][0] != samples[-1][0]:
         reduced.append(samples[-1])
     return reduced
+
+
+def prune_near_static_camera_samples(
+    samples: list,
+    *,
+    min_move_px: float,
+    min_dt: float,
+) -> list:
+    """
+    Remove keyframes that add negligible motion, keeping endpoints.
+    This reduces ffmpeg expression cost without changing visible framing.
+    """
+    if not samples or len(samples) <= 2:
+        return samples
+
+    move_thr = max(0.25, float(min_move_px))
+    dt_thr = max(0.0, float(min_dt))
+
+    out = [samples[0]]
+    for i in range(1, len(samples) - 1):
+        pt = samples[i]
+        prev = out[-1]
+
+        dt = float(pt[0]) - float(prev[0])
+        dx = abs(float(pt[1]) - float(prev[1]))
+        dy = abs(float(pt[2]) - float(prev[2]))
+
+        if dt < dt_thr and dx <= move_thr and dy <= move_thr:
+            continue
+        out.append(pt)
+
+    out.append(samples[-1])
+    return out
+
+
+def build_context_background_chain(*, target_w: int, target_h: int) -> str:
+    """
+    Build a cheaper blurred background chain for context layout.
+    Blur is computed at a reduced resolution then upscaled, which is visually
+    equivalent for an intentionally defocused background.
+    """
+    scale = max(0.35, min(1.0, float(CONTEXT_BG_SCALE)))
+    bg_w = max(160, int(round(float(target_w) * scale)))
+    bg_h = max(160, int(round(float(target_h) * scale)))
+    sigma = max(8.0, min(40.0, float(CONTEXT_BG_BLUR_SIGMA)))
+    steps = max(1, min(3, int(CONTEXT_BG_BLUR_STEPS)))
+
+    return (
+        f"scale={bg_w}:{bg_h}:force_original_aspect_ratio=increase,"
+        f"crop={bg_w}:{bg_h},"
+        f"gblur=sigma={sigma:.1f}:steps={steps},"
+        f"scale={target_w}:{target_h}"
+    )
 
 
 def smooth_camera_samples(
@@ -3714,6 +3778,12 @@ def camera_samples_for_clip_window(
     if len(rebased) == 1:
         rebased.append((dur, rebased[0][1], rebased[0][2]))
 
+    rebased = prune_near_static_camera_samples(
+        rebased,
+        min_move_px=float(REFRAME_KEYFRAME_MIN_MOVE_PX),
+        min_dt=float(REFRAME_KEYFRAME_MIN_DT),
+    )
+
     return compress_camera_samples(rebased, max(8, int(max_keyframes or 8)))
 
 def _target_dims_for_aspect(aspect_ratio: Optional[str]) -> Tuple[int, int]:
@@ -3785,6 +3855,9 @@ def render_clip_mp4(
     mixed_layout = False
     clip_layout_samples: List[Tuple[float, float]] = []
     aspect_norm = (aspect_ratio or "9:16").strip()
+    clip_layout_min = 0.0
+    clip_layout_max = 0.0
+    clip_layout_avg = 0.0
     if ADAPTIVE_CONTEXT_MODE and aspect_norm == "9:16" and camera_meta:
         raw_layout_samples = camera_meta.get("layout_samples")
         if isinstance(raw_layout_samples, list) and raw_layout_samples:
@@ -3792,17 +3865,38 @@ def render_clip_mp4(
                 raw_layout_samples,
                 clip_start=clip_start,
                 clip_end=clip_end,
-                max_keyframes=max(12, int(REFRAME_MAX_KEYFRAMES_PER_CLIP // 2)),
+                max_keyframes=max(
+                    12,
+                    min(
+                        int(ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES),
+                        int(REFRAME_MAX_KEYFRAMES_PER_CLIP // 2),
+                    ),
+                ),
             )
             if clip_layout_samples:
-                layout_min = min(float(v) for _, v in clip_layout_samples)
-                layout_max = max(float(v) for _, v in clip_layout_samples)
-                mixed_layout = bool(layout_min <= 0.35 and layout_max >= 0.65)
+                vals = [float(v) for (_t, v) in clip_layout_samples]
+                clip_layout_min = min(vals)
+                clip_layout_max = max(vals)
+                clip_layout_avg = sum(vals) / float(max(1, len(vals)))
+
+                # Use mixed layout only when context signal is meaningfully present.
+                # This keeps face-first clips on the fast path.
+                if clip_layout_max < float(ADAPTIVE_CONTEXT_MIX_ENABLE_MIN):
+                    mixed_layout = False
+                    use_context_layout = False
+                elif clip_layout_min >= float(ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN):
+                    mixed_layout = False
+                    use_context_layout = True
+                else:
+                    mixed_layout = True
+                    use_context_layout = False
 
     if mixed_layout:
         try:
             log(
-                "Using adaptive mixed framing (face + context in one clip)",
+                "Using adaptive mixed framing (face + context in one clip) "
+                f"(layout_keyframes={len(clip_layout_samples)}, "
+                f"min={clip_layout_min:.2f}, max={clip_layout_max:.2f}, avg={clip_layout_avg:.2f})",
                 job_id=job_id,
             )
         except Exception:
@@ -3865,6 +3959,10 @@ def render_clip_mp4(
     base_uses_complex = False
     base_filter_complex = ""
     vf = ""
+    context_bg_chain = build_context_background_chain(
+        target_w=int(target_w),
+        target_h=int(target_h),
+    )
 
     if mixed_layout:
         post_chain: List[str] = []
@@ -3897,8 +3995,7 @@ def render_clip_mp4(
             f"[vface0]crop={crop_w}:{crop_h}:x='{x_expr}':y='{y_expr}',"
             f"scale={target_w}:{target_h}[vface];"
             f"[vctx0]split=2[vbg][vfg];"
-            f"[vbg]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-            f"crop={target_w}:{target_h},gblur=sigma=26:steps=2[vbgb];"
+            f"[vbg]{context_bg_chain}[vbgb];"
             f"[vfg]scale={target_w}:{target_h}:force_original_aspect_ratio=decrease[vfgf];"
             f"[vbgb][vfgf]overlay=(W-w)/2:(H-h)/2[vctx];"
             f"[vface][vctx]blend=all_expr='{blend_expr}'[vblend];"
@@ -3916,8 +4013,7 @@ def render_clip_mp4(
 
         base_filter_complex = (
             f"[0:v]split=2[vbg][vfg];"
-            f"[vbg]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-            f"crop={target_w}:{target_h},gblur=sigma=26:steps=2[vbgb];"
+            f"[vbg]{context_bg_chain}[vbgb];"
             f"[vfg]scale={target_w}:{target_h}:force_original_aspect_ratio=decrease[vfgf];"
             f"[vbgb][vfgf]overlay=(W-w)/2:(H-h)/2,{post}[v1]"
         )
