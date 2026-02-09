@@ -483,9 +483,9 @@ SILENCE_DB = os.getenv("WORKER_SILENCE_DB", "-35dB")
 SILENCE_MIN_DUR = os.getenv("WORKER_SILENCE_MIN_DUR", "0.35")
 
 FFMPEG_TIMEOUT = int(os.getenv("WORKER_FFMPEG_TIMEOUT", "120"))
-SILENCEDETECT_TIMEOUT = int(os.getenv("WORKER_SILENCEDETECT_TIMEOUT", str(max(FFMPEG_TIMEOUT, 180))))
+SILENCEDETECT_TIMEOUT = int(os.getenv("WORKER_SILENCEDETECT_TIMEOUT", str(max(FFMPEG_TIMEOUT, 90))))
 SILENCEDETECT_MAX_SOURCE_SECONDS = float(
-    os.getenv("WORKER_SILENCEDETECT_MAX_SOURCE_SECONDS", "1800")  # 30 min
+    os.getenv("WORKER_SILENCEDETECT_MAX_SOURCE_SECONDS", "720")  # 12 min
 )
 
 # -----------------------------------------------------
@@ -1805,6 +1805,9 @@ REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "10.0"
 REFRAME_ANALYZE_EVERY_FRAME = os.getenv("WORKER_REFRAME_ANALYZE_EVERY_FRAME", "0") == "1"
 REFRAME_MAX_KEYFRAMES = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES", "220"))
 REFRAME_MAX_KEYFRAMES_PER_CLIP = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP", "120"))
+REFRAME_MAX_KEYFRAMES_PER_CLIP_MIXED = int(
+    os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP_MIXED", "72")
+)
 REFRAME_SMOOTH_WINDOW = int(os.getenv("WORKER_REFRAME_SMOOTH_WINDOW", "3"))
 
 REFRAME_SMOOTHING_FACE = float(os.getenv("WORKER_REFRAME_SMOOTHING_FACE", "0.94"))
@@ -1833,7 +1836,7 @@ ADAPTIVE_CONTEXT_FACELESS_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FACEL
 ADAPTIVE_CONTEXT_UI_RATIO = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_RATIO", "0.38"))
 ADAPTIVE_CONTEXT_UI_EDGE_DENSITY = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_UI_EDGE_DENSITY", "0.085"))
 ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING", "0.55"))
-ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES", "90"))
+ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES", "60"))
 ADAPTIVE_CONTEXT_MIX_ENABLE_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MIX_ENABLE_MIN", "0.18"))
 ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN", "0.82"))
 
@@ -1845,6 +1848,12 @@ CONTEXT_BG_BLUR_STEPS = int(os.getenv("WORKER_CONTEXT_BG_BLUR_STEPS", "1"))
 # Prune near-static keyframes before ffmpeg expression build.
 REFRAME_KEYFRAME_MIN_MOVE_PX = float(os.getenv("WORKER_REFRAME_KEYFRAME_MIN_MOVE_PX", "2.0"))
 REFRAME_KEYFRAME_MIN_DT = float(os.getenv("WORKER_REFRAME_KEYFRAME_MIN_DT", "0.10"))
+
+# Avoid expensive upscaling from low-resolution sources: preserves perceived quality
+# while reducing render cost on CPU instances.
+MAX_OUTPUT_AREA_RATIO_TO_SOURCE = float(
+    os.getenv("WORKER_MAX_OUTPUT_AREA_RATIO_TO_SOURCE", "5.0")
+)
 
 
 def _resize_for_detection(frame_bgr, max_width: int):
@@ -3798,6 +3807,42 @@ def _target_dims_for_aspect(aspect_ratio: Optional[str]) -> Tuple[int, int]:
         return (1440, 1080)
     return (1080, 1920)  # 9:16 default
 
+
+def _fit_target_dims_to_source(
+    *,
+    src_w: int,
+    src_h: int,
+    target_w: int,
+    target_h: int,
+) -> Tuple[int, int]:
+    """
+    Keep output aspect ratio while capping extreme upscaling cost.
+    This preserves practical visual quality on low-res sources and
+    greatly reduces CPU render time.
+    """
+    try:
+        sw = max(1.0, float(src_w))
+        sh = max(1.0, float(src_h))
+        tw = max(2.0, float(target_w))
+        th = max(2.0, float(target_h))
+        max_ratio = max(1.0, float(MAX_OUTPUT_AREA_RATIO_TO_SOURCE))
+
+        src_area = sw * sh
+        dst_area = tw * th
+        if dst_area <= src_area * max_ratio:
+            return int(target_w), int(target_h)
+
+        scale = math.sqrt((src_area * max_ratio) / dst_area)
+        new_w = max(2, int(round(tw * scale)))
+        new_h = max(2, int(round(th * scale)))
+        if new_w % 2 != 0:
+            new_w -= 1
+        if new_h % 2 != 0:
+            new_h -= 1
+        return max(2, new_w), max(2, new_h)
+    except Exception:
+        return int(target_w), int(target_h)
+
 # -----------------------------------------------------
 # Render / Export
 # -----------------------------------------------------
@@ -3848,6 +3893,19 @@ def render_clip_mp4(
         raise RuntimeError("Missing source dimensions for reframing")
 
     target_w, target_h = _target_dims_for_aspect(aspect_ratio)
+    fitted_w, fitted_h = _fit_target_dims_to_source(
+        src_w=int(src_w),
+        src_h=int(src_h),
+        target_w=int(target_w),
+        target_h=int(target_h),
+    )
+    if fitted_w != target_w or fitted_h != target_h:
+        log(
+            f"Render scale adjusted for source ({src_w}x{src_h}): "
+            f"{target_w}x{target_h} -> {fitted_w}x{fitted_h}",
+            job_id=job_id,
+        )
+    target_w, target_h = int(fitted_w), int(fitted_h)
     use_context_layout = should_use_context_layout(
         aspect_ratio=aspect_ratio,
         camera_meta=camera_meta,
@@ -3976,7 +4034,13 @@ def render_clip_mp4(
                 camera_samples,
                 clip_start=clip_start,
                 clip_end=clip_end,
-                max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+                max_keyframes=max(
+                    12,
+                    min(
+                        int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+                        int(REFRAME_MAX_KEYFRAMES_PER_CLIP_MIXED),
+                    ),
+                ),
             )
             cx_expr = build_lerp_expr(clip_camera_samples, "x")
             cy_expr = build_lerp_expr(clip_camera_samples, "y")
@@ -4033,7 +4097,13 @@ def render_clip_mp4(
                 camera_samples,
                 clip_start=clip_start,
                 clip_end=clip_end,
-                max_keyframes=int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+                max_keyframes=max(
+                    12,
+                    min(
+                        int(REFRAME_MAX_KEYFRAMES_PER_CLIP),
+                        int(REFRAME_MAX_KEYFRAMES_PER_CLIP_MIXED),
+                    ),
+                ),
             )
             cx_expr = build_lerp_expr(clip_camera_samples, "x")
             cy_expr = build_lerp_expr(clip_camera_samples, "y")
