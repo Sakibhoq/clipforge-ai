@@ -1840,6 +1840,9 @@ ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_L
 ADAPTIVE_CONTEXT_MIX_ENABLE_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MIX_ENABLE_MIN", "0.18"))
 ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN", "0.82"))
 FACE_FIRST_TRACKING_ENABLED = os.getenv("WORKER_ENABLE_FACE_FIRST", "1") == "1"
+FORCE_CONTEXT_LAYOUT_WHEN_FACE_FIRST_OFF = (
+    os.getenv("WORKER_FORCE_CONTEXT_LAYOUT_WHEN_FACE_FIRST_OFF", "0") == "1"
+)
 
 # Background context path optimization (keeps look, reduces render cost)
 CONTEXT_BG_SCALE = float(os.getenv("WORKER_CONTEXT_BG_SCALE", "0.75"))
@@ -3907,6 +3910,8 @@ def render_clip_mp4(
             job_id=job_id,
         )
     target_w, target_h = int(fitted_w), int(fitted_h)
+    target_ar = float(target_w) / float(target_h)
+    src_ar = float(src_w) / float(src_h)
     use_context_layout = should_use_context_layout(
         aspect_ratio=aspect_ratio,
         camera_meta=camera_meta,
@@ -3917,7 +3922,15 @@ def render_clip_mp4(
     clip_layout_min = 0.0
     clip_layout_max = 0.0
     clip_layout_avg = 0.0
-    if ADAPTIVE_CONTEXT_MODE and aspect_norm == "9:16" and camera_meta:
+    force_context_layout = (
+        FORCE_CONTEXT_LAYOUT_WHEN_FACE_FIRST_OFF
+        and (not FACE_FIRST_TRACKING_ENABLED)
+        and (abs(src_ar - target_ar) > 0.001)
+    )
+    if force_context_layout:
+        use_context_layout = True
+        mixed_layout = False
+    elif ADAPTIVE_CONTEXT_MODE and aspect_norm == "9:16" and camera_meta:
         raw_layout_samples = camera_meta.get("layout_samples")
         if isinstance(raw_layout_samples, list) and raw_layout_samples:
             clip_layout_samples = scalar_samples_for_clip_window(
@@ -3960,6 +3973,15 @@ def render_clip_mp4(
             )
         except Exception:
             pass
+    elif force_context_layout:
+        try:
+            log(
+                "Using forced context-preserve framing "
+                "(face-first disabled fast mode)",
+                job_id=job_id,
+            )
+        except Exception:
+            pass
     elif use_context_layout:
         try:
             log(
@@ -3975,9 +3997,6 @@ def render_clip_mp4(
     # -------------------------------------------------
     # Crop window (in source pixels)
     # -------------------------------------------------
-
-    target_ar = float(target_w) / float(target_h)
-    src_ar = float(src_w) / float(src_h)
 
     if src_ar > target_ar:
         crop_h = int(src_h)
@@ -4890,6 +4909,7 @@ def main():
             "Runtime config: "
             f"face_first={int(FACE_FIRST_TRACKING_ENABLED)} "
             f"adaptive_context={int(ADAPTIVE_CONTEXT_MODE)} "
+            f"force_context_when_face_first_off={int(FORCE_CONTEXT_LAYOUT_WHEN_FACE_FIRST_OFF)} "
             f"whisper_model={WHISPER_MODEL_NAME} "
             f"sample_fps={REFRAME_SAMPLE_FPS:.1f}/{REFRAME_MAX_SAMPLE_FPS:.1f} "
             f"top_k={TOP_K_CLIPS} max_top_k={MAX_TOP_K_CLIPS} max_render={MAX_RENDER_CLIPS_PER_JOB}"
