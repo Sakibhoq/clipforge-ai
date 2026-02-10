@@ -338,15 +338,6 @@ type SettingsPreferencesResponse = {
   processing_alerts_enabled: boolean;
 };
 
-type SessionItem = {
-  id: string;
-  current: boolean;
-  device: string;
-  created_at?: string | null;
-  expires_at?: string | null;
-  ip?: string | null;
-};
-
 const DEFAULT_PREFS: LocalPrefs = {
   emailReports: true,
   productTips: false,
@@ -389,8 +380,6 @@ export default function SettingsPage() {
   const [meLoading, setMeLoading] = useState(true);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
-  const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [billingBusy, setBillingBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -463,27 +452,6 @@ export default function SettingsPage() {
       .catch(() => {
         if (!mounted) return;
         setSocialAccounts([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    setSessionsLoading(true);
-    apiFetch<{ sessions: SessionItem[] }>("/settings/sessions", { method: "GET" })
-      .then((d) => {
-        if (!mounted) return;
-        setSessions(Array.isArray(d?.sessions) ? d.sessions : []);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setSessions([]);
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setSessionsLoading(false);
       });
     return () => {
       mounted = false;
@@ -852,38 +820,6 @@ export default function SettingsPage() {
           />
         </div>
 
-        <div className="mt-4 grid gap-2 text-[12px] text-white/55">
-          {sessionsLoading ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              Loading sessions…
-            </div>
-          ) : sessions.length ? (
-            sessions.map((s) => (
-              <div
-                key={s.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-white/75 font-semibold">
-                    {s.current ? "Current session" : "Session"}
-                  </div>
-                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
-                    {s.current ? "This device" : "Active"}
-                  </span>
-                </div>
-                <div className="mt-1 text-white/45">{s.device || "Current device"}</div>
-                <div className="mt-1 text-white/45">
-                  Started: {s.created_at ? new Date(s.created_at).toLocaleString() : "—"} • Expires:{" "}
-                  {s.expires_at ? new Date(s.expires_at).toLocaleString() : "—"}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              No active sessions found.
-            </div>
-          )}
-        </div>
       </Section>
 
       {/* Social connections */}
