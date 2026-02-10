@@ -454,7 +454,7 @@ export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [mode, setMode] = useState<BillingMode>("monthly");
+  const [mode, setMode] = useState<BillingMode>("yearly");
   const [pack, setPack] = useState<number>(1);
 
   const [startingCheckout, setStartingCheckout] = useState<
@@ -571,7 +571,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
   const studioMonthlyExample = 99.0;
 
-  const yearlyDiscount = 0.51;
+  const yearlyDiscount = 0.5;
   const months = 12;
 
   const creatorMonthlyWithPack = creatorMonthlyPrice * pack;
@@ -670,7 +670,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     []
   );
 
-  const discountLabel = useMemo(() => "−51%", []);
+  const discountLabel = useMemo(() => "−50%", []);
 
   return (
     // IMPORTANT: no overflow on the page root (keeps navbar sticky working)
@@ -832,7 +832,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     Billed yearly{" "}
                     <span className="text-white/85">(${creatorYearlyTotal})</span>
                     <span className="ml-2 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/70">
-                      save 51%
+                      save 50%
                     </span>
                   </SmallNote>
                 </>
