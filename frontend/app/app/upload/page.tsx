@@ -705,7 +705,7 @@ function AspectSegment({
 }) {
   const [rw, rh] = value.split(":").map((n) => Number(n));
   const ratio = Number.isFinite(rw) && Number.isFinite(rh) && rw > 0 && rh > 0 ? rw / rh : 1;
-  const maxSide = 96;
+  const maxSide = 52;
   const boxW = ratio >= 1 ? maxSide : Math.round(maxSide * ratio);
   const boxH = ratio >= 1 ? Math.round(maxSide / ratio) : maxSide;
 
@@ -715,14 +715,14 @@ function AspectSegment({
       onClick={onClick}
       aria-label={`Set aspect ratio ${value}`}
       className={cx(
-        "relative inline-flex shrink-0 items-center justify-center rounded-xl border px-3 py-2 text-center transition",
+        "relative inline-flex shrink-0 items-center justify-center rounded-lg border text-center transition",
         active
           ? "border-white/30 bg-white/[0.16] text-white/95"
           : "border-white/12 bg-white/[0.05] text-white/75 hover:bg-white/[0.09] hover:border-white/20"
       )}
       style={{ width: `${boxW}px`, height: `${boxH}px` }}
     >
-      <span className="text-[18px] font-semibold tracking-tight leading-none">{value}</span>
+      <span className="text-[12px] font-semibold tracking-tight leading-none">{value}</span>
     </button>
   );
 }
@@ -1539,7 +1539,7 @@ function UploadWorkspace() {
                   )}
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-end gap-3">
+                <div className="mt-2 flex flex-wrap items-end gap-2">
                   {(["9:16", "1:1", "4:5", "16:9", "4:3"] as AspectRatio[]).map((v) => (
                     <AspectSegment
                       key={v}

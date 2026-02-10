@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -1541,6 +1541,10 @@ function ClipsWorkspace() {
 }
 
 export default function ClipsPage() {
+  const pathname = usePathname() || "";
+  const onClipsRoute = pathname === "/app/clips" || pathname.startsWith("/app/clips/");
+  if (!onClipsRoute) return null;
+
   return (
     <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
       <ClipsWorkspace />
