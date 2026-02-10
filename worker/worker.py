@@ -2725,6 +2725,12 @@ CAPTION_MAX_TOKEN_CHARS = int(os.getenv("WORKER_CAPTION_MAX_TOKEN_CHARS", "18"))
 # before speech starts. Keep configurable via env for fine tuning.
 CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS", "0.22"))
 
+# Context-layout caption tuning (blurred band placement)
+CAPTION_CONTEXT_FONT_SCALE = float(os.getenv("WORKER_CAPTION_CONTEXT_FONT_SCALE", "0.84"))
+CAPTION_CONTEXT_MIN_FONT_SIZE = int(os.getenv("WORKER_CAPTION_CONTEXT_MIN_FONT_SIZE", "42"))
+CAPTION_CONTEXT_MARGIN_RATIO = float(os.getenv("WORKER_CAPTION_CONTEXT_MARGIN_RATIO", "0.24"))
+CAPTION_CONTEXT_MIN_MARGIN_V = int(os.getenv("WORKER_CAPTION_CONTEXT_MIN_MARGIN_V", "28"))
+
 # Karaoke timing safety
 KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "1"))     # 0.01s
 KARAOKE_MAX_CS = int(os.getenv("WORKER_KARAOKE_MAX_CS", "250"))   # 2.50s
@@ -3345,7 +3351,9 @@ def build_ass_subtitles_for_clip(
     target_w: int,
     target_h: int,
     camera_samples: Optional[list],
+    source_w: Optional[float],
     source_h: Optional[float],
+    context_layout: bool = False,
     caption_style_json: Any,
 ) -> str:
     """
@@ -3355,6 +3363,13 @@ def build_ass_subtitles_for_clip(
       - Karaoke highlight layer (with \k tokens)
     """
     style = resolve_caption_style(caption_style_json)
+    if context_layout:
+        try:
+            base_size = int(style.get("font_size", CAPTION_FONT_SIZE))
+            scaled_size = int(round(float(base_size) * float(CAPTION_CONTEXT_FONT_SCALE)))
+            style["font_size"] = max(int(CAPTION_CONTEXT_MIN_FONT_SIZE), scaled_size)
+        except Exception:
+            pass
 
     clip_words = words_in_range(words_all, clip_start, clip_end)
 
@@ -3363,6 +3378,26 @@ def build_ass_subtitles_for_clip(
         src_h=source_h,
         base_margin_v=int(style["margin_v"]),
     )
+    if context_layout:
+        try:
+            sw = float(source_w or 0.0)
+            sh = float(source_h or 0.0)
+            tw = float(target_w)
+            th = float(target_h)
+            if sw > 0.0 and sh > 0.0 and tw > 0.0 and th > 0.0:
+                src_ar = sw / sh
+                target_ar = tw / th
+                # Only vertical padding (top/bottom blur bands) can host "under-clip" captions.
+                if src_ar > target_ar:
+                    fg_h = max(1.0, tw / src_ar)
+                    bottom_band = max(0.0, (th - fg_h) / 2.0)
+                    if bottom_band > 4.0:
+                        desired_margin = int(round(bottom_band * float(CAPTION_CONTEXT_MARGIN_RATIO)))
+                        desired_margin = max(int(CAPTION_CONTEXT_MIN_MARGIN_V), desired_margin)
+                        # Lower captions for context layout by capping overly high margins.
+                        margin_v = min(int(margin_v), int(desired_margin))
+        except Exception:
+            pass
 
     header = build_ass_header(
         play_res_x=int(target_w),
@@ -3460,7 +3495,7 @@ elif os.path.exists(_WM_DEFAULT):
 else:
     WATERMARK_PNG_PATH = _WM_FALLBACK
 
-WATERMARK_LOGO_W = int(os.getenv("WORKER_WATERMARK_LOGO_W", "300"))
+WATERMARK_LOGO_W = int(os.getenv("WORKER_WATERMARK_LOGO_W", "240"))
 WATERMARK_ALPHA = float(os.getenv("WORKER_WATERMARK_ALPHA", "0.88"))
 
 WATERMARK_LEFT_PAD = int(os.getenv("WORKER_WATERMARK_LEFT_PAD", "36"))
@@ -3470,7 +3505,7 @@ WATERMARK_TEXT_GAP = int(os.getenv("WORKER_WATERMARK_TEXT_GAP", "18"))
 WATERMARK_TEXT = os.getenv("WORKER_WATERMARK_TEXT", "Orbito")
 WATERMARK_TEXT_FONT = os.getenv("WORKER_WATERMARK_TEXT_FONT", "Montserrat")
 WATERMARK_TEXT_FONTFILE = os.getenv("WORKER_WATERMARK_TEXT_FONTFILE", "").strip()
-WATERMARK_TEXT_SIZE = int(os.getenv("WORKER_WATERMARK_TEXT_SIZE", "96"))
+WATERMARK_TEXT_SIZE = int(os.getenv("WORKER_WATERMARK_TEXT_SIZE", "76"))
 
 # Pulse timing (seconds)
 WATERMARK_PULSE_PERIOD = float(os.getenv("WORKER_WATERMARK_PULSE_PERIOD", "20.0"))
@@ -4019,7 +4054,9 @@ def render_clip_mp4(
                 target_w=int(target_w),
                 target_h=int(target_h),
                 camera_samples=camera_samples or [],
+                source_w=float(src_w) if src_w else None,
                 source_h=float(src_h) if src_h else None,
+                context_layout=bool(use_context_layout or mixed_layout),
                 caption_style_json=caption_style_json,
             )
             captions_ass_path = write_ass_file(ass_text=ass_text, job_id=job_id)
