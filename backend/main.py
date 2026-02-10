@@ -10,7 +10,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront
+from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact
 from routers import storage as storage_router
 from routers import upload_register
 from core.db_init import init_db
@@ -130,6 +130,7 @@ def root():
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(contact.router)
 app.include_router(oauth.router)
 app.include_router(social.router)
 app.include_router(automations.router)

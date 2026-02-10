@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { apiFetch } from "@/lib/api";
 
 type FormState = {
   name: string;
@@ -226,28 +227,32 @@ function SendMessageModal({
     return !errors.name && !errors.email && !errors.subject && !errors.message;
   }, [errors]);
 
-  function onSubmit() {
+  async function onSubmit() {
     setTouched({ name: true, email: true, subject: true, message: true });
     if (!canSend) return;
 
     setStatus({ kind: "sending" });
     try {
-      const subject = form.subject.trim();
-      const body = [
-        `Name: ${form.name.trim()}`,
-        `Email: ${form.email.trim()}`,
-        "",
-        "Message:",
-        form.message.trim(),
-      ].join("\n");
-
-      const mailto = `mailto:support@orbito.cc?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.location.href = mailto;
+      await apiFetch("/contact/send", {
+        method: "POST",
+        body: {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          subject: form.subject.trim(),
+          message: form.message.trim(),
+        },
+      });
 
       setStatus({ kind: "sent" });
       setForm({ name: "", email: "", subject: "", message: "" });
     } catch (err: any) {
-      setStatus({ kind: "error", message: err?.message || "Failed to open email app" });
+      const detail =
+        typeof err?.detail === "string"
+          ? err.detail
+          : typeof err?.message === "string"
+          ? err.message
+          : "Failed to send message";
+      setStatus({ kind: "error", message: detail });
     }
   }
 
