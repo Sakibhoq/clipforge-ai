@@ -703,33 +703,26 @@ function AspectSegment({
   active: boolean;
   onClick: () => void;
 }) {
-  const preview = (() => {
-    if (value === "9:16") return { label: "Vertical", aspect: "9 / 16", w: 12 };
-    if (value === "1:1") return { label: "Square", aspect: "1 / 1", w: 16 };
-    if (value === "4:5") return { label: "Portrait", aspect: "4 / 5", w: 14 };
-    if (value === "16:9") return { label: "Wide", aspect: "16 / 9", w: 22 };
-    return { label: "Classic", aspect: "4 / 3", w: 19 };
-  })();
+  const [rw, rh] = value.split(":").map((n) => Number(n));
+  const ratio = Number.isFinite(rw) && Number.isFinite(rh) && rw > 0 && rh > 0 ? rw / rh : 1;
+  const maxSide = 96;
+  const boxW = ratio >= 1 ? maxSide : Math.round(maxSide * ratio);
+  const boxH = ratio >= 1 ? Math.round(maxSide / ratio) : maxSide;
 
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={`Set aspect ratio ${value}`}
       className={cx(
-        "relative rounded-xl border px-3 py-2 text-left transition min-w-[96px]",
+        "relative inline-flex shrink-0 items-center justify-center rounded-xl border px-3 py-2 text-center transition",
         active
-          ? "border-white/25 bg-white/[0.10] text-white/90"
-          : "border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.05] hover:border-white/14"
+          ? "border-white/30 bg-white/[0.16] text-white/95"
+          : "border-white/12 bg-white/[0.05] text-white/75 hover:bg-white/[0.09] hover:border-white/20"
       )}
+      style={{ width: `${boxW}px`, height: `${boxH}px` }}
     >
-      <span className="mx-auto flex h-9 w-11 items-center justify-center rounded-md border border-white/15 bg-black/25">
-        <span
-          className="block rounded-[4px] border border-white/45 bg-white/[0.14]"
-          style={{ width: preview.w, aspectRatio: preview.aspect }}
-        />
-      </span>
-      <span className="mt-1.5 block text-[11px] font-medium text-white/82">{preview.label}</span>
-      <span className="block text-[10px] text-white/50">{value}</span>
+      <span className="text-[18px] font-semibold tracking-tight leading-none">{value}</span>
     </button>
   );
 }
@@ -1546,7 +1539,7 @@ function UploadWorkspace() {
                   )}
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap items-end gap-3">
                   {(["9:16", "1:1", "4:5", "16:9", "4:3"] as AspectRatio[]).map((v) => (
                     <AspectSegment
                       key={v}
