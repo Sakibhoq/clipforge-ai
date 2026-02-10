@@ -124,48 +124,39 @@ export default function FeaturesPage() {
         kicker: "Source",
         title: (
           <>
-            Add a <H>YOUTUBE</H> link or file once
+            Add a <H>YouTube</H> link or file
           </>
         ),
-        desc: <>One upload in. Orbito builds multiple high-quality clips behind the scenes.</>,
-        bullets: [<>MP4 or YOUTUBE.</>, <>Background processing.</>, <>No manual prep.</>],
-        tagLeft: <>Fast start</>,
-        tagRight: <>Low effort</>,
+        desc: <>Upload once. Orbito starts building clips in the background.</>,
+        bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Fast start.</>],
+        tagLeft: <>Simple</>,
+        tagRight: <>Quick</>,
       },
       {
         id: "hooks",
         kicker: "AI",
         title: (
           <>
-            Hooks built for <H>TIKTOK</H> and <H>REELS</H>
+            Clips made for <H>TikTok</H> and <H>Reels</H>
           </>
         ),
-        desc: <>We surface the moments with tension, clarity, and payoff so every second earns attention.</>,
-        bullets: [<>No dead air.</>, <>Tight pacing.</>, <>Clean endings.</>],
-        tagLeft: <>Retention</>,
-        tagRight: <>High signal</>,
+        desc: <>We pick strong moments so your clips get to the point quickly.</>,
+        bullets: [<>No long pauses.</>, <>Clear cuts.</>, <>Clean endings.</>],
+        tagLeft: <>Better watch time</>,
+        tagRight: <>Focused</>,
       },
       {
         id: "reframe",
         kicker: "Quality",
         title: (
           <>
-            Captions and framing for premium <H>POSTS</H>
+            Captions and framing that are easy to read
           </>
         ),
-        desc: <>Speaker-first crops and clean captions tuned for vertical formats and fast scrolling feeds.</>,
-        bullets: [<>Stable framing.</>, <>Smart line breaks.</>, <>Tasteful emphasis.</>],
-        tagLeft: <>Looks pro</>,
+        desc: <>Get speaker-first framing and clean captions for vertical video.</>,
+        bullets: [<>Stable framing.</>, <>Clear captions.</>, <>Ready to post.</>],
+        tagLeft: <>Looks clean</>,
         tagRight: <>Readable</>,
-      },
-      {
-        id: "brand",
-        kicker: "Brand",
-        title: <>Your brand look, always consistent</>,
-        desc: <>Keep every export visually consistent with no extra cleanup before you publish.</>,
-        bullets: [<>Paid toggle.</>, <>Tasteful motion.</>, <>Consistent placement.</>],
-        tagLeft: <>Trust</>,
-        tagRight: <>Consistent</>,
       },
     ],
     []
@@ -442,12 +433,12 @@ export default function FeaturesPage() {
             <div className="text-xs text-white/55">• Features</div>
 
             <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-              Turn long video into premium <H>POSTS</H>.
+              Turn long videos into short clips.
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Start with one <H>YOUTUBE</H> link or upload. Orbito gives you polished clips for <H>TIKTOK</H>,{" "}
-              <H>REELS</H>, and <H>POSTS</H> with less effort and better consistency.
+              Start with one <H>YouTube</H> link or file. Orbito helps you find good moments and post faster on{" "}
+              <H>TikTok</H>, <H>Reels</H>, and <H>YouTube Shorts</H>.
             </p>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
@@ -460,31 +451,30 @@ export default function FeaturesPage() {
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon - AI video + AI
-                song generation at clipforge.us.
+                Upload once, then keep posting from one simple dashboard.
               </div>
             </div>
 
             <div className="mt-8 flex flex-wrap items-center gap-2 text-xs text-white/55">
               <Pill>
-                paste <H>YOUTUBE</H>
+                upload video
               </Pill>
               <span className="text-white/35">→</span>
-              <Pill>detect hooks</Pill>
+              <Pill>pick clips</Pill>
               <span className="text-white/35">→</span>
               <Pill>
-                generate <H>TIKTOK</H> + <H>REELS</H>
+                add captions
               </Pill>
               <span className="text-white/35">→</span>
-              <Pill>publish <H>POSTS</H></Pill>
+              <Pill>post</Pill>
             </div>
 
             {/* WHEEL HEADER */}
             <div className="mt-12 flex items-center justify-between gap-4">
-              <div className="text-xs text-white/45">Swipe the cards to see the full workflow</div>
+              <div className="text-xs text-white/45">Swipe to see what Orbito does</div>
               <div className="hidden sm:flex items-center gap-2 text-[11px] text-white/45">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                premium settle
+                smooth scrolling
               </div>
             </div>
 
@@ -558,24 +548,20 @@ export default function FeaturesPage() {
                 How it works
               </Link>
               <Link href="/start-trial" className="btn-ghost">
-                Start free trial
+                Start free
               </Link>
             </div>
 
             {/* SECONDARY SECTIONS */}
-            <div className="mt-14 grid gap-4 md:grid-cols-3">
+            <div className="mt-14 grid gap-4 md:grid-cols-2">
               {[
                 {
-                  t: "Simple pricing, no noise",
-                  d: "Credits map to real output, so you scale with confidence.",
+                  t: "Simple pricing",
+                  d: "Pay for what you need. Upgrade when you are ready.",
                 },
                 {
-                  t: "One calm dashboard",
-                  d: "Uploads, processing, clips, and exports in one place.",
-                },
-                {
-                  t: "Clipforge Labs (coming soon)",
-                  d: "clipforge.us will add AI video and AI song generation. Orbito stays focused on clipping now.",
+                  t: "One dashboard",
+                  d: "Upload, review, edit, and export in one place.",
                 },
               ].map((x) => (
                 <div
@@ -593,10 +579,10 @@ export default function FeaturesPage() {
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link href="/start-trial" className="btn-aurora">
-                Start free trial
+                Start free
               </Link>
               <Link href="/contact" className="btn-ghost">
-                Talk to us
+                Contact
               </Link>
             </div>
 

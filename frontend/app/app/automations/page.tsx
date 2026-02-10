@@ -90,11 +90,10 @@ export default function AutomationsPage() {
       <div className="surface relative overflow-hidden p-6 sm:p-8">
         <div className="text-xs text-white/55">• Automations</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Automation workflows
+          Automation rules
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-white/65">
-          Set simple rules so every upload turns into a consistent posting flow. Start with YouTube auto-posting and
-          expand to TikTok + Instagram when accounts are connected.
+          Set rules so uploads can move to posting automatically. Start with YouTube, then add more platforms.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
@@ -102,15 +101,15 @@ export default function AutomationsPage() {
           <Link href="/app/settings?tab=social" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
             Connect socials
           </Link>
-          <button
-            type="button"
-            onClick={dispatchPosts}
-            className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1"
-            disabled={busy === "dispatch"}
-          >
-            {busy === "dispatch" ? "Dispatching..." : "Dispatch posts"}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={dispatchPosts}
+              className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1"
+              disabled={busy === "dispatch"}
+            >
+              {busy === "dispatch" ? "Sending..." : "Send posts"}
+            </button>
+          </div>
 
         <div className="mt-8 grid gap-3 md:grid-cols-2">
           {presets.map((p) => (
@@ -125,7 +124,7 @@ export default function AutomationsPage() {
                 Trigger: {p.trigger} · Action: {p.action}
               </div>
               <div className="mt-3 text-[12px] text-white/55">
-                {busy === p.key ? "Creating..." : "Create rule"}
+                {busy === p.key ? "Creating..." : "Add rule"}
               </div>
             </button>
           ))}
@@ -153,7 +152,7 @@ export default function AutomationsPage() {
               ))
             ) : (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
-                No rules yet. Create a preset to get started.
+                No rules yet. Add a preset to get started.
               </div>
             )}
           </div>

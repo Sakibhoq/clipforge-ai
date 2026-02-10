@@ -69,6 +69,7 @@ type RegisterResponse = {
 };
 
 type JobRow = {
+  clips_generated?: number;
   id: number;
   upload_id: number;
   status: JobStatus;
@@ -738,6 +739,7 @@ function UploadWorkspace() {
 
   const [uploadId, setUploadId] = useState<number | null>(null);
   const [jobId, setJobId] = useState<number | null>(null);
+  const [clipsGenerated, setClipsGenerated] = useState(0);
   const [storageKey, setStorageKey] = useState<string | null>(null);
 
   const [progress, setProgress] = useState(0);
@@ -943,6 +945,7 @@ function UploadWorkspace() {
 
     setUploadId(null);
     setJobId(null);
+    setClipsGenerated(0);
     setStorageKey(null);
 
     setProgress(0);
@@ -1039,11 +1042,16 @@ function UploadWorkspace() {
       const hit = await apiFetch<JobRow>(`/jobs/${targetJobId}`, {
         signal: ac.signal,
       });
+      const generatedCount = Math.max(0, Number(hit.clips_generated ?? 0));
+      setClipsGenerated(generatedCount);
 
-      if (hit.status === "queued") setStatusText("Queued…");
-      else if (hit.status === "running") setStatusText("Processing…");
+      if (hit.status === "queued") {
+        setStatusText(generatedCount > 0 ? `Queued… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated` : "Queued…");
+      } else if (hit.status === "running") {
+        setStatusText(generatedCount > 0 ? `Processing… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated` : "Processing…");
+      }
       else if (hit.status === "done") {
-        setStatusText("Ready.");
+        setStatusText(generatedCount > 0 ? `Ready. ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated.` : "Ready.");
         setProgress(100);
         setFlow("done");
         clearPersistedSession();
@@ -1083,6 +1091,7 @@ function UploadWorkspace() {
     uploadAbort.current = ac;
 
     setProgress(2);
+    setClipsGenerated(0);
     setStatusText("Requesting upload URL…");
 
     try {
@@ -1389,9 +1398,9 @@ function UploadWorkspace() {
   }
 
   const headerSubtitle = useMemo(() => {
-    if (flow === "processing") return "Processing runs in the background — you can leave this page.";
-    if (flow === "done") return "Your clips are ready. Jump to Clips to review and export.";
-    return "Drop a file or paste a YouTube link. Choose output settings first.";
+    if (flow === "processing") return "Processing runs in the background. You can leave this page.";
+    if (flow === "done") return "Your clips are ready. Open Clips to review and export.";
+    return "Upload a file or paste a YouTube link. Pick output settings first.";
   }, [flow]);
 
   const canStartUpload = settingsOk && !fileDurationLoading && fileCredits != null;
@@ -1414,7 +1423,7 @@ function UploadWorkspace() {
           <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-white/90">
-                Upload <span className="grad-text">workspace</span>
+                Upload <span className="grad-text">video</span>
               </h1>
               <div className="mt-1 text-sm text-white/60">{headerSubtitle}</div>
 
@@ -1444,7 +1453,7 @@ function UploadWorkspace() {
                 href={uploadId ? `/app/clips?upload_id=${uploadId}` : "/app/clips"}
                 className="btn-ghost text-[12px] px-4 py-2"
               >
-                View clips
+                Go to clips
               </Link>
               <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
                 Buy credits
@@ -1457,10 +1466,10 @@ function UploadWorkspace() {
               Credits: <span className="text-white/70">{me?.credits ?? "—"}</span>
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-              Charge rule: <span className="text-white/70">2 credits / minute</span>
+              Cost: <span className="text-white/70">2 credits / minute</span>
             </span>
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-              Charged at: <span className="text-white/70">Register</span>
+              Charged: <span className="text-white/70">when job starts</span>
             </span>
           </div>
         </div>
@@ -1485,10 +1494,9 @@ function UploadWorkspace() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-white/90">Upload a video</div>
-                <div className="mt-1 text-sm text-white/60">Pick output settings, then upload.</div>
+                <div className="mt-1 text-sm text-white/60">Pick your settings, then upload.</div>
                 <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/65">
-                  Large files can take longer to process. For faster, best results, upload shorter videos (about 10-20
-                  minutes). Podcasts and mostly still videos usually produce the most reliable clips.
+                  Shorter videos usually process faster. A clear speaker and clean audio give better clips.
                 </div>
               </div>
               {file ? (
@@ -1503,7 +1511,7 @@ function UploadWorkspace() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[12px] font-semibold text-white/85">Output settings</div>
-                  <div className="mt-1 text-[12px] text-white/55">Aspect ratio is required.</div>
+                  <div className="mt-1 text-[12px] text-white/55">Pick an aspect ratio to continue.</div>
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
@@ -1519,7 +1527,7 @@ function UploadWorkspace() {
                   {!settingsOk ? (
                     <div className="text-[12px] text-rose-200/75">Required</div>
                   ) : (
-                    <div className="text-[12px] text-white/45">Locked in for this run</div>
+                    <div className="text-[12px] text-white/45">Set for this upload</div>
                   )}
                 </div>
 
@@ -1536,8 +1544,7 @@ function UploadWorkspace() {
 
                 {!settingsOk ? (
                   <div className="mt-2 text-[12px] text-white/50">
-                    Choose an aspect ratio to enable{" "}
-                    <span className="text-white/70">Start upload</span>.
+                    Choose an aspect ratio to enable <span className="text-white/70">Start upload</span>.
                   </div>
                 ) : null}
               </div>
@@ -1547,14 +1554,14 @@ function UploadWorkspace() {
                   checked={captionsEnabled}
                   onChange={setCaptionsEnabled}
                   label="Captions"
-                  hint="Burned-in subtitles (recommended)."
+                  hint="Burned-in subtitles."
                 />
                 <Toggle
                   checked={watermarkEnabled || isFree}
                   onChange={setWatermarkEnabled}
                   disabled={isFree}
                   label="Watermark"
-                  hint={isFree ? "Free plan forces watermark ON." : "Paid users can toggle."}
+                  hint={isFree ? "Free plan keeps watermark on." : "Paid plans can toggle this."}
                 />
               </div>
             </div>
@@ -1631,7 +1638,7 @@ function UploadWorkspace() {
                     <div className="mt-4">
                       <ProgressBar value={progress} />
                     </div>
-                    <div className="mt-3 text-[12px] text-white/45">{statusText || "Uploading…"}</div>
+                    <div className="mt-3 text-[12px] text-white/45">{statusText || "Uploading..."}</div>
                     <div className="mt-5 flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -1646,10 +1653,10 @@ function UploadWorkspace() {
                 ) : flow === "processing" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
                     <div className="text-sm font-semibold text-white/85">
-                      {statusText || "Queued for processing"}
+                      {statusText || "Processing"}
                     </div>
                     <div className="mt-1 text-xs text-white/55">
-                      Extracting audio, transcribing, cutting clips.
+                      Creating clips in the background.
                     </div>
 
                     <div className="mt-4">
@@ -1665,6 +1672,11 @@ function UploadWorkspace() {
                       {jobId ? (
                         <div>
                           Job: <span className="text-white/65">{jobId}</span>
+                        </div>
+                      ) : null}
+                      {jobId ? (
+                        <div>
+                          Clips generated: <span className="text-white/65">{clipsGenerated}</span>
                         </div>
                       ) : null}
                       {storageKey ? (
@@ -1708,7 +1720,7 @@ function UploadWorkspace() {
                 ) : flow === "done" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
                     <div className="text-sm font-semibold text-white/85">Ready</div>
-                    <div className="mt-1 text-xs text-white/55">Your clips are available now.</div>
+                    <div className="mt-1 text-xs text-white/55">Your clips are ready.</div>
 
                     <div className="mt-3 space-y-1 text-[12px] text-white/45">
                       {uploadId ? (
@@ -1743,7 +1755,7 @@ function UploadWorkspace() {
                   <div className="mx-auto w-full max-w-sm text-left">
                     <div className="text-sm font-semibold text-white/85">Canceled</div>
                     <div className="mt-1 text-xs text-white/55">
-                      Nothing was registered. You can try again.
+                      Upload stopped. Nothing was charged.
                     </div>
                     <div className="mt-5 flex flex-wrap items-center gap-2">
                       <button
@@ -1820,25 +1832,25 @@ function UploadWorkspace() {
                         Select an aspect ratio above to continue.
                       </div>
                     ) : fileDurationLoading ? (
-                      <div className="mt-3 text-[12px] text-white/45">
-                        Reading video duration to calculate credits…
+                    <div className="mt-3 text-[12px] text-white/45">
+                        Reading video length to estimate credits...
                       </div>
                     ) : fileCredits == null ? (
                       <div className="mt-3 text-[12px] text-white/45">
-                        Couldn’t read duration — you can re-pick the file.
+                        Could not read video length. Try another file.
                       </div>
                     ) : (
                       <div className="mt-3 text-[12px] text-white/45">
-                        Tip: Long-form works best (podcasts, interviews).
+                        Tip: clear speech usually gives better clips.
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="relative">
                     <div className="text-sm font-semibold text-white/85">
-                      {flow === "dragging" ? "Drop to upload" : "Drop a video file here"}
+                      {flow === "dragging" ? "Drop to upload" : "Drop your video file here"}
                     </div>
-                    <div className="mt-1 text-xs text-white/55">MP4, MOV — long-form recommended</div>
+                    <div className="mt-1 text-xs text-white/55">MP4 or MOV</div>
 
                     <div className="mt-4 flex items-center justify-center">
                       <button
@@ -1864,16 +1876,15 @@ function UploadWorkspace() {
                 Background processing
               </span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Safe to leave after starting
+                Safe to leave
               </span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Clips appear automatically
+                Clips show up automatically
               </span>
             </div>
 
             <div className="mt-3 text-[12px] text-white/35">
-              Dev note: upload headers come from{" "}
-              <span className="text-white/45">/storage/presign.required_headers</span>.
+              Uploads use secure storage links from the API.
             </div>
           </div>
         </div>
@@ -1894,7 +1905,7 @@ function UploadWorkspace() {
               <div>
                 <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
                 <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
-                  Paste link, click import, done.
+                  Paste a link and import.
                 </div>
               </div>
 
@@ -1943,12 +1954,12 @@ function UploadWorkspace() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-semibold text-white/80">
-                        {ytPreviewLoading
-                          ? "Fetching preview…"
-                          : ytPreview
-                          ? ytPreview.title
-                          : "Preview"}
+                        <div className="text-[12px] font-semibold text-white/80">
+                          {ytPreviewLoading
+                            ? "Loading preview..."
+                            : ytPreview
+                            ? ytPreview.title
+                            : "Preview"}
                       </div>
 
                       {ytPreviewError ? (
@@ -1969,14 +1980,14 @@ function UploadWorkspace() {
                         </div>
                       ) : (
                         <div className="mt-1 text-[12px] text-white/45">
-                          Paste a link to see duration + credits.
+                          Paste a link to see length and credit cost.
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className="mt-3 text-[12px] text-white/45">
-                    Credits are charged when you upload the MP4 and Orbito registers the job.
+                    Credits are charged when the import job starts.
                   </div>
                 </div>
               ) : null}
@@ -2036,10 +2047,10 @@ function UploadWorkspace() {
                 <div className="mt-2 space-y-1">
                   <div>1) Paste a YouTube link.</div>
                   <div>2) Click <span className="text-white/80">Import with Orbito</span>.</div>
-                  <div>3) Wait while clips process in the background.</div>
+                  <div>3) Wait while clips process.</div>
                 </div>
                 <div className="mt-3 text-white/45">
-                  If a video is blocked for direct import: click <span className="text-white/75">Open video</span>, download MP4, click <span className="text-white/75">I downloaded it</span>, then upload on the left.
+                  If direct import is blocked: click <span className="text-white/75">Open video</span>, download the MP4, click <span className="text-white/75">I downloaded it</span>, then upload on the left.
                 </div>
               </div>
 
@@ -2047,21 +2058,21 @@ function UploadWorkspace() {
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                   <div className="text-sm font-semibold text-white/90">Manual upload ready</div>
                   <div className="mt-1 text-sm text-white/65">
-                    Upload the downloaded MP4 using the left panel.
+                    Upload the downloaded MP4 in the left panel.
                   </div>
 
                   <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <div className="text-[12px] font-semibold text-white/80">Manual fallback</div>
                     <div className="mt-2 text-[12px] leading-relaxed text-white/55">
-                      Direct import can fail on some videos. In that case, download MP4 locally and upload it here.
+                      Some videos block direct import. If that happens, download MP4 and upload it here.
                     </div>
-                    <div className="mt-3 text-[12px] text-white/45">Direct import remains the default for supported videos.</div>
+                    <div className="mt-3 text-[12px] text-white/45">Use direct import first when available.</div>
                   </div>
                 </div>
               ) : null}
 
               <div className="pt-1 text-[12px] text-white/35">
-                Tip: use direct import first for the fastest flow.
+                Tip: direct import is usually the fastest path.
               </div>
             </div>
           </div>

@@ -209,10 +209,10 @@ export default function StudioPage() {
             <div>
               <div className="text-xs text-white/55">• Studio</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/90">
-                YouTube + Automations + Storefront
+                Studio tools
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                This is the unified control room for ingest, scheduling, and monetization.
+                Manage YouTube ingest, posting rules, and your storefront in one place.
               </p>
             </div>
             <button
@@ -221,7 +221,7 @@ export default function StudioPage() {
               className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto"
               disabled={loading}
             >
-              {loading ? "Refreshing…" : "Refresh data"}
+              {loading ? "Refreshing..." : "Refresh"}
             </button>
           </div>
           {status && <div className="mt-4 text-xs text-white/60">{status}</div>}
@@ -230,7 +230,7 @@ export default function StudioPage() {
         <div className="mt-6 grid gap-6">
           <Section
             title="YouTube Ingest"
-            desc="Subscribe channels, queue videos, and dispatch ingestion jobs."
+            desc="Subscribe channels, queue videos, and run ingest jobs."
           >
             <div className="grid gap-4">
               <div className="flex flex-wrap items-center gap-2">
@@ -247,7 +247,7 @@ export default function StudioPage() {
                   onClick={connectOwnedChannels}
                   className="btn-ghost text-[12px] px-4 py-2"
                 >
-                  Add my connected channels
+                  Add connected channels
                 </button>
               </div>
 
@@ -307,7 +307,7 @@ export default function StudioPage() {
           <Section title="Automations" desc="Auto-post clips and schedule distribution.">
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={dispatchPosts} className="btn-ghost text-[12px] px-4 py-2">
-                Dispatch scheduled posts
+                Run scheduled posts
               </button>
             </div>
             <div className="mt-3 grid gap-2">
@@ -326,7 +326,7 @@ export default function StudioPage() {
             </div>
           </Section>
 
-          <Section title="Creator Storefront" desc="Monetize clips and bundles in one profile.">
+          <Section title="Creator Storefront" desc="Manage your public storefront profile.">
             <div className="grid gap-3">
               <input
                 value={storefrontForm.display_name || ""}

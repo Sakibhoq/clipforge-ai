@@ -1143,15 +1143,15 @@ function ClipsWorkspace() {
           <div className="min-w-0">
             <div className="text-xs text-white/50">• Library</div>
             <div className="mt-2 text-2xl sm:text-3xl font-semibold tracking-tight text-white/92">
-              Clips <span className="grad-text">workspace</span>
+              Clips <span className="grad-text">library</span>
             </div>
             <div className="mt-2 max-w-2xl text-sm text-white/65">
               {focused ? (
                 <>
-                  Focused view for <span className="text-white/85 font-semibold">upload_id={uploadId}</span>.
+                  Showing clips from <span className="text-white/85 font-semibold">upload_id={uploadId}</span>.
                 </>
               ) : (
-                <>All clips grouped by upload — newest uploads first.</>
+                <>All clips grouped by upload. Newest uploads show first.</>
               )}
             </div>
 
@@ -1264,7 +1264,7 @@ function ClipsWorkspace() {
       {loading ? (
         <div className="surface-soft p-6">
           <div className="text-sm font-semibold text-white/85">Loading clips…</div>
-          <div className="mt-2 text-sm text-white/60">Fetching from your backend.</div>
+          <div className="mt-2 text-sm text-white/60">Loading your clip list.</div>
         </div>
       ) : err ? (
         <div className="surface-soft p-6">
@@ -1287,7 +1287,7 @@ function ClipsWorkspace() {
         <div className="surface-soft p-6">
           <div className="text-sm font-semibold text-white/85">No clips found</div>
           <div className="mt-2 text-sm text-white/60">
-            If a job is still running, wait a moment — clips will appear here automatically.
+            If a job is still running, wait a moment. Clips will appear here automatically.
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Link href="/app/upload" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
@@ -1477,7 +1477,7 @@ function ClipsWorkspace() {
       <Drawer
         open={settingsClipId !== null}
         onClose={() => setSettingsClipId(null)}
-        title={settingsClipId ? `Output settings — Clip #${settingsClipId}` : "Output settings"}
+        title={settingsClipId ? `Output settings - Clip #${settingsClipId}` : "Output settings"}
       >
         {settingsClipId ? (
           <PerClipSettings
@@ -1493,7 +1493,7 @@ function ClipsWorkspace() {
       <Drawer
         open={scheduleClipId !== null}
         onClose={() => setScheduleClipId(null)}
-        title={scheduleClipId ? `Schedule — Clip #${scheduleClipId}` : "Schedule"}
+        title={scheduleClipId ? `Schedule - Clip #${scheduleClipId}` : "Schedule"}
       >
         {scheduleClipId ? (
           <ScheduleForm
@@ -1515,8 +1515,8 @@ function ClipsWorkspace() {
       <Drawer
         open={cropClip !== null}
         onClose={() => setCropClip(null)}
-        title={cropClip ? `Edit — Clip #${cropClip.id}` : "Edit"}
-        subtitle="Studio editor"
+        title={cropClip ? `Edit - Clip #${cropClip.id}` : "Edit"}
+        subtitle="Editor"
         variant="studio"
       >
         {cropClip ? (
@@ -1568,7 +1568,7 @@ function PerClipSettings({
           <div>
             <div className="text-sm font-semibold text-white/85">Captions</div>
             <div className="mt-1 text-[12px] text-white/55">
-              UI-only for now. This will require backend fields + re-rendering.
+              Saved in browser for now. Backend save will be added later.
             </div>
           </div>
 
@@ -1638,8 +1638,8 @@ function PerClipSettings({
           Note
         </div>
         <div className="mt-2 leading-relaxed">
-          Aspect ratio is selected <span className="text-white/75 font-semibold">before processing</span> (upload/job
-          config), not per clip. Per-clip styling changes require re-rendering.
+          Aspect ratio is picked <span className="text-white/75 font-semibold">before processing</span>, not per clip.
+          Per-clip style changes need a new render.
         </div>
       </div>
 
@@ -1653,7 +1653,7 @@ function PerClipSettings({
           Done
         </button>
 
-        <span className="text-[12px] text-white/45">Clip #{clipId} settings are stored client-side for now.</span>
+        <span className="text-[12px] text-white/45">Clip #{clipId} settings are stored in this browser for now.</span>
       </div>
     </div>
   );
@@ -2367,7 +2367,7 @@ function Drawer({
   open,
   onClose,
   title,
-  subtitle = "Per-clip preferences (wiring next).",
+  subtitle = "Clip options",
   variant = "side",
   children,
 }: {

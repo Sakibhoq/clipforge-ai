@@ -277,7 +277,7 @@ export default function PasswordPage() {
           </div>
 
           <div className="mt-3 text-lg font-semibold text-white/90">Change password</div>
-          <div className="mt-1 text-sm text-white/60">Update your password for this account.</div>
+          <div className="mt-1 text-sm text-white/60">Set a new password for your account.</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -410,7 +410,7 @@ export default function PasswordPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="inline-flex items-center gap-2 text-[12px] text-white/50">
                 <Icon name="info" className="opacity-80" />
-                Password updates require you to be signed in.
+                You must be signed in to update your password.
               </div>
 
               <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">

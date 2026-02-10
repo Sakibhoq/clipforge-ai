@@ -104,10 +104,10 @@ export default function YouTubePage() {
       <div className="surface relative overflow-hidden p-6 sm:p-8">
         <div className="text-xs text-white/55">• YouTube ingest</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Channel subscriptions + server-side ingest
+          YouTube ingest
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-white/65">
-          Subscribe to channels to auto-ingest new uploads, or paste a link to ingest server-side.
+          Subscribe to channels for new uploads, or paste a link to ingest now.
         </p>
 
         <div className="mt-6 grid gap-3">
@@ -141,7 +141,7 @@ export default function YouTubePage() {
               className="btn-aurora text-sm px-4 py-2"
               disabled={busy}
             >
-              Ingest now
+              Import now
             </button>
           </div>
         </div>
@@ -171,7 +171,7 @@ export default function YouTubePage() {
               ))
             ) : (
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
-                No channels subscribed yet.
+                No channels yet.
               </div>
             )}
           </div>
@@ -180,7 +180,7 @@ export default function YouTubePage() {
         <div className="mt-8 flex items-center justify-between">
           <div className="text-sm font-semibold text-white/85">Ingest queue</div>
           <button type="button" onClick={dispatchQueue} className="btn-ghost text-[12px] px-3 py-1.5" disabled={busy}>
-            Dispatch
+            Run queue
           </button>
         </div>
         <div className="mt-3 grid gap-2">

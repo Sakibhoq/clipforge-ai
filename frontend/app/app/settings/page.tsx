@@ -481,7 +481,7 @@ export default function SettingsPage() {
   async function deleteAccount() {
     if (deleteBusy) return;
     const ok = window.confirm(
-      "Delete your account? This will disable login and remove access immediately."
+      "Delete your account? You will lose access right away."
     );
     if (!ok) return;
     setDeleteBusy(true);
@@ -554,7 +554,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="text-lg font-semibold text-white/90">Settings</div>
-          <div className="mt-1 text-sm text-white/60">Account preferences and app behavior.</div>
+          <div className="mt-1 text-sm text-white/60">Manage your account and app preferences.</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -621,7 +621,7 @@ export default function SettingsPage() {
 
               {!me ? (
                 <div className="mt-2 text-[12px] text-white/45">
-                  Values will populate from <span className="text-white/60">/auth/me</span> when available.
+                  Account details will load when your session is available.
                 </div>
               ) : null}
             </div>
@@ -647,7 +647,7 @@ export default function SettingsPage() {
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="Cancel subscription"
-            hint="Stops renewals at period end."
+            hint="Stops future renewals at the end of your current billing period."
             right={
               <button
                 type="button"
@@ -663,23 +663,23 @@ export default function SettingsPage() {
       </Section>
 
       {/* Preferences */}
-      <Section icon={<Icon name="bolt" />} title="Preferences" desc="These settings affect your local UI experience.">
+      <Section icon={<Icon name="bolt" />} title="Preferences" desc="These settings apply to this browser only.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="Autoplay clip previews"
-            hint="Plays previews in the Clips grid when available."
+            hint="Play previews automatically in the Clips page."
             right={<Toggle label="Autoplay previews" value={autoPlayPreviews} onChange={setAutoPlayPreviews} />}
           />
           <Divider />
           <Row
             label="Email reports"
-            hint="Weekly activity summary."
+            hint="Weekly summary email."
             right={<Toggle label="Email reports" value={emailReports} onChange={setEmailReports} />}
           />
           <Divider />
           <Row
             label="Product tips"
-            hint="Occasional tips to improve output quality."
+            hint="Short tips to improve clip quality."
             right={<Toggle label="Product tips" value={productTips} onChange={setProductTips} />}
           />
         </div>
@@ -705,11 +705,11 @@ export default function SettingsPage() {
       </Section>
 
       {/* Security */}
-      <Section icon={<Icon name="shield" />} title="Security" desc="Sign-in methods and session controls.">
+      <Section icon={<Icon name="shield" />} title="Security" desc="Password and session controls.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="Password"
-            hint="Change password from your account."
+            hint="Update your account password."
             right={
               <Link
                 href="/app/settings/password"
@@ -725,7 +725,7 @@ export default function SettingsPage() {
 
           <Row
             label="Active session"
-            hint="Log out of this device."
+            hint="Sign out from this device."
             right={
               <button type="button" onClick={logout} className="btn-solid-dark text-[12px] px-4 py-2">
                 Log out
@@ -736,20 +736,20 @@ export default function SettingsPage() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
           <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Sessions will show here after backend wiring
+            Session list coming later
           </span>
           <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Password change wired later
+            Password settings are active
           </span>
         </div>
       </Section>
 
       {/* Social connections */}
-      <Section icon={<Icon name="bolt" />} title="Social Connections" desc="Connect accounts for auto-posting.">
+      <Section icon={<Icon name="bolt" />} title="Social Connections" desc="Connect platforms for posting.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="YouTube"
-            hint="Enable auto-posting to Shorts."
+            hint="Post to YouTube Shorts."
             right={
               <button
                 type="button"
@@ -764,7 +764,7 @@ export default function SettingsPage() {
           <Divider />
           <Row
             label="TikTok"
-            hint="Connect for scheduled posting."
+            hint="Connect for scheduled posts."
             right={
               <button
                 type="button"
@@ -779,7 +779,7 @@ export default function SettingsPage() {
           <Divider />
           <Row
             label="Instagram"
-            hint="Connect for scheduled posting."
+            hint="Connect for scheduled posts."
             right={
               <button
                 type="button"
@@ -794,7 +794,7 @@ export default function SettingsPage() {
           <Divider />
           <Row
             label="Facebook"
-            hint="Connect for scheduled posting."
+            hint="Connect for scheduled posts."
             right={
               <button
                 type="button"
@@ -835,9 +835,9 @@ export default function SettingsPage() {
       {/* Notifications */}
       <Section icon={<Icon name="mail" />} title="Notifications" desc="Delivery and noise controls.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
-          <Row label="Receipts" hint="Payment receipts (when billing is wired)." right={<Pill>Enabled</Pill>} />
+          <Row label="Receipts" hint="Payment receipts by email." right={<Pill>Enabled</Pill>} />
           <Divider />
-          <Row label="Processing alerts" hint="Notify when jobs complete." right={<Pill>Later</Pill>} />
+          <Row label="Processing alerts" hint="Get notified when jobs finish." right={<Pill>Later</Pill>} />
         </div>
 
         <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
@@ -845,7 +845,7 @@ export default function SettingsPage() {
             Contact support
             <Icon name="chev" className="opacity-70" />
           </Link>
-          <div className="text-[12px] text-white/55">Email sending will be added later.</div>
+          <div className="text-[12px] text-white/55">More notification controls coming later.</div>
         </div>
       </Section>
 
@@ -863,7 +863,7 @@ export default function SettingsPage() {
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white/85">Need help?</div>
             <div className="mt-1 text-sm text-white/60">
-              Support is available via the contact page. In-app messaging can be added later.
+              Contact support if you need help with setup, billing, or your workflow.
             </div>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
@@ -893,7 +893,7 @@ export default function SettingsPage() {
             Danger zone
           </div>
           <div className="mt-1 text-sm text-white/60">
-            Deleting your account will disable login immediately.
+            Deleting your account removes access right away.
           </div>
 
           <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
@@ -909,7 +909,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="mt-3 text-[12px] text-white/45">
-            We tombstone email addresses to prevent free-credit re-registration.
+            Some account records may stay for fraud and legal reasons.
           </div>
         </div>
       </div>

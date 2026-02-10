@@ -56,56 +56,52 @@ export default function HowItWorksPage() {
   const steps = [
     {
       n: "01",
-      meta: "10 seconds",
+      meta: "Step 1",
       t: (
         <>
-          Paste <H>YOUTUBE</H> or upload once
+          Add one video
         </>
       ),
       d: (
         <>
-          Add one long video. Orbito ingests it and starts building clips while you keep working.
+          Paste a <H>YouTube</H> link or upload a file.
         </>
       ),
-      bullets: [<>MP4 or YOUTUBE.</>, <>No setup.</>, <>Runs while you work.</>],
+      bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Starts fast.</>],
     },
     {
       n: "02",
-      meta: "Hook-first",
-      t: <>Orbito finds the moments</>,
+      meta: "Step 2",
+      t: <>Review your clips</>,
       d: (
         <>
-          We find the strongest segments and shape them into drafts for <H>TIKTOK</H>, <H>REELS</H>, and{" "}
-          <H>YOUTUBE SHORTS</H>.
+          Orbito finds strong moments and makes drafts for <H>TikTok</H>, <H>Reels</H>, and <H>Shorts</H>.
         </>
       ),
-      bullets: [<>Hook-first moments.</>, <>Speaker-first framing.</>, <>Clean endings.</>],
+      bullets: [<>Clear cuts.</>, <>Speaker-first framing.</>, <>Easy review.</>],
     },
     {
       n: "03",
-      meta: "Fast review",
-      t: <>Review, polish, export</>,
+      meta: "Step 3",
+      t: <>Export and post</>,
       d: (
         <>
-          Pick your best clips, make fast edits, and export polished <H>POSTS</H> with captions and framing already
-          dialed in.
+          Pick your best clips, make quick edits, and post.
         </>
       ),
-      bullets: [<>Premium captions.</>, <>Safe margins.</>, <>Ready-to-post exports.</>],
+      bullets: [<>Captions ready.</>, <>Safe margins.</>, <>Ready-to-post exports.</>],
     },
   ] as const;
 
   const signals = [
     <>
-      paste <H>YOUTUBE</H>
+      upload video
     </>,
-    <>detect hooks</>,
+    <>pick clips</>,
     <>
-      format <H>TIKTOK</H> + <H>REELS</H>
+      add captions
     </>,
-    <>
-      export <H>POSTS</H>
-    </>,
+    <>export</>,
     <>repeat</>,
   ];
 
@@ -142,15 +138,14 @@ export default function HowItWorksPage() {
             <div className="text-xs text-white/55">• How it works</div>
 
             <h1 className="mt-3 text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              One upload in. <span className="grad-text">Daily posts out.</span>
+              Upload once. <span className="grad-text">Post faster.</span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Orbito turns long-form into polished short-form. Paste a <H>YOUTUBE</H> link, then review clips for{" "}
-              <H>TIKTOK</H>, <H>REELS</H>, and <H>POSTS</H>.
+              Orbito turns long videos into short clips. You upload, review, and post.
             </p>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/55 md:text-[15px]">
-              Built for creators who want premium output without living on the editing timeline.
+              Built for creators who want simple steps and good results.
             </p>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
@@ -163,8 +158,7 @@ export default function HowItWorksPage() {
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon - AI video + AI
-                song generation at clipforge.us.
+                Start with one video and let Orbito handle the heavy work.
               </div>
             </div>
 
@@ -224,7 +218,7 @@ export default function HowItWorksPage() {
                       <div className="mt-3 flex items-center justify-between text-[11px] text-white/45">
                         <span>result</span>
                         <span className="text-white/55 group-hover:text-white/70 transition-colors">
-                          continue →
+                          next →
                         </span>
                       </div>
                     </div>
@@ -238,20 +232,20 @@ export default function HowItWorksPage() {
               <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/45">• Quality</div>
-                  <div className="mt-2 text-sm font-semibold">Built for clean publishing</div>
+                  <div className="text-xs text-white/45">• Output</div>
+                  <div className="mt-2 text-sm font-semibold">Made for social video</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Captions, framing, and exports tuned for <H>YOUTUBE</H>, <H>TIKTOK</H>, and <H>REELS</H>.
+                    Exports are tuned for <H>YouTube</H>, <H>TikTok</H>, and <H>Reels</H>.
                   </div>
                 </div>
               </div>
               <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/45">• Roadmap</div>
-                  <div className="mt-2 text-sm font-semibold">Clipforge Labs • coming soon</div>
+                  <div className="text-xs text-white/45">• Help</div>
+                  <div className="mt-2 text-sm font-semibold">Need a hand?</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    After Orbito launch, clipforge.us introduces AI video and AI song generation.
+                    Reach out if you need help with setup, billing, or workflow.
                   </div>
                 </div>
               </div>
@@ -268,7 +262,7 @@ export default function HowItWorksPage() {
               <Link href="/features" className="btn-ghost w-full sm:w-auto text-center active:scale-[0.99]">
                 See features
               </Link>
-              <div className="text-xs text-white/45 sm:pl-2">Credit-based billing. Scale when it works.</div>
+              <div className="text-xs text-white/45 sm:pl-2">Simple credit-based billing.</div>
             </div>
 
             {/* FOOTER */}

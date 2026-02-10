@@ -25,12 +25,11 @@ export default function OverviewPage() {
                 Welcome to <span className="grad-text">Orbito</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Upload once. Orbito finds the best moments, reframes for shorts, and delivers clips
-                that look like a pro editor cut them.
+                Upload one video. Orbito finds strong moments and gives you clips ready to post.
               </p>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
-              Launch status: <span className="text-white/85">In progress</span>
+              Status: <span className="text-white/85">Live</span>
             </div>
           </div>
         </section>
@@ -46,7 +45,7 @@ export default function OverviewPage() {
 
         <footer className="mt-10 border-t border-white/10 pt-6 text-xs text-white/50">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>Orbito • Premium clipping for creators who move fast.</span>
+            <span>Orbito • Simple short-form clipping.</span>
             <span className="text-white/40">Need help? contact@orbito.cc</span>
           </div>
         </footer>

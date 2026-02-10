@@ -50,7 +50,7 @@ export default function StorefrontPage() {
           Creator storefront
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-white/65">
-          This is your public page for clients and followers. Publish when you’re ready.
+          This is your public page for clients and followers. Update it, then publish.
         </p>
 
         {error && (
@@ -135,7 +135,7 @@ export default function StorefrontPage() {
                 className="btn-aurora text-sm"
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Save storefront"}
+                {saving ? "Saving..." : "Save"}
               </button>
               <Link href={`/storefront/${data.handle}`} className="btn-ghost text-sm">
                 Preview

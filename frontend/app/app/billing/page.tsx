@@ -395,7 +395,7 @@ function CreditsCard({
         <div>
           <div className="text-sm font-semibold text-white/90">Credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Credits meter uploads, processing, and exports.
+            Credits are used for uploads, processing, and exports.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -411,13 +411,13 @@ function CreditsCard({
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Used this period</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">—</div>
-          <div className="mt-1 text-[12px] text-white/45">coming soon</div>
+          <div className="mt-1 text-[12px] text-white/45">Not available yet</div>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Estimated runs left</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{estRunsLeft}</div>
-          <div className="mt-1 text-[12px] text-white/45">≈ 1 min clips</div>
+          <div className="mt-1 text-[12px] text-white/45">~1 min clips</div>
         </div>
       </div>
 
@@ -429,15 +429,15 @@ function CreditsCard({
           New upload
         </Link>
 
-        <div className="sm:ml-auto text-[12px] text-white/55">Tip: packs scale Creator credits.</div>
+        <div className="sm:ml-auto text-[12px] text-white/55">Tip: packs apply to Creator only.</div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
         <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
-          <div>• Credits decrease when you run processing or export.</div>
-          <div>• Plans add recurring or upfront credits (yearly).</div>
-          <div>• Packs stack on top of your plan balance.</div>
+          <div>• Credits are used when you process or export clips.</div>
+          <div>• Plans add credits each month or upfront (yearly Creator).</div>
+          <div>• Packs add extra credits on top of your plan.</div>
         </div>
       </div>
     </SoftCard>
@@ -456,7 +456,7 @@ function BillingHistoryCard() {
       </div>
 
       <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/60">
-        No invoices yet. Once you complete checkout, invoices and receipts show up here automatically.
+        No invoices yet. After checkout, invoices and receipts will appear here.
       </div>
     </SoftCard>
   );
@@ -469,7 +469,7 @@ function StudioCtaCard() {
         <div>
           <div className="text-sm font-semibold text-white/90">Studio / enterprise</div>
           <div className="mt-1 text-sm text-white/60">
-            Need team seats, higher volume, or custom workflow? We’ll set you up.
+            Need team seats, higher volume, or a custom workflow? Contact us.
           </div>
         </div>
         <Badge>Custom</Badge>
@@ -482,11 +482,11 @@ function StudioCtaCard() {
         <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           See Studio details
         </Link>
-        <div className="sm:ml-auto text-[12px] text-white/55">Response time: fast (manual for now).</div>
+        <div className="sm:ml-auto text-[12px] text-white/55">Manual setup right now.</div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
-        Later: we’ll add “request quote” + “seat management” inside the app.
+        In-app quote and seat management will be added later.
       </div>
     </SoftCard>
   );
@@ -572,14 +572,14 @@ export default function BillingPage() {
   }
 
   const plans: Plan[] = useMemo(() => {
-    const starterMonthlyPrice = 14.99;
-    const creatorMonthlyPrice = 29.99;
+    const starterMonthlyPrice = 10.0;
+    const creatorMonthlyPrice = 20.0;
     const yearlyDiscount = 0.51;
     const creatorYearlyMonthlyEq = creatorMonthlyPrice * (1 - yearlyDiscount);
 
     const creatorPrice =
       interval === "yearly"
-        ? `$${formatMoney(creatorYearlyMonthlyEq)} / mo (billed yearly)`
+        ? `$${formatMoney(creatorYearlyMonthlyEq)} / mo (51% off, billed yearly)`
         : `$${formatMoney(creatorMonthlyPrice)} / mo`;
 
     return [
@@ -587,33 +587,33 @@ export default function BillingPage() {
         key: "free_trial",
         name: "Free Trial",
         short: "Try the pipeline",
-        desc: "Test Orbito and generate your first clips.",
+        desc: "Test Orbito and make your first clips.",
         priceLabel: "$0",
         interval: "monthly",
-        note: "Free credits are one-time per email (anti-abuse enforced later).",
+        note: "Free credits are one-time per email.",
       },
       {
         key: "starter",
         name: "Starter",
         short: "Simple monthly plan",
-        desc: "Consistent output with predictable billing.",
+        desc: "Simple monthly plan.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
-        note: "Great for steady monthly creators.",
+        note: "No yearly option for Starter.",
       },
       {
         key: "creator",
         name: "Creator",
         short: "Scale credits",
-        desc: "More output. Credit packs apply here.",
+        desc: "More output. Packs apply here.",
         priceLabel: creatorPrice,
         interval,
         recommended: true,
         highlight: true,
         note:
           interval === "yearly"
-            ? "Yearly includes credits upfront (per your pricing rules)."
-            : "Monthly includes recurring credits.",
+            ? "Yearly gives 51% off and includes credits upfront."
+            : "Monthly plan with recurring credits.",
       },
       {
         key: "studio",
@@ -720,16 +720,16 @@ export default function BillingPage() {
             <div className="text-xs text-sky-300/60">• Billing</div>
             <div className="mt-1 text-3xl font-semibold tracking-tight">
               <span className="bg-gradient-to-r from-violet-300 via-sky-300 to-teal-300 bg-clip-text text-transparent">
-                Manage plan &amp; credits
+                Plan and credits
               </span>
             </div>
             <div className="mt-1 text-sm text-white/60">
-              Upgrade anytime, or top up credits when you run low.
+              Change your plan or buy more credits anytime.
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Plan changes</span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Credit top-ups</span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Tax at checkout</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Tax in checkout</span>
             </div>
           </div>
 
@@ -752,7 +752,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Current plan</div>
-          <div className="mt-1 text-sm text-white/60">Your current subscription and credits.</div>
+          <div className="mt-1 text-sm text-white/60">Your current subscription and credit balance.</div>
           </div>
           <Badge tone="good">{currentPlanLabel}</Badge>
         </div>
@@ -771,7 +771,7 @@ export default function BillingPage() {
             className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
             onClick={() => openPlanModal(currentPlan)}
           >
-            Manage subscription
+            Manage plan
           </button>
           <div className="text-[12px] text-white/55">Stripe Checkout handles upgrades and changes.</div>
         </div>
@@ -783,7 +783,7 @@ export default function BillingPage() {
           <div>
             <div className="text-sm font-semibold text-white/90">Change plan</div>
             <div className="mt-1 text-sm text-white/60">
-              Upgrade anytime. Downgrades can be scheduled to end of period.
+              Upgrade anytime. Downgrades can start at the end of your period.
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -810,7 +810,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Buy more credits</div>
-            <div className="mt-1 text-sm text-white/60">Top up instantly. Credits stack on your balance.</div>
+            <div className="mt-1 text-sm text-white/60">Buy extra credits when you need them.</div>
           </div>
           <Badge>Creator packs</Badge>
         </div>
@@ -848,7 +848,7 @@ export default function BillingPage() {
           modalMode === "plan"
             ? "This will open Stripe Checkout to confirm your plan."
             : modalMode === "pack"
-            ? "This will open Stripe Checkout to scale Creator credits."
+            ? "This will open Stripe Checkout to buy Creator credits."
             : "Nothing to change right now. You’re already on this plan."
         }
         confirmLabel={modalMode === "info" ? "Okay" : "Confirm"}

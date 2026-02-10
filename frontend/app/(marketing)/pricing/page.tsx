@@ -454,7 +454,7 @@ export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [mode, setMode] = useState<BillingMode>("yearly");
+  const [mode, setMode] = useState<BillingMode>("monthly");
   const [pack, setPack] = useState<number>(1);
 
   const [startingCheckout, setStartingCheckout] = useState<
@@ -566,8 +566,8 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
       ? creatorYearlyCreditsUpfront * pack
       : creatorMonthlyCredits * pack;
 
-  const starterMonthlyPrice = 14.99;
-  const creatorMonthlyPrice = 29.99;
+  const starterMonthlyPrice = 10.0;
+  const creatorMonthlyPrice = 20.0;
 
   const studioMonthlyExample = 99.0;
 

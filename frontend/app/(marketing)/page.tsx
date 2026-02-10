@@ -305,26 +305,26 @@ export default function Page() {
         id: "paste",
         t: (
           <>
-            Paste <H>YOUTUBE</H> or upload
+            Add your video
           </>
         ),
-        d: <>One link in. Orbito finds the best moments.</>,
+        d: <>Paste a <H>YouTube</H> link or upload a file.</>,
       },
       {
         id: "generate",
-        t: <>Pick the hits</>,
-        d: <>Review fast, tweak captions, approve.</>,
+        t: <>Pick your clips</>,
+        d: <>Orbito finds strong moments. You approve the ones you want.</>,
       },
       {
         id: "export",
         t: (
           <>
-            Post everywhere
+            Share anywhere
           </>
         ),
         d: (
           <>
-            <H>TIKTOK</H> · <H>REELS</H> · <H>YOUTUBE SHORTS</H>
+            <H>TikTok</H> · <H>Reels</H> · <H>YouTube Shorts</H>
           </>
         ),
       },
@@ -336,18 +336,18 @@ export default function Page() {
     () => [
       {
         id: "moments",
-        title: <>Hooks built for scroll</>,
-        desc: <>Orbito finds moments people finish, save, and share.</>,
+        title: <>Find the best moments fast</>,
+        desc: <>Orbito cuts long videos into short clips people watch to the end.</>,
       },
       {
         id: "captions",
-        title: <>Captions + smart framing</>,
-        desc: <>Clean captions and speaker-focused framing for premium vertical clips.</>,
+        title: <>Auto captions and framing</>,
+        desc: <>Get clear captions and speaker-first framing that fits vertical video.</>,
       },
       {
         id: "export",
-        title: <>Post-ready exports</>,
-        desc: <>Crisp video, clean audio, and formats tuned for every platform.</>,
+        title: <>Ready-to-post exports</>,
+        desc: <>Download clips sized for TikTok, Reels, and Shorts.</>,
       },
     ],
     []
@@ -358,28 +358,20 @@ export default function Page() {
       {
         id: "hiw-1",
         n: "1",
-        title: "Start in minutes",
-        desc: "Create your account and run a first clip fast.",
+        title: "Upload once",
+        desc: "Start with one long video.",
       },
       {
         id: "hiw-2",
         n: "2",
-        title: (
-          <>
-            Paste <H>YouTube</H> or upload
-          </>
-        ),
-        desc: (
-          <>
-            Drop a <H>YouTube</H> link or upload long-form once.
-          </>
-        ),
+        title: <>Review and edit</>,
+        desc: <>Check the clips, captions, and framing.</>,
       },
       {
         id: "hiw-3",
         n: "3",
-        title: "Approve and post",
-        desc: "Publish to YOUTUBE, TIKTOK, and REELS in one flow.",
+        title: "Post and repeat",
+        desc: "Publish your best clips, then do it again next video.",
       },
     ],
     []
@@ -405,15 +397,15 @@ export default function Page() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  <H>YouTube</H> in. <H>POSTS</H> out.
+                  <H>YouTube</H> in. Short clips out.
                 </div>
 
                 <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
-                  Turn <H>YouTube</H> into premium <H>POSTS</H>.
+                  Turn one long video into <H>short clips</H>.
                 </h1>
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                  {BRAND.name} delivers clean clips with captions and framing, ready for <H>TIKTOK</H> and <H>REELS</H>.
+                  {BRAND.name} helps you go from upload to post in minutes, with captions and clean framing built in.
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -423,14 +415,14 @@ export default function Page() {
                   <a href="/how-it-works" className="btn-ghost">
                     See how it works
                   </a>
-                  <div className="text-xs text-white/50">More output. Less editing.</div>
+                  <div className="text-xs text-white/50">Less editing. More posting.</div>
                 </div>
 
                 <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
                   <span className="text-white/75">
-                    Paste <H>YouTube</H> / upload
+                    Upload once
                   </span>{" "}
-                  → AI selects hooks → quick polish → post
+                  → pick clips → post
                 </div>
               </div>
 
@@ -440,10 +432,10 @@ export default function Page() {
 
                 <div className="relative">
                   <div className="flex items-center justify-between text-xs text-white/60">
-                    <div>Your posting loop</div>
+                    <div>Your simple workflow</div>
                     <div className="flex items-center gap-2">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                      running
+                      active
                     </div>
                   </div>
 
@@ -461,9 +453,9 @@ export default function Page() {
 
                 <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
                   {[
-                    { k: "Speed", v: "Minutes to first post" },
-                    { k: "Reach", v: "YOUTUBE • TIKTOK • REELS" },
-                    { k: "Consistency", v: "Daily cadence" },
+                    { k: "Start", v: "First clip in minutes" },
+                    { k: "Channels", v: "TikTok • Reels • Shorts" },
+                    { k: "Routine", v: "Post more often" },
                   ].map((x) => (
                       <div
                         key={x.k}
@@ -488,12 +480,10 @@ export default function Page() {
         <section id="features" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              Premium <H>POSTS</H> that feel intentional —
-              <br className="hidden md:block" />
-              anywhere your audience watches.
+              Everything you need to turn <H>long videos</H> into short posts.
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Built for creators who want serious output without spending all day in an editor.
+              Keep your quality high without spending all day editing.
             </p>
           </div>
 
@@ -527,10 +517,10 @@ export default function Page() {
         <section id="how" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              One workflow. <span className="grad-text">Daily POSTS.</span>
+              One workflow. <span className="grad-text">Clear steps.</span>
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              One <H>YOUTUBE</H> link becomes ready clips for <H>TIKTOK</H>, <H>REELS</H>, and <H>POSTS</H>.
+              Upload once, review quickly, and post where your audience watches.
             </p>
           </div>
 
@@ -556,7 +546,7 @@ export default function Page() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="/how-it-works" className="btn-ghost">
-              See full workflow
+              Full walkthrough
             </a>
             <a href="/start-trial" className="btn-aurora">
               Start free
@@ -567,7 +557,6 @@ export default function Page() {
           </div>
         </section>
 
-        {/* ORBITO STANDARD */}
         <section id="standard" className="pt-12 sm:pt-14">
           <div
             data-reveal
@@ -582,36 +571,19 @@ export default function Page() {
               }}
             />
             <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
-              <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Clipforge Labs</span>
-                <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
-                  clipforge.us • coming soon
-                </span>
-              </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Clipforge Labs is next.
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                Need help getting started?
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Orbito is live now for clipping. Clipforge Labs at clipforge.us will launch AI video and AI song
-                generation later.
+                Start your first upload in minutes. If you get stuck, contact us and we will help.
               </p>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {[
-                  {
-                    t: "AI video studio (future)",
-                    d: "Generate original scenes and social-ready visuals from prompts.",
-                  },
-                  {
-                    t: "AI song studio (future)",
-                    d: "Create original tracks that match each clip's mood and pace.",
-                  },
-                ].map((x) => (
-                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
-                    <div className="text-sm font-semibold">{x.t}</div>
-                    <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
-                  </div>
-                ))}
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a href="/start-trial" className="btn-aurora">
+                  Start free
+                </a>
+                <a href="/contact" className="btn-ghost">
+                  Contact support
+                </a>
               </div>
             </div>
           </div>
