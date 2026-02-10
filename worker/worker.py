@@ -1839,6 +1839,7 @@ ADAPTIVE_CONTEXT_LAYOUT_SMOOTHING = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAY
 ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES = int(os.getenv("WORKER_ADAPTIVE_CONTEXT_LAYOUT_MAX_KEYFRAMES", "60"))
 ADAPTIVE_CONTEXT_MIX_ENABLE_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_MIX_ENABLE_MIN", "0.18"))
 ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN = float(os.getenv("WORKER_ADAPTIVE_CONTEXT_FULL_LAYOUT_MIN", "0.82"))
+FACE_FIRST_TRACKING_ENABLED = os.getenv("WORKER_ENABLE_FACE_FIRST", "1") == "1"
 
 # Background context path optimization (keeps look, reduces render cost)
 CONTEXT_BG_SCALE = float(os.getenv("WORKER_CONTEXT_BG_SCALE", "0.75"))
@@ -4497,10 +4498,16 @@ def run_job(job_id: int) -> None:
         stage_t = time.perf_counter()
         target_w, target_h = normalize_aspect(aspect_ratio)
         cam_samples: List[tuple] = []
-        log(
-            f"Per-clip camera analysis enabled (setup {(time.perf_counter() - stage_t):.1f}s)",
-            job_id=job_id,
-        )
+        if FACE_FIRST_TRACKING_ENABLED:
+            log(
+                f"Per-clip camera analysis enabled (setup {(time.perf_counter() - stage_t):.1f}s)",
+                job_id=job_id,
+            )
+        else:
+            log(
+                f"Per-clip camera analysis disabled (fast mode) (setup {(time.perf_counter() - stage_t):.1f}s)",
+                job_id=job_id,
+            )
 
         # ---------------------------------------------
         # Audio + transcription
@@ -4592,14 +4599,23 @@ def run_job(job_id: int) -> None:
         except Exception:
             min_clips = 1
 
-        top_k = max(TOP_K_CLIPS, min_clips)
-        top_k = min(top_k, MAX_TOP_K_CLIPS, MAX_RENDER_CLIPS_PER_JOB)
-        top_k = min(top_k, max(1, len(scored)))
+        scored_count = max(1, len(scored))
+        if int(TOP_K_CLIPS) <= 0:
+            top_k = scored_count
+        else:
+            top_k = max(int(TOP_K_CLIPS), min_clips)
+
+        if int(MAX_TOP_K_CLIPS) > 0:
+            top_k = min(top_k, int(MAX_TOP_K_CLIPS))
+        if int(MAX_RENDER_CLIPS_PER_JOB) > 0:
+            top_k = min(top_k, int(MAX_RENDER_CLIPS_PER_JOB))
+        top_k = max(1, min(top_k, scored_count))
 
         selected = select_top_k_clips(scored, top_k=top_k)
         selected = sorted(selected, key=lambda c: float(c.get("start", 0.0)))
+        limit_label = "all" if top_k >= len(scored) else str(top_k)
         log(
-            f"Clip selection: planned={len(clip_plans)} scored={len(scored)} selected={len(selected)} (limit={top_k})",
+            f"Clip selection: planned={len(clip_plans)} scored={len(scored)} selected={len(selected)} (limit={limit_label})",
             job_id=job_id,
         )
 
@@ -4639,28 +4655,34 @@ def run_job(job_id: int) -> None:
 
                 clip_cam_samples: List[tuple] = []
                 clip_cam_meta: Dict[str, Any] = {}
-                try:
-                    analyze_start = max(0.0, clip_start - 1.0)
-                    analyze_end = min(float(video_duration), clip_end + 1.0)
-                    _cx, _cy, clip_cam_samples, clip_cam_meta = build_camera_path(
-                        source_video=source_path,
-                        job_id=job_id,
-                        target_w=int(target_w),
-                        target_h=int(target_h),
-                        analyze_start=analyze_start,
-                        analyze_end=analyze_end,
-                    )
+                if FACE_FIRST_TRACKING_ENABLED:
+                    try:
+                        analyze_start = max(0.0, clip_start - 1.0)
+                        analyze_end = min(float(video_duration), clip_end + 1.0)
+                        _cx, _cy, clip_cam_samples, clip_cam_meta = build_camera_path(
+                            source_video=source_path,
+                            job_id=job_id,
+                            target_w=int(target_w),
+                            target_h=int(target_h),
+                            analyze_start=analyze_start,
+                            analyze_end=analyze_end,
+                        )
+                        log(
+                            f"Clip {idx + 1} camera path: keyframes={clip_cam_meta.get('keyframes', len(clip_cam_samples))} window={max(0.0, analyze_end - analyze_start):.1f}s",
+                            job_id=job_id,
+                        )
+                    except Exception as cam_err:
+                        clip_cam_samples = []
+                        clip_cam_meta = {}
+                        log(
+                            f"Clip {idx + 1} camera fallback: {cam_err}",
+                            job_id=job_id,
+                            level="WARN",
+                        )
+                elif idx == 0:
                     log(
-                        f"Clip {idx + 1} camera path: keyframes={clip_cam_meta.get('keyframes', len(clip_cam_samples))} window={max(0.0, analyze_end - analyze_start):.1f}s",
+                        "Face-first camera tracking disabled; rendering with stable center framing",
                         job_id=job_id,
-                    )
-                except Exception as cam_err:
-                    clip_cam_samples = []
-                    clip_cam_meta = {}
-                    log(
-                        f"Clip {idx + 1} camera fallback: {cam_err}",
-                        job_id=job_id,
-                        level="WARN",
                     )
 
                 render = render_clip_mp4(
@@ -4864,6 +4886,14 @@ def main():
         wm_size = os.path.getsize(wm_path) if wm_exists else 0
         log(f"Worker file: {__file__}")
         log(f"Watermark path: {wm_path} (exists={wm_exists}, bytes={wm_size})")
+        log(
+            "Runtime config: "
+            f"face_first={int(FACE_FIRST_TRACKING_ENABLED)} "
+            f"adaptive_context={int(ADAPTIVE_CONTEXT_MODE)} "
+            f"whisper_model={WHISPER_MODEL_NAME} "
+            f"sample_fps={REFRAME_SAMPLE_FPS:.1f}/{REFRAME_MAX_SAMPLE_FPS:.1f} "
+            f"top_k={TOP_K_CLIPS} max_top_k={MAX_TOP_K_CLIPS} max_render={MAX_RENDER_CLIPS_PER_JOB}"
+        )
     except Exception as e:
         log(f"Startup fingerprint failed: {e}", level="WARN")
 

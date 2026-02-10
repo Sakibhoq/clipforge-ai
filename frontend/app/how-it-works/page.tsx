@@ -158,7 +158,8 @@ export default function HowItWorksPage() {
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                Start with one video and let Orbito handle the heavy work.
+                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon at clipforge.us
+                with AI video and AI song generation.
               </div>
             </div>
 
@@ -242,10 +243,10 @@ export default function HowItWorksPage() {
               <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/45">• Help</div>
-                  <div className="mt-2 text-sm font-semibold">Need a hand?</div>
+                  <div className="text-xs text-white/45">• Roadmap</div>
+                  <div className="mt-2 text-sm font-semibold">Clipforge Labs • coming soon</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Reach out if you need help with setup, billing, or workflow.
+                    clipforge.us will launch AI video and AI song generation.
                   </div>
                 </div>
               </div>

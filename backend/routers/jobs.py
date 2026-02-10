@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.database import get_db
+from models.clip import Clip
 from models.job import Job
 from models.upload import Upload
 from models.user import User
@@ -20,9 +22,22 @@ def list_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    clip_counts_sq = (
+        db.query(
+            Clip.job_id.label("job_id"),
+            func.count(Clip.id).label("clips_generated"),
+        )
+        .group_by(Clip.job_id)
+        .subquery()
+    )
+
     jobs = (
-        db.query(Job)
+        db.query(
+            Job,
+            func.coalesce(clip_counts_sq.c.clips_generated, 0).label("clips_generated"),
+        )
         .join(Upload, Job.upload_id == Upload.id)
+        .outerjoin(clip_counts_sq, clip_counts_sq.c.job_id == Job.id)
         .filter(Upload.user_id == current_user.id)
         .order_by(Job.created_at.desc(), Job.id.desc())
         .all()
@@ -30,6 +45,7 @@ def list_jobs(
 
     return [
         {
+            "clips_generated": int(clips_generated or 0),
             "id": job.id,
             "upload_id": job.upload_id,
             "status": job.status,
@@ -37,7 +53,7 @@ def list_jobs(
             "created_at": job.created_at,
             "updated_at": getattr(job, "updated_at", None),
         }
-        for job in jobs
+        for job, clips_generated in jobs
     ]
 
 
@@ -62,7 +78,10 @@ def get_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    clips_generated = db.query(func.count(Clip.id)).filter(Clip.job_id == job.id).scalar() or 0
+
     return {
+        "clips_generated": int(clips_generated),
         "id": job.id,
         "upload_id": job.upload_id,
         "status": job.status,

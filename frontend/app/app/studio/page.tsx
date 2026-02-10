@@ -1,43 +1,51 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
-type Channel = { id: number; channel_id: string; channel_title?: string | null; last_polled_at?: string | null };
-type QueueItem = { id: number; youtube_url: string; status: string };
-type Rule = { id: number; name: string; trigger: string; action: string; enabled: boolean };
+type Channel = { id: number };
+type QueueItem = { status: string };
+type Rule = { id: number; enabled: boolean };
 type Storefront = {
-  id?: number;
   handle?: string | null;
-  display_name?: string | null;
-  headline?: string | null;
-  description?: string | null;
+  published?: boolean | null;
 };
 
-function Section({
+function StudioCard({
   title,
   desc,
-  children,
+  details,
+  href,
+  cta,
 }: {
   title: string;
-  desc?: string;
-  children: React.ReactNode;
+  desc: string;
+  details: string[];
+  href: string;
+  cta: string;
 }) {
   return (
     <section className="surface-soft relative overflow-hidden rounded-3xl p-6 md:p-7">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-12 opacity-40 blur-2xl"
+        className="pointer-events-none absolute -inset-12 opacity-35 blur-2xl"
         style={{
           background:
-            "radial-gradient(220px 160px at 20% 25%, rgba(167,139,250,0.18), transparent 70%), radial-gradient(260px 180px at 70% 35%, rgba(125,211,252,0.14), transparent 72%), radial-gradient(260px 180px at 55% 95%, rgba(45,212,191,0.12), transparent 72%)",
+            "radial-gradient(200px 140px at 20% 25%, rgba(167,139,250,0.16), transparent 70%), radial-gradient(240px 170px at 70% 35%, rgba(125,211,252,0.12), transparent 72%), radial-gradient(220px 160px at 60% 90%, rgba(45,212,191,0.10), transparent 72%)",
         }}
       />
       <div className="relative">
-        <div className="text-xs text-white/55">• Studio</div>
-        <div className="mt-2 text-lg font-semibold text-white/90">{title}</div>
-        {desc && <div className="mt-1 text-sm text-white/60">{desc}</div>}
-        <div className="mt-4">{children}</div>
+        <h2 className="text-lg font-semibold text-white/90">{title}</h2>
+        <p className="mt-2 text-sm text-white/65">{desc}</p>
+        <div className="mt-4 grid gap-1 text-sm text-white/70">
+          {details.map((line) => (
+            <div key={line}>{line}</div>
+          ))}
+        </div>
+        <Link href={href} className="btn-solid-dark mt-5 inline-flex text-[12px] px-4 py-2">
+          {cta}
+        </Link>
       </div>
     </section>
   );
@@ -49,16 +57,11 @@ export default function StudioPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [storefront, setStorefront] = useState<Storefront | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [channelInput, setChannelInput] = useState("");
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [storefrontForm, setStorefrontForm] = useState<Storefront>({});
-  const [status, setStatus] = useState<string | null>(null);
-  const [socialBusy, setSocialBusy] = useState<string | null>(null);
-
-  async function refreshAll() {
+  async function refreshSummary() {
     setLoading(true);
-    setStatus(null);
+    setError(null);
     try {
       const [ch, q, r, sf] = await Promise.allSettled([
         apiFetch<Channel[]>("/youtube/channels", { method: "GET" }),
@@ -67,131 +70,29 @@ export default function StudioPage() {
         apiFetch<Storefront>("/storefront/me", { method: "GET" }),
       ]);
 
-      if (ch.status === "fulfilled") setChannels(ch.value || []);
-      if (q.status === "fulfilled") setQueue(q.value || []);
-      if (r.status === "fulfilled") setRules(r.value || []);
-      if (sf.status === "fulfilled") {
-        setStorefront(sf.value || null);
-        setStorefrontForm(sf.value || {});
-      }
-    } catch {
-      // ignore
+      if (ch.status === "fulfilled") setChannels(Array.isArray(ch.value) ? ch.value : []);
+      if (q.status === "fulfilled") setQueue(Array.isArray(q.value) ? q.value : []);
+      if (r.status === "fulfilled") setRules(Array.isArray(r.value) ? r.value : []);
+      if (sf.status === "fulfilled") setStorefront(sf.value || null);
+
+      const failed = [ch, q, r, sf].filter((res) => res.status === "rejected").length;
+      if (failed === 4) setError("Could not load data right now. Please refresh.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    refreshAll();
+    refreshSummary();
   }, []);
 
-  async function subscribeChannel() {
-    if (!channelInput.trim()) return;
-    setStatus(null);
-    try {
-      await apiFetch("/youtube/channels/subscribe", {
-        method: "POST",
-        body: { channel_id: channelInput.trim() },
-      });
-      setChannelInput("");
-      setStatus("Channel subscribed.");
-      refreshAll();
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Failed to subscribe.");
-    }
-  }
-
-  async function connectSocial(provider: string) {
-    if (socialBusy) return;
-    setSocialBusy(provider);
-    setStatus(null);
-    try {
-      const data = (await apiFetch(`/social/connect/${provider}/start`, { method: "POST" })) as any;
-      const url = data?.url;
-      if (!url || typeof url !== "string") throw new Error("Connect URL missing");
-      window.location.assign(url);
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Could not start social connect.");
-      setSocialBusy(null);
-    }
-  }
-
-  async function connectOwnedChannels() {
-    setStatus(null);
-    try {
-      const rows = await apiFetch<Channel[]>("/youtube/channels/connect-owned", { method: "POST" });
-      setStatus(`Added ${Array.isArray(rows) ? rows.length : 0} connected channel(s).`);
-      refreshAll();
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Failed to add connected channels.");
-    }
-  }
-
-  async function pollChannel(id: number) {
-    setStatus(null);
-    try {
-      await apiFetch(`/youtube/channels/${id}/poll`, { method: "POST" });
-      setStatus("Polling started.");
-      refreshAll();
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Poll failed.");
-    }
-  }
-
-  async function queueIngest() {
-    if (!youtubeUrl.trim()) return;
-    setStatus(null);
-    try {
-      await apiFetch("/youtube/ingest", { method: "POST", body: { url: youtubeUrl.trim() } });
-      setYoutubeUrl("");
-      setStatus("Queued for ingest.");
-      refreshAll();
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Queue failed.");
-    }
-  }
-
-  async function dispatchQueue() {
-    setStatus(null);
-    try {
-      await apiFetch("/youtube/ingest/dispatch?limit=2", { method: "POST" });
-      setStatus("Dispatch started.");
-      refreshAll();
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Dispatch failed.");
-    }
-  }
-
-  async function dispatchPosts() {
-    setStatus(null);
-    try {
-      await apiFetch("/social/posts/dispatch", { method: "POST" });
-      setStatus("Dispatching scheduled posts.");
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Dispatch failed.");
-    }
-  }
-
-  async function saveStorefront() {
-    setStatus(null);
-    try {
-      const res = await apiFetch<Storefront>("/storefront/me", {
-        method: "PUT",
-        body: storefrontForm,
-      });
-      setStorefront(res);
-      setStatus("Storefront saved.");
-    } catch (e: any) {
-      setStatus(e?.detail || e?.message || "Save failed.");
-    }
-  }
-
   const queueSummary = useMemo(() => {
-    if (!queue.length) return "No queued items yet.";
-    const running = queue.filter((q) => q.status === "processing").length;
-    const pending = queue.filter((q) => q.status === "queued").length;
-    return `${pending} queued • ${running} processing`;
+    const queued = queue.filter((item) => item.status === "queued").length;
+    const processing = queue.filter((item) => item.status === "processing").length;
+    return { queued, processing, total: queue.length };
   }, [queue]);
+
+  const activeRules = useMemo(() => rules.filter((rule) => rule.enabled).length, [rules]);
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -208,160 +109,59 @@ export default function StudioPage() {
           <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <div className="text-xs text-white/55">• Studio</div>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/90">
-                Studio tools
-              </h1>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/90">Studio</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Manage YouTube ingest, posting rules, and your storefront in one place.
+                This is your control center. Pick one task and open the right tool.
               </p>
             </div>
             <button
               type="button"
-              onClick={refreshAll}
+              onClick={refreshSummary}
               className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto"
               disabled={loading}
             >
-              {loading ? "Refreshing..." : "Refresh"}
+              {loading ? "Refreshing..." : "Refresh data"}
             </button>
           </div>
-          {status && <div className="mt-4 text-xs text-white/60">{status}</div>}
+          {error && <div className="mt-4 text-xs text-red-200/80">{error}</div>}
         </div>
 
-        <div className="mt-6 grid gap-6">
-          <Section
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+          <StudioCard
             title="YouTube Ingest"
-            desc="Subscribe channels, queue videos, and run ingest jobs."
-          >
-            <div className="grid gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => connectSocial("youtube")}
-                  className="btn-solid-dark text-[12px] px-4 py-2"
-                  disabled={!!socialBusy}
-                >
-                  {socialBusy === "youtube" ? "Connecting..." : "Connect YouTube"}
-                </button>
-                <button
-                  type="button"
-                  onClick={connectOwnedChannels}
-                  className="btn-ghost text-[12px] px-4 py-2"
-                >
-                  Add connected channels
-                </button>
-              </div>
+            desc="Add channels and import videos to turn them into clips."
+            details={[
+              `Connected channels: ${channels.length}`,
+              `Queue: ${queueSummary.total} total`,
+              `Now running: ${queueSummary.processing} processing, ${queueSummary.queued} queued`,
+            ]}
+            href="/app/youtube"
+            cta="Open YouTube ingest"
+          />
 
-              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                <input
-                  value={channelInput}
-                  onChange={(e) => setChannelInput(e.target.value)}
-                  placeholder="Channel ID (UC...) or @handle"
-                  className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
-                />
-                <button type="button" onClick={subscribeChannel} className="btn-solid-dark text-[12px] px-4 py-2">
-                  Subscribe
-                </button>
-              </div>
+          <StudioCard
+            title="Automations"
+            desc="Set rules so posting can run on its own."
+            details={[
+              `Rules: ${rules.length} total`,
+              `Active rules: ${activeRules}`,
+              "Tip: start with one simple rule first.",
+            ]}
+            href="/app/automations"
+            cta="Open automations"
+          />
 
-              <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-                <input
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  placeholder="YouTube video URL"
-                  className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
-                />
-                <button type="button" onClick={queueIngest} className="btn-ghost text-[12px] px-4 py-2">
-                  Queue
-                </button>
-                <button type="button" onClick={dispatchQueue} className="btn-ghost text-[12px] px-4 py-2">
-                  Dispatch
-                </button>
-              </div>
-
-              <div className="text-xs text-white/55">{queueSummary}</div>
-
-              {channels.length > 0 ? (
-                <div className="grid gap-2">
-                  {channels.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                      <div className="text-sm text-white/80">
-                        {c.channel_title || c.channel_id}
-                        <div className="text-[11px] text-white/45">{c.channel_id}</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => pollChannel(c.id)}
-                        className="btn-ghost text-[12px] px-3 py-2"
-                      >
-                        Poll
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-white/55">No channels yet.</div>
-              )}
-            </div>
-          </Section>
-
-          <Section title="Automations" desc="Auto-post clips and schedule distribution.">
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={dispatchPosts} className="btn-ghost text-[12px] px-4 py-2">
-                Run scheduled posts
-              </button>
-            </div>
-            <div className="mt-3 grid gap-2">
-              {rules.length > 0 ? (
-                rules.map((r) => (
-                  <div key={r.id} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/75">
-                    <div className="font-semibold text-white/85">{r.name}</div>
-                    <div className="text-[11px] text-white/55">
-                      {r.trigger} → {r.action} {r.enabled ? "• Enabled" : "• Disabled"}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-white/55">No automation rules yet.</div>
-              )}
-            </div>
-          </Section>
-
-          <Section title="Creator Storefront" desc="Manage your public storefront profile.">
-            <div className="grid gap-3">
-              <input
-                value={storefrontForm.display_name || ""}
-                onChange={(e) => setStorefrontForm((s) => ({ ...s, display_name: e.target.value }))}
-                placeholder="Display name"
-                className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
-              />
-              <input
-                value={storefrontForm.handle || ""}
-                onChange={(e) => setStorefrontForm((s) => ({ ...s, handle: e.target.value }))}
-                placeholder="Handle (e.g. orbito)"
-                className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
-              />
-              <input
-                value={storefrontForm.headline || ""}
-                onChange={(e) => setStorefrontForm((s) => ({ ...s, headline: e.target.value }))}
-                placeholder="Headline"
-                className="h-11 rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/85 outline-none focus:border-white/25"
-              />
-              <textarea
-                value={storefrontForm.description || ""}
-                onChange={(e) => setStorefrontForm((s) => ({ ...s, description: e.target.value }))}
-                placeholder="About you"
-                className="min-h-[120px] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white/85 outline-none focus:border-white/25"
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={saveStorefront} className="btn-solid-dark text-[12px] px-4 py-2">
-                  Save storefront
-                </button>
-                {storefront?.handle && (
-                  <div className="text-xs text-white/55">Public URL: /storefront/{storefront.handle}</div>
-                )}
-              </div>
-            </div>
-          </Section>
+          <StudioCard
+            title="Creator Storefront"
+            desc="Edit your public profile page for clients and viewers."
+            details={[
+              `Handle: ${storefront?.handle || "Not set"}`,
+              `Published: ${storefront?.published ? "Yes" : "No"}`,
+              storefront?.handle ? `URL: /storefront/${storefront.handle}` : "Set a handle to get a URL.",
+            ]}
+            href="/app/storefront"
+            cta="Open storefront"
+          />
         </div>
       </main>
     </div>

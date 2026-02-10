@@ -571,19 +571,36 @@ export default function Page() {
               }}
             />
             <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Need help getting started?
+              <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Clipforge Labs</span>
+                <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
+                  clipforge.us • coming soon
+                </span>
+              </div>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                Clipforge Labs is coming soon.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Start your first upload in minutes. If you get stuck, contact us and we will help.
+                Orbito is live now for clipping. Clipforge Labs at clipforge.us will launch AI video and AI song
+                generation next.
               </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <a href="/start-trial" className="btn-aurora">
-                  Start free
-                </a>
-                <a href="/contact" className="btn-ghost">
-                  Contact support
-                </a>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {[
+                  {
+                    t: "AI video generation (coming soon)",
+                    d: "Create social-ready videos from prompts.",
+                  },
+                  {
+                    t: "AI song generation (coming soon)",
+                    d: "Generate original songs that match your content.",
+                  },
+                ].map((x) => (
+                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
+                    <div className="text-sm font-semibold">{x.t}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

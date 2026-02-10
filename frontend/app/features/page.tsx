@@ -451,7 +451,8 @@ export default function FeaturesPage() {
                 }}
               />
               <div className="relative rounded-[14px] bg-black/70 px-5 py-4 text-sm text-white/75">
-                Upload once, then keep posting from one simple dashboard.
+                <span className="font-semibold text-white/90">Clipforge Labs</span> is coming soon at clipforge.us
+                with AI video and AI song generation.
               </div>
             </div>
 
@@ -553,7 +554,7 @@ export default function FeaturesPage() {
             </div>
 
             {/* SECONDARY SECTIONS */}
-            <div className="mt-14 grid gap-4 md:grid-cols-2">
+            <div className="mt-14 grid gap-4 md:grid-cols-3">
               {[
                 {
                   t: "Simple pricing",
@@ -562,6 +563,10 @@ export default function FeaturesPage() {
                 {
                   t: "One dashboard",
                   d: "Upload, review, edit, and export in one place.",
+                },
+                {
+                  t: "Clipforge Labs (coming soon)",
+                  d: "clipforge.us will launch AI video and AI song generation.",
                 },
               ].map((x) => (
                 <div
