@@ -17,3 +17,10 @@ class User(Base):
     stripe_customer_id = Column(String, nullable=True)
     last_stripe_event_id = Column(String, nullable=True)
     trial_used = Column(Boolean, default=False, nullable=False)
+
+    # User settings/preferences
+    pref_email_reports = Column(Boolean, default=True, nullable=False)
+    pref_product_tips = Column(Boolean, default=False, nullable=False)
+    pref_autoplay_previews = Column(Boolean, default=True, nullable=False)
+    notif_receipts = Column(Boolean, default=True, nullable=False)
+    notif_processing_alerts = Column(Boolean, default=False, nullable=False)

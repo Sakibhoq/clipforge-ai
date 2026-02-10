@@ -315,6 +315,10 @@ class SocialPostResponse(BaseModel):
     last_error: Optional[str]
 
 
+class SocialDisconnectResponse(BaseModel):
+    status: str
+
+
 # ---------------------------------------------------------
 # Connect flow
 # ---------------------------------------------------------
@@ -541,6 +545,33 @@ def list_accounts(
         }
         for r in rows
     ]
+
+
+@router.post("/accounts/{provider}/disconnect", response_model=SocialDisconnectResponse)
+def disconnect_account(
+    provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (provider or "").strip().lower()
+    if p not in PROVIDERS:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+
+    account = (
+        db.query(SocialAccount)
+        .filter(SocialAccount.user_id == current_user.id, SocialAccount.provider == p)
+        .first()
+    )
+    if not account:
+        return {"status": "not_connected"}
+
+    account.access_token = None
+    account.refresh_token = None
+    account.token_expires_at = None
+    account.scopes = None
+    account.status = "disconnected"
+    db.commit()
+    return {"status": "disconnected"}
 
 
 # ---------------------------------------------------------

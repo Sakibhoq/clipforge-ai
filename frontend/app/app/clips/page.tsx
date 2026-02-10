@@ -573,9 +573,11 @@ function ButtonPill({
 function ClipPreview({
   clip,
   variant,
+  autoPlayEnabled,
 }: {
   clip: ClipDTO;
   variant: "grid" | "thumb";
+  autoPlayEnabled: boolean;
 }) {
   const cssAR =
     aspectStringToCss(clip.aspect_ratio) ??
@@ -593,6 +595,8 @@ function ClipPreview({
         src={clip.url}
         controls={variant === "grid"}
         muted={variant !== "grid"}
+        autoPlay={variant !== "grid" && autoPlayEnabled}
+        loop={variant !== "grid" && autoPlayEnabled}
         playsInline
         preload="metadata"
         className="h-full w-full object-contain bg-black cf-video rounded-xl"
@@ -806,6 +810,7 @@ function ClipsWorkspace() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
   const [sort, setSort] = useState<SortKey>("newest");
+  const [autoPlayPreviews, setAutoPlayPreviews] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -878,6 +883,22 @@ function ClipsWorkspace() {
       .catch(() => {
         if (cancelled) return;
         setSocialAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ auto_play_previews?: boolean }>("/settings/preferences", { method: "GET" })
+      .then((prefs) => {
+        if (cancelled) return;
+        setAutoPlayPreviews(prefs?.auto_play_previews !== false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAutoPlayPreviews(true);
       });
     return () => {
       cancelled = true;
@@ -1389,7 +1410,7 @@ function ClipsWorkspace() {
                           })
                           .map((c) => (
                             <div key={c.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                              <ClipPreview clip={c} variant="grid" />
+                              <ClipPreview clip={c} variant="grid" autoPlayEnabled={autoPlayPreviews} />
                               <div className="mt-4 flex items-start justify-between gap-3">
                                 <ClipMeta clip={c} />
                               </div>
@@ -1416,7 +1437,7 @@ function ClipsWorkspace() {
                             <div key={c.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
                               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <ClipPreview clip={c} variant="thumb" />
+                                  <ClipPreview clip={c} variant="thumb" autoPlayEnabled={autoPlayPreviews} />
                                   <ClipMeta clip={c} compact />
                                 </div>
                                 <ClipActions
@@ -1439,7 +1460,7 @@ function ClipsWorkspace() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleClips.map((c) => (
             <div key={c.id} className="surface-soft overflow-hidden p-4">
-              <ClipPreview clip={c} variant="grid" />
+              <ClipPreview clip={c} variant="grid" autoPlayEnabled={autoPlayPreviews} />
               <div className="mt-4 flex items-start justify-between gap-3">
                 <ClipMeta clip={c} />
               </div>
@@ -1459,7 +1480,7 @@ function ClipsWorkspace() {
             <div key={c.id} className="surface-soft p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3 min-w-0">
-                  <ClipPreview clip={c} variant="thumb" />
+                  <ClipPreview clip={c} variant="thumb" autoPlayEnabled={autoPlayPreviews} />
                   <ClipMeta clip={c} compact />
                 </div>
                 <ClipActions

@@ -326,27 +326,34 @@ type LocalPrefs = {
   emailReports: boolean;
   productTips: boolean;
   autoPlayPreviews: boolean;
+  receiptsEnabled: boolean;
+  processingAlertsEnabled: boolean;
 };
 
-const PREFS_KEY = "cf_prefs_v1";
+type SettingsPreferencesResponse = {
+  email_reports: boolean;
+  product_tips: boolean;
+  auto_play_previews: boolean;
+  receipts_enabled: boolean;
+  processing_alerts_enabled: boolean;
+};
 
-function safeParsePrefs(raw: string | null): LocalPrefs | null {
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw) as Partial<LocalPrefs>;
-    if (typeof v !== "object" || !v) return null;
-    if (typeof v.emailReports !== "boolean") return null;
-    if (typeof v.productTips !== "boolean") return null;
-    if (typeof v.autoPlayPreviews !== "boolean") return null;
-    return {
-      emailReports: v.emailReports,
-      productTips: v.productTips,
-      autoPlayPreviews: v.autoPlayPreviews,
-    };
-  } catch {
-    return null;
-  }
-}
+type SessionItem = {
+  id: string;
+  current: boolean;
+  device: string;
+  created_at?: string | null;
+  expires_at?: string | null;
+  ip?: string | null;
+};
+
+const DEFAULT_PREFS: LocalPrefs = {
+  emailReports: true,
+  productTips: false,
+  autoPlayPreviews: true,
+  receiptsEnabled: true,
+  processingAlertsEnabled: false,
+};
 
 type MeResponse = {
   name?: string | null;
@@ -366,10 +373,14 @@ type SocialAccount = {
 export default function SettingsPage() {
   const router = useRouter();
 
-  // Local-only prefs
-  const [emailReports, setEmailReports] = useState(true);
-  const [productTips, setProductTips] = useState(false);
-  const [autoPlayPreviews, setAutoPlayPreviews] = useState(true);
+  // Account prefs
+  const [emailReports, setEmailReports] = useState(DEFAULT_PREFS.emailReports);
+  const [productTips, setProductTips] = useState(DEFAULT_PREFS.productTips);
+  const [autoPlayPreviews, setAutoPlayPreviews] = useState(DEFAULT_PREFS.autoPlayPreviews);
+  const [receiptsEnabled, setReceiptsEnabled] = useState(DEFAULT_PREFS.receiptsEnabled);
+  const [processingAlertsEnabled, setProcessingAlertsEnabled] = useState(DEFAULT_PREFS.processingAlertsEnabled);
+  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsSaving, setPrefsSaving] = useState(false);
 
   const [saveState, setSaveState] = useState<null | "saved" | "error">(null);
 
@@ -378,6 +389,8 @@ export default function SettingsPage() {
   const [meLoading, setMeLoading] = useState(true);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [billingBusy, setBillingBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -389,15 +402,6 @@ export default function SettingsPage() {
   const status = meLoading ? "Loading…" : me ? "Active" : "—";
 
   useEffect(() => {
-    // hydrate local prefs
-    const fromLs =
-      safeParsePrefs(typeof window !== "undefined" ? localStorage.getItem(PREFS_KEY) : null);
-    if (fromLs) {
-      setEmailReports(fromLs.emailReports);
-      setProductTips(fromLs.productTips);
-      setAutoPlayPreviews(fromLs.autoPlayPreviews);
-    }
-
     // hydrate /auth/me (optional; if fails we stay UI-only)
     let mounted = true;
     setMeLoading(true);
@@ -422,6 +426,35 @@ export default function SettingsPage() {
 
   useEffect(() => {
     let mounted = true;
+    setPrefsLoading(true);
+    apiFetch<SettingsPreferencesResponse>("/settings/preferences", { method: "GET" })
+      .then((p) => {
+        if (!mounted) return;
+        setEmailReports(!!p?.email_reports);
+        setProductTips(!!p?.product_tips);
+        setAutoPlayPreviews(!!p?.auto_play_previews);
+        setReceiptsEnabled(!!p?.receipts_enabled);
+        setProcessingAlertsEnabled(!!p?.processing_alerts_enabled);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setEmailReports(DEFAULT_PREFS.emailReports);
+        setProductTips(DEFAULT_PREFS.productTips);
+        setAutoPlayPreviews(DEFAULT_PREFS.autoPlayPreviews);
+        setReceiptsEnabled(DEFAULT_PREFS.receiptsEnabled);
+        setProcessingAlertsEnabled(DEFAULT_PREFS.processingAlertsEnabled);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setPrefsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
     apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" })
       .then((d) => {
         if (!mounted) return;
@@ -436,6 +469,32 @@ export default function SettingsPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    setSessionsLoading(true);
+    apiFetch<{ sessions: SessionItem[] }>("/settings/sessions", { method: "GET" })
+      .then((d) => {
+        if (!mounted) return;
+        setSessions(Array.isArray(d?.sessions) ? d.sessions : []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSessions([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setSessionsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function refreshSocialAccounts() {
+    const d = await apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" });
+    setSocialAccounts(Array.isArray(d) ? d : []);
+  }
+
   async function connectSocial(provider: string) {
     if (socialBusy) return;
     setSocialBusy(provider);
@@ -444,6 +503,24 @@ export default function SettingsPage() {
       const url = data?.url;
       if (!url) return;
       window.location.href = url;
+    } catch (e: any) {
+      setActionMsg(e?.detail || e?.message || `Failed to connect ${provider}.`);
+    } finally {
+      setSocialBusy(null);
+    }
+  }
+
+  async function disconnectSocial(provider: string) {
+    if (socialBusy) return;
+    setSocialBusy(`disconnect:${provider}`);
+    try {
+      const res = (await apiFetch<{ status: string }>(`/social/accounts/${provider}/disconnect`, {
+        method: "POST",
+      })) as any;
+      setActionMsg(res?.status ? `${provider} ${res.status}` : `${provider} disconnected`);
+      await refreshSocialAccounts();
+    } catch (e: any) {
+      setActionMsg(e?.detail || e?.message || `Failed to disconnect ${provider}.`);
     } finally {
       setSocialBusy(null);
     }
@@ -498,29 +575,68 @@ export default function SettingsPage() {
     }
   }
 
-  function savePrefs() {
+  async function savePrefs() {
+    if (prefsSaving) return;
+    setPrefsSaving(true);
     try {
-      const payload: LocalPrefs = { emailReports, productTips, autoPlayPreviews };
-      localStorage.setItem(PREFS_KEY, JSON.stringify(payload));
+      const payload = {
+        email_reports: emailReports,
+        product_tips: productTips,
+        auto_play_previews: autoPlayPreviews,
+        receipts_enabled: receiptsEnabled,
+        processing_alerts_enabled: processingAlertsEnabled,
+      };
+      const saved = await apiFetch<SettingsPreferencesResponse>("/settings/preferences", {
+        method: "PUT",
+        body: payload,
+      });
+      setEmailReports(!!saved?.email_reports);
+      setProductTips(!!saved?.product_tips);
+      setAutoPlayPreviews(!!saved?.auto_play_previews);
+      setReceiptsEnabled(!!saved?.receipts_enabled);
+      setProcessingAlertsEnabled(!!saved?.processing_alerts_enabled);
       setSaveState("saved");
       setTimeout(() => setSaveState(null), 1600);
     } catch {
       setSaveState("error");
       setTimeout(() => setSaveState(null), 2200);
+    } finally {
+      setPrefsSaving(false);
     }
   }
 
-  function resetPrefs() {
-    setEmailReports(true);
-    setProductTips(false);
-    setAutoPlayPreviews(true);
+  async function resetPrefs() {
+    if (prefsSaving) return;
+    setEmailReports(DEFAULT_PREFS.emailReports);
+    setProductTips(DEFAULT_PREFS.productTips);
+    setAutoPlayPreviews(DEFAULT_PREFS.autoPlayPreviews);
+    setReceiptsEnabled(DEFAULT_PREFS.receiptsEnabled);
+    setProcessingAlertsEnabled(DEFAULT_PREFS.processingAlertsEnabled);
+    setPrefsSaving(true);
     try {
-      localStorage.removeItem(PREFS_KEY);
+      const saved = await apiFetch<SettingsPreferencesResponse>("/settings/preferences", {
+        method: "PUT",
+        body: {
+          email_reports: DEFAULT_PREFS.emailReports,
+          product_tips: DEFAULT_PREFS.productTips,
+          auto_play_previews: DEFAULT_PREFS.autoPlayPreviews,
+          receipts_enabled: DEFAULT_PREFS.receiptsEnabled,
+          processing_alerts_enabled: DEFAULT_PREFS.processingAlertsEnabled,
+        },
+      });
+      setEmailReports(!!saved?.email_reports);
+      setProductTips(!!saved?.product_tips);
+      setAutoPlayPreviews(!!saved?.auto_play_previews);
+      setReceiptsEnabled(!!saved?.receipts_enabled);
+      setProcessingAlertsEnabled(!!saved?.processing_alerts_enabled);
+      setSaveState("saved");
+      setTimeout(() => setSaveState(null), 1600);
     } catch {
-      // ignore
+      setSaveState("error");
+      setTimeout(() => setSaveState(null), 2200);
+    } finally {
+      setPrefsSaving(false);
     }
-    setSaveState("saved");
-    setTimeout(() => setSaveState(null), 1600);
   }
 
   const saveChip = useMemo(() => {
@@ -528,7 +644,7 @@ export default function SettingsPage() {
       return (
         <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[12px] text-emerald-100/90">
           <Icon name="check" />
-          Saved locally
+          Saved to account
         </span>
       );
     }
@@ -543,10 +659,10 @@ export default function SettingsPage() {
     return (
       <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/55">
         <Icon name="info" />
-        Local only (for now)
+        {prefsLoading ? "Loading settings…" : "Saved to account"}
       </span>
     );
-  }, [saveState]);
+  }, [prefsLoading, saveState]);
 
   return (
     <div className="min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))] grid gap-6">
@@ -663,7 +779,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Preferences */}
-      <Section icon={<Icon name="bolt" />} title="Preferences" desc="These settings apply to this browser only.">
+      <Section icon={<Icon name="bolt" />} title="Preferences" desc="These settings are saved to your account.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="Autoplay clip previews"
@@ -688,14 +804,16 @@ export default function SettingsPage() {
           <button
             type="button"
             className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto"
-            onClick={savePrefs}
+            onClick={() => void savePrefs()}
+            disabled={prefsSaving || prefsLoading}
           >
-            Save preferences
+            {prefsSaving ? "Saving…" : "Save preferences"}
           </button>
           <button
             type="button"
             className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto"
-            onClick={resetPrefs}
+            onClick={() => void resetPrefs()}
+            disabled={prefsSaving || prefsLoading}
           >
             Reset
           </button>
@@ -734,13 +852,37 @@ export default function SettingsPage() {
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Session list coming later
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
-            Password settings are active
-          </span>
+        <div className="mt-4 grid gap-2 text-[12px] text-white/55">
+          {sessionsLoading ? (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              Loading sessions…
+            </div>
+          ) : sessions.length ? (
+            sessions.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-white/75 font-semibold">
+                    {s.current ? "Current session" : "Session"}
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
+                    {s.current ? "This device" : "Active"}
+                  </span>
+                </div>
+                <div className="mt-1 text-white/45">{s.device || "Current device"}</div>
+                <div className="mt-1 text-white/45">
+                  Started: {s.created_at ? new Date(s.created_at).toLocaleString() : "—"} • Expires:{" "}
+                  {s.expires_at ? new Date(s.expires_at).toLocaleString() : "—"}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              No active sessions found.
+            </div>
+          )}
         </div>
       </Section>
 
@@ -819,9 +961,19 @@ export default function SettingsPage() {
                   <div className="text-white/75 font-semibold capitalize">{acc.provider}</div>
                   <div className="text-white/45">{acc.account_name || acc.account_id || "Connected"}</div>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
-                  {acc.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
+                    {acc.status}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void disconnectSocial(acc.provider)}
+                    disabled={!!socialBusy}
+                    className="btn-ghost text-[11px] px-3 py-1"
+                  >
+                    {socialBusy === `disconnect:${acc.provider}` ? "Disconnecting…" : "Disconnect"}
+                  </button>
+                </div>
               </div>
             ))
           ) : (
@@ -835,9 +987,23 @@ export default function SettingsPage() {
       {/* Notifications */}
       <Section icon={<Icon name="mail" />} title="Notifications" desc="Delivery and noise controls.">
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
-          <Row label="Receipts" hint="Payment receipts by email." right={<Pill>Enabled</Pill>} />
+          <Row
+            label="Receipts"
+            hint="Payment receipts by email."
+            right={<Toggle label="Receipts" value={receiptsEnabled} onChange={setReceiptsEnabled} />}
+          />
           <Divider />
-          <Row label="Processing alerts" hint="Get notified when jobs finish." right={<Pill>Later</Pill>} />
+          <Row
+            label="Processing alerts"
+            hint="Get notified when jobs finish."
+            right={
+              <Toggle
+                label="Processing alerts"
+                value={processingAlertsEnabled}
+                onChange={setProcessingAlertsEnabled}
+              />
+            }
+          />
         </div>
 
         <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
@@ -845,37 +1011,9 @@ export default function SettingsPage() {
             Contact support
             <Icon name="chev" className="opacity-70" />
           </Link>
-          <div className="text-[12px] text-white/55">More notification controls coming later.</div>
+          <div className="text-[12px] text-white/55">Save preferences to apply notification changes.</div>
         </div>
       </Section>
-
-      {/* Help strip */}
-      <div className="surface-soft relative overflow-hidden p-6">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -inset-10 opacity-25 blur-2xl"
-          style={{
-            background:
-              "radial-gradient(200px 150px at 22% 28%, rgba(167,139,250,0.12), transparent 72%), radial-gradient(240px 170px at 78% 42%, rgba(125,211,252,0.10), transparent 72%), radial-gradient(240px 170px at 50% 88%, rgba(45,212,191,0.08), transparent 72%)",
-          }}
-        />
-        <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white/85">Need help?</div>
-            <div className="mt-1 text-sm text-white/60">
-              Contact support if you need help with setup, billing, or your workflow.
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <Link href="/app" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
-              Overview
-            </Link>
-            <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto">
-              Studio
-            </Link>
-          </div>
-        </div>
-      </div>
 
       {/* Danger zone */}
       <div className="surface-soft relative overflow-hidden p-6">

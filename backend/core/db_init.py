@@ -40,6 +40,11 @@ def init_db() -> None:
             "stripe_customer_id": "TEXT",
             "last_stripe_event_id": "TEXT",
             "trial_used": "BOOLEAN DEFAULT 0",
+            "pref_email_reports": "BOOLEAN DEFAULT 1",
+            "pref_product_tips": "BOOLEAN DEFAULT 0",
+            "pref_autoplay_previews": "BOOLEAN DEFAULT 1",
+            "notif_receipts": "BOOLEAN DEFAULT 1",
+            "notif_processing_alerts": "BOOLEAN DEFAULT 0",
         },
         "clips": {
             "title": "TEXT",
