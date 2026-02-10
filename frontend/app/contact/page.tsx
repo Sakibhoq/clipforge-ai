@@ -418,10 +418,22 @@ function SendMessageModal({
                   disabled={status.kind === "sending"}
                   className={cx("btn-aurora text-xs", status.kind === "sending" && "opacity-80 cursor-not-allowed")}
                 >
-                  {status.kind === "sending" ? "Sending…" : "Send message"}
+                  {status.kind === "sending" ? "Sending…" : status.kind === "sent" ? "Sent" : "Send message"}
                 </button>
               </div>
             </div>
+
+            {status.kind === "sent" ? (
+              <div className="mt-3 text-xs text-emerald-200/85">
+                Message sent successfully. We will reply soon.
+              </div>
+            ) : null}
+
+            {status.kind === "error" ? (
+              <div className="mt-3 text-xs text-rose-200/85">
+                {status.message}
+              </div>
+            ) : null}
 
             <div className="mt-6 h-px w-full bg-white/10" />
 
