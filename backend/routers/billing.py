@@ -157,6 +157,22 @@ class CancelSubscriptionResponse(BaseModel):
     status: str
 
 
+class BillingHistoryInvoice(BaseModel):
+    id: str
+    number: Optional[str] = None
+    status: Optional[str] = None
+    currency: str
+    amount_paid: int
+    amount_due: int
+    created: int
+    hosted_invoice_url: Optional[str] = None
+    invoice_pdf: Optional[str] = None
+
+
+class BillingHistoryResponse(BaseModel):
+    invoices: list[BillingHistoryInvoice]
+
+
 # ------------------------------------------------------------------
 # Checkout Session
 # ------------------------------------------------------------------
@@ -257,6 +273,45 @@ def cancel_subscription(
     sub = subs.data[0]
     stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
     return CancelSubscriptionResponse(status="cancel_at_period_end")
+
+
+@router.get("/history", response_model=BillingHistoryResponse)
+def billing_history(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = _reload_user(db, current_user)
+    customer_id = getattr(user, "stripe_customer_id", None)
+    safe_limit = max(1, min(int(limit or 20), 50))
+
+    # Return empty history when Stripe is not configured or customer is missing.
+    if not stripe.api_key or not customer_id:
+        return BillingHistoryResponse(invoices=[])
+
+    try:
+        invoices = stripe.Invoice.list(customer=customer_id, limit=safe_limit)
+    except Exception:
+        # Keep UI usable even if Stripe temporarily fails.
+        return BillingHistoryResponse(invoices=[])
+
+    rows: list[BillingHistoryInvoice] = []
+    for inv in invoices.data:
+        rows.append(
+            BillingHistoryInvoice(
+                id=str(inv.get("id") or ""),
+                number=inv.get("number"),
+                status=inv.get("status"),
+                currency=str(inv.get("currency") or "usd").upper(),
+                amount_paid=int(inv.get("amount_paid") or 0),
+                amount_due=int(inv.get("amount_due") or 0),
+                created=int(inv.get("created") or 0),
+                hosted_invoice_url=inv.get("hosted_invoice_url"),
+                invoice_pdf=inv.get("invoice_pdf"),
+            )
+        )
+
+    return BillingHistoryResponse(invoices=rows)
 
 
 # ------------------------------------------------------------------

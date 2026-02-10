@@ -226,30 +226,28 @@ function SendMessageModal({
     return !errors.name && !errors.email && !errors.subject && !errors.message;
   }, [errors]);
 
-  async function onSubmit() {
+  function onSubmit() {
     setTouched({ name: true, email: true, subject: true, message: true });
     if (!canSend) return;
 
     setStatus({ kind: "sending" });
     try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          subject: form.subject.trim(),
-          message: form.message.trim(),
-        }),
-      });
+      const subject = form.subject.trim();
+      const body = [
+        `Name: ${form.name.trim()}`,
+        `Email: ${form.email.trim()}`,
+        "",
+        "Message:",
+        form.message.trim(),
+      ].join("\n");
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed to send");
+      const mailto = `mailto:support@orbito.cc?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
 
       setStatus({ kind: "sent" });
       setForm({ name: "", email: "", subject: "", message: "" });
     } catch (err: any) {
-      setStatus({ kind: "error", message: err?.message || "Failed to send" });
+      setStatus({ kind: "error", message: err?.message || "Failed to open email app" });
     }
   }
 

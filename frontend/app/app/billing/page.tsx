@@ -53,6 +53,28 @@ type CreditPack = {
   valueHint?: string;
 };
 
+type BillingHistoryInvoice = {
+  id: string;
+  number?: string | null;
+  status?: string | null;
+  currency: string;
+  amount_paid: number;
+  amount_due: number;
+  created: number;
+  hosted_invoice_url?: string | null;
+  invoice_pdf?: string | null;
+};
+
+function formatMoneyFromCents(cents: number, currency: string) {
+  const value = (Number(cents || 0) / 100).toFixed(2);
+  return `${String(currency || "USD").toUpperCase()} ${value}`;
+}
+
+function formatDateFromUnix(ts: number) {
+  if (!Number.isFinite(ts) || ts <= 0) return "—";
+  return new Date(ts * 1000).toLocaleDateString();
+}
+
 function Badge({
   children,
   tone = "neutral",
@@ -104,43 +126,6 @@ function SoftCard({
   );
 }
 
-function SegToggle({
-  value,
-  onChange,
-}: {
-  value: BillingInterval;
-  onChange: (v: BillingInterval) => void;
-}) {
-  return (
-    <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.02] p-1">
-      <button
-        type="button"
-        onClick={() => onChange("monthly")}
-        className={cx(
-          "rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
-          value === "monthly"
-            ? "bg-white/[0.12] text-white"
-            : "text-white/60 hover:text-white/80 hover:bg-white/[0.04]"
-        )}
-      >
-        Monthly
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("yearly")}
-        className={cx(
-          "rounded-full px-3 py-1.5 text-[12px] font-semibold transition",
-          value === "yearly"
-            ? "bg-white/[0.12] text-white"
-            : "text-white/60 hover:text-white/80 hover:bg-white/[0.04]"
-        )}
-      >
-        Yearly
-      </button>
-    </div>
-  );
-}
-
 function PlanCard({
   plan,
   active,
@@ -182,17 +167,23 @@ function PlanCard({
         ) : null}
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <button
-            type="button"
-            onClick={() => onChoose(plan.key)}
-            disabled={active}
-            className={cx(
-              "btn-aurora text-[12px] px-4 py-2 w-full sm:w-auto",
-              active && "opacity-60 cursor-not-allowed"
-            )}
-          >
-            {active ? "Selected" : "Choose"}
-          </button>
+          {plan.key === "studio" && !active ? (
+            <Link href="/contact" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
+              Contact support
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onChoose(plan.key)}
+              disabled={active}
+              className={cx(
+                "btn-aurora text-[12px] px-4 py-2 w-full sm:w-auto",
+                active && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              {active ? "Selected" : "Choose"}
+            </button>
+          )}
 
           <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
             Compare plans
@@ -436,7 +427,7 @@ function CreditsCard({
         <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
           <div>• Credits are used when you process or export clips.</div>
-          <div>• Plans add credits each month or upfront (yearly Creator).</div>
+          <div>• Plans add credits each month.</div>
           <div>• Packs add extra credits on top of your plan.</div>
         </div>
       </div>
@@ -444,7 +435,15 @@ function CreditsCard({
   );
 }
 
-function BillingHistoryCard() {
+function BillingHistoryCard({
+  invoices,
+  loading,
+  error,
+}: {
+  invoices: BillingHistoryInvoice[];
+  loading: boolean;
+  error: string | null;
+}) {
   return (
     <SoftCard className="p-6" glow={false}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -455,38 +454,50 @@ function BillingHistoryCard() {
         <Badge tone="neutral">History</Badge>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-4 text-sm text-white/60">
-        No invoices yet. After checkout, invoices and receipts will appear here.
-      </div>
-    </SoftCard>
-  );
-}
-
-function StudioCtaCard() {
-  return (
-    <SoftCard className="p-6" glow>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-white/90">Studio / enterprise</div>
-          <div className="mt-1 text-sm text-white/60">
-            Need team seats, higher volume, or a custom workflow? Contact us.
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+        {loading ? (
+          <div className="px-4 py-4 text-sm text-white/60">Loading invoices…</div>
+        ) : error ? (
+          <div className="px-4 py-4 text-sm text-rose-200/80">{error}</div>
+        ) : invoices.length === 0 ? (
+          <div className="px-4 py-4 text-sm text-white/60">
+            No invoices yet. After checkout, invoices and receipts will appear here.
           </div>
-        </div>
-        <Badge>Custom</Badge>
-      </div>
+        ) : (
+          <div className="divide-y divide-white/10">
+            {invoices.map((inv) => {
+              const invoiceUrl = inv.hosted_invoice_url || inv.invoice_pdf || null;
+              return (
+                <div key={inv.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-white/85">
+                      {inv.number || inv.id}
+                    </div>
+                    <div className="mt-1 text-[12px] text-white/55">
+                      {formatDateFromUnix(inv.created)} • {String(inv.status || "unknown")}
+                    </div>
+                  </div>
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Link href="/contact" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
-          Contact sales
-        </Link>
-        <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
-          See Studio details
-        </Link>
-        <div className="sm:ml-auto text-[12px] text-white/55">Manual setup right now.</div>
-      </div>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
-        In-app quote and seat management will be added later.
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-white/75">
+                      {formatMoneyFromCents(inv.amount_paid || inv.amount_due, inv.currency)}
+                    </div>
+                    {invoiceUrl ? (
+                      <a
+                        href={invoiceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-ghost text-[12px] px-3 py-1.5"
+                      >
+                        View
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </SoftCard>
   );
@@ -496,9 +507,12 @@ export default function BillingPage() {
   type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free_trial");
-  const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const interval: BillingInterval = "monthly";
   const [credits, setCredits] = useState<number | null>(null);
   const [startingCheckout, setStartingCheckout] = useState(false);
+  const [history, setHistory] = useState<BillingHistoryInvoice[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"plan" | "pack" | "info">("plan");
@@ -530,6 +544,22 @@ export default function BillingPage() {
         if (!cancelled) {
           setCredits(null);
         }
+      });
+
+    apiFetch<{ invoices: BillingHistoryInvoice[] }>("/billing/history?limit=20", { method: "GET" })
+      .then((res) => {
+        if (cancelled) return;
+        setHistory(Array.isArray(res?.invoices) ? res.invoices : []);
+        setHistoryError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHistory([]);
+        setHistoryError("Could not load billing history right now.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setHistoryLoading(false);
       });
 
     return () => {
@@ -574,13 +604,7 @@ export default function BillingPage() {
   const plans: Plan[] = useMemo(() => {
     const starterMonthlyPrice = 10.0;
     const creatorMonthlyPrice = 20.0;
-    const yearlyDiscount = 0.51;
-    const creatorYearlyMonthlyEq = creatorMonthlyPrice * (1 - yearlyDiscount);
-
-    const creatorPrice =
-      interval === "yearly"
-        ? `$${formatMoney(creatorYearlyMonthlyEq)} / mo (51% off, billed yearly)`
-        : `$${formatMoney(creatorMonthlyPrice)} / mo`;
+    const creatorPrice = `$${formatMoney(creatorMonthlyPrice)} / mo`;
 
     return [
       {
@@ -599,7 +623,7 @@ export default function BillingPage() {
         desc: "Simple monthly plan.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
-        note: "No yearly option for Starter.",
+        note: "Simple monthly plan.",
       },
       {
         key: "creator",
@@ -610,10 +634,7 @@ export default function BillingPage() {
         interval,
         recommended: true,
         highlight: true,
-        note:
-          interval === "yearly"
-            ? "Yearly gives 51% off and includes credits upfront."
-            : "Monthly plan with recurring credits.",
+        note: "Monthly plan with recurring credits.",
       },
       {
         key: "studio",
@@ -628,7 +649,7 @@ export default function BillingPage() {
   }, [interval]);
 
   const creditPacks: CreditPack[] = useMemo(() => {
-    const base = interval === "yearly" ? 3600 : 300;
+    const base = 300;
     return [
       {
         key: "pack_1x",
@@ -656,7 +677,7 @@ export default function BillingPage() {
         valueHint: "Best for heavy weeks.",
       },
     ];
-  }, [interval]);
+  }, []);
 
   function openPlanModal(p: PlanKey) {
     if (p === currentPlan) {
@@ -685,9 +706,6 @@ export default function BillingPage() {
       if (pendingPlan === "starter") startCheckout("starter");
       if (pendingPlan === "creator") startCheckout("creator", 1);
       if (pendingPlan === "free_trial") startCheckout("free");
-      if (pendingPlan === "studio") {
-        showToast("Studio is handled by sales.");
-      }
       return;
     }
     if (modalMode === "pack" && pendingPack) {
@@ -752,7 +770,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Current plan</div>
-          <div className="mt-1 text-sm text-white/60">Your current subscription and credit balance.</div>
+            <div className="mt-1 text-sm text-white/60">Your current subscription and credit balance.</div>
           </div>
           <Badge tone="good">{currentPlanLabel}</Badge>
         </div>
@@ -779,15 +797,12 @@ export default function BillingPage() {
 
       {/* Plan switching */}
       <SoftCard className="p-6" glow>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Change plan</div>
             <div className="mt-1 text-sm text-white/60">
               Upgrade anytime. Downgrades can start at the end of your period.
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <SegToggle value={interval} onChange={setInterval} />
           </div>
         </div>
 
@@ -828,11 +843,8 @@ export default function BillingPage() {
         </div>
       </SoftCard>
 
-      {/* Billing history placeholder */}
-      <BillingHistoryCard />
-
-      {/* Studio CTA */}
-      <StudioCtaCard />
+      {/* Billing history */}
+      <BillingHistoryCard invoices={history} loading={historyLoading} error={historyError} />
 
       {/* Modal */}
       <Modal
