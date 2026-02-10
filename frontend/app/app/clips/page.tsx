@@ -1928,58 +1928,29 @@ function CropForm({
           <div className="grid gap-2">
             <div className="text-[12px] font-medium text-white/70">Quick layouts</div>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => applyPreset("fit")}
-                className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
-              >
-                <span className="mx-auto flex h-9 w-11 items-center justify-center rounded-md border border-white/15 bg-black/25">
-                  <span className="block h-5 w-8 rounded-[4px] border border-white/45 bg-white/[0.14]" />
-                </span>
-                <span className="mt-2 block text-[11px] font-medium text-white/78">Fit</span>
-                <span className="block text-[10px] text-white/50">Full frame</span>
+              <button type="button" onClick={() => applyPreset("fit")} className="btn-ghost text-[12px] px-3 py-2">
+                Fit
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("vertical")}
-                className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
+                className="btn-ghost text-[12px] px-3 py-2"
               >
-                <span className="mx-auto flex h-9 w-11 items-center justify-center rounded-md border border-white/15 bg-black/25">
-                  <span
-                    className="block rounded-[4px] border border-white/45 bg-white/[0.14]"
-                    style={{ width: 12, aspectRatio: "9 / 16" }}
-                  />
-                </span>
-                <span className="mt-2 block text-[11px] font-medium text-white/78">Vertical</span>
-                <span className="block text-[10px] text-white/50">9:16</span>
+                9:16
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("square")}
-                className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
+                className="btn-ghost text-[12px] px-3 py-2"
               >
-                <span className="mx-auto flex h-9 w-11 items-center justify-center rounded-md border border-white/15 bg-black/25">
-                  <span
-                    className="block rounded-[4px] border border-white/45 bg-white/[0.14]"
-                    style={{ width: 16, aspectRatio: "1 / 1" }}
-                  />
-                </span>
-                <span className="mt-2 block text-[11px] font-medium text-white/78">Square</span>
-                <span className="block text-[10px] text-white/50">1:1</span>
+                1:1
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset("landscape")}
-                className="rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
+                className="btn-ghost text-[12px] px-3 py-2"
               >
-                <span className="mx-auto flex h-9 w-11 items-center justify-center rounded-md border border-white/15 bg-black/25">
-                  <span
-                    className="block rounded-[4px] border border-white/45 bg-white/[0.14]"
-                    style={{ width: 22, aspectRatio: "16 / 9" }}
-                  />
-                </span>
-                <span className="mt-2 block text-[11px] font-medium text-white/78">Wide</span>
-                <span className="block text-[10px] text-white/50">16:9</span>
+                16:9
               </button>
             </div>
           </div>
