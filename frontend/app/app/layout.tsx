@@ -211,6 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app", "Overview")}
+            {navItem("/app/clips", "Clips")}
             {navItem("/app/studio", "Studio")}
             {navItem("/app/billing", "Billing")}
             {navItem("/app/settings", "Settings")}
@@ -265,6 +266,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               {navItem("/app", "Overview", true)}
+              {navItem("/app/clips", "Clips", true)}
               {navItem("/app/studio", "Studio", true)}
               {navItem("/app/billing", "Billing", true)}
               {navItem("/app/settings", "Settings", true)}
