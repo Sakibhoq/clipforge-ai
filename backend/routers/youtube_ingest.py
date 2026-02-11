@@ -198,12 +198,62 @@ def _youtube_api_preview(video_id: str) -> dict:
     }
 
 
+def _yt_dlp_cookies_path() -> Optional[str]:
+    cookies_path = (os.getenv("YTDLP_COOKIES_FILE") or "").strip()
+    if not cookies_path:
+        default_cookies = "/app/youtube_cookies.txt"
+        if os.path.isfile(default_cookies):
+            cookies_path = default_cookies
+    if cookies_path and os.path.isfile(cookies_path):
+        return cookies_path
+    return None
+
+
+def _yt_dlp_extractor_arg_candidates() -> List[Optional[str]]:
+    """
+    Build yt-dlp extractor arg retries.
+    - None => default yt-dlp behavior
+    - YTDLP_EXTRACTOR_ARGS => operator override
+    - Fallback player clients for YouTube anti-bot changes
+    """
+    out: List[Optional[str]] = [None]
+
+    custom = (os.getenv("YTDLP_EXTRACTOR_ARGS") or "").strip()
+    if custom:
+        out.append(custom)
+
+    clients_raw = (os.getenv("YTDLP_RETRY_CLIENTS") or "android,ios,tv_embedded").strip()
+    for client in [c.strip() for c in clients_raw.split(",") if c.strip()]:
+        out.append(f"youtube:player_client={client}")
+
+    # keep order but dedupe
+    seen = set()
+    deduped: List[Optional[str]] = []
+    for item in out:
+        key = item or ""
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def _apply_yt_dlp_auth_flags(base_cmd: List[str], extractor_args: Optional[str] = None) -> List[str]:
+    cmd = list(base_cmd)
+    cookies_path = _yt_dlp_cookies_path()
+    if cookies_path:
+        cmd[1:1] = ["--cookies", cookies_path]
+    if extractor_args:
+        cmd[1:1] = ["--extractor-args", extractor_args]
+    return cmd
+
+
 def _yt_dlp_preview(video_url: str) -> dict:
     """
     Fallback preview path when YouTube Data API is unavailable.
     Uses yt-dlp metadata extraction only (no download).
     """
-    cmd = [
+    base_cmd = [
         "yt-dlp",
         "--dump-single-json",
         "--skip-download",
@@ -211,42 +261,51 @@ def _yt_dlp_preview(video_url: str) -> dict:
         "--no-warnings",
         video_url,
     ]
-    try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
-    except subprocess.TimeoutExpired:
-        raise HTTPException(504, "yt-dlp preview timed out")
+    last_err = "yt-dlp preview failed"
+    for extractor_args in _yt_dlp_extractor_arg_candidates():
+        cmd = _apply_yt_dlp_auth_flags(base_cmd, extractor_args=extractor_args)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=25)
+        except subprocess.TimeoutExpired:
+            last_err = "yt-dlp preview timed out"
+            continue
 
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "").strip()
-        raise HTTPException(502, f"yt-dlp preview failed: {err[:220]}")
+        if proc.returncode != 0:
+            last_err = (proc.stderr or proc.stdout or "").strip() or last_err
+            continue
 
-    raw = (proc.stdout or "").strip()
-    if not raw:
-        raise HTTPException(502, "yt-dlp preview returned empty output")
+        raw = (proc.stdout or "").strip()
+        if not raw:
+            last_err = "yt-dlp preview returned empty output"
+            continue
 
-    try:
-        data = json.loads(raw)
-    except Exception:
-        raise HTTPException(502, "Invalid yt-dlp preview response")
+        try:
+            data = json.loads(raw)
+        except Exception:
+            last_err = "Invalid yt-dlp preview response"
+            continue
 
-    title = (data.get("title") or "").strip()
-    channel = (data.get("channel") or data.get("uploader") or "").strip() or None
-    thumb = data.get("thumbnail")
-    duration_raw = data.get("duration")
-    try:
-        duration_seconds = int(float(duration_raw or 0))
-    except Exception:
-        duration_seconds = 0
+        title = (data.get("title") or "").strip()
+        channel = (data.get("channel") or data.get("uploader") or "").strip() or None
+        thumb = data.get("thumbnail")
+        duration_raw = data.get("duration")
+        try:
+            duration_seconds = int(float(duration_raw or 0))
+        except Exception:
+            duration_seconds = 0
 
-    if not title or duration_seconds <= 0:
-        raise HTTPException(502, "Invalid yt-dlp metadata")
+        if not title or duration_seconds <= 0:
+            last_err = "Invalid yt-dlp metadata"
+            continue
 
-    return {
-        "title": title,
-        "channel": channel,
-        "duration_seconds": duration_seconds,
-        "thumbnail_url": thumb if isinstance(thumb, str) and thumb else None,
-    }
+        return {
+            "title": title,
+            "channel": channel,
+            "duration_seconds": duration_seconds,
+            "thumbnail_url": thumb if isinstance(thumb, str) and thumb else None,
+        }
+
+    raise HTTPException(502, f"yt-dlp preview failed: {last_err[:220]}")
 
 
 def _minutes_rounded(duration_seconds: int) -> int:
@@ -435,7 +494,7 @@ def _download_youtube_video(url: str, video_id: str) -> str:
     """
     tmp_dir = tempfile.mkdtemp(prefix="yt-ingest-")
     outtmpl = os.path.join(tmp_dir, f"{video_id}.%(ext)s")
-    cmd = [
+    base_cmd = [
         "yt-dlp",
         "-f",
         "bv*+ba/b",
@@ -453,22 +512,20 @@ def _download_youtube_video(url: str, video_id: str) -> str:
         outtmpl,
         url,
     ]
-    cookies_path = (os.getenv("YTDLP_COOKIES_FILE") or "").strip()
-    if not cookies_path:
-        default_cookies = "/app/youtube_cookies.txt"
-        if os.path.isfile(default_cookies):
-            cookies_path = default_cookies
-    if cookies_path and os.path.isfile(cookies_path):
-        cmd[1:1] = ["--cookies", cookies_path]
+    last_err = "yt-dlp failed"
+    for extractor_args in _yt_dlp_extractor_arg_candidates():
+        cmd = _apply_yt_dlp_auth_flags(base_cmd, extractor_args=extractor_args)
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            last_err = (proc.stderr.strip() or proc.stdout.strip() or last_err)
+            continue
 
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        raise HTTPException(502, f"yt-dlp failed: {proc.stderr.strip() or proc.stdout.strip()}")
+        files = glob.glob(os.path.join(tmp_dir, f"{video_id}.*"))
+        if files:
+            return files[0]
+        last_err = "yt-dlp produced no output file"
 
-    files = glob.glob(os.path.join(tmp_dir, f"{video_id}.*"))
-    if not files:
-        raise HTTPException(502, "yt-dlp produced no output file")
-    return files[0]
+    raise HTTPException(502, f"yt-dlp failed: {last_err[:260]}")
 
 
 # ======================================================
