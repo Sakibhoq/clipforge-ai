@@ -7,7 +7,6 @@ import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/
 
 type Channel = { id: number };
 type QueueItem = { status: string };
-type Rule = { id: number; enabled: boolean };
 type SocialAccount = {
   id: number;
   provider: string;
@@ -17,62 +16,34 @@ type SocialAccount = {
 };
 
 const SOCIAL_PROVIDERS = [
-  { key: "youtube", label: "YouTube", hint: "Post to YouTube Shorts." },
-  { key: "tiktok", label: "TikTok", hint: "Connect for scheduled posts." },
-  { key: "instagram", label: "Instagram", hint: "Connect for scheduled posts." },
-  { key: "facebook", label: "Facebook", hint: "Connect for scheduled posts." },
+  { key: "youtube", label: "YouTube", hint: "Connect to publish Shorts directly." },
+  { key: "tiktok", label: "TikTok", hint: "Connect to publish from Clips." },
+  { key: "instagram", label: "Instagram", hint: "Connect your Instagram business account." },
+  { key: "facebook", label: "Facebook", hint: "Connect your Facebook Page for posting." },
 ] as const;
 
 type SocialProviderKey = (typeof SOCIAL_PROVIDERS)[number]["key"];
 
 function connectButtonStyle(provider: SocialProviderKey): React.CSSProperties {
   const theme = socialBrandTheme(provider as SocialPlatform);
-  return { background: theme.iconBackground, borderColor: theme.iconBorder, color: "#ffffff" };
+  return {
+    background: theme.iconBackground,
+    borderColor: theme.iconBorder,
+    color: "#ffffff",
+  };
 }
 
-function StudioCard({
-  title,
-  desc,
-  details,
-  href,
-  cta,
-}: {
-  title: string;
-  desc: string;
-  details: string[];
-  href: string;
-  cta: string;
-}) {
+function StatPill({ label, value }: { label: string; value: string }) {
   return (
-    <section className="surface-soft relative overflow-hidden rounded-3xl p-6 md:p-7">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -inset-12 opacity-35 blur-2xl"
-        style={{
-          background:
-            "radial-gradient(200px 140px at 20% 25%, rgba(167,139,250,0.16), transparent 70%), radial-gradient(240px 170px at 70% 35%, rgba(125,211,252,0.12), transparent 72%), radial-gradient(220px 160px at 60% 90%, rgba(45,212,191,0.10), transparent 72%)",
-        }}
-      />
-      <div className="relative">
-        <h2 className="text-lg font-semibold text-white/90">{title}</h2>
-        <p className="mt-2 text-sm text-white/65">{desc}</p>
-        <div className="mt-4 grid gap-1 text-sm text-white/70">
-          {details.map((line) => (
-            <div key={line}>{line}</div>
-          ))}
-        </div>
-        <Link href={href} className="btn-solid-dark mt-5 inline-flex text-[12px] px-4 py-2">
-          {cta}
-        </Link>
-      </div>
-    </section>
+    <div className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] text-white/70">
+      <span className="text-white/55">{label}:</span> <span className="font-semibold text-white/85">{value}</span>
+    </div>
   );
 }
 
 export default function StudioPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [rules, setRules] = useState<Rule[]>([]);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
@@ -83,20 +54,18 @@ export default function StudioPage() {
     setLoading(true);
     setError(null);
     try {
-      const [ch, q, r, sa] = await Promise.allSettled([
+      const [ch, q, sa] = await Promise.allSettled([
         apiFetch<Channel[]>("/youtube/channels", { method: "GET" }),
         apiFetch<QueueItem[]>("/youtube/ingest/queue", { method: "GET" }),
-        apiFetch<Rule[]>("/automations/rules", { method: "GET" }),
         apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" }),
       ]);
 
       if (ch.status === "fulfilled") setChannels(Array.isArray(ch.value) ? ch.value : []);
       if (q.status === "fulfilled") setQueue(Array.isArray(q.value) ? q.value : []);
-      if (r.status === "fulfilled") setRules(Array.isArray(r.value) ? r.value : []);
       if (sa.status === "fulfilled") setSocialAccounts(Array.isArray(sa.value) ? sa.value : []);
 
-      const failed = [ch, q, r, sa].filter((res) => res.status === "rejected").length;
-      if (failed === 4) setError("Could not load data right now. Please refresh.");
+      const failed = [ch, q, sa].filter((res) => res.status === "rejected").length;
+      if (failed === 3) setError("Could not load data right now. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -111,8 +80,6 @@ export default function StudioPage() {
     const processing = queue.filter((item) => item.status === "processing").length;
     return { queued, processing, total: queue.length };
   }, [queue]);
-
-  const activeRules = useMemo(() => rules.filter((rule) => rule.enabled).length, [rules]);
 
   const socialByProvider = useMemo(() => {
     const out: Record<string, SocialAccount | null> = {};
@@ -129,6 +96,13 @@ export default function StudioPage() {
     }
     return out;
   }, [socialAccounts]);
+
+  const connectedCount = useMemo(() => {
+    return SOCIAL_PROVIDERS.filter((provider) => {
+      const account = socialByProvider[provider.key];
+      return String(account?.status || "").toLowerCase() === "connected";
+    }).length;
+  }, [socialByProvider]);
 
   async function refreshSocialAccounts() {
     const data = await apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" });
@@ -170,72 +144,94 @@ export default function StudioPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
-        <div className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
+        <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-12 opacity-40 blur-3xl"
+            className="pointer-events-none absolute -inset-12 opacity-45 blur-3xl"
             style={{
               background:
-                "radial-gradient(240px 160px at 18% 28%, rgba(167,139,250,0.20), transparent 70%), radial-gradient(260px 180px at 78% 35%, rgba(125,211,252,0.16), transparent 72%), radial-gradient(260px 180px at 55% 92%, rgba(45,212,191,0.12), transparent 72%)",
+                "radial-gradient(240px 160px at 16% 28%, rgba(167,139,250,0.22), transparent 70%), radial-gradient(280px 200px at 80% 34%, rgba(125,211,252,0.18), transparent 72%), radial-gradient(260px 180px at 58% 90%, rgba(45,212,191,0.14), transparent 72%)",
             }}
           />
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
+          <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs text-white/55">• Studio</div>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/90">Studio</h1>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">Social Studio</h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                This is your control center. Pick one task and open the right tool.
+                Connect your social accounts, manage status, and publish clips from one place.
               </p>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <StatPill label="Connected" value={`${connectedCount}/${SOCIAL_PROVIDERS.length}`} />
+                <StatPill label="YouTube Channels" value={`${channels.length}`} />
+                <StatPill label="Ingest Queue" value={`${queueSummary.total}`} />
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={refreshSummary}
-              className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto"
-              disabled={loading}
-            >
-              {loading ? "Refreshing..." : "Refresh data"}
-            </button>
+
+            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+              <Link href="/app/clips" className="btn-solid-dark text-center text-[12px] px-4 py-2">
+                Open clips
+              </Link>
+              <button
+                type="button"
+                onClick={refreshSummary}
+                className="btn-ghost text-[12px] px-4 py-2"
+                disabled={loading}
+              >
+                {loading ? "Refreshing..." : "Refresh data"}
+              </button>
+            </div>
           </div>
-          {error && <div className="mt-4 text-xs text-red-200/80">{error}</div>}
-        </div>
+
+          {error ? <div className="relative mt-4 text-xs text-red-200/80">{error}</div> : null}
+        </section>
 
         <section className="surface-soft relative mt-6 overflow-hidden rounded-3xl p-6 md:p-7">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-12 opacity-30 blur-2xl"
+            className="pointer-events-none absolute -inset-12 opacity-35 blur-2xl"
             style={{
               background:
-                "radial-gradient(200px 140px at 20% 25%, rgba(167,139,250,0.16), transparent 70%), radial-gradient(240px 170px at 70% 35%, rgba(125,211,252,0.12), transparent 72%), radial-gradient(220px 160px at 60% 90%, rgba(45,212,191,0.10), transparent 72%)",
+                "radial-gradient(220px 150px at 20% 25%, rgba(167,139,250,0.16), transparent 70%), radial-gradient(260px 180px at 74% 38%, rgba(125,211,252,0.13), transparent 72%), radial-gradient(230px 160px at 58% 92%, rgba(45,212,191,0.10), transparent 72%)",
             }}
           />
+
           <div className="relative">
-            <h2 className="text-lg font-semibold text-white/90">Social Connections</h2>
-            <p className="mt-2 text-sm text-white/65">
-              Connect and manage publishing accounts here.
-            </p>
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 px-5">
-              {SOCIAL_PROVIDERS.map((provider, idx) => {
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white/90">Connections</h2>
+                <p className="mt-1 text-sm text-white/65">Connect each platform once. Disconnect any time.</p>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/65">
+                {connectedCount} connected
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {SOCIAL_PROVIDERS.map((provider) => {
                 const theme = socialBrandTheme(provider.key as SocialPlatform);
                 const account = socialByProvider[provider.key];
                 const connected = String(account?.status || "").toLowerCase() === "connected";
                 const busyConnecting = socialBusy === provider.key;
                 const busyDisconnecting = socialBusy === `disconnect:${provider.key}`;
+
                 return (
-                  <React.Fragment key={provider.key}>
-                    <div className="flex flex-col gap-2 py-4 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0 flex items-start gap-3">
-                        <SocialBrandPill platform={provider.key as SocialPlatform} label={provider.label} />
-                        <div className="mt-0.5 min-w-0 text-sm text-white/55">
-                          {connected
-                            ? account?.account_name || account?.account_id || "Connected"
-                            : provider.hint}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {connected ? (
-                          <>
+                  <div
+                    key={provider.key}
+                    className="rounded-2xl border border-white/10 px-4 py-4 md:px-5"
+                    style={{
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))",
+                    }}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          <SocialBrandPill platform={provider.key as SocialPlatform} label={provider.label} />
+                          {connected ? (
                             <span
-                              className="rounded-full border px-3 py-1 text-[11px] font-semibold"
+                              className="rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                               style={{
                                 color: theme.text,
                                 borderColor: theme.iconBorder,
@@ -244,15 +240,25 @@ export default function StudioPage() {
                             >
                               Connected
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => void disconnectSocial(provider.key)}
-                              disabled={!!socialBusy}
-                              className="btn-ghost text-[12px] px-4 py-2"
-                            >
-                              {busyDisconnecting ? "Disconnecting..." : "Disconnect"}
-                            </button>
-                          </>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 text-sm text-white/60">
+                          {connected
+                            ? account?.account_name || account?.account_id || "Connected"
+                            : provider.hint}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {connected ? (
+                          <button
+                            type="button"
+                            onClick={() => void disconnectSocial(provider.key)}
+                            disabled={!!socialBusy}
+                            className="btn-ghost text-[12px] px-4 py-2"
+                          >
+                            {busyDisconnecting ? "Disconnecting..." : "Disconnect"}
+                          </button>
                         ) : (
                           <button
                             type="button"
@@ -266,40 +272,34 @@ export default function StudioPage() {
                         )}
                       </div>
                     </div>
-                    {idx < SOCIAL_PROVIDERS.length - 1 ? <div className="h-px w-full bg-white/10" /> : null}
-                  </React.Fragment>
+                  </div>
                 );
               })}
             </div>
+
             {socialMsg ? <div className="mt-4 text-[12px] text-white/60">{socialMsg}</div> : null}
           </div>
         </section>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <StudioCard
-            title="YouTube Ingest"
-            desc="Add channels and import videos to turn them into clips."
-            details={[
-              `Connected channels: ${channels.length}`,
-              `Queue: ${queueSummary.total} total`,
-              `Now running: ${queueSummary.processing} processing, ${queueSummary.queued} queued`,
-            ]}
-            href="/app/youtube"
-            cta="Open YouTube ingest"
-          />
-
-          <StudioCard
-            title="Automations"
-            desc="Set rules so posting can run on its own."
-            details={[
-              `Rules: ${rules.length} total`,
-              `Active rules: ${activeRules}`,
-              "Tip: start with one simple rule first.",
-            ]}
-            href="/app/automations"
-            cta="Open automations"
-          />
-        </div>
+        <section className="surface-soft relative mt-6 overflow-hidden rounded-3xl p-6 md:p-7">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div className="text-xs text-white/50">Step 1</div>
+              <div className="mt-1 text-sm font-semibold text-white/85">Connect accounts</div>
+              <p className="mt-1 text-xs text-white/60">Authorize each platform once from this page.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div className="text-xs text-white/50">Step 2</div>
+              <div className="mt-1 text-sm font-semibold text-white/85">Create clips</div>
+              <p className="mt-1 text-xs text-white/60">Generate clips in Upload and review in Clips.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+              <div className="text-xs text-white/50">Step 3</div>
+              <div className="mt-1 text-sm font-semibold text-white/85">Post faster</div>
+              <p className="mt-1 text-xs text-white/60">Pick your destination and schedule from Clips.</p>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );
