@@ -514,7 +514,7 @@ def connect_callback(
     db.commit()
 
     base = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").rstrip("/")
-    response = RedirectResponse(url=f"{base}/app/settings?tab=social")
+    response = RedirectResponse(url=f"{base}/app/studio?tab=social")
     _clear_social_ctx_cookie(response, request)
     return response
 

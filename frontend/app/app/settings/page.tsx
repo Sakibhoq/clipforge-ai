@@ -353,14 +353,6 @@ type MeResponse = {
   credits: number;
 };
 
-type SocialAccount = {
-  id: number;
-  provider: string;
-  account_id?: string | null;
-  account_name?: string | null;
-  status: string;
-};
-
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -378,8 +370,6 @@ export default function SettingsPage() {
   // /auth/me hydration (graceful)
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(true);
-  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
-  const [socialBusy, setSocialBusy] = useState<string | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -441,58 +431,6 @@ export default function SettingsPage() {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" })
-      .then((d) => {
-        if (!mounted) return;
-        setSocialAccounts(Array.isArray(d) ? d : []);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setSocialAccounts([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  async function refreshSocialAccounts() {
-    const d = await apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" });
-    setSocialAccounts(Array.isArray(d) ? d : []);
-  }
-
-  async function connectSocial(provider: string) {
-    if (socialBusy) return;
-    setSocialBusy(provider);
-    try {
-      const data = (await apiFetch(`/social/connect/${provider}/start`, { method: "POST" })) as any;
-      const url = data?.url;
-      if (!url) return;
-      window.location.href = url;
-    } catch (e: any) {
-      setActionMsg(e?.detail || e?.message || `Failed to connect ${provider}.`);
-    } finally {
-      setSocialBusy(null);
-    }
-  }
-
-  async function disconnectSocial(provider: string) {
-    if (socialBusy) return;
-    setSocialBusy(`disconnect:${provider}`);
-    try {
-      const res = (await apiFetch<{ status: string }>(`/social/accounts/${provider}/disconnect`, {
-        method: "POST",
-      })) as any;
-      setActionMsg(res?.status ? `${provider} ${res.status}` : `${provider} disconnected`);
-      await refreshSocialAccounts();
-    } catch (e: any) {
-      setActionMsg(e?.detail || e?.message || `Failed to disconnect ${provider}.`);
-    } finally {
-      setSocialBusy(null);
-    }
-  }
 
   async function logout() {
     try {
@@ -820,104 +758,6 @@ export default function SettingsPage() {
           />
         </div>
 
-      </Section>
-
-      {/* Social connections */}
-      <Section icon={<Icon name="bolt" />} title="Social Connections" desc="Connect platforms for posting.">
-        <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
-          <Row
-            label="YouTube"
-            hint="Post to YouTube Shorts."
-            right={
-              <button
-                type="button"
-                onClick={() => connectSocial("youtube")}
-                className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled={!!socialBusy}
-              >
-                {socialBusy === "youtube" ? "Connecting..." : "Connect"}
-              </button>
-            }
-          />
-          <Divider />
-          <Row
-            label="TikTok"
-            hint="Connect for scheduled posts."
-            right={
-              <button
-                type="button"
-                onClick={() => connectSocial("tiktok")}
-                className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled={!!socialBusy}
-              >
-                {socialBusy === "tiktok" ? "Connecting..." : "Connect"}
-              </button>
-            }
-          />
-          <Divider />
-          <Row
-            label="Instagram"
-            hint="Connect for scheduled posts."
-            right={
-              <button
-                type="button"
-                onClick={() => connectSocial("instagram")}
-                className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled={!!socialBusy}
-              >
-                {socialBusy === "instagram" ? "Connecting..." : "Connect"}
-              </button>
-            }
-          />
-          <Divider />
-          <Row
-            label="Facebook"
-            hint="Connect for scheduled posts."
-            right={
-              <button
-                type="button"
-                onClick={() => connectSocial("facebook")}
-                className="btn-solid-dark text-[12px] px-4 py-2"
-                disabled={!!socialBusy}
-              >
-                {socialBusy === "facebook" ? "Connecting..." : "Connect"}
-              </button>
-            }
-          />
-        </div>
-
-        <div className="mt-4 grid gap-2 text-[12px] text-white/55">
-          {socialAccounts.length ? (
-            socialAccounts.map((acc) => (
-              <div
-                key={`${acc.provider}-${acc.id}`}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2"
-              >
-                <div>
-                  <div className="text-white/75 font-semibold capitalize">{acc.provider}</div>
-                  <div className="text-white/45">{acc.account_name || acc.account_id || "Connected"}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[11px] text-white/70">
-                    {acc.status}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void disconnectSocial(acc.provider)}
-                    disabled={!!socialBusy}
-                    className="btn-ghost text-[11px] px-3 py-1"
-                  >
-                    {socialBusy === `disconnect:${acc.provider}` ? "Disconnecting…" : "Disconnect"}
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              No social accounts connected yet.
-            </div>
-          )}
-        </div>
       </Section>
 
       {/* Notifications */}
