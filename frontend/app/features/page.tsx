@@ -41,7 +41,7 @@ export default function FeaturesPage() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-2">
-              <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} compact />
+              <SocialBrandRow platforms={["youtube", "tiktok", "instagram", "facebook"]} compact />
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60">
                 Upload once - publish more
               </span>
@@ -69,7 +69,9 @@ export default function FeaturesPage() {
                   Step 3
                 </div>
                 <div className="mt-3 text-sm font-semibold text-white/90">Post in minutes</div>
-                <div className="mt-2 text-sm text-white/60">Schedule to connected accounts from your clips.</div>
+                <div className="mt-2 text-sm text-white/60">
+                  Post now or schedule for later to one channel or all connected channels.
+                </div>
               </div>
             </div>
 
@@ -79,7 +81,10 @@ export default function FeaturesPage() {
                 <div>Auto captions built for short videos</div>
                 <div>Aspect ratios for every main platform</div>
                 <div>Clean exports with ready-to-post files</div>
-                <div>Social connect + scheduling in one flow</div>
+                <div>Connect YouTube, TikTok, Instagram, and Facebook</div>
+                <div>Post to one platform or all connected platforms at once</div>
+                <div>Choose immediate publish or any schedule time</div>
+                <div>YouTube Ingest lets you connect channels and pull videos into your clip queue</div>
               </div>
             </div>
 

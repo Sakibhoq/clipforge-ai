@@ -165,6 +165,11 @@ function AmbientFX() {
           55% { transform: translate3d(72vw, 10vh, 0) rotate(10deg); opacity: 0.18; }
           100% { transform: translate3d(120vw, 0vh, 0) rotate(6deg); opacity: 0.06; }
         }
+        @keyframes railFlow {
+          0% { transform: translateX(-120%); opacity: 0.65; }
+          50% { opacity: 1; }
+          100% { transform: translateX(220%); opacity: 0.65; }
+        }
         @keyframes mote {
           0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.85); }
           18% { opacity: var(--m-o); }
@@ -336,51 +341,28 @@ export default function Page() {
     []
   );
 
-  const featureCards = useMemo(
+  const momentumCards = useMemo(
     () => [
       {
-        id: "moments",
-        title: <>Find the best moments fast</>,
-        desc: <>Orbito cuts long videos into short clips people watch to the end.</>,
+        id: "volume",
+        title: <>More output from one upload</>,
+        desc: <>Turn one long video into multiple clips without extra editing passes.</>,
+        metric: "1 upload",
+        helper: "multi-clip output",
       },
       {
-        id: "captions",
-        title: <>Auto captions and framing</>,
-        desc: <>Get clear captions and speaker-first framing that fits vertical video.</>,
+        id: "speed",
+        title: <>Built for fast publishing</>,
+        desc: <>Review quickly, approve what you like, and keep your posting routine moving.</>,
+        metric: "minutes",
+        helper: "not hours",
       },
       {
-        id: "export",
-        title: <>Ready-to-post exports</>,
-        desc: (
-          <div className="space-y-2">
-            <div>Download clips sized for every channel.</div>
-            <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact />
-          </div>
-        ),
-      },
-    ],
-    []
-  );
-
-  const howItWorks = useMemo(
-    () => [
-      {
-        id: "hiw-1",
-        n: "1",
-        title: "Upload once",
-        desc: "Start with one long video.",
-      },
-      {
-        id: "hiw-2",
-        n: "2",
-        title: <>Review and edit</>,
-        desc: <>Check the clips, captions, and framing.</>,
-      },
-      {
-        id: "hiw-3",
-        n: "3",
-        title: "Post and repeat",
-        desc: "Publish your best clips, then do it again next video.",
+        id: "quality",
+        title: <>Consistent quality every time</>,
+        desc: <>Captions, framing, and export sizing stay clean across each clip.</>,
+        metric: "repeatable",
+        helper: "team-safe workflow",
       },
     ],
     []
@@ -486,19 +468,19 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FEATURES */}
+        {/* MOMENTUM */}
         <section id="features" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              Everything you need to turn <H>long videos</H> into short posts.
+              Post more each week. <H>Without burning time.</H>
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Keep your quality high without spending all day editing.
+              Orbito is made for creators who want steady output and clean quality.
             </p>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {featureCards.map((c) => (
+            {momentumCards.map((c, index) => (
               <div
                 key={c.id}
                 data-reveal
@@ -508,6 +490,20 @@ export default function Page() {
                 <div className="relative">
                   <div className="text-sm font-semibold">{c.title}</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">{c.desc}</div>
+                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <span
+                      className="orbito-anim block h-full w-2/5 rounded-full"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(45,212,191,0.85), rgba(125,211,252,0.95), rgba(167,139,250,0.85))",
+                        animation: `railFlow ${5.8 + index * 0.8}s linear infinite`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-white/50">
+                    <span>{c.metric}</span>
+                    <span>{c.helper}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -515,7 +511,7 @@ export default function Page() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="/features" className="btn-ghost">
-              Explore all features
+              Product details
             </a>
             <a href="/pricing" className="btn-aurora">
               View pricing
@@ -523,40 +519,105 @@ export default function Page() {
           </div>
         </section>
 
-        {/* HOW IT WORKS */}
+        {/* CHANNEL CONTROL */}
         <section id="how" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              One workflow. <span className="grad-text">Clear steps.</span>
+              One place to manage your <span className="grad-text">channels.</span>
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Upload once, review quickly, and post where your audience watches.
+              Connect your social accounts once, then schedule clips where your audience already is.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {howItWorks.map((s) => (
+          <div className="mt-8 grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+            <div
+              data-reveal
+              className="reveal group surface-soft relative overflow-hidden p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
+            >
+              <HoverSheen />
+              <div className="relative">
+                <div className="text-xs text-white/50">Publishing control</div>
+                <div className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">
+                  Publish now or schedule for later.
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  Choose one platform, or choose all connected platforms and schedule the same clip at once.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <SocialBrandRow platforms={["youtube", "tiktok", "instagram", "facebook"]} compact />
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-xs text-white/50">Mode</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Single post</div>
+                    <div className="mt-1 text-xs text-white/60">One clip to one channel.</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-xs text-white/50">Mode</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Multi-post</div>
+                    <div className="mt-1 text-xs text-white/60">One clip to many channels.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
               <div
-                key={s.id}
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-xs text-white/50">Status board</div>
+                  <div className="mt-3 grid gap-2">
+                    {[
+                      { name: "YouTube", status: "ready", tone: "rgba(255,91,103,0.35)" },
+                      { name: "TikTok", status: "connected", tone: "rgba(63,203,196,0.35)" },
+                      { name: "Instagram", status: "connected", tone: "rgba(226,138,192,0.35)" },
+                      { name: "Facebook", status: "connected", tone: "rgba(90,158,255,0.35)" },
+                    ].map((row) => (
+                      <div
+                        key={row.name}
+                        className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+                      >
+                        <span className="text-white/85">{row.name}</span>
+                        <span
+                          className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.08em]"
+                          style={{ borderColor: row.tone, color: "#e5ecf7" }}
+                        >
+                          {row.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div
                 data-reveal
                 className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
               >
                 <HoverSheen />
                 <div className="relative">
-                  <div className="flex items-center justify-between text-xs text-white/60">
-                    <div className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">{s.n}</div>
-                    <div>step</div>
+                  <div className="text-xs text-white/50">Queue health</div>
+                  <div className="mt-2 text-sm font-semibold text-white/90">Steady publishing pace</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Keep your queue full and schedule ahead so posting stays consistent.
                   </div>
-                  <div className="mt-3 text-sm font-semibold">{s.title}</div>
-                  <div className="mt-2 text-sm leading-relaxed text-white/65">{s.desc}</div>
+                  <div className="mt-4 flex items-center gap-2 text-[11px] text-white/55">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 animate-pulse" />
+                    Healthy pipeline
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a href="/features" className="btn-ghost">
-              Full walkthrough
+              See full details
             </a>
             <a href="/start-trial" className="btn-aurora">
               Start free
