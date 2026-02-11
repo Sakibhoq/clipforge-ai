@@ -736,10 +736,8 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-sky-300/60">• Billing</div>
-            <div className="mt-1 text-3xl font-semibold tracking-tight">
-              <span className="bg-gradient-to-r from-violet-300 via-sky-300 to-teal-300 bg-clip-text text-transparent">
-                Plan and credits
-              </span>
+            <div className="mt-1 text-3xl font-semibold tracking-tight text-white/92">
+              Plan and <span className="grad-text">credits</span>
             </div>
             <div className="mt-1 text-sm text-white/60">
               Change your plan or buy more credits anytime.

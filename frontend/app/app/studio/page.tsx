@@ -157,7 +157,9 @@ export default function StudioPage() {
           <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs text-white/55">• Studio</div>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">Social Studio</h1>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92">
+                Social <span className="grad-text">Studio</span>
+              </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
                 Connect your social accounts, manage status, and publish clips from one place.
               </p>
