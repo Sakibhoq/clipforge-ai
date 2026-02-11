@@ -70,7 +70,6 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "scopes": [
             "pages_show_list",
             "pages_read_engagement",
-            "business_management",
             "instagram_basic",
             "instagram_content_publish",
         ],
