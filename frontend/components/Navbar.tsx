@@ -21,8 +21,18 @@ function Logo() {
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
     : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
 
+  function onLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    // On landing, clicking logo should always bring user to top.
+    if (inApp || pathname !== "/") return;
+    e.preventDefault();
+    if (window.location.hash) {
+      window.history.replaceState(null, "", "/");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
-    <Link href={inApp ? "/app" : "/"} className="group flex items-center gap-3 shrink-0">
+    <Link href={inApp ? "/app" : "/"} onClick={onLogoClick} className="group flex items-center gap-3 shrink-0">
       <span
         className={[
           "relative inline-flex items-center justify-center overflow-hidden border border-white/10 bg-white/5 backdrop-blur",
@@ -72,10 +82,12 @@ function NavLink({
   href,
   children,
   onNavigate,
+  activeOverride,
 }: {
   href: string;
   children: React.ReactNode;
   onNavigate?: () => void;
+  activeOverride?: boolean;
 }) {
   const pathname = usePathname();
   const hrefPath = useMemo(() => {
@@ -89,6 +101,7 @@ function NavLink({
     if (hrefPath === "/app") return pathname === "/app" || pathname.startsWith("/app/");
     return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
   }, [pathname, hrefPath]);
+  const finalActive = activeOverride ?? active;
 
   return (
     <Link
@@ -96,19 +109,19 @@ function NavLink({
       onClick={onNavigate}
       className={[
         "group relative -mx-1.5 inline-flex items-center rounded-full px-3 py-1.5 text-xs transition-colors",
-        active ? "text-white" : "text-white/70 hover:text-white",
+        finalActive ? "text-white" : "text-white/70 hover:text-white",
       ].join(" ")}
     >
       <span
         aria-hidden="true"
         className={[
           "pointer-events-none absolute inset-0 rounded-full opacity-0 transition-opacity duration-200",
-          active ? "opacity-100" : "group-hover:opacity-100",
+          finalActive ? "opacity-100" : "group-hover:opacity-100",
         ].join(" ")}
         style={{
           background:
             "linear-gradient(90deg, rgba(167,139,250,0.10), rgba(125,211,252,0.09), rgba(45,212,191,0.08))",
-          boxShadow: active
+          boxShadow: finalActive
             ? "0 0 0 1px rgba(255,255,255,0.10) inset"
             : "0 0 0 1px rgba(255,255,255,0.08) inset",
         }}
@@ -120,7 +133,7 @@ function NavLink({
         aria-hidden="true"
         className={[
           "pointer-events-none absolute -bottom-1 left-2 right-2 h-px origin-left scale-x-0 transition-transform duration-300",
-          active ? "scale-x-100" : "group-hover:scale-x-100",
+          finalActive ? "scale-x-100" : "group-hover:scale-x-100",
         ].join(" ")}
         style={{
           background:
@@ -132,7 +145,7 @@ function NavLink({
         aria-hidden="true"
         className={[
           "pointer-events-none absolute inset-x-2 -bottom-3 h-3 opacity-0 blur-lg transition-opacity duration-300",
-          active ? "opacity-80" : "group-hover:opacity-75",
+          finalActive ? "opacity-80" : "group-hover:opacity-75",
         ].join(" ")}
         style={{
           background:
@@ -215,6 +228,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [howInView, setHowInView] = useState(false);
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
@@ -233,6 +247,43 @@ export default function Navbar() {
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Marketing nav: highlight "How it works" only when section is actually in view.
+  useEffect(() => {
+    if (inApp || pathname !== "/") {
+      setHowInView(false);
+      return;
+    }
+
+    let rafId = 0;
+    const update = () => {
+      const section = document.getElementById("how-it-works");
+      if (!section) {
+        setHowInView(false);
+        return;
+      }
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight || 0;
+      const active = rect.top <= vh * 0.46 && rect.bottom >= vh * 0.28;
+      setHowInView(active);
+    };
+
+    const onScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    window.addEventListener("hashchange", onScroll);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("hashchange", onScroll);
+    };
+  }, [inApp, pathname]);
 
   // esc to close
   useEffect(() => {
@@ -373,7 +424,13 @@ export default function Navbar() {
 
               <nav className="hidden md:flex items-center gap-4">
                 {navLinks.map((l) => (
-                  <NavLink key={l.href} href={l.href}>
+                  <NavLink
+                    key={l.href}
+                    href={l.href}
+                    activeOverride={
+                      !inApp && l.href === "/#how-it-works" && pathname === "/" ? howInView : undefined
+                    }
+                  >
                     {l.label}
                   </NavLink>
                 ))}
@@ -493,7 +550,14 @@ export default function Navbar() {
 
                 <div className="flex flex-col gap-1 p-1">
                   {navLinks.map((l) => (
-                    <NavLink key={l.href} href={l.href} onNavigate={() => setOpen(false)}>
+                    <NavLink
+                      key={l.href}
+                      href={l.href}
+                      onNavigate={() => setOpen(false)}
+                      activeOverride={
+                        !inApp && l.href === "/#how-it-works" && pathname === "/" ? howInView : undefined
+                      }
+                    >
                       {l.label}
                     </NavLink>
                   ))}
