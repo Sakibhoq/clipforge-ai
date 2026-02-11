@@ -8,10 +8,6 @@ import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/
 type Channel = { id: number };
 type QueueItem = { status: string };
 type Rule = { id: number; enabled: boolean };
-type Storefront = {
-  handle?: string | null;
-  published?: boolean | null;
-};
 type SocialAccount = {
   id: number;
   provider: string;
@@ -77,7 +73,6 @@ export default function StudioPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
-  const [storefront, setStorefront] = useState<Storefront | null>(null);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
@@ -88,22 +83,20 @@ export default function StudioPage() {
     setLoading(true);
     setError(null);
     try {
-      const [ch, q, r, sf, sa] = await Promise.allSettled([
+      const [ch, q, r, sa] = await Promise.allSettled([
         apiFetch<Channel[]>("/youtube/channels", { method: "GET" }),
         apiFetch<QueueItem[]>("/youtube/ingest/queue", { method: "GET" }),
         apiFetch<Rule[]>("/automations/rules", { method: "GET" }),
-        apiFetch<Storefront>("/storefront/me", { method: "GET" }),
         apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" }),
       ]);
 
       if (ch.status === "fulfilled") setChannels(Array.isArray(ch.value) ? ch.value : []);
       if (q.status === "fulfilled") setQueue(Array.isArray(q.value) ? q.value : []);
       if (r.status === "fulfilled") setRules(Array.isArray(r.value) ? r.value : []);
-      if (sf.status === "fulfilled") setStorefront(sf.value || null);
       if (sa.status === "fulfilled") setSocialAccounts(Array.isArray(sa.value) ? sa.value : []);
 
-      const failed = [ch, q, r, sf, sa].filter((res) => res.status === "rejected").length;
-      if (failed === 5) setError("Could not load data right now. Please refresh.");
+      const failed = [ch, q, r, sa].filter((res) => res.status === "rejected").length;
+      if (failed === 4) setError("Could not load data right now. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -282,7 +275,7 @@ export default function StudioPage() {
           </div>
         </section>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
           <StudioCard
             title="YouTube Ingest"
             desc="Add channels and import videos to turn them into clips."
@@ -305,18 +298,6 @@ export default function StudioPage() {
             ]}
             href="/app/automations"
             cta="Open automations"
-          />
-
-          <StudioCard
-            title="Creator Storefront"
-            desc="Edit your public profile page for clients and viewers."
-            details={[
-              `Handle: ${storefront?.handle || "Not set"}`,
-              `Published: ${storefront?.published ? "Yes" : "No"}`,
-              storefront?.handle ? `URL: /storefront/${storefront.handle}` : "Set a handle to get a URL.",
-            ]}
-            href="/app/storefront"
-            cta="Open storefront"
           />
         </div>
       </main>
