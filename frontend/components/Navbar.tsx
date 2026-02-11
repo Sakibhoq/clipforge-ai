@@ -78,13 +78,17 @@ function NavLink({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const hrefPath = useMemo(() => {
+    const [pathOnly] = href.split("#");
+    return pathOnly && pathOnly.length > 0 ? pathOnly : "/";
+  }, [href]);
 
   const active = useMemo(() => {
     if (!pathname) return false;
-    if (href === "/") return pathname === "/";
-    if (href === "/app") return pathname === "/app" || pathname.startsWith("/app/");
-    return pathname === href || pathname.startsWith(`${href}/`);
-  }, [pathname, href]);
+    if (hrefPath === "/") return pathname === "/";
+    if (hrefPath === "/app") return pathname === "/app" || pathname.startsWith("/app/");
+    return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
+  }, [pathname, hrefPath]);
 
   return (
     <Link
@@ -318,7 +322,7 @@ export default function Navbar() {
 
   const marketingLinks = useMemo(
     () => [
-      { href: "/features", label: "Features" },
+      { href: "/#how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/contact", label: "Contact" },
     ],

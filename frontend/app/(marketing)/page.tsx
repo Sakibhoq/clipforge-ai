@@ -165,11 +165,6 @@ function AmbientFX() {
           55% { transform: translate3d(72vw, 10vh, 0) rotate(10deg); opacity: 0.18; }
           100% { transform: translate3d(120vw, 0vh, 0) rotate(6deg); opacity: 0.06; }
         }
-        @keyframes railFlow {
-          0% { transform: translateX(-120%); opacity: 0.65; }
-          50% { opacity: 1; }
-          100% { transform: translateX(220%); opacity: 0.65; }
-        }
         @keyframes mote {
           0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.85); }
           18% { opacity: var(--m-o); }
@@ -295,7 +290,7 @@ export default function Page() {
 
   const footerLinks = useMemo(
     () => [
-      { label: "Features", href: "/features" },
+      { label: "How it works", href: "/#how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },
@@ -341,33 +336,6 @@ export default function Page() {
     []
   );
 
-  const momentumCards = useMemo(
-    () => [
-      {
-        id: "volume",
-        title: <>More output from one upload</>,
-        desc: <>Turn one long video into multiple clips without extra editing passes.</>,
-        metric: "1 upload",
-        helper: "multi-clip output",
-      },
-      {
-        id: "speed",
-        title: <>Built for fast publishing</>,
-        desc: <>Review quickly, approve what you like, and keep your posting routine moving.</>,
-        metric: "minutes",
-        helper: "not hours",
-      },
-      {
-        id: "quality",
-        title: <>Consistent quality every time</>,
-        desc: <>Captions, framing, and export sizing stay clean across each clip.</>,
-        metric: "repeatable",
-        helper: "team-safe workflow",
-      },
-    ],
-    []
-  );
-
   return (
     // IMPORTANT: no overflow-y/scroll containers here — only document scroll
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
@@ -404,7 +372,7 @@ export default function Page() {
                   <a href="/start-trial" className="btn-aurora">
                     Start free
                   </a>
-                  <a href="/features" className="btn-ghost">
+                  <a href="#how-it-works" className="btn-ghost">
                     See how it works
                   </a>
                   <div className="text-xs text-white/50">Less editing. More posting.</div>
@@ -468,65 +436,14 @@ export default function Page() {
           </div>
         </section>
 
-        {/* MOMENTUM */}
-        <section id="features" className="pt-14 sm:pt-16">
+        {/* HOW IT WORKS */}
+        <section id="how-it-works" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
             <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              Post more each week. <H>Without burning time.</H>
+              How it works. <H>Simple and fast.</H>
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Orbito is made for creators who want steady output and clean quality.
-            </p>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {momentumCards.map((c, index) => (
-              <div
-                key={c.id}
-                data-reveal
-                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
-              >
-                <HoverSheen />
-                <div className="relative">
-                  <div className="text-sm font-semibold">{c.title}</div>
-                  <div className="mt-2 text-sm leading-relaxed text-white/65">{c.desc}</div>
-                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
-                    <span
-                      className="orbito-anim block h-full w-2/5 rounded-full"
-                      style={{
-                        background:
-                          "linear-gradient(90deg, rgba(45,212,191,0.85), rgba(125,211,252,0.95), rgba(167,139,250,0.85))",
-                        animation: `railFlow ${5.8 + index * 0.8}s linear infinite`,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-white/50">
-                    <span>{c.metric}</span>
-                    <span>{c.helper}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/features" className="btn-ghost">
-              Product details
-            </a>
-            <a href="/pricing" className="btn-aurora">
-              View pricing
-            </a>
-          </div>
-        </section>
-
-        {/* CHANNEL CONTROL */}
-        <section id="how" className="pt-14 sm:pt-16">
-          <div data-reveal className="reveal">
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              One place to manage your <span className="grad-text">channels.</span>
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Connect your social accounts once, then schedule clips where your audience already is.
+              One upload, more clips, and faster posting.
             </p>
           </div>
 
@@ -537,27 +454,30 @@ export default function Page() {
             >
               <HoverSheen />
               <div className="relative">
-                <div className="text-xs text-white/50">Publishing control</div>
-                <div className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">
-                  Publish now or schedule for later.
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-white/65">
-                  Choose one platform, or choose all connected platforms and schedule the same clip at once.
-                </p>
+                <div className="text-xs text-white/50">Flow</div>
+                <div className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">Upload, pick, post.</div>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">Use one clear flow from source video to final post.</p>
                 <div className="mt-5 flex flex-wrap items-center gap-2">
                   <SocialBrandRow platforms={["youtube", "tiktok", "instagram", "facebook"]} compact />
                 </div>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-xs text-white/50">Mode</div>
-                    <div className="mt-1 text-sm font-semibold text-white/85">Single post</div>
-                    <div className="mt-1 text-xs text-white/60">One clip to one channel.</div>
+                    <div className="text-xs text-white/50">Step 1</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Upload once</div>
+                    <div className="mt-1 text-xs text-white/60">Paste a link or upload a file.</div>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-xs text-white/50">Mode</div>
-                    <div className="mt-1 text-sm font-semibold text-white/85">Multi-post</div>
-                    <div className="mt-1 text-xs text-white/60">One clip to many channels.</div>
+                    <div className="text-xs text-white/50">Step 2</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Pick your clips</div>
+                    <div className="mt-1 text-xs text-white/60">Keep the good moments only.</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:col-span-2">
+                    <div className="text-xs text-white/50">Step 3</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Post now or schedule later</div>
+                    <div className="mt-1 text-xs text-white/60">
+                      Post to one platform, or all connected platforms at the same time.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -570,27 +490,10 @@ export default function Page() {
               >
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">Status board</div>
-                  <div className="mt-3 grid gap-2">
-                    {[
-                      { name: "YouTube", status: "ready", tone: "rgba(255,91,103,0.35)" },
-                      { name: "TikTok", status: "connected", tone: "rgba(63,203,196,0.35)" },
-                      { name: "Instagram", status: "connected", tone: "rgba(226,138,192,0.35)" },
-                      { name: "Facebook", status: "connected", tone: "rgba(90,158,255,0.35)" },
-                    ].map((row) => (
-                      <div
-                        key={row.name}
-                        className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
-                      >
-                        <span className="text-white/85">{row.name}</span>
-                        <span
-                          className="rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.08em]"
-                          style={{ borderColor: row.tone, color: "#e5ecf7" }}
-                        >
-                          {row.status}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="text-xs text-white/50">Connected channels</div>
+                  <div className="mt-2 text-sm font-semibold text-white/90">YouTube, TikTok, Instagram, Facebook</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Connect once in Studio. Then schedule clips across all selected channels.
                   </div>
                 </div>
               </div>
@@ -601,14 +504,14 @@ export default function Page() {
               >
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">Queue health</div>
-                  <div className="mt-2 text-sm font-semibold text-white/90">Steady publishing pace</div>
+                  <div className="text-xs text-white/50">YouTube ingest</div>
+                  <div className="mt-2 text-sm font-semibold text-white/90">Pull videos from connected channels</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">
-                    Keep your queue full and schedule ahead so posting stays consistent.
+                    Connect YouTube channels and add videos to your ingest queue for clip generation.
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-[11px] text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 animate-pulse" />
-                    Healthy pipeline
+                    Queue ready
                   </div>
                 </div>
               </div>
@@ -616,11 +519,11 @@ export default function Page() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/features" className="btn-ghost">
-              See full details
-            </a>
             <a href="/start-trial" className="btn-aurora">
               Start free
+            </a>
+            <a href="/pricing" className="btn-ghost">
+              View pricing
             </a>
             <a href="/contact" className="btn-ghost">
               Contact
