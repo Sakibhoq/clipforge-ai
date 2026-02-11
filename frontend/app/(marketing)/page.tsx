@@ -465,7 +465,7 @@ export default function Page() {
                 <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
                   {[
                     { k: "Start", v: "First clip in minutes" },
-                    { k: "Channels", v: <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact /> },
+                    { k: "Channels", v: "TikTok • Reels • Shorts" },
                     { k: "Routine", v: "Post more often" },
                   ].map((x) => (
                       <div
