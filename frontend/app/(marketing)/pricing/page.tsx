@@ -104,6 +104,10 @@ function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function H({ children }: { children: React.ReactNode }) {
+  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+}
+
 function Divider() {
   return <div className="h-px w-full bg-white/10" />;
 }
@@ -337,7 +341,11 @@ function TopMetaRow() {
     <div className="mt-6 flex flex-wrap items-center gap-2">
       <MiniPill
         icon={<BoltIcon />}
-        label={<SocialBrandRow platforms={["youtube", "tiktok", "reels"]} compact uppercase />}
+        label={
+          <>
+            Built for <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>
+          </>
+        }
       />
       <MiniPill icon={<ShieldIcon />} label={<>Credits map to real output</>} />
       <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
