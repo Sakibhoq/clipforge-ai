@@ -325,8 +325,8 @@ def _list_channel_uploads(channel_id: str, max_results: int = 10) -> List[dict]:
 
 
 def _refresh_youtube_access_token(refresh_token: str) -> Optional[dict]:
-    client_id = (os.getenv("OAUTH_YOUTUBE_CLIENT_ID") or "").strip()
-    client_secret = (os.getenv("OAUTH_YOUTUBE_CLIENT_SECRET") or "").strip()
+    client_id = (os.getenv("OAUTH_YOUTUBE_CLIENT_ID") or os.getenv("OAUTH_GOOGLE_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("OAUTH_YOUTUBE_CLIENT_SECRET") or os.getenv("OAUTH_GOOGLE_CLIENT_SECRET") or "").strip()
     if not client_id or not client_secret or not refresh_token:
         return None
 

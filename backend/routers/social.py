@@ -126,6 +126,8 @@ def _client_id(provider: str) -> Optional[str]:
     val = os.getenv(f"OAUTH_{provider.upper()}_CLIENT_ID")
     if val:
         return val
+    if provider == "youtube":
+        return os.getenv("OAUTH_GOOGLE_CLIENT_ID")
     if provider == "instagram":
         return os.getenv("OAUTH_FACEBOOK_CLIENT_ID")
     return None
@@ -135,6 +137,8 @@ def _client_secret(provider: str) -> Optional[str]:
     val = os.getenv(f"OAUTH_{provider.upper()}_CLIENT_SECRET")
     if val:
         return val
+    if provider == "youtube":
+        return os.getenv("OAUTH_GOOGLE_CLIENT_SECRET")
     if provider == "instagram":
         return os.getenv("OAUTH_FACEBOOK_CLIENT_SECRET")
     return None
