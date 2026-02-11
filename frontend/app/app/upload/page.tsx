@@ -1508,7 +1508,7 @@ function UploadWorkspace() {
                 </div>
               </div>
               {file ? (
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
+                <div className="shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
                   {prettyBytes(file.size)}
                 </div>
               ) : null}
