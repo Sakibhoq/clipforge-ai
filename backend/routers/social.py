@@ -142,6 +142,15 @@ def _client_secret(provider: str) -> Optional[str]:
     return None
 
 
+def _meta_config_id(provider: str) -> Optional[str]:
+    if provider not in {"facebook", "instagram"}:
+        return None
+    specific = os.getenv(f"OAUTH_{provider.upper()}_CONFIG_ID")
+    if specific:
+        return specific
+    return os.getenv("OAUTH_FACEBOOK_CONFIG_ID")
+
+
 def _require_provider_ready(provider: str) -> Dict[str, Any]:
     conf = _provider_conf(provider)
     if not _client_id(provider) or not _client_secret(provider):
@@ -352,6 +361,9 @@ def connect_start(
         "scope": scope_sep.join(conf.get("scopes", [])),
         "state": state,
     }
+    meta_config_id = _meta_config_id(provider)
+    if meta_config_id:
+        params["config_id"] = meta_config_id
     if conf.get("pkce", True):
         params["code_challenge"] = challenge
         params["code_challenge_method"] = "S256"
