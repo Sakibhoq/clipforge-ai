@@ -161,6 +161,9 @@ export default function StudioPage() {
               <p className="mt-2 max-w-2xl text-sm text-white/65">
                 Connect your social accounts, manage status, and publish clips from one place.
               </p>
+              <p className="mt-2 max-w-2xl text-xs text-white/50">
+                Use YouTube Ingest to import channel videos. Use Upload for manual files.
+              </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <StatPill label="Connected" value={`${connectedCount}/${SOCIAL_PROVIDERS.length}`} />
@@ -170,6 +173,9 @@ export default function StudioPage() {
             </div>
 
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+              <Link href="/app/youtube" className="btn-ghost text-center text-[12px] px-4 py-2">
+                Open YouTube ingest
+              </Link>
               <Link href="/app/clips" className="btn-solid-dark text-center text-[12px] px-4 py-2">
                 Open clips
               </Link>
