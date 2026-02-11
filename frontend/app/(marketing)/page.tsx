@@ -407,7 +407,7 @@ export default function Page() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  <span>YouTube in. Short clips out.</span>
+                  <span>Long videos in. Short clips out.</span>
                   <SocialBrandPill platform="youtube" compact />
                 </div>
 
