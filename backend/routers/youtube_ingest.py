@@ -222,7 +222,7 @@ def _yt_dlp_extractor_arg_candidates() -> List[Optional[str]]:
     if custom:
         out.append(custom)
 
-    clients_raw = (os.getenv("YTDLP_RETRY_CLIENTS") or "android,ios,tv_embedded").strip()
+    clients_raw = (os.getenv("YTDLP_RETRY_CLIENTS") or "android,ios,mweb,web_creator,tv").strip()
     for client in [c.strip() for c in clients_raw.split(",") if c.strip()]:
         out.append(f"youtube:player_client={client}")
 
@@ -240,6 +240,9 @@ def _yt_dlp_extractor_arg_candidates() -> List[Optional[str]]:
 
 def _apply_yt_dlp_auth_flags(base_cmd: List[str], extractor_args: Optional[str] = None) -> List[str]:
     cmd = list(base_cmd)
+    js_runtimes = (os.getenv("YTDLP_JS_RUNTIMES") or "node").strip()
+    if js_runtimes:
+        cmd[1:1] = ["--js-runtimes", js_runtimes]
     cookies_path = _yt_dlp_cookies_path()
     if cookies_path:
         cmd[1:1] = ["--cookies", cookies_path]
