@@ -589,7 +589,6 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const footerLinks = useMemo(
     () => [
       { label: "Features", href: "/features" },
-      { label: "How it works", href: "/how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },
@@ -1135,7 +1134,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                 >
                   Start free
                 </button>
-                <Link href="/how-it-works" className="btn-ghost">
+                <Link href="/features" className="btn-ghost">
                   See how it works
                 </Link>
                 <Link href="/contact" className="btn-ghost">

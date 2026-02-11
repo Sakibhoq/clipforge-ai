@@ -457,7 +457,6 @@ export default function ContactPage() {
   const footerLinks = useMemo(
     () => [
       { label: "Features", href: "/features" },
-      { label: "How it works", href: "/how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },

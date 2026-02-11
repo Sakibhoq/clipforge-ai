@@ -291,7 +291,6 @@ export default function Page() {
   const footerLinks = useMemo(
     () => [
       { label: "Features", href: "/features" },
-      { label: "How it works", href: "/how-it-works" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },
@@ -423,7 +422,7 @@ export default function Page() {
                   <a href="/start-trial" className="btn-aurora">
                     Start free
                   </a>
-                  <a href="/how-it-works" className="btn-ghost">
+                  <a href="/features" className="btn-ghost">
                     See how it works
                   </a>
                   <div className="text-xs text-white/50">Less editing. More posting.</div>
@@ -556,7 +555,7 @@ export default function Page() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/how-it-works" className="btn-ghost">
+            <a href="/features" className="btn-ghost">
               Full walkthrough
             </a>
             <a href="/start-trial" className="btn-aurora">

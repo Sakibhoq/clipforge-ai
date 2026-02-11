@@ -242,8 +242,8 @@ export default function StudioPage() {
                               className="rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]"
                               style={{
                                 color: theme.text,
-                                borderColor: theme.iconBorder,
-                                background: "rgba(255,255,255,0.06)",
+                                borderColor: theme.border,
+                                background: `${theme.border}1f`,
                               }}
                             >
                               Connected

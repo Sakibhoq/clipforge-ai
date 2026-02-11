@@ -2328,7 +2328,7 @@ function ScheduleForm({
                       {socialLabel(provider)}
                     </span>
                     <span className="text-[11px] text-white/55">
-                      {connected ? "Connected" : "Connect in Settings"}
+                      {connected ? "Connected" : "Connect in Studio"}
                     </span>
                   </label>
                 );
@@ -2378,7 +2378,7 @@ function ScheduleForm({
           {busy ? "Scheduling..." : "Schedule post(s)"}
         </button>
         <div className="text-[12px] text-white/55">
-          Connect platforms in Settings -&gt; Social Connections.
+          Connect platforms in Studio -&gt; Connections.
         </div>
       </div>
     </div>
