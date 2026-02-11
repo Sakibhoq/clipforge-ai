@@ -69,9 +69,7 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "userinfo_url": "https://graph.facebook.com/me",
         "scopes": [
             "pages_show_list",
-            "pages_read_engagement",
-            "instagram_basic",
-            "instagram_content_publish",
+            "business_management",
         ],
         "pkce": True,
     },
