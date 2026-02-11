@@ -4,6 +4,7 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 
 /* =========================================================
    Orbito — How it works (Marketing)
@@ -15,10 +16,6 @@ import Navbar from "@/components/Navbar";
    - Keep ONLY document/body scrolling (no page-level scroll wrappers).
    - Background layers remain FIXED and never affect layout height.
 ========================================================= */
-
-function H({ children }: { children: React.ReactNode }) {
-  return <span className="grad-text font-semibold">{children}</span>;
-}
 
 function HoverSheen() {
   return (
@@ -64,7 +61,7 @@ export default function HowItWorksPage() {
       ),
       d: (
         <>
-          Paste a <H>YouTube</H> link or upload a file.
+          Paste a <SocialBrandPill platform="youtube" compact /> link or upload a file.
         </>
       ),
       bullets: [<>MP4 or YouTube.</>, <>No setup.</>, <>Starts fast.</>],
@@ -74,9 +71,10 @@ export default function HowItWorksPage() {
       meta: "Step 2",
       t: <>Review your clips</>,
       d: (
-        <>
-          Orbito finds strong moments and makes drafts for <H>TikTok</H>, <H>Reels</H>, and <H>Shorts</H>.
-        </>
+        <div className="space-y-2">
+          <div>Orbito finds strong moments and makes drafts for every channel.</div>
+          <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact />
+        </div>
       ),
       bullets: [<>Clear cuts.</>, <>Speaker-first framing.</>, <>Easy review.</>],
     },
@@ -236,7 +234,10 @@ export default function HowItWorksPage() {
                   <div className="text-xs text-white/45">• Output</div>
                   <div className="mt-2 text-sm font-semibold">Made for social video</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/60">
-                    Exports are tuned for <H>YouTube</H>, <H>TikTok</H>, and <H>Reels</H>.
+                    Exports are tuned for your core channels.
+                  </div>
+                  <div className="mt-3">
+                    <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} compact />
                   </div>
                 </div>
               </div>

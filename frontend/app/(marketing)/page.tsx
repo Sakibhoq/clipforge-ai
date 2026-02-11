@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { BRAND } from "@/lib/brand";
+import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 
 /* =========================================================
    Orbito — Landing (Marketing)
@@ -308,7 +309,11 @@ export default function Page() {
             Add your video
           </>
         ),
-        d: <>Paste a <H>YouTube</H> link or upload a file.</>,
+        d: (
+          <>
+            Paste a <SocialBrandPill platform="youtube" compact /> link or upload a file.
+          </>
+        ),
       },
       {
         id: "generate",
@@ -324,7 +329,7 @@ export default function Page() {
         ),
         d: (
           <>
-            <H>TikTok</H> · <H>Reels</H> · <H>YouTube Shorts</H>
+            <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact />
           </>
         ),
       },
@@ -347,7 +352,12 @@ export default function Page() {
       {
         id: "export",
         title: <>Ready-to-post exports</>,
-        desc: <>Download clips sized for TikTok, Reels, and Shorts.</>,
+        desc: (
+          <div className="space-y-2">
+            <div>Download clips sized for every channel.</div>
+            <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact />
+          </div>
+        ),
       },
     ],
     []
@@ -397,7 +407,8 @@ export default function Page() {
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  <H>YouTube</H> in. Short clips out.
+                  <span>YouTube in. Short clips out.</span>
+                  <SocialBrandPill platform="youtube" compact />
                 </div>
 
                 <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
@@ -454,7 +465,7 @@ export default function Page() {
                 <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
                   {[
                     { k: "Start", v: "First clip in minutes" },
-                    { k: "Channels", v: "TikTok • Reels • Shorts" },
+                    { k: "Channels", v: <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact /> },
                     { k: "Routine", v: "Post more often" },
                   ].map((x) => (
                       <div

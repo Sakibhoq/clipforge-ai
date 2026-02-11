@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/SocialBrand";
 
 type Channel = { id: number };
 type QueueItem = { status: string };
@@ -25,6 +26,13 @@ const SOCIAL_PROVIDERS = [
   { key: "instagram", label: "Instagram", hint: "Connect for scheduled posts." },
   { key: "facebook", label: "Facebook", hint: "Connect for scheduled posts." },
 ] as const;
+
+type SocialProviderKey = (typeof SOCIAL_PROVIDERS)[number]["key"];
+
+function connectButtonStyle(provider: SocialProviderKey): React.CSSProperties {
+  const theme = socialBrandTheme(provider as SocialPlatform);
+  return { background: theme.iconBackground, borderColor: theme.iconBorder, color: "#ffffff" };
+}
 
 function StudioCard({
   title,
@@ -214,6 +222,7 @@ export default function StudioPage() {
             </p>
             <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 px-5">
               {SOCIAL_PROVIDERS.map((provider, idx) => {
+                const theme = socialBrandTheme(provider.key as SocialPlatform);
                 const account = socialByProvider[provider.key];
                 const connected = String(account?.status || "").toLowerCase() === "connected";
                 const busyConnecting = socialBusy === provider.key;
@@ -221,9 +230,9 @@ export default function StudioPage() {
                 return (
                   <React.Fragment key={provider.key}>
                     <div className="flex flex-col gap-2 py-4 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white/85">{provider.label}</div>
-                        <div className="mt-1 text-sm text-white/55">
+                      <div className="min-w-0 flex items-start gap-3">
+                        <SocialBrandPill platform={provider.key as SocialPlatform} label={provider.label} />
+                        <div className="mt-0.5 min-w-0 text-sm text-white/55">
                           {connected
                             ? account?.account_name || account?.account_id || "Connected"
                             : provider.hint}
@@ -232,7 +241,14 @@ export default function StudioPage() {
                       <div className="flex items-center gap-2">
                         {connected ? (
                           <>
-                            <span className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-[11px] text-white/70">
+                            <span
+                              className="rounded-full border px-3 py-1 text-[11px] font-semibold"
+                              style={{
+                                color: theme.text,
+                                borderColor: theme.iconBorder,
+                                background: "rgba(255,255,255,0.06)",
+                              }}
+                            >
                               Connected
                             </span>
                             <button
@@ -249,7 +265,8 @@ export default function StudioPage() {
                             type="button"
                             onClick={() => void connectSocial(provider.key)}
                             disabled={!!socialBusy}
-                            className="btn-solid-dark text-[12px] px-4 py-2"
+                            className="inline-flex items-center rounded-full border px-4 py-2 text-[12px] font-semibold transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+                            style={connectButtonStyle(provider.key)}
                           >
                             {busyConnecting ? "Connecting..." : "Connect"}
                           </button>

@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 
 /* =========================================================
    Orbito — Features (Marketing)
@@ -23,10 +24,6 @@ import Navbar from "@/components/Navbar";
 /* -----------------------------
    Tiny helpers
 ----------------------------- */
-
-function H({ children }: { children: React.ReactNode }) {
-  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
-}
 
 function Pill({ children }: { children: React.ReactNode }) {
   return (
@@ -124,7 +121,7 @@ export default function FeaturesPage() {
         kicker: "Source",
         title: (
           <>
-            Add a <H>YouTube</H> link or file
+            Add a <SocialBrandPill platform="youtube" compact /> link or file
           </>
         ),
         desc: <>Upload once. Orbito starts building clips in the background.</>,
@@ -136,9 +133,11 @@ export default function FeaturesPage() {
         id: "hooks",
         kicker: "AI",
         title: (
-          <>
-            Clips made for <H>TikTok</H> and <H>Reels</H>
-          </>
+          <div className="flex flex-wrap items-center gap-2">
+            <span>Clips made for</span>
+            <SocialBrandPill platform="tiktok" compact />
+            <SocialBrandPill platform="reels" compact />
+          </div>
         ),
         desc: <>We pick strong moments so your clips get to the point quickly.</>,
         bullets: [<>No long pauses.</>, <>Clear cuts.</>, <>Clean endings.</>],
@@ -437,9 +436,11 @@ export default function FeaturesPage() {
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-              Start with one <H>YouTube</H> link or file. Orbito helps you find good moments and post faster on{" "}
-              <H>TikTok</H>, <H>Reels</H>, and <H>YouTube Shorts</H>.
+              Start with one YouTube link or file. Orbito helps you find good moments and post faster.
             </p>
+            <div className="mt-3">
+              <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} />
+            </div>
 
             <div className="mt-6 relative overflow-hidden rounded-2xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]">
               <div

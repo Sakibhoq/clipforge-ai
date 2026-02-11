@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
+import { SocialBrandRow } from "@/components/SocialBrand";
 
 /* =========================================================
    Orbito — Pricing Page (Marketing)
@@ -101,10 +102,6 @@ function formatMoney(n: number) {
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
-}
-
-function H({ children }: { children: React.ReactNode }) {
-  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
 }
 
 function Divider() {
@@ -340,11 +337,7 @@ function TopMetaRow() {
     <div className="mt-6 flex flex-wrap items-center gap-2">
       <MiniPill
         icon={<BoltIcon />}
-        label={
-          <>
-            Built for <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>
-          </>
-        }
+        label={<SocialBrandRow platforms={["youtube", "tiktok", "reels"]} compact uppercase />}
       />
       <MiniPill icon={<ShieldIcon />} label={<>Credits map to real output</>} />
       <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
@@ -698,9 +691,11 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               Credit-based. <span className="grad-text">Scale when it works.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free, test real outputs, then scale when your <H>YOUTUBE</H>, <H>TIKTOK</H>, and <H>REELS</H>{" "}
-              workflow proves itself.
+              Start free, test real outputs, then scale when your workflow proves itself.
             </p>
+            <div className="mt-3">
+              <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
+            </div>
             <TopMetaRow />
             <div className="mt-2 text-xs text-white/45">
               Promo codes are accepted at checkout.
