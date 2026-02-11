@@ -311,7 +311,7 @@ export default function Page() {
         ),
         d: (
           <>
-            Paste a <SocialBrandPill platform="youtube" compact /> link or upload a file.
+            Paste a YouTube link or upload a file.
           </>
         ),
       },
