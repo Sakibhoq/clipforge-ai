@@ -1,8 +1,16 @@
 # secrets
 .env
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
+!backend/.env.example
 frontend/.env*
 *.pem
+youtube_cookies.txt
+youtube_cookies*.txt
+backend/youtube_cookies.txt
+backend/youtube_cookies*.txt
 
 # python junk
 __pycache__/

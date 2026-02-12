@@ -86,6 +86,15 @@ type SocialAccountDTO = {
   status: string;
 };
 
+type SocialPostDTO = {
+  id: number;
+  provider: string;
+  status: string;
+  scheduled_at?: string | null;
+  posted_at?: string | null;
+  last_error?: string | null;
+};
+
 /* ---------- Formatting helpers ---------- */
 function formatTime(seconds: number) {
   const s = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
@@ -842,6 +851,7 @@ function ClipsWorkspace() {
   const [scheduleWhen, setScheduleWhen] = useState("");
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
 
   // Crop drawer state (backend-wired)
@@ -927,6 +937,7 @@ function ClipsWorkspace() {
     setScheduleCaption(autoTitle(clip));
     setScheduleWhen("");
     setScheduleError(null);
+    setScheduleNotice(null);
   }
 
   function openCrop(clip: ClipDTO) {
@@ -976,20 +987,28 @@ function ClipsWorkspace() {
     }
   }
 
-  async function createSchedule() {
+  async function submitSocialPosts(mode: "post_now" | "schedule") {
     if (!scheduleClipId || scheduleBusy) return;
     if (scheduleSelectedProviders.length === 0) {
       setScheduleError("Select at least one connected platform.");
       return;
     }
+    if (mode === "schedule" && !scheduleWhen) {
+      setScheduleError("Choose a schedule time, or use Post now.");
+      return;
+    }
+
     setScheduleBusy(true);
     setScheduleError(null);
+    setScheduleNotice(null);
+
     try {
-      const scheduledAt = scheduleWhen ? new Date(scheduleWhen).toISOString() : undefined;
-      const failed: string[] = [];
+      const scheduledAt = mode === "schedule" ? new Date(scheduleWhen).toISOString() : undefined;
+      const results: Array<SocialPostDTO & { provider: string }> = [];
+
       for (const provider of scheduleSelectedProviders) {
         try {
-          await apiFetch("/social/posts", {
+          const res = await apiFetch<SocialPostDTO>("/social/posts", {
             method: "POST",
             body: {
               provider,
@@ -998,20 +1017,52 @@ function ClipsWorkspace() {
               scheduled_at: scheduledAt,
             },
           });
-        } catch {
-          failed.push(socialLabel(provider));
+          results.push({ ...res, provider });
+        } catch (e: any) {
+          results.push({
+            id: -1,
+            provider,
+            status: "failed",
+            last_error: toErrorText(e),
+          });
         }
       }
+
+      const failed = results.filter((r) => (r.status || "").toLowerCase() === "failed");
       if (failed.length > 0) {
-        throw new Error(`Could not schedule for: ${failed.join(", ")}`);
+        const msg = failed
+          .map((r) => `${socialLabel(r.provider)}: ${(r.last_error || "Failed").toString()}`)
+          .join(" | ");
+        setScheduleError(msg);
+        return;
       }
+
+      const posted = results.filter((r) => (r.status || "").toLowerCase() === "posted").length;
+      const scheduled = results.filter((r) => (r.status || "").toLowerCase() === "scheduled").length;
+      const queued = results.filter((r) => (r.status || "").toLowerCase() === "queued").length;
+      const posting = results.filter((r) => (r.status || "").toLowerCase() === "posting").length;
+      const summaryParts = [
+        posted ? `Posted ${posted}` : "",
+        scheduled ? `Scheduled ${scheduled}` : "",
+        queued ? `Queued ${queued}` : "",
+        posting ? `Posting ${posting}` : "",
+      ].filter(Boolean);
+
+      setScheduleNotice(summaryParts.length > 0 ? summaryParts.join(" • ") : "Social post created.");
       setScheduleClipId(null);
     } catch (e: any) {
-      const detail = e?.detail || e?.message || "Scheduling failed.";
-      setScheduleError(typeof detail === "string" ? detail : "Scheduling failed.");
+      setScheduleError(toErrorText(e));
     } finally {
       setScheduleBusy(false);
     }
+  }
+
+  async function createSchedule() {
+    await submitSocialPosts("schedule");
+  }
+
+  async function createPostNow() {
+    await submitSocialPosts("post_now");
   }
 
   // Fetch
@@ -1271,6 +1322,11 @@ function ClipsWorkspace() {
               {err}
             </span>
           ) : null}
+          {scheduleNotice ? (
+            <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-emerald-100/85">
+              {scheduleNotice}
+            </span>
+          ) : null}
           {!loading && !err ? (
             <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">
               {isGroupedMode
@@ -1527,7 +1583,8 @@ function ClipsWorkspace() {
             onProvidersChange={setScheduleSelectedProviders}
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
-            onSubmit={createSchedule}
+            onSchedule={createSchedule}
+            onPostNow={createPostNow}
           />
         ) : null}
       </Drawer>
@@ -2234,7 +2291,8 @@ function ScheduleForm({
   onProvidersChange,
   onCaptionChange,
   onWhenChange,
-  onSubmit,
+  onSchedule,
+  onPostNow,
 }: {
   providers: SupportedSocialProvider[];
   selectedProviders: SupportedSocialProvider[];
@@ -2245,7 +2303,8 @@ function ScheduleForm({
   onProvidersChange: (v: SupportedSocialProvider[]) => void;
   onCaptionChange: (v: string) => void;
   onWhenChange: (v: string) => void;
-  onSubmit: () => void;
+  onSchedule: () => void;
+  onPostNow: () => void;
 }) {
   const connectedSet = useMemo(() => new Set(providers), [providers]);
 
@@ -2371,14 +2430,22 @@ function ScheduleForm({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <button
           type="button"
-          onClick={onSubmit}
+          onClick={onPostNow}
           className="btn-aurora text-sm px-4 py-2"
           disabled={busy}
+        >
+          {busy ? "Posting..." : "Post now"}
+        </button>
+        <button
+          type="button"
+          onClick={onSchedule}
+          className="btn-ghost text-sm px-4 py-2"
+          disabled={busy || !when}
         >
           {busy ? "Scheduling..." : "Schedule post(s)"}
         </button>
         <div className="text-[12px] text-white/55">
-          Connect platforms in Studio -&gt; Connections.
+          Connect platforms in Studio -&gt; Connections. Choose a date/time to enable scheduling.
         </div>
       </div>
     </div>

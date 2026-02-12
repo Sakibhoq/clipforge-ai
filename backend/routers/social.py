@@ -327,6 +327,17 @@ class SocialDisconnectResponse(BaseModel):
     status: str
 
 
+def _serialize_social_post(post: SocialPost) -> dict:
+    return {
+        "id": post.id,
+        "provider": post.provider,
+        "status": post.status,
+        "scheduled_at": post.scheduled_at.isoformat() if post.scheduled_at else None,
+        "posted_at": post.posted_at.isoformat() if post.posted_at else None,
+        "last_error": post.last_error,
+    }
+
+
 # ---------------------------------------------------------
 # Connect flow
 # ---------------------------------------------------------
@@ -843,52 +854,89 @@ def create_post(
     db.commit()
     db.refresh(post)
 
-    return {
-        "id": post.id,
-        "provider": post.provider,
-        "status": post.status,
-        "scheduled_at": post.scheduled_at.isoformat() if post.scheduled_at else None,
-        "posted_at": post.posted_at.isoformat() if post.posted_at else None,
-        "last_error": post.last_error,
-    }
+    # "Post now" requests are dispatched immediately so callers get final status.
+    if not when:
+        _dispatch_due_posts(db, limit=1, user_id=current_user.id, only_post_ids=[post.id])
+        db.refresh(post)
+
+    return _serialize_social_post(post)
 
 
-@router.post("/posts/dispatch")
-def dispatch_posts(
-    limit: int = 3,
+@router.get("/posts", response_model=List[SocialPostResponse])
+def list_posts(
+    clip_id: Optional[int] = None,
+    limit: int = 40,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    q = db.query(SocialPost).filter(SocialPost.user_id == current_user.id)
+    if clip_id is not None:
+        q = q.filter(SocialPost.clip_id == clip_id)
+
+    rows = (
+        q.order_by(SocialPost.id.desc())
+        .limit(max(1, min(100, int(limit))))
+        .all()
+    )
+    return [_serialize_social_post(r) for r in rows]
+
+
+def _load_due_posts(
+    db: Session,
+    *,
+    limit: int,
+    user_id: Optional[int] = None,
+    only_post_ids: Optional[List[int]] = None,
+) -> List[SocialPost]:
     now = datetime.now(timezone.utc)
-    posts = (
-        db.query(SocialPost)
-        .filter(
-            SocialPost.user_id == current_user.id,
-            SocialPost.status.in_(["queued", "scheduled"]),
-            (SocialPost.scheduled_at == None) | (SocialPost.scheduled_at <= now),
-        )
-        .order_by(SocialPost.id.asc())
-        .limit(max(1, min(5, int(limit))))
+    q = db.query(SocialPost).filter(
+        SocialPost.status.in_(["queued", "scheduled"]),
+        (SocialPost.scheduled_at == None) | (SocialPost.scheduled_at <= now),
+    )
+    if user_id is not None:
+        q = q.filter(SocialPost.user_id == user_id)
+    if only_post_ids:
+        q = q.filter(SocialPost.id.in_(only_post_ids))
+    return (
+        q.order_by(SocialPost.id.asc())
+        .limit(max(1, min(100, int(limit))))
         .all()
     )
 
-    if not posts:
-        return {"processed": 0}
 
-    processed = 0
+def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
+    if not posts:
+        return []
+
+    results: List[dict] = []
     storage = get_storage()
 
     for post in posts:
+        tmp_path = None
         try:
             if post.provider not in _allowed_autopost_providers():
                 raise RuntimeError("Provider pending approval")
-            post.status = "posting"
+
+            # Claim this post atomically to prevent double-processing across
+            # concurrent dispatch calls (manual + background loop).
+            claimed = (
+                db.query(SocialPost)
+                .filter(SocialPost.id == post.id, SocialPost.status.in_(["queued", "scheduled"]))
+                .update({SocialPost.status: "posting"}, synchronize_session=False)
+            )
+            db.commit()
+            if claimed == 0:
+                db.refresh(post)
+                results.append(_serialize_social_post(post))
+                continue
+
+            db.refresh(post)
             post.attempts = int(post.attempts or 0) + 1
             db.commit()
 
             account = (
                 db.query(SocialAccount)
-                .filter(SocialAccount.user_id == current_user.id, SocialAccount.provider == post.provider)
+                .filter(SocialAccount.user_id == post.user_id, SocialAccount.provider == post.provider)
                 .first()
             )
             # Instagram publishing uses Meta Graph permissions; a connected Facebook
@@ -896,7 +944,7 @@ def dispatch_posts(
             if (not account or not account.access_token) and post.provider == "instagram":
                 account = (
                     db.query(SocialAccount)
-                    .filter(SocialAccount.user_id == current_user.id, SocialAccount.provider == "facebook")
+                    .filter(SocialAccount.user_id == post.user_id, SocialAccount.provider == "facebook")
                     .first()
                 )
             if not account or not account.access_token:
@@ -923,8 +971,6 @@ def dispatch_posts(
                 else:
                     raise RuntimeError("Access token expired")
 
-            # Download clip
-            tmp_path = None
             try:
                 import tempfile
                 fd, tmp_path = tempfile.mkstemp(prefix="orbito-post-", suffix=".mp4")
@@ -982,6 +1028,40 @@ def dispatch_posts(
                 except Exception:
                     pass
             db.commit()
-            processed += 1
+            results.append(_serialize_social_post(post))
 
-    return {"processed": processed}
+    return results
+
+
+def _dispatch_due_posts(
+    db: Session,
+    *,
+    limit: int,
+    user_id: Optional[int] = None,
+    only_post_ids: Optional[List[int]] = None,
+) -> List[dict]:
+    posts = _load_due_posts(db, limit=limit, user_id=user_id, only_post_ids=only_post_ids)
+    return _dispatch_posts(db, posts)
+
+
+def dispatch_due_posts_global(limit: int = 20) -> int:
+    db = SessionLocal()
+    try:
+        results = _dispatch_due_posts(db, limit=max(1, min(100, int(limit))))
+        return len(results)
+    finally:
+        db.close()
+
+
+@router.post("/posts/dispatch")
+def dispatch_posts(
+    limit: int = 3,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    results = _dispatch_due_posts(
+        db,
+        limit=max(1, min(100, int(limit))),
+        user_id=current_user.id,
+    )
+    return {"processed": len(results), "results": results}

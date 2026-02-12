@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 from dotenv import load_dotenv
 
 # Load backend/.env when present.
@@ -29,13 +30,45 @@ ENABLE_YOUTUBE_INGEST = (os.getenv("ENABLE_YOUTUBE_INGEST") or "").strip().lower
 # App
 # ---------------------------------------------------------
 app = FastAPI(title="Clipforge API")
+_social_dispatch_stop = threading.Event()
+_social_dispatch_thread: threading.Thread | None = None
+
+
+def _social_dispatch_enabled() -> bool:
+    return (os.getenv("SOCIAL_DISPATCH_ENABLED") or "1").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _social_dispatch_loop() -> None:
+    interval = max(5, int((os.getenv("SOCIAL_DISPATCH_INTERVAL_SECONDS") or "20").strip()))
+    batch = max(1, min(100, int((os.getenv("SOCIAL_DISPATCH_BATCH_SIZE") or "20").strip())))
+
+    while not _social_dispatch_stop.is_set():
+        try:
+            processed = social.dispatch_due_posts_global(limit=batch)
+            if processed:
+                print(f"[social-dispatch] processed={processed}")
+        except Exception as e:
+            print(f"[social-dispatch] error: {e}")
+        _social_dispatch_stop.wait(interval)
 
 # ---------------------------------------------------------
 # DB init (sqlite dev convenience)
 # ---------------------------------------------------------
 @app.on_event("startup")
 def _startup_db() -> None:
+    global _social_dispatch_thread
     init_db()
+    if _social_dispatch_enabled() and (_social_dispatch_thread is None or not _social_dispatch_thread.is_alive()):
+        _social_dispatch_stop.clear()
+        _social_dispatch_thread = threading.Thread(target=_social_dispatch_loop, name="social-dispatch", daemon=True)
+        _social_dispatch_thread.start()
+
+
+@app.on_event("shutdown")
+def _shutdown_background_workers() -> None:
+    _social_dispatch_stop.set()
+    if _social_dispatch_thread is not None and _social_dispatch_thread.is_alive():
+        _social_dispatch_thread.join(timeout=2.0)
 
 # ---------------------------------------------------------
 # Optional: YouTube automated ingest (DISABLED by default in prod)
