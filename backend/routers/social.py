@@ -110,6 +110,26 @@ def _safe_json_loads(v: Any) -> dict:
         return {}
 
 
+def _oauth_error_detail(payload: Any, fallback: str = "") -> str:
+    if not isinstance(payload, dict):
+        return (fallback or "").strip()[:220]
+    for key in ("error_description", "description", "message", "error"):
+        val = payload.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()[:220]
+        if isinstance(val, dict):
+            nested = val.get("message") or val.get("description") or val.get("code")
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()[:220]
+    err = payload.get("error")
+    if isinstance(err, dict):
+        code = err.get("code")
+        msg = err.get("message")
+        if code and msg:
+            return f"{code}: {msg}"[:220]
+    return (fallback or "").strip()[:220]
+
+
 def _provider_conf(provider: str) -> Dict[str, Any]:
     p = PROVIDERS.get(provider)
     if not p:
@@ -444,17 +464,27 @@ def connect_callback(
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=20,
     )
+    token_text = (token_resp.text or "").strip()
+    try:
+        token_json = token_resp.json()
+    except Exception:
+        token_json = {}
+    token_body = token_json if isinstance(token_json, dict) else {}
+    token_data_body = token_body.get("data")
+    if not isinstance(token_data_body, dict):
+        token_data_body = {}
     if token_resp.status_code >= 400:
-        raise HTTPException(status_code=400, detail="OAuth token exchange failed")
+        detail = _oauth_error_detail(token_body, token_text)
+        raise HTTPException(status_code=400, detail=f"OAuth token exchange failed: {detail or 'unknown error'}")
 
-    token_json = token_resp.json()
-    access_token = token_json.get("access_token")
-    refresh_token = token_json.get("refresh_token")
-    expires_in = token_json.get("expires_in")
-    scopes = token_json.get("scope")
+    access_token = token_body.get("access_token") or token_data_body.get("access_token")
+    refresh_token = token_body.get("refresh_token") or token_data_body.get("refresh_token")
+    expires_in = token_body.get("expires_in") or token_data_body.get("expires_in")
+    scopes = token_body.get("scope") or token_data_body.get("scope")
 
     if not access_token:
-        raise HTTPException(status_code=400, detail="OAuth token missing")
+        detail = _oauth_error_detail(token_body, token_text)
+        raise HTTPException(status_code=400, detail=f"OAuth token missing: {detail or 'no access_token in provider response'}")
 
     account_id = None
     account_name = None
