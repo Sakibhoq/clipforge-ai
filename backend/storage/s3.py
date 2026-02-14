@@ -4,7 +4,7 @@ import subprocess
 import json
 import boto3
 from botocore.exceptions import ClientError
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Optional, Sequence
 
 from .base import Storage
 
@@ -105,16 +105,89 @@ class S3Storage(Storage):
     # Duration (billing-critical)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _extract_duration_from_ffprobe_json(stdout_text: str) -> float:
+        data = json.loads(stdout_text or "{}")
+
+        fmt = data.get("format") or {}
+        dur = fmt.get("duration")
+
+        if dur is None:
+            for s in data.get("streams") or []:
+                if (s.get("codec_type") or "").lower() == "video":
+                    dur = s.get("duration")
+                    if dur is not None:
+                        break
+
+        if dur is None:
+            raise RuntimeError("Could not read duration from ffprobe output")
+
+        duration = float(dur)
+        if duration <= 0:
+            raise RuntimeError("Invalid non-positive duration from ffprobe output")
+        return duration
+
+    def _ffprobe_duration(
+        self,
+        target: str,
+        *,
+        timeout_sec: int,
+        extra_args: Optional[Sequence[str]] = None,
+    ) -> float:
+        cmd = [
+            "ffprobe",
+            "-v",
+            "error",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+        ]
+        if extra_args:
+            cmd.extend(list(extra_args))
+        cmd.append(target)
+
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=max(5, int(timeout_sec)),
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip() or "ffprobe failed")
+
+        return self._extract_duration_from_ffprobe_json(proc.stdout or "{}")
+
     def get_duration_seconds(self, key: str) -> float:
         """
         Determine video duration for billing.
         Strategy:
-        - Download the object to a temp file (streaming)
-        - Use ffprobe to read duration
+        1) Try ffprobe directly on a presigned GET URL (usually faster; avoids full download).
+        2) Fallback: download object to temp file, then ffprobe locally.
         """
         key = (key or "").strip()
         if not key:
             raise ValueError("storage_key is required")
+
+        remote_probe_timeout_sec = int(os.getenv("STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC", "25"))
+        local_probe_timeout_sec = int(os.getenv("STORAGE_FFPROBE_TIMEOUT_SEC", "120"))
+
+        try:
+            presigned = self.s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket, "Key": key},
+                ExpiresIn=600,
+            )
+            # ffmpeg/ffprobe uses microseconds for -rw_timeout.
+            remote_rw_timeout_us = max(5, remote_probe_timeout_sec) * 1_000_000
+            return self._ffprobe_duration(
+                presigned,
+                timeout_sec=remote_probe_timeout_sec,
+                extra_args=["-rw_timeout", str(remote_rw_timeout_us)],
+            )
+        except Exception:
+            # Fall through to local download probe.
+            pass
 
         # temp file with a stable extension helps some ffprobe builds
         fd, tmp_path = tempfile.mkstemp(prefix="orbito-src-", suffix=".mp4")
@@ -125,39 +198,7 @@ class S3Storage(Storage):
             with open(tmp_path, "wb") as f:
                 self.s3.download_fileobj(self.bucket, key, f)
 
-            # ffprobe duration
-            cmd = [
-                "ffprobe",
-                "-v",
-                "error",
-                "-print_format",
-                "json",
-                "-show_format",
-                "-show_streams",
-                tmp_path,
-            ]
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-
-            if proc.returncode != 0:
-                raise RuntimeError(proc.stderr.strip() or "ffprobe failed")
-
-            data = json.loads(proc.stdout or "{}")
-
-            # Prefer container duration if available
-            fmt = data.get("format") or {}
-            dur = fmt.get("duration")
-
-            if dur is None:
-                # Fallback: first video stream duration
-                for s in data.get("streams") or []:
-                    if (s.get("codec_type") or "").lower() == "video":
-                        dur = s.get("duration")
-                        break
-
-            if dur is None:
-                raise RuntimeError("Could not read duration from ffprobe output")
-
-            return float(dur)
+            return self._ffprobe_duration(tmp_path, timeout_sec=local_probe_timeout_sec)
         finally:
             try:
                 os.unlink(tmp_path)

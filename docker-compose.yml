@@ -51,6 +51,9 @@ services:
       LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "us-east-1"
       S3_BUCKET: "clipforge-uploads-dev-26"
+      UPLOAD_PROXY_CHUNK_SIZE: "${UPLOAD_PROXY_CHUNK_SIZE:-524288}"
+      STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC: "${STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC:-25}"
+      STORAGE_FFPROBE_TIMEOUT_SEC: "${STORAGE_FFPROBE_TIMEOUT_SEC:-120}"
 
       # YouTube ingest + automations
       ENABLE_YOUTUBE_INGEST: "true"

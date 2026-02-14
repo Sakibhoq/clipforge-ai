@@ -313,6 +313,34 @@ function isRequestEntityTooLargeError(e: any) {
   return status === 413 || msg.includes("413") || msg.includes("request entity too large");
 }
 
+function getErrorStatus(e: any) {
+  const status = Number(e?.status ?? e?.response?.status ?? NaN);
+  return Number.isFinite(status) ? status : NaN;
+}
+
+function isUploadTimeoutError(e: any) {
+  const status = getErrorStatus(e);
+  const msg = String(e?.message || e || "").toLowerCase();
+  return (
+    status === 408 ||
+    status === 504 ||
+    status === 524 ||
+    msg.includes("gateway timeout") ||
+    msg.includes("upstream timed out") ||
+    msg.includes("request timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("timeout")
+  );
+}
+
+function isRetryableUploadPathError(e: any) {
+  if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e) || isUploadTimeoutError(e)) {
+    return true;
+  }
+  const status = getErrorStatus(e);
+  return Number.isFinite(status) && status >= 500 && status <= 599;
+}
+
 function format413Hint() {
   return [
     "Your gateway/reverse proxy rejected the upload body (HTTP 413).",
@@ -322,6 +350,20 @@ function format413Hint() {
     "- reload nginx (`sudo nginx -t && sudo systemctl reload nginx`)",
     "",
     "If you use a CDN/proxy in front, also raise its upload/body limit.",
+  ].join("\n");
+}
+
+function formatTimeoutHint() {
+  return [
+    "The upload request timed out at your gateway/reverse proxy before completion.",
+    "",
+    "Fix on EC2 Nginx:",
+    "- set `proxy_read_timeout 600s;`",
+    "- set `proxy_send_timeout 600s;`",
+    "- set `client_body_timeout 600s;`",
+    "- reload nginx (`sudo nginx -t && sudo systemctl reload nginx`)",
+    "",
+    "Best for large files: keep direct-to-S3 upload enabled, and use chunked backend fallback only when needed.",
   ].join("\n");
 }
 
@@ -353,7 +395,9 @@ function appendHintOnce(msg: string, hint: string) {
   if (
     n.includes("gateway/reverse proxy rejected the upload body") ||
     n.includes("client_max_body_size") ||
-    n.includes("request entity too large")
+    n.includes("request entity too large") ||
+    n.includes("proxy_read_timeout") ||
+    n.includes("upload request timed out")
   ) {
     return cleanMsg;
   }
@@ -397,7 +441,7 @@ async function apiFetchWithEndpointFallback<T = any>(
       return await apiFetch<T>(endpoint, init);
     } catch (e: any) {
       lastErr = e;
-      if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e)) continue;
+      if (isRetryableUploadPathError(e)) continue;
       throw e;
     }
   }
@@ -1166,7 +1210,7 @@ function UploadWorkspace() {
             } catch (e: any) {
               lastPutErr = e;
               // Try alternate URL when route/proxy/CORS differs per environment.
-              if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e)) continue;
+              if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e) || isUploadTimeoutError(e)) continue;
               break;
             }
           }
@@ -1190,7 +1234,7 @@ function UploadWorkspace() {
           setStorageKey(uploadedStorageKey);
           setProgress((p) => Math.max(p, 80));
         } catch (proxyErr: any) {
-          if (isRequestEntityTooLargeError(proxyErr) || isLikelyNetworkFetchError(proxyErr)) {
+          if (isRetryableUploadPathError(proxyErr)) {
             setStatusText("Fallback blocked. Retrying chunked upload…");
             setProgress((p) => Math.max(p, 32));
             try {
@@ -1292,6 +1336,11 @@ function UploadWorkspace() {
 
       if (isProbablyCorsNetworkError(e)) {
         fail("Upload failed (CORS)", appendHintOnce(msg, formatS3CorsHint()));
+        return;
+      }
+
+      if (isUploadTimeoutError(e)) {
+        fail("Upload failed (timeout)", appendHintOnce(msg, formatTimeoutHint()));
         return;
       }
 
