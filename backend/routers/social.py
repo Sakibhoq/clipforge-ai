@@ -111,6 +111,35 @@ def _allowed_autopost_providers() -> set:
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
 
 
+def _meta_request_publish_scopes() -> bool:
+    return (os.getenv("OAUTH_META_REQUEST_PUBLISH_SCOPES") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
+    out = [str(s).strip() for s in (scopes or []) if str(s).strip()]
+    if provider not in {"facebook", "instagram"}:
+        return out
+
+    # Meta OAuth often hard-fails with "Invalid Scopes" until app review /
+    # advanced access is approved. Keep connect stable by default and allow
+    # publish-scope requests only when explicitly enabled.
+    if _meta_request_publish_scopes():
+        return out
+
+    blocked = {
+        "pages_read_engagement",
+        "pages_manage_posts",
+        "instagram_basic",
+        "instagram_content_publish",
+    }
+    return [s for s in out if s not in blocked]
+
+
 def _normalized_plan_key(raw_plan: Any) -> str:
     plan = str(raw_plan or "").strip().lower()
     if plan in PLAN_PLATFORM_LIMITS:
@@ -520,8 +549,9 @@ def connect_start(
         "state": state,
     }
     if use_explicit_scope:
+        scopes = _effective_connect_scopes(provider, conf.get("scopes", []))  # type: ignore[arg-type]
         scope_sep = "," if provider in {"facebook", "instagram", "tiktok"} else " "
-        params["scope"] = scope_sep.join(conf.get("scopes", []))
+        params["scope"] = scope_sep.join(scopes)
     if meta_config_id:
         params["config_id"] = meta_config_id
     if conf.get("pkce", True):
