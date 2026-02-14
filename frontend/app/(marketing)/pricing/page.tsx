@@ -572,7 +572,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
   const studioMonthlyExample = 99.0;
 
-  const yearlyDiscount = 0.5;
+  const yearlyDiscount = 0.25;
   const months = 12;
 
   const creatorMonthlyWithPack = creatorMonthlyPrice * pack;
@@ -670,7 +670,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     []
   );
 
-  const discountLabel = useMemo(() => "−50%", []);
+  const discountLabel = useMemo(() => "−25%", []);
 
   return (
     // IMPORTANT: no overflow on the page root (keeps navbar sticky working)
@@ -834,7 +834,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     Billed yearly{" "}
                     <span className="text-white/85">(${creatorYearlyTotal})</span>
                     <span className="ml-2 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-white/70">
-                      save 50%
+                      save 25%
                     </span>
                   </SmallNote>
                 </>

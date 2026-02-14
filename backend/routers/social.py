@@ -69,7 +69,10 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "userinfo_url": "https://graph.facebook.com/me",
         "scopes": [
             "pages_show_list",
+            "pages_read_engagement",
             "business_management",
+            "instagram_basic",
+            "instagram_content_publish",
         ],
         "pkce": True,
     },
@@ -80,6 +83,8 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "userinfo_url": "https://graph.facebook.com/me",
         "scopes": [
             "pages_show_list",
+            "pages_read_engagement",
+            "pages_manage_posts",
             "business_management",
         ],
         "pkce": True,
@@ -292,7 +297,10 @@ def _meta_pick_instagram(access_token: str, preferred_ig_id: Optional[str] = Non
         if ig_id:
             with_ig.append(page)
     if not with_ig:
-        raise RuntimeError("No Instagram Business account linked to this Facebook account")
+        raise RuntimeError(
+            "No Instagram Professional account linked to a Facebook Page. "
+            "Link it in Meta Business Suite, then reconnect Instagram."
+        )
     if preferred_ig_id:
         for page in with_ig:
             ig = page.get("instagram_business_account") or {}
@@ -729,22 +737,48 @@ def _youtube_upload_video(access_token: str, title: str, description: str, video
     return data.get("id") or ""
 
 
-def _facebook_upload_video(page_access_token: str, page_id: str, title: str, description: str, video_url: str) -> str:
-    resp = requests.post(
-        f"https://graph-video.facebook.com/v20.0/{page_id}/videos",
-        data={
-            "file_url": video_url,
-            "title": title,
-            "description": description,
-            "published": "true",
-            "access_token": page_access_token,
-        },
-        timeout=60,
-    )
-    if resp.status_code >= 400:
-        raise RuntimeError(f"Facebook upload failed: {resp.text[:300]}")
-    data = resp.json() if resp.text else {}
-    return str(data.get("id") or "")
+def _facebook_upload_video(
+    page_access_token: str,
+    page_id: str,
+    title: str,
+    description: str,
+    video_path: str,
+    video_url: Optional[str] = None,
+) -> str:
+    endpoint = f"https://graph-video.facebook.com/v20.0/{page_id}/videos"
+    base_data = {
+        "title": title,
+        "description": description,
+        "published": "true",
+        "access_token": page_access_token,
+    }
+
+    # Prefer direct upload from backend file. This avoids external URL fetch issues.
+    with open(video_path, "rb") as src:
+        resp = requests.post(
+            endpoint,
+            data=base_data,
+            files={"source": ("clip.mp4", src, "video/mp4")},
+            timeout=180,
+        )
+    if resp.status_code < 400:
+        data = resp.json() if resp.text else {}
+        return str(data.get("id") or "")
+
+    source_err = (resp.text or "").strip()[:300]
+    if video_url:
+        url_resp = requests.post(
+            endpoint,
+            data={**base_data, "file_url": video_url},
+            timeout=90,
+        )
+        if url_resp.status_code < 400:
+            data = url_resp.json() if url_resp.text else {}
+            return str(data.get("id") or "")
+        url_err = (url_resp.text or "").strip()[:300]
+        raise RuntimeError(f"Facebook upload failed: source={source_err} | file_url={url_err}")
+
+    raise RuntimeError(f"Facebook upload failed: {source_err}")
 
 
 def _instagram_publish_reel(
@@ -1018,13 +1052,24 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                 remote_id = _youtube_upload_video(access_token, title, desc, tmp_path)
                 post.remote_id = remote_id
             elif post.provider == "facebook":
-                clip_url = _absolute_storage_url(storage, post.storage_key)
                 page = _meta_pick_page(access_token, preferred_page_id=account.account_id)
                 page_id = str(page.get("id") or "")
                 page_token = str(page.get("access_token") or "")
                 if not page_id or not page_token:
                     raise RuntimeError("Facebook Page access token missing")
-                remote_id = _facebook_upload_video(page_token, page_id, title, desc, clip_url)
+                clip_url = None
+                try:
+                    clip_url = _absolute_storage_url(storage, post.storage_key)
+                except Exception:
+                    clip_url = None
+                remote_id = _facebook_upload_video(
+                    page_token,
+                    page_id,
+                    title,
+                    desc,
+                    tmp_path,
+                    clip_url,
+                )
                 post.remote_id = remote_id
             elif post.provider == "instagram":
                 clip_url = _absolute_storage_url(storage, post.storage_key)
@@ -1033,7 +1078,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                 ig_user_id = str(ig.get("id") or "").strip()
                 page_token = str(page.get("access_token") or "").strip()
                 if not ig_user_id:
-                    raise RuntimeError("No Instagram Business account linked")
+                    raise RuntimeError("No Instagram Professional account linked to a Facebook Page")
                 if not page_token:
                     raise RuntimeError("Facebook Page access token missing for Instagram publish")
                 remote_id = _instagram_publish_reel(page_token, ig_user_id, desc, clip_url)
