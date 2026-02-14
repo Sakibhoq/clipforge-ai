@@ -145,6 +145,44 @@ function socialPlanPlatformLimit(plan: SocialPlan): number | null {
   return null;
 }
 
+function shortenErrorText(v: string, max = 240): string {
+  const s = String(v || "").trim();
+  if (!s) return "Failed";
+  return s.length > max ? `${s.slice(0, max)}...` : s;
+}
+
+function socialPublishErrorHint(provider: string, raw: string): string {
+  const msg = String(raw || "").trim();
+  const low = msg.toLowerCase();
+  const p = String(provider || "").toLowerCase();
+
+  if (p === "tiktok") {
+    if (low.includes("unaudited_client_can_only_post_to_private_accounts")) {
+      return "TikTok app is unaudited. It can only post private videos for approved testers. Add this account as tester or complete TikTok app audit.";
+    }
+    if (low.includes("scope_not_authorized")) {
+      return "TikTok permissions are missing. Reconnect TikTok in Studio and approve all scopes.";
+    }
+  }
+
+  if (p === "facebook") {
+    if (low.includes("no permission to publish the video") || low.includes("\"code\":100")) {
+      return "Facebook Page publish permission is missing. Reconnect Facebook in Studio and approve Page posting permissions.";
+    }
+  }
+
+  if (p === "instagram") {
+    if (low.includes("no instagram professional account linked")) {
+      return "No Instagram Professional account linked to a Facebook Page. Link it in Meta Business Suite, then reconnect.";
+    }
+    if (low.includes("no permission to publish") || low.includes("\"code\":100")) {
+      return "Instagram publish permission is missing. Reconnect Instagram/Facebook in Studio and approve publishing permissions.";
+    }
+  }
+
+  return shortenErrorText(msg);
+}
+
 /* ---------- Aspect ratio helpers ---------- */
 function aspectStringToCss(ar?: string | null) {
   if (!ar) return undefined;
@@ -1089,11 +1127,12 @@ function ClipsWorkspace() {
           });
           results.push({ ...res, provider });
         } catch (e: any) {
+          const raw = toErrorText(e);
           results.push({
             id: -1,
             provider,
             status: "failed",
-            last_error: toErrorText(e),
+            last_error: socialPublishErrorHint(provider, raw),
           });
         }
       }
@@ -1102,7 +1141,7 @@ function ClipsWorkspace() {
       if (failed.length > 0) {
         const msg = failed
           .map((r) => `${socialLabel(r.provider)}: ${(r.last_error || "Failed").toString()}`)
-          .join(" | ");
+          .join("\n");
         setScheduleError(msg);
         return;
       }
@@ -2417,6 +2456,16 @@ function ScheduleForm({
         <div className="mt-1 text-[12px] text-white/55">
           Pick one or more platforms, add caption, and choose post time.
         </div>
+        <div className="mt-2 text-[12px] text-white/65">
+          {maxPlatforms === null
+            ? `${planLabel} plan: publish to all connected platforms.`
+            : `${planLabel} plan: up to ${maxPlatforms} platform${maxPlatforms === 1 ? "" : "s"} per clip.`}{" "}
+          {maxPlatforms !== null ? (
+            <Link href="/app/billing" className="text-cyan-200/90 underline underline-offset-2 hover:text-cyan-100">
+              Upgrade
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="grid gap-2">
@@ -2511,7 +2560,7 @@ function ScheduleForm({
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70 whitespace-pre-line break-words">
           {error}
         </div>
       )}

@@ -183,6 +183,46 @@ def _safe_json_loads(v: Any) -> dict:
         return {}
 
 
+def _friendly_publish_error(provider: str, raw_error: str) -> str:
+    msg = str(raw_error or "").strip()
+    low = msg.lower()
+    p = (provider or "").strip().lower()
+
+    if p == "tiktok":
+        if "unaudited_client_can_only_post_to_private_accounts" in low:
+            return (
+                "TikTok app is in unaudited mode. It can only post to private accounts for approved testers. "
+                "Add this account as a tester or complete TikTok app audit."
+            )
+        if "scope_not_authorized" in low or "scope" in low and "author" in low:
+            return "TikTok permissions are missing. Reconnect TikTok in Studio and approve all requested scopes."
+
+    if p == "facebook":
+        if "no permission to publish the video" in low or "\"code\":100" in low:
+            return (
+                "Facebook publish permission is missing for this Page. Reconnect Facebook in Studio and approve "
+                "Page publishing permissions, then retry."
+            )
+        if "facebook page access token missing" in low:
+            return "Facebook Page token is missing. Reconnect Facebook and select a Page you manage."
+
+    if p == "instagram":
+        if "no permission to publish" in low or "\"code\":100" in low:
+            return (
+                "Instagram publish permission is missing. Reconnect Instagram/Facebook in Studio and approve "
+                "Instagram publishing permissions."
+            )
+        if "instagram professional account linked" in low:
+            return (
+                "No Instagram Professional account linked to a Facebook Page. Link it in Meta Business Suite "
+                "and reconnect Instagram."
+            )
+
+    if len(msg) > 260:
+        return msg[:260]
+    return msg or "Publishing failed"
+
+
 def _oauth_error_detail(payload: Any, fallback: str = "") -> str:
     if not isinstance(payload, dict):
         return (fallback or "").strip()[:220]
@@ -1170,7 +1210,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
             post.last_error = None
         except Exception as e:
             post.status = "failed"
-            post.last_error = str(e)[:1000]
+            post.last_error = _friendly_publish_error(post.provider, str(e))[:1000]
         finally:
             if tmp_path:
                 try:
