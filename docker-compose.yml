@@ -31,7 +31,7 @@ services:
       # Core
       APP_ENV: "${APP_ENV:-development}"
       SECRET_KEY: "${SECRET_KEY:-}"
-      DATABASE_URL: "sqlite:////data/app.db"
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////data/app.db}"
       FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3000}"
       PUBLIC_API_BASE: "${PUBLIC_API_BASE:-}"
       # Codespaces should not set cookie domain to a custom prod domain
@@ -118,7 +118,7 @@ services:
       PYTHONFAULTHANDLER: "1"
       # Core
       SECRET_KEY: "${SECRET_KEY:-}"
-      DATABASE_URL: "sqlite:////data/app.db"
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////data/app.db}"
       WORKER_WATERMARK_PNG: /app/assets/orbito-mark.png
       WORKER_WATERMARK_TEXT_FONTFILE: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
       WORKER_WATERMARK_TEXT: "Orbito"

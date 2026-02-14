@@ -28,6 +28,7 @@ RUN pip install --upgrade pip && \
             requests \
             python-dotenv \
             sqlalchemy \
+            psycopg2-binary \
             boto3 \
             "numpy==1.26.4" \
             "opencv-python-headless==4.11.0.86" \
@@ -37,6 +38,7 @@ RUN pip install --upgrade pip && \
             requests \
             python-dotenv \
             sqlalchemy \
+            psycopg2-binary \
             boto3 ; \
     fi
 

@@ -3,6 +3,7 @@ uvicorn
 python-multipart
 pydantic
 sqlalchemy
+psycopg2-binary
 alembic
 stripe
 PyJWT
