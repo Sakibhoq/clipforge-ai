@@ -261,7 +261,7 @@ TMP_ROOT.mkdir(parents=True, exist_ok=True)
 MAX_SOURCE_BYTES = int(os.getenv("WORKER_MAX_SOURCE_BYTES", str(5 * 1024**3)))  # 5GB
 
 # -----------------------------------------------------
-# Cancel checks (sqlite fallback)
+# Cancel checks (DB-aware)
 # -----------------------------------------------------
 
 WORKER_DB_PATH = os.getenv("WORKER_DB_PATH", "/data/app.db")
@@ -270,19 +270,31 @@ CANCEL_POLL_S = float(os.getenv("WORKER_CANCEL_POLL_S", "0.35"))
 def is_job_canceled(job_id: int) -> bool:
     if not job_id:
         return False
+
+    # Always prefer the active DATABASE_URL (Postgres/SQLite) to avoid checking a stale
+    # on-disk SQLite DB when running against Postgres (can cause false cancels by ID overlap).
     try:
-        if not WORKER_DB_PATH or not os.path.exists(WORKER_DB_PATH):
-            return False
-        conn = sqlite3.connect(WORKER_DB_PATH, timeout=0.25)
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT status FROM jobs WHERE id = ?", (int(job_id),))
-            row = cur.fetchone()
-            return bool(row and str(row[0]).lower() == "canceled")
-        finally:
-            conn.close()
+        with SessionLocal() as db:
+            row = db.execute(
+                text("SELECT status FROM jobs WHERE id = :jid LIMIT 1"),
+                {"jid": int(job_id)},
+            ).fetchone()
+            return bool(row and str(row[0] or "").lower() == "canceled")
     except Exception:
-        return False
+        # Fallback for older/local SQLite-only setups where SQLAlchemy engine might not be usable.
+        try:
+            if not WORKER_DB_PATH or not os.path.exists(WORKER_DB_PATH):
+                return False
+            conn = sqlite3.connect(WORKER_DB_PATH, timeout=0.25)
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT status FROM jobs WHERE id = ?", (int(job_id),))
+                row = cur.fetchone()
+                return bool(row and str(row[0]).lower() == "canceled")
+            finally:
+                conn.close()
+        except Exception:
+            return False
 
 # -----------------------------------------------------
 # Filesystem helpers (SELF-CONTAINED)
