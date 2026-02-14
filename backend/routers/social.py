@@ -270,6 +270,14 @@ def _client_secret(provider: str) -> Optional[str]:
 def _meta_config_id(provider: str) -> Optional[str]:
     if provider not in {"facebook", "instagram"}:
         return None
+    use_config = (os.getenv("OAUTH_META_USE_CONFIG_ID") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not use_config:
+        return None
     specific = os.getenv(f"OAUTH_{provider.upper()}_CONFIG_ID")
     if specific:
         return specific
