@@ -496,16 +496,24 @@ def connect_start(
 
     redirect_uri = str(request.url_for("social_connect_callback", provider=provider))
 
-    scope_sep = "," if provider in {"facebook", "instagram", "tiktok"} else " "
+    meta_config_id = _meta_config_id(provider)
+    use_explicit_scope = True
+    if provider in {"facebook", "instagram"} and meta_config_id:
+        # For Meta Login configurations (config_id), permissions are defined in
+        # the Meta app config itself. Sending scope here can trigger
+        # "Invalid Scopes" errors in the OAuth dialog.
+        use_explicit_scope = False
+
     client_id_param = conf.get("client_id_param", "client_id")
     params = {
         "response_type": "code",
         client_id_param: client_id,
         "redirect_uri": redirect_uri,
-        "scope": scope_sep.join(conf.get("scopes", [])),
         "state": state,
     }
-    meta_config_id = _meta_config_id(provider)
+    if use_explicit_scope:
+        scope_sep = "," if provider in {"facebook", "instagram", "tiktok"} else " "
+        params["scope"] = scope_sep.join(conf.get("scopes", []))
     if meta_config_id:
         params["config_id"] = meta_config_id
     if conf.get("pkce", True):
