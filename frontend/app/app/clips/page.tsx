@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -119,6 +119,31 @@ function socialLabel(p: string) {
 
 const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"] as const;
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
+
+type SocialPlan = "free" | "starter" | "creator" | "studio";
+
+function normalizeSocialPlan(raw: string | null | undefined): SocialPlan {
+  const plan = String(raw || "")
+    .trim()
+    .toLowerCase();
+  if (plan === "starter") return "starter";
+  if (plan === "creator") return "creator";
+  if (plan === "studio") return "studio";
+  return "free";
+}
+
+function socialPlanLabel(plan: SocialPlan): string {
+  if (plan === "starter") return "Starter";
+  if (plan === "creator") return "Creator";
+  if (plan === "studio") return "Studio";
+  return "Free";
+}
+
+function socialPlanPlatformLimit(plan: SocialPlan): number | null {
+  if (plan === "free") return 1;
+  if (plan === "starter") return 2;
+  return null;
+}
 
 /* ---------- Aspect ratio helpers ---------- */
 function aspectStringToCss(ar?: string | null) {
@@ -853,6 +878,7 @@ function ClipsWorkspace() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
+  const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
 
   // Crop drawer state (backend-wired)
   const [cropClip, setCropClip] = useState<ClipDTO | null>(null);
@@ -874,14 +900,34 @@ function ClipsWorkspace() {
     return SUPPORTED_SOCIAL_PROVIDERS.filter((p) => connected.has(p));
   }, [socialAccounts]);
 
+  const schedulePlatformLimit = useMemo(() => socialPlanPlatformLimit(socialPlan), [socialPlan]);
+  const schedulePlanLabel = useMemo(() => socialPlanLabel(socialPlan), [socialPlan]);
+
+  const limitSelectedProviders = useCallback(
+    (v: SupportedSocialProvider[]): SupportedSocialProvider[] => {
+      const connectedOrdered = SUPPORTED_SOCIAL_PROVIDERS.filter(
+        (p) => connectedScheduleProviders.includes(p) && v.includes(p)
+      );
+      if (schedulePlatformLimit === null) return connectedOrdered;
+      return connectedOrdered.slice(0, schedulePlatformLimit);
+    },
+    [connectedScheduleProviders, schedulePlatformLimit]
+  );
+
+  const defaultSelectedProviders = useCallback((): SupportedSocialProvider[] => {
+    if (schedulePlatformLimit === null) return [...connectedScheduleProviders];
+    return connectedScheduleProviders.slice(0, schedulePlatformLimit);
+  }, [connectedScheduleProviders, schedulePlatformLimit]);
+
   useEffect(() => {
     setScheduleSelectedProviders((prev) => {
-      const connected = prev.filter((p) => connectedScheduleProviders.includes(p));
-      if (connected.length > 0) return connected;
-      if (connectedScheduleProviders.length > 0) return [connectedScheduleProviders[0]];
+      const next = limitSelectedProviders(prev);
+      if (next.length > 0) return next;
+      const fallback = defaultSelectedProviders();
+      if (fallback.length > 0) return fallback;
       return [];
     });
-  }, [connectedScheduleProviders]);
+  }, [connectedScheduleProviders, schedulePlatformLimit, defaultSelectedProviders, limitSelectedProviders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -893,6 +939,22 @@ function ClipsWorkspace() {
       .catch(() => {
         if (cancelled) return;
         setSocialAccounts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ plan?: string }>("/auth/me", { method: "GET" })
+      .then((me) => {
+        if (cancelled) return;
+        setSocialPlan(normalizeSocialPlan(me?.plan));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSocialPlan("free");
       });
     return () => {
       cancelled = true;
@@ -929,9 +991,10 @@ function ClipsWorkspace() {
   function openSchedule(clip: ClipDTO) {
     setScheduleClipId(clip.id);
     setScheduleSelectedProviders((prev) => {
-      const connected = prev.filter((p) => connectedScheduleProviders.includes(p));
-      if (connected.length > 0) return connected;
-      if (connectedScheduleProviders.length > 0) return [connectedScheduleProviders[0]];
+      const next = limitSelectedProviders(prev);
+      if (next.length > 0) return next;
+      const fallback = defaultSelectedProviders();
+      if (fallback.length > 0) return fallback;
       return [];
     });
     setScheduleCaption(autoTitle(clip));
@@ -989,6 +1052,13 @@ function ClipsWorkspace() {
 
   async function submitSocialPosts(mode: "post_now" | "schedule") {
     if (!scheduleClipId || scheduleBusy) return;
+    if (schedulePlatformLimit !== null && scheduleSelectedProviders.length > schedulePlatformLimit) {
+      const suffix = schedulePlatformLimit === 1 ? "" : "s";
+      setScheduleError(
+        `${schedulePlanLabel} plan allows up to ${schedulePlatformLimit} platform${suffix} per clip.`
+      );
+      return;
+    }
     if (scheduleSelectedProviders.length === 0) {
       setScheduleError("Select at least one connected platform.");
       return;
@@ -1576,11 +1646,13 @@ function ClipsWorkspace() {
           <ScheduleForm
             providers={connectedScheduleProviders}
             selectedProviders={scheduleSelectedProviders}
+            maxPlatforms={schedulePlatformLimit}
+            planLabel={schedulePlanLabel}
             caption={scheduleCaption}
             when={scheduleWhen}
             busy={scheduleBusy}
             error={scheduleError}
-            onProvidersChange={setScheduleSelectedProviders}
+            onProvidersChange={(v) => setScheduleSelectedProviders(limitSelectedProviders(v))}
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
             onSchedule={createSchedule}
@@ -2284,6 +2356,8 @@ function CropForm({
 function ScheduleForm({
   providers,
   selectedProviders,
+  maxPlatforms,
+  planLabel,
   caption,
   when,
   busy,
@@ -2296,6 +2370,8 @@ function ScheduleForm({
 }: {
   providers: SupportedSocialProvider[];
   selectedProviders: SupportedSocialProvider[];
+  maxPlatforms: number | null;
+  planLabel: string;
   caption: string;
   when: string;
   busy: boolean;
@@ -2307,6 +2383,7 @@ function ScheduleForm({
   onPostNow: () => void;
 }) {
   const connectedSet = useMemo(() => new Set(providers), [providers]);
+  const limitReached = maxPlatforms !== null && selectedProviders.length >= maxPlatforms;
 
   function toggleProvider(provider: SupportedSocialProvider) {
     if (!connectedSet.has(provider)) return;
@@ -2314,12 +2391,19 @@ function ScheduleForm({
       onProvidersChange(selectedProviders.filter((p) => p !== provider));
       return;
     }
+    if (maxPlatforms !== null && selectedProviders.length >= maxPlatforms) {
+      return;
+    }
     const next = SUPPORTED_SOCIAL_PROVIDERS.filter((p) => [...selectedProviders, provider].includes(p));
     onProvidersChange(next);
   }
 
   function selectAllConnected() {
-    onProvidersChange([...providers]);
+    if (maxPlatforms === null) {
+      onProvidersChange([...providers]);
+      return;
+    }
+    onProvidersChange(providers.slice(0, maxPlatforms));
   }
 
   function clearSelection() {
@@ -2366,6 +2450,7 @@ function ScheduleForm({
               {SUPPORTED_SOCIAL_PROVIDERS.map((provider) => {
                 const connected = connectedSet.has(provider);
                 const checked = selectedProviders.includes(provider);
+                const disabledByLimit = !checked && limitReached;
                 return (
                   <label
                     key={provider}
@@ -2381,13 +2466,13 @@ function ScheduleForm({
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleProvider(provider)}
-                        disabled={busy || !connected}
+                        disabled={busy || !connected || disabledByLimit}
                         className="h-4 w-4 accent-cyan-400"
                       />
                       {socialLabel(provider)}
                     </span>
                     <span className="text-[11px] text-white/55">
-                      {connected ? "Connected" : "Connect in Studio"}
+                      {connected ? (disabledByLimit ? `Limit ${maxPlatforms}` : "Connected") : "Connect in Studio"}
                     </span>
                   </label>
                 );
@@ -2396,7 +2481,11 @@ function ScheduleForm({
           </div>
         </details>
         <div className="text-[12px] text-white/45">
-          Choose all connected platforms to schedule the same clip everywhere.
+          {maxPlatforms === null
+            ? "Your plan allows publishing to all connected platforms."
+            : `Your ${planLabel} plan allows up to ${maxPlatforms} platform${
+                maxPlatforms === 1 ? "" : "s"
+              } per clip.`}
         </div>
       </div>
 

@@ -91,10 +91,78 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+PLAN_PLATFORM_LIMITS: Dict[str, Optional[int]] = {
+    "free": 1,
+    "starter": 2,
+    "creator": None,
+    "studio": None,
+}
+
+PLAN_LABELS: Dict[str, str] = {
+    "free": "Free",
+    "starter": "Starter",
+    "creator": "Creator",
+    "studio": "Studio",
+}
+
 
 def _allowed_autopost_providers() -> set:
     raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube,tiktok,instagram,facebook").strip()
     return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def _normalized_plan_key(raw_plan: Any) -> str:
+    plan = str(raw_plan or "").strip().lower()
+    if plan in PLAN_PLATFORM_LIMITS:
+        return plan
+    if plan in {"free_trial", "trial"}:
+        return "free"
+    return "free"
+
+
+def _max_platforms_for_plan(raw_plan: Any) -> Optional[int]:
+    return PLAN_PLATFORM_LIMITS[_normalized_plan_key(raw_plan)]
+
+
+def _plan_label(raw_plan: Any) -> str:
+    return PLAN_LABELS.get(_normalized_plan_key(raw_plan), "Free")
+
+
+def _enforce_clip_platform_limit(
+    db: Session,
+    *,
+    user: User,
+    clip_id: int,
+    provider: str,
+) -> None:
+    max_platforms = _max_platforms_for_plan(getattr(user, "plan", None))
+    if max_platforms is None:
+        return
+
+    existing_rows = (
+        db.query(SocialPost)
+        .filter(
+            SocialPost.user_id == user.id,
+            SocialPost.clip_id == clip_id,
+            SocialPost.status.in_(["queued", "scheduled", "posting", "posted"]),
+        )
+        .all()
+    )
+    existing = {
+        str(r.provider or "").strip().lower()
+        for r in existing_rows
+        if str(r.provider or "").strip()
+    }
+
+    if provider in existing:
+        return
+
+    if len(existing) >= max_platforms:
+        suffix = "" if max_platforms == 1 else "s"
+        detail = f"{_plan_label(getattr(user, 'plan', None))} plan allows up to {max_platforms} platform{suffix} per clip."
+        if max_platforms < len(PROVIDERS):
+            detail += " Upgrade your plan to publish on more platforms."
+        raise HTTPException(status_code=403, detail=detail)
 
 
 def _safe_json_dumps(v: Any) -> str:
@@ -897,6 +965,13 @@ def create_post(
     )
     if not clip:
         raise HTTPException(404, "Clip not found")
+
+    _enforce_clip_platform_limit(
+        db,
+        user=current_user,
+        clip_id=clip.id,
+        provider=provider,
+    )
 
     when = None
     if req.scheduled_at:
