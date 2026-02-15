@@ -8,6 +8,10 @@ This folder contains copy-paste templates for a simple EC2 launch.
 - Reverse proxy (Nginx or Caddy) terminates TLS on ports 80/443
 - `3000` and `8000` are bound to `127.0.0.1` only (see `docker-compose.prod.yml`)
 
+Compose note:
+- Newer Docker installs use `docker compose ...` (plugin)
+- Older installs use `docker-compose ...` (standalone)
+
 ## Files
 
 - `deploy/nginx/orbito.conf`: Nginx vhost template for `orbito.cc` and `api.orbito.cc`

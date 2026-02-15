@@ -11,6 +11,12 @@ Monorepo:
 docker compose up --build
 ```
 
+If your machine has the legacy Compose v1 binary instead:
+
+```bash
+docker-compose up --build
+```
+
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:8000` (docs at `/docs`)
 
@@ -46,5 +52,10 @@ Set `DATABASE_URL` to target Postgres/RDS.
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-3. Put a reverse proxy in front of it (templates in `deploy/`).
+If your EC2 uses `docker-compose`:
 
+```bash
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+3. Put a reverse proxy in front of it (templates in `deploy/`).
