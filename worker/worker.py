@@ -353,7 +353,14 @@ def run_subprocess(
     allow_stderr: bool = False,
     job_id: Optional[int] = None,
 ) -> Tuple[str, str]:
+    # NOTE: We must continuously drain stdout/stderr to avoid deadlocks.
+    # ffmpeg writes progress to stderr; if we never read, the pipe buffer fills
+    # and the child process can block forever (looks like a "timeout").
+    import selectors
+
     start = time.time()
+    tail_bytes = int(os.getenv("WORKER_SUBPROCESS_LOG_TAIL_BYTES", "20000"))
+    read_chunk = 8192
 
     try:
         proc = subprocess.Popen(
@@ -365,24 +372,87 @@ def run_subprocess(
     except Exception as e:
         raise RuntimeError(f"{desc} failed to start: {e}")
 
-    while True:
-        if job_id and is_job_canceled(job_id):
-            _kill_process_tree(proc)
-            raise RuntimeError("Canceled by user")
+    out_buf = bytearray()
+    err_buf = bytearray()
 
-        rc = proc.poll()
-        if rc is not None:
-            out = (proc.stdout.read() or b"").decode(errors="ignore")
-            err = (proc.stderr.read() or b"").decode(errors="ignore")
-            if rc != 0 and not allow_stderr:
-                raise RuntimeError(f"{desc} failed:\n{err or out}")
-            return out, err
+    def _append_tail(buf: bytearray, data: bytes) -> None:
+        if not data:
+            return
+        buf.extend(data)
+        if tail_bytes > 0 and len(buf) > tail_bytes:
+            del buf[:-tail_bytes]
 
-        if timeout and (time.time() - start) > timeout:
-            _kill_process_tree(proc)
-            raise RuntimeError(f"{desc} timed out")
+    sel = selectors.DefaultSelector()
+    try:
+        if proc.stdout is not None:
+            sel.register(proc.stdout, selectors.EVENT_READ, data="stdout")
+        if proc.stderr is not None:
+            sel.register(proc.stderr, selectors.EVENT_READ, data="stderr")
 
-        time.sleep(CANCEL_POLL_S)
+        def _drain_blocking(wait_s: float) -> None:
+            # Drain any available output (and optionally wait a bit for new data).
+            events = sel.select(timeout=max(0.0, float(wait_s)))
+            for key, _ in events:
+                stream = key.fileobj
+                try:
+                    chunk = stream.read1(read_chunk) if hasattr(stream, "read1") else stream.read(read_chunk)
+                except Exception:
+                    chunk = b""
+                if not chunk:
+                    try:
+                        sel.unregister(stream)
+                    except Exception:
+                        pass
+                    continue
+                if key.data == "stdout":
+                    _append_tail(out_buf, chunk)
+                else:
+                    _append_tail(err_buf, chunk)
+
+        def _drain_all_remaining() -> None:
+            # After process exit, drain the rest (EOF-terminated) without blocking.
+            for key in list(sel.get_map().values()):
+                stream = key.fileobj
+                try:
+                    rest = stream.read() or b""
+                except Exception:
+                    rest = b""
+                if key.data == "stdout":
+                    _append_tail(out_buf, rest)
+                else:
+                    _append_tail(err_buf, rest)
+                try:
+                    sel.unregister(stream)
+                except Exception:
+                    pass
+
+        while True:
+            if job_id and is_job_canceled(job_id):
+                _kill_process_tree(proc)
+                raise RuntimeError("Canceled by user")
+
+            if timeout and (time.time() - start) > timeout:
+                _kill_process_tree(proc)
+                # Best-effort: capture whatever output is available after kill.
+                if proc.poll() is not None:
+                    _drain_all_remaining()
+                raise RuntimeError(f"{desc} timed out")
+
+            rc = proc.poll()
+            if rc is not None:
+                _drain_all_remaining()
+                out = out_buf.decode(errors="ignore")
+                err = err_buf.decode(errors="ignore")
+                if rc != 0 and not allow_stderr:
+                    raise RuntimeError(f"{desc} failed:\n{(err or out).strip()}")
+                return out, err
+
+            _drain_blocking(CANCEL_POLL_S)
+    finally:
+        try:
+            sel.close()
+        except Exception:
+            pass
 
 # -----------------------------------------------------
 # Source download (CANCEL-SAFE)
