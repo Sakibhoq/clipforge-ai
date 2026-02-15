@@ -95,7 +95,38 @@ def _is_https(request: Request) -> bool:
     """
     xf_proto = (request.headers.get("x-forwarded-proto") or "").lower().strip()
     if xf_proto:
+        # Some proxies send a comma-separated list; first entry wins.
+        xf_proto = xf_proto.split(",")[0].strip()
         return xf_proto == "https"
+
+    # RFC 7239 Forwarded: for=...;proto=https;host=...
+    forwarded = (request.headers.get("forwarded") or "").lower()
+    if "proto=" in forwarded:
+        try:
+            # take first segment
+            first = forwarded.split(",")[0]
+            parts = [p.strip() for p in first.split(";") if p.strip()]
+            for p in parts:
+                if p.startswith("proto="):
+                    proto = p.split("=", 1)[1].strip().strip('"')
+                    return proto == "https"
+        except Exception:
+            pass
+
+    # Common proxy headers
+    xf_ssl = (request.headers.get("x-forwarded-ssl") or "").lower().strip()
+    if xf_ssl in {"on", "1", "true", "yes"}:
+        return True
+
+    xf_port = (request.headers.get("x-forwarded-port") or "").strip()
+    if xf_port == "443":
+        return True
+
+    # Cloudflare: CF-Visitor: {"scheme":"https"}
+    cf_visitor = (request.headers.get("cf-visitor") or "").lower()
+    if "\"scheme\":\"https\"" in cf_visitor or "scheme=https" in cf_visitor:
+        return True
+
     return request.url.scheme == "https"
 
 
@@ -153,10 +184,11 @@ def cookie_options(request: Request):
             opts["domain"] = domain
         return opts
 
-    # Local http dev (localhost / 127.0.0.1):
-    #   Secure=False
+    # Local http dev:
+    #   - Secure=False (required)
+    #   - SameSite must NOT be "none" without Secure, or modern browsers reject it.
     if not https:
-        opts = {"httponly": True, "secure": False, "samesite": "none", "path": "/"}
+        opts = {"httponly": True, "secure": False, "samesite": "lax", "path": "/"}
         if domain:
             opts["domain"] = domain
         return opts
