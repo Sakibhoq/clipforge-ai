@@ -26,7 +26,7 @@ services:
       - ./data:/data
 
       # AWS credentials (Codespaces + local dev)
-      - /home/codespace/.aws:/root/.aws:ro
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
     environment:
       # Core
       APP_ENV: "${APP_ENV:-development}"
@@ -49,8 +49,8 @@ services:
       # Storage
       STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
       LOCAL_STORAGE_PATH: "/data/storage"
-      AWS_REGION: "us-east-1"
-      S3_BUCKET: "clipforge-uploads-dev-26"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
       UPLOAD_PROXY_CHUNK_SIZE: "${UPLOAD_PROXY_CHUNK_SIZE:-524288}"
       STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC: "${STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC:-25}"
       STORAGE_FFPROBE_TIMEOUT_SEC: "${STORAGE_FFPROBE_TIMEOUT_SEC:-120}"
@@ -112,7 +112,7 @@ services:
     volumes:
       - ./data:/data
       - ./backend:/backend
-      - /home/codespace/.aws:/root/.aws:ro
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
       - ./frontend/public:/app/public:ro
     environment:
       PYTHONFAULTHANDLER: "1"
@@ -146,8 +146,8 @@ services:
       # Local dev cookie domain disabled unless explicitly set
       COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
       LOCAL_STORAGE_PATH: "/data/storage"
-      AWS_REGION: "us-east-1"
-      S3_BUCKET: "clipforge-uploads-dev-26"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
 
       # Timeouts
       WORKER_FFPROBE_TIMEOUT: "180"
