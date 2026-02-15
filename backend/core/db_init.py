@@ -7,48 +7,80 @@ import models  # noqa: F401  # ensure models are registered on Base
 
 def init_db() -> None:
     """
-    Safe auto-init for local SQLite dev to prevent 500s on first run.
-    - Only runs for sqlite.
-    - Can be disabled with AUTO_CREATE_DB=0.
-    - Creates tables if missing (idempotent).
-    """
-    db_url = str(engine.url).lower()
-    if not db_url.startswith("sqlite"):
-        return
+    Safe auto-init to prevent 500s on first run / during early deploys.
 
+    - Can be disabled with AUTO_CREATE_DB=0.
+    - Creates missing tables (idempotent) for any DB backend.
+    - Adds a small set of missing columns additively to keep older DBs compatible
+      with the current ORM models (dev-friendly; not a full migration system).
+    """
     auto = (os.getenv("AUTO_CREATE_DB") or "1").strip().lower()
     if auto in {"0", "false", "no"}:
         return
 
-    db_path = getattr(engine.url, "database", None)
-    if db_path and db_path != ":memory:":
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    db_url = str(engine.url).lower()
+
+    # Local sqlite path convenience
+    if db_url.startswith("sqlite"):
+        db_path = getattr(engine.url, "database", None)
+        if db_path and db_path != ":memory:":
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
     # Always ensure missing tables are created (idempotent).
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"[db-init] create_all failed: {e}")
+        return
 
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
 
-    # Backfill missing columns on older sqlite schemas (safe, additive only).
+    dialect = (getattr(engine.dialect, "name", "") or "").lower()
+
+    def _bool(v: bool) -> str:
+        # Postgres uses TRUE/FALSE. SQLite accepts 0/1 (and treats BOOLEAN as affinity).
+        if dialect.startswith("postgres"):
+            return "TRUE" if v else "FALSE"
+        return "1" if v else "0"
+
+    def _str(v: str) -> str:
+        # Minimal SQL literal escape for single quotes.
+        return "'" + (v or "").replace("'", "''") + "'"
+
+    # Backfill missing columns on older schemas (safe, additive only).
+    # NOTE: Keep these small and focused; this is not meant to replace migrations.
     table_backfills = {
         "users": {
-            "name": "TEXT",
-            "is_active": "BOOLEAN DEFAULT 1",
-            "plan": "TEXT DEFAULT 'free'",
-            "credits": "INTEGER DEFAULT 0",
-            "stripe_customer_id": "TEXT",
-            "last_stripe_event_id": "TEXT",
-            "trial_used": "BOOLEAN DEFAULT 0",
-            "pref_email_reports": "BOOLEAN DEFAULT 1",
-            "pref_product_tips": "BOOLEAN DEFAULT 0",
-            "pref_autoplay_previews": "BOOLEAN DEFAULT 1",
-            "notif_receipts": "BOOLEAN DEFAULT 1",
-            "notif_processing_alerts": "BOOLEAN DEFAULT 0",
+            "name": f"TEXT",
+            "is_active": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "plan": f"TEXT DEFAULT {_str('free')} NOT NULL",
+            "credits": f"INTEGER DEFAULT 0 NOT NULL",
+            "stripe_customer_id": f"TEXT",
+            "last_stripe_event_id": f"TEXT",
+            "trial_used": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
+            "pref_email_reports": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "pref_product_tips": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
+            "pref_autoplay_previews": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "notif_receipts": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "notif_processing_alerts": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
+        },
+        "uploads": {
+            "source_type": f"TEXT DEFAULT {_str('upload')} NOT NULL",
+            "source_url": f"TEXT",
+            "source_id": f"TEXT",
+        },
+        "jobs": {
+            "credits_reserved": f"INTEGER DEFAULT 0 NOT NULL",
+            "credits_refunded": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
+            "aspect_ratio": f"TEXT DEFAULT {_str('9:16')} NOT NULL",
+            "captions_enabled": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "watermark_enabled": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
+            "caption_style_json": f"TEXT",
         },
         "clips": {
-            "title": "TEXT",
-            "hook": "TEXT",
+            "title": f"TEXT",
+            "hook": f"TEXT",
         },
     }
 
@@ -59,4 +91,10 @@ def init_db() -> None:
             existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
             for col, sql in cols.items():
                 if col not in existing_cols:
-                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col} {sql}"))
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col} {sql}"))
+                        print(f"[db-init] added column {table_name}.{col}")
+                    except Exception as e:
+                        # Don't crash the whole app on additive backfill failures.
+                        # This can happen if the DB user lacks ALTER privileges.
+                        print(f"[db-init] failed to add column {table_name}.{col}: {e}")
