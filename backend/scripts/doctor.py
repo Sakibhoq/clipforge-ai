@@ -63,7 +63,11 @@ def _check_db() -> bool:
 def _check_ports() -> None:
     # Optional: check if we can bind to common ports (diagnostic only)
     for port in (8000, 3000):
-        s = socket.socket()
+        try:
+            s = socket.socket()
+        except Exception as e:
+            _print("port-check", True, f"skipped ({type(e).__name__})")
+            return
         try:
             s.bind(("0.0.0.0", port))
             _print(f"port:{port}", True, "available")
@@ -83,9 +87,14 @@ def main() -> int:
 
     # Core env
     ok &= _check_env("SECRET_KEY", required=True, redact=True)
+    app_env = (os.getenv("APP_ENV") or "development").strip().lower()
     ok &= _check_env("FRONTEND_ORIGIN", required=False, redact=False)
     ok &= _check_env("FRONTEND_BASE_URL", required=False, redact=False)
     ok &= _check_env("APP_ENV", required=False, redact=False)
+    _check_env("PUBLIC_API_BASE", required=False, redact=False)
+    _check_env("COOKIE_DOMAIN", required=False, redact=False)
+    if app_env == "production" and not (os.getenv("COOKIE_DOMAIN") or "").strip():
+        _print("COOKIE_DOMAIN(prod)", False, "missing (recommended: .orbito.cc)")
 
     # Stripe
     ok &= _check_env("STRIPE_SECRET_KEY", required=False, redact=True)
@@ -107,6 +116,10 @@ def main() -> int:
         _print("AWS credentials", has_creds or has_file, "env or /root/.aws/credentials")
     else:
         _check_env("LOCAL_STORAGE_PATH", required=False, redact=False)
+
+    # Automations (recommended in prod)
+    if app_env == "production" and not (os.getenv("AUTOMATION_WEBHOOK_SECRET") or "").strip():
+        _print("AUTOMATION_WEBHOOK_SECRET(prod)", False, "missing (recommended)")
 
     # Worker assets
     _check_file("/app/assets/orbito-mark.png", required=False)

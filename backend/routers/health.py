@@ -1,4 +1,9 @@
-from fastapi import APIRouter
+import os
+
+from fastapi import APIRouter, HTTPException
+from sqlalchemy import text
+
+from core.database import SessionLocal
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -6,3 +11,62 @@ router = APIRouter(prefix="/health", tags=["health"])
 @router.get("")
 def health():
     return {"status": "ok"}
+
+
+@router.get("/ready")
+def ready():
+    """
+    Readiness check for production orchestration.
+    - DB connectivity
+    - Storage backend basic sanity (local writable OR S3 bucket reachable)
+    """
+    checks: dict[str, str] = {}
+    ok = True
+
+    # DB
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception as e:
+        ok = False
+        checks["db"] = f"fail: {type(e).__name__}"
+
+    # Storage
+    backend = (os.getenv("STORAGE_BACKEND") or "local").strip().lower()
+    checks["storage_backend"] = backend
+
+    if backend == "s3":
+        bucket = (os.getenv("S3_BUCKET") or "").strip()
+        region = (os.getenv("AWS_REGION") or "").strip()
+        if not bucket:
+            ok = False
+            checks["s3_bucket"] = "missing"
+        else:
+            try:
+                import boto3
+
+                s3 = boto3.client("s3", region_name=region or None)
+                s3.head_bucket(Bucket=bucket)
+                checks["s3"] = "ok"
+            except Exception as e:
+                ok = False
+                checks["s3"] = f"fail: {type(e).__name__}"
+    else:
+        path = (os.getenv("LOCAL_STORAGE_PATH") or "/data/storage").strip()
+        checks["local_storage_path"] = path
+        try:
+            os.makedirs(path, exist_ok=True)
+            probe = os.path.join(path, ".readycheck")
+            with open(probe, "wb") as f:
+                f.write(b"ok")
+            os.remove(probe)
+            checks["local_storage"] = "ok"
+        except Exception as e:
+            ok = False
+            checks["local_storage"] = f"fail: {type(e).__name__}"
+
+    if not ok:
+        raise HTTPException(status_code=503, detail={"status": "not_ready", "checks": checks})
+
+    return {"status": "ok", "checks": checks}

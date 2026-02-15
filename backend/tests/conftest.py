@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 
 # Keep tests isolated from real env/.env and from Postgres.
-TEST_DB_PATH = Path(tempfile.gettempdir()) / "orbito-test.db"
+TEST_DB_PATH = Path(tempfile.gettempdir()) / f"orbito-test-{uuid.uuid4().hex}.db"
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DATABASE_URL", f"sqlite:///{TEST_DB_PATH}")
@@ -29,4 +30,13 @@ def _create_test_schema():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    try:
+        TEST_DB_PATH.unlink(missing_ok=True)
+    except Exception:
+        pass
 
+
+@pytest.fixture(scope="session")
+def anyio_backend():
+    # Keep test runs deterministic and avoid requiring Trio in all environments.
+    return "asyncio"

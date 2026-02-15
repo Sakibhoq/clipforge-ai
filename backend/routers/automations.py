@@ -117,6 +117,12 @@ def trigger_automations(
     x_orbito_automation_secret: Optional[str] = Header(None, alias="X-Orbito-Automation-Secret"),
 ):
     required_secret = (os.getenv("AUTOMATION_WEBHOOK_SECRET") or "").strip()
+    app_env = (os.getenv("APP_ENV") or "development").strip().lower()
+
+    # In production, never leave this endpoint unauthenticated.
+    if app_env == "production" and not required_secret:
+        raise HTTPException(status_code=500, detail="AUTOMATION_WEBHOOK_SECRET is not configured")
+
     if required_secret and x_orbito_automation_secret != required_secret:
         raise HTTPException(status_code=403, detail="Invalid automation secret")
 

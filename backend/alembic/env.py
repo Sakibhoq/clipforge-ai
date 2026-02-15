@@ -1,17 +1,22 @@
+import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from alembic import context
 
+# Ensure `core/*` and `models/*` are importable when running Alembic from repo root.
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from core.database import Base
 from core.config import settings
 
-# Import models so Alembic can detect tables/columns
-from models.user import User  # noqa: F401
-from models.upload import Upload  # noqa: F401
-from models.job import Job  # noqa: F401
-from models.clip import Clip  # noqa: F401
+# Import ALL models so Alembic can detect every table/column.
+# (Keeping this as a single import avoids silently missing new tables.)
+import models  # noqa: F401
 
 config = context.config
 

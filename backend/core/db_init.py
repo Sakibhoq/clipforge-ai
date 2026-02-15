@@ -85,10 +85,12 @@ def init_db() -> None:
     }
 
     with engine.begin() as conn:
+        # Use a connection-bound inspector to avoid SQLite lock contention.
+        conn_inspector = inspect(conn)
         for table_name, cols in table_backfills.items():
             if table_name not in tables:
                 continue
-            existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+            existing_cols = {c["name"] for c in conn_inspector.get_columns(table_name)}
             for col, sql in cols.items():
                 if col not in existing_cols:
                     try:
