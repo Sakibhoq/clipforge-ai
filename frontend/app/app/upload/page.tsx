@@ -608,6 +608,9 @@ function loadPersistedSession():
       jobId: number | null;
       storageKey: string | null;
       fileName: string | null;
+      flow?: Flow | null;
+      progress?: number | null;
+      startedAt?: number | null;
     }
   | null {
   if (typeof window === "undefined") return null;
@@ -621,6 +624,12 @@ function loadPersistedSession():
       jobId: Number.isFinite(parsed.jobId) ? parsed.jobId : null,
       storageKey: typeof parsed.storageKey === "string" ? parsed.storageKey : null,
       fileName: typeof parsed.fileName === "string" ? parsed.fileName : null,
+      flow:
+        typeof parsed.flow === "string" ? ((parsed.flow as string) as Flow) : null,
+      progress: Number.isFinite(parsed.progress)
+        ? Math.max(0, Math.min(100, Number(parsed.progress)))
+        : null,
+      startedAt: Number.isFinite(parsed.startedAt) ? Number(parsed.startedAt) : null,
     };
   } catch {
     return null;
@@ -632,6 +641,9 @@ function persistSession(s: {
   jobId: number | null;
   storageKey: string | null;
   fileName: string | null;
+  flow?: Flow | null;
+  progress?: number | null;
+  startedAt?: number | null;
 }) {
   if (typeof window === "undefined") return;
   try {
@@ -783,6 +795,14 @@ function UploadWorkspace() {
 
   const [flow, setFlow] = useState<Flow>("idle");
   const [file, setFile] = useState<File | null>(null);
+  const [lastKnownFileName, setLastKnownFileName] = useState<string | null>(null);
+  const [interruptedUpload, setInterruptedUpload] = useState<{
+    fileName: string;
+    progress: number | null;
+    startedAt: number | null;
+  } | null>(null);
+  const [uploadStartedAt, setUploadStartedAt] = useState<number | null>(null);
+  const persistThrottle = useRef<{ t: number; p: number }>({ t: 0, p: -1 });
 
   // Local file cost preview (exact duration from metadata)
   const [fileDurationSec, setFileDurationSec] = useState<number | null>(null);
@@ -879,6 +899,37 @@ function UploadWorkspace() {
 
   const settingsOk = !!aspectRatio;
 
+  function persistUploadSession(patch?: Partial<{
+    uploadId: number | null;
+    jobId: number | null;
+    storageKey: string | null;
+    fileName: string | null;
+    flow: Flow | null;
+    progress: number | null;
+    startedAt: number | null;
+  }>) {
+    const fileName = patch?.fileName ?? file?.name ?? lastKnownFileName ?? null;
+    persistSession({
+      uploadId: patch?.uploadId ?? uploadId,
+      jobId: patch?.jobId ?? jobId,
+      storageKey: patch?.storageKey ?? storageKey,
+      fileName,
+      flow: patch?.flow ?? flow,
+      progress: patch?.progress ?? progress,
+      startedAt: patch?.startedAt ?? uploadStartedAt,
+    });
+  }
+
+  function persistUploadProgressThrottled(nextProgress: number) {
+    const now = Date.now();
+    const rounded = Math.round(nextProgress);
+    const elapsed = now - persistThrottle.current.t;
+    const changed = Math.abs(rounded - persistThrottle.current.p);
+    if (elapsed < 750 && changed < 4) return;
+    persistThrottle.current = { t: now, p: rounded };
+    persistUploadSession({ flow: "uploading", progress: nextProgress });
+  }
+
   async function fetchYoutubePreview(targetUrl: string) {
     ytPreviewAbort.current?.abort();
     const ac = new AbortController();
@@ -924,18 +975,34 @@ function UploadWorkspace() {
     }
 
     const sess = loadPersistedSession();
-    if (!sess?.jobId) return;
+    if (!sess) return;
 
-    setUploadId(sess.uploadId);
-    setJobId(sess.jobId);
-    setStorageKey(sess.storageKey);
+    if (sess.fileName) setLastKnownFileName(sess.fileName);
+    if (Number.isFinite(sess.startedAt)) setUploadStartedAt(sess.startedAt as number);
 
-    setFile(null);
-    setFlow("processing");
-    setProgress(92);
-    setStatusText("Resuming…");
+    if (sess.jobId) {
+      setUploadId(sess.uploadId);
+      setJobId(sess.jobId);
+      setStorageKey(sess.storageKey);
 
-    pollJobUntilComplete(sess.jobId).catch(() => {});
+      setFile(null);
+      setFlow("processing");
+      setProgress(92);
+      setStatusText("Resuming…");
+
+      pollJobUntilComplete(sess.jobId).catch(() => {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      return;
+    }
+
+    if (sess.flow === "uploading" && sess.fileName) {
+      setInterruptedUpload({
+        fileName: sess.fileName,
+        progress: Number.isFinite(sess.progress) ? Number(sess.progress) : null,
+        startedAt: Number.isFinite(sess.startedAt) ? Number(sess.startedAt) : null,
+      });
+      clearPersistedSession();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1051,6 +1118,18 @@ function UploadWorkspace() {
     resetFileFlow();
     setFile(f);
     setFlow("selected");
+    setLastKnownFileName(f.name);
+    setInterruptedUpload(null);
+    setUploadStartedAt(null);
+    persistUploadSession({
+      uploadId: null,
+      jobId: null,
+      storageKey: null,
+      fileName: f.name,
+      flow: "selected",
+      progress: 0,
+      startedAt: null,
+    });
 
     setFileDurationSec(null);
     setFileCredits(null);
@@ -1094,13 +1173,24 @@ function UploadWorkspace() {
       const hit = await apiFetch<JobRow>(`/jobs/${targetJobId}`, {
         signal: ac.signal,
       });
+      const elapsedMs = Date.now() - started;
+      const long = elapsedMs > 60 * 60 * 1000;
+      const longHint = long ? " (taking longer than usual)" : "";
       const generatedCount = Math.max(0, Number(hit.clips_generated ?? 0));
       setClipsGenerated(generatedCount);
 
       if (hit.status === "queued") {
-        setStatusText(generatedCount > 0 ? `Queued… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated` : "Queued…");
+        setStatusText(
+          (generatedCount > 0
+            ? `Queued… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
+            : "Queued…") + longHint
+        );
       } else if (hit.status === "running") {
-        setStatusText(generatedCount > 0 ? `Processing… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated` : "Processing…");
+        setStatusText(
+          (generatedCount > 0
+            ? `Processing… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
+            : "Processing…") + longHint
+        );
       }
       else if (hit.status === "done") {
         setStatusText(generatedCount > 0 ? `Ready. ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated.` : "Ready.");
@@ -1114,15 +1204,9 @@ function UploadWorkspace() {
         return;
       }
 
-      // 60 minutes max
-      if (Date.now() - started > 60 * 60 * 1000) {
-        fail("Timed out", "Job is taking too long. Check worker logs and try again.");
-        return;
-      }
-
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, delay));
-      delay = Math.min(2500, Math.round(delay * 1.2));
+      delay = Math.min(long ? 8000 : 2500, Math.round(delay * 1.2));
     }
   }
 
@@ -1137,6 +1221,10 @@ function UploadWorkspace() {
     setFlow("uploading");
     setErrorTitle("");
     setErrorDetail(null);
+    setInterruptedUpload(null);
+    setLastKnownFileName(file.name);
+    const startedAt = Date.now();
+    setUploadStartedAt(startedAt);
 
     uploadAbort.current?.abort();
     const ac = new AbortController();
@@ -1145,6 +1233,15 @@ function UploadWorkspace() {
     setProgress(2);
     setClipsGenerated(0);
     setStatusText("Requesting upload URL…");
+    persistUploadSession({
+      uploadId: null,
+      jobId: null,
+      storageKey: null,
+      fileName: file.name,
+      flow: "uploading",
+      progress: 2,
+      startedAt,
+    });
 
     try {
       const presign = await apiFetch<PresignResponse>("/storage/presign", {
@@ -1161,6 +1258,7 @@ function UploadWorkspace() {
       setStorageKey(uploadedStorageKey);
       setProgress(10);
       setStatusText("Uploading to storage…");
+      persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 10 });
 
       const required = presign.required_headers ?? null;
       if (!required || Object.keys(required).length === 0) {
@@ -1172,23 +1270,28 @@ function UploadWorkspace() {
 
       try {
         const localChunkFirst = (presign.put_url || "").startsWith("/storage/local-upload");
-        if (localChunkFirst) {
-          setStatusText("Uploading in chunks…");
-          const chunked = await uploadViaBackendProxyChunked({
-            file,
-            storageKey: presign.storage_key,
-            signal: ac.signal,
-            onProgress: (pct) => {
-              const mapped = 10 + pct * 0.72;
-              setProgress((p) => Math.max(p, Math.min(82, mapped)));
-            },
-          });
-          uploadedStorageKey = chunked.storage_key || presign.storage_key;
-          setStorageKey(uploadedStorageKey);
-          setProgress((p) => Math.max(p, 82));
-        } else {
-          const putUrls = buildPutUrlCandidates(presign.put_url);
-          if (putUrls.length === 0) throw new Error("No upload URL from presign.");
+          if (localChunkFirst) {
+            setStatusText("Uploading in chunks…");
+            const chunked = await uploadViaBackendProxyChunked({
+              file,
+              storageKey: presign.storage_key,
+              signal: ac.signal,
+              onProgress: (pct) => {
+                const mapped = 10 + pct * 0.72;
+                setProgress((p) => {
+                  const next = Math.max(p, Math.min(82, mapped));
+                  persistUploadProgressThrottled(next);
+                  return next;
+                });
+              },
+            });
+            uploadedStorageKey = chunked.storage_key || presign.storage_key;
+            setStorageKey(uploadedStorageKey);
+            setProgress((p) => Math.max(p, 82));
+            persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
+          } else {
+            const putUrls = buildPutUrlCandidates(presign.put_url);
+            if (putUrls.length === 0) throw new Error("No upload URL from presign.");
 
           let putSucceeded = false;
           let lastPutErr: any = null;
@@ -1202,7 +1305,11 @@ function UploadWorkspace() {
                 signal: ac.signal,
                 onProgress: (pct) => {
                   const mapped = 10 + pct * 0.75;
-                  setProgress((p) => Math.max(p, Math.min(85, mapped)));
+                  setProgress((p) => {
+                    const next = Math.max(p, Math.min(85, mapped));
+                    persistUploadProgressThrottled(next);
+                    return next;
+                  });
                 },
               });
               putSucceeded = true;
@@ -1223,6 +1330,7 @@ function UploadWorkspace() {
 
         setStatusText("Direct upload failed. Retrying via backend…");
         setProgress((p) => Math.max(p, 28));
+        persistUploadSession({ flow: "uploading", progress: 28 });
 
         try {
           const proxied = await uploadViaBackendProxy({
@@ -1233,10 +1341,12 @@ function UploadWorkspace() {
           uploadedStorageKey = proxied.storage_key || presign.storage_key;
           setStorageKey(uploadedStorageKey);
           setProgress((p) => Math.max(p, 80));
+          persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 80 });
         } catch (proxyErr: any) {
           if (isRetryableUploadPathError(proxyErr)) {
             setStatusText("Fallback blocked. Retrying chunked upload…");
             setProgress((p) => Math.max(p, 32));
+            persistUploadSession({ flow: "uploading", progress: 32 });
             try {
               const chunked = await uploadViaBackendProxyChunked({
                 file,
@@ -1244,12 +1354,17 @@ function UploadWorkspace() {
                 signal: ac.signal,
                 onProgress: (pct) => {
                   const mapped = 32 + pct * 0.48;
-                  setProgress((p) => Math.max(p, Math.min(82, mapped)));
+                  setProgress((p) => {
+                    const next = Math.max(p, Math.min(82, mapped));
+                    persistUploadProgressThrottled(next);
+                    return next;
+                  });
                 },
               });
               uploadedStorageKey = chunked.storage_key || presign.storage_key;
               setStorageKey(uploadedStorageKey);
               setProgress((p) => Math.max(p, 82));
+              persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
             } catch (chunkErr: any) {
               if (
                 isRequestEntityTooLargeError(chunkErr) ||
@@ -1276,6 +1391,7 @@ function UploadWorkspace() {
 
       setProgress(88);
       setStatusText("Registering upload…");
+      persistUploadSession({ flow: "uploading", progress: 88 });
 
       const reg = await apiFetch<RegisterResponse>("/uploads/register", {
         method: "POST",
@@ -1302,6 +1418,9 @@ function UploadWorkspace() {
         jobId: reg.job_id,
         storageKey: uploadedStorageKey,
         fileName: file.name,
+        flow: "processing",
+        progress: 92,
+        startedAt,
       });
 
       setProgress(92);
@@ -1405,12 +1524,16 @@ function UploadWorkspace() {
       setUploadId(reg.upload_id);
       setJobId(reg.job_id);
       setStorageKey(null);
+      setLastKnownFileName(ytPreview?.title || normalized);
 
       persistSession({
         uploadId: reg.upload_id,
         jobId: reg.job_id,
         storageKey: null,
         fileName: ytPreview?.title || normalized,
+        flow: "processing",
+        progress: 92,
+        startedAt: Date.now(),
       });
 
       setProgress(92);
@@ -1555,6 +1678,33 @@ function UploadWorkspace() {
                 <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/65">
                   Shorter videos usually process faster. A clear speaker and clean audio give better clips.
                 </div>
+                {interruptedUpload ? (
+                  <div className="mt-3 rounded-xl border border-amber-200/20 bg-amber-200/10 px-3 py-2 text-[12px] text-amber-100/90">
+                    <div className="font-semibold">Upload interrupted</div>
+                    <div className="mt-1 text-amber-100/80">
+                      Your previous upload of{" "}
+                      <span className="font-semibold">{interruptedUpload.fileName}</span>{" "}
+                      didn’t finish. Please select the file again to restart.
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openPicker()}
+                        className="btn-solid-dark px-3 py-1.5 text-[11px]"
+                        disabled={!canBrowse}
+                      >
+                        Choose file
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInterruptedUpload(null)}
+                        className="btn-ghost px-3 py-1.5 text-[11px]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               {file ? (
                 <div className="shrink-0 whitespace-nowrap rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
@@ -1690,7 +1840,7 @@ function UploadWorkspace() {
                   <div className="mx-auto w-full max-w-sm text-left">
                     <div className="text-sm font-semibold text-white/85">Uploading…</div>
                     <div className="mt-1 text-xs text-white/55">
-                      {file?.name ?? "video"} • {Math.round(progress)}%
+                      {file?.name ?? lastKnownFileName ?? "video"} • {Math.round(progress)}%
                     </div>
                     <div className="mt-4">
                       <ProgressBar value={progress} />
@@ -1932,9 +2082,15 @@ function UploadWorkspace() {
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
                 Background processing
               </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
-                Safe to leave
-              </span>
+              {flow === "processing" || flow === "done" ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                  Safe to leave
+                </span>
+              ) : flow === "uploading" ? (
+                <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+                  Keep tab open while uploading
+                </span>
+              ) : null}
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
                 Clips show up automatically
               </span>

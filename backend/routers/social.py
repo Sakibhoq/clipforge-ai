@@ -136,6 +136,9 @@ def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
         "pages_manage_posts",
         "instagram_basic",
         "instagram_content_publish",
+        # Not required for our current Graph calls and can be restricted/trigger
+        # Meta "Invalid Scopes" until app review / advanced access is approved.
+        "business_management",
     }
     return [s for s in out if s not in blocked]
 
