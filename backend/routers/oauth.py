@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 import jwt
 import requests
+from requests import RequestException
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from passlib.context import CryptContext
@@ -106,6 +107,24 @@ ENABLED_PROVIDERS = {
     for p in (os.getenv("OAUTH_ENABLED_PROVIDERS") or "google").split(",")
     if p.strip()
 }
+
+def _safe_err_body(resp: requests.Response) -> str:
+    """
+    Best-effort extraction of an error message from OAuth providers without
+    leaking tokens. Keep this short and safe for logs/UI.
+    """
+    try:
+        data = resp.json()
+        if isinstance(data, dict):
+            # Common OAuth error shapes
+            for k in ("error_description", "error", "message", "detail"):
+                v = data.get(k)
+                if isinstance(v, str) and v.strip():
+                    return v.strip()[:500]
+        return str(data)[:500]
+    except Exception:
+        txt = (resp.text or "").strip()
+        return txt[:500]
 
 
 def _provider_conf(provider: str) -> Dict[str, object]:
@@ -334,16 +353,28 @@ def oauth_callback(
     if conf.get("pkce", True) and ctx.get("code_verifier"):
         token_data["code_verifier"] = ctx["code_verifier"]
 
-    token_resp = requests.post(
-        conf["token_url"],
-        data=token_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=20,
-    )
+    try:
+        token_resp = requests.post(
+            conf["token_url"],
+            data=token_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=20,
+        )
+    except RequestException as e:
+        # Network/DNS/TLS/timeouts. Avoid leaking secrets; just log error type.
+        print(f"[oauth] token exchange request failed provider={provider} err={type(e).__name__}")
+        raise HTTPException(status_code=502, detail="OAuth token exchange request failed")
+
     if token_resp.status_code >= 400:
+        msg = _safe_err_body(token_resp)
+        print(f"[oauth] token exchange failed provider={provider} status={token_resp.status_code} msg={msg!r}")
         raise HTTPException(status_code=400, detail="OAuth token exchange failed")
 
-    token_json = token_resp.json()
+    try:
+        token_json = token_resp.json()
+    except Exception:
+        print(f"[oauth] token exchange non-json response provider={provider} status={token_resp.status_code}")
+        raise HTTPException(status_code=502, detail="OAuth token exchange returned an invalid response")
     access_token = token_json.get("access_token")
     id_token = token_json.get("id_token")
 
@@ -359,34 +390,86 @@ def oauth_callback(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid Apple id_token")
     elif provider == "facebook":
-        userinfo_resp = requests.get(
-            conf["userinfo_url"],
-            params={"fields": "id,name,email", "access_token": access_token},
-            timeout=20,
-        )
-        userinfo = userinfo_resp.json() if userinfo_resp.status_code < 400 else {}
+        try:
+            userinfo_resp = requests.get(
+                conf["userinfo_url"],
+                params={"fields": "id,name,email", "access_token": access_token},
+                timeout=20,
+            )
+        except RequestException as e:
+            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+        if userinfo_resp.status_code >= 400:
+            msg = _safe_err_body(userinfo_resp)
+            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+        try:
+            userinfo = userinfo_resp.json()
+        except Exception:
+            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
     elif provider == "tiktok":
-        userinfo_resp = requests.get(
-            conf["userinfo_url"],
-            params={"fields": "open_id,union_id,display_name,avatar_url"},
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=20,
-        )
-        userinfo = userinfo_resp.json() if userinfo_resp.status_code < 400 else {}
+        try:
+            userinfo_resp = requests.get(
+                conf["userinfo_url"],
+                params={"fields": "open_id,union_id,display_name,avatar_url"},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=20,
+            )
+        except RequestException as e:
+            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+        if userinfo_resp.status_code >= 400:
+            msg = _safe_err_body(userinfo_resp)
+            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+        try:
+            userinfo = userinfo_resp.json()
+        except Exception:
+            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
     elif provider == "instagram":
-        userinfo_resp = requests.get(
-            conf["userinfo_url"],
-            params={"fields": "id,username", "access_token": access_token},
-            timeout=20,
-        )
-        userinfo = userinfo_resp.json() if userinfo_resp.status_code < 400 else {}
+        try:
+            userinfo_resp = requests.get(
+                conf["userinfo_url"],
+                params={"fields": "id,username", "access_token": access_token},
+                timeout=20,
+            )
+        except RequestException as e:
+            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+        if userinfo_resp.status_code >= 400:
+            msg = _safe_err_body(userinfo_resp)
+            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+        try:
+            userinfo = userinfo_resp.json()
+        except Exception:
+            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
     else:
-        userinfo_resp = requests.get(
-            conf["userinfo_url"],
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=20,
-        )
-        userinfo = userinfo_resp.json() if userinfo_resp.status_code < 400 else {}
+        try:
+            userinfo_resp = requests.get(
+                conf["userinfo_url"],
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=20,
+            )
+        except RequestException as e:
+            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+        if userinfo_resp.status_code >= 400:
+            msg = _safe_err_body(userinfo_resp)
+            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+        try:
+            userinfo = userinfo_resp.json()
+        except Exception:
+            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
 
     email = None
     if isinstance(userinfo, dict):
