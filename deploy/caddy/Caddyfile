@@ -3,11 +3,10 @@
 	# email you@orbito.cc
 }
 
-orbito.cc, www.orbito.cc {
+orbito.cc, www.orbito.cc, app.orbito.cc {
 	reverse_proxy 127.0.0.1:3000
 }
 
 api.orbito.cc {
 	reverse_proxy 127.0.0.1:8000
 }
-

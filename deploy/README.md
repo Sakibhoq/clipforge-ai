@@ -14,3 +14,5 @@ This folder contains copy-paste templates for a simple EC2 launch.
 - `deploy/caddy/Caddyfile`: Caddy template (automatic TLS)
 - `deploy/systemd/orbito-compose.service`: systemd unit template to keep Compose up on reboot
 
+Notes:
+- The templates also include `app.orbito.cc` (if you keep an `app` DNS record).
