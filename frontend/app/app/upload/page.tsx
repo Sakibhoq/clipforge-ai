@@ -44,7 +44,7 @@ type Flow =
   | "error"
   | "canceled";
 
-type JobStatus = "queued" | "running" | "done" | "failed";
+type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
 
 type PresignResponse = {
   put_url: string;
@@ -77,6 +77,21 @@ type JobRow = {
   created_at: string;
   updated_at?: string | null;
 };
+
+function isActiveJobStatus(status: JobStatus | string | null | undefined): status is "queued" | "running" {
+  return status === "queued" || status === "running";
+}
+
+function toActiveJobs(rows: JobRow[]): JobRow[] {
+  return [...rows]
+    .filter((r) => isActiveJobStatus(r.status))
+    .sort((a, b) => {
+      const aTime = Date.parse(a.created_at || "");
+      const bTime = Date.parse(b.created_at || "");
+      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+      return (b.id || 0) - (a.id || 0);
+    });
+}
 
 type MeResponse = {
   name?: string | null;
@@ -813,6 +828,7 @@ function UploadWorkspace() {
   const [jobId, setJobId] = useState<number | null>(null);
   const [clipsGenerated, setClipsGenerated] = useState(0);
   const [storageKey, setStorageKey] = useState<string | null>(null);
+  const [activeJobs, setActiveJobs] = useState<JobRow[]>([]);
 
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState<string>("");
@@ -848,15 +864,46 @@ function UploadWorkspace() {
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
   const [pulseOn, setPulseOn] = useState(false);
   const pulseTimer = useRef<number | null>(null);
-  
-  
   async function requestCancelJob(targetJobId: number) {
     try {
-    await apiFetch(`/jobs/${targetJobId}/cancel`, { method: "POST" });
-  } catch {
-    // best-effort
+      await apiFetch(`/jobs/${targetJobId}/cancel`, { method: "POST" });
+    } catch {
+      // best-effort
+    }
   }
-}
+
+  async function refreshActiveJobs(signal?: AbortSignal): Promise<JobRow[]> {
+    try {
+      const rows = await apiFetch<JobRow[]>("/jobs", { signal });
+      const active = toActiveJobs(rows);
+      setActiveJobs(active);
+      return active;
+    } catch {
+      return [];
+    }
+  }
+
+  function trackServerJob(row: JobRow) {
+    setUploadId(row.upload_id);
+    setJobId(row.id);
+    setStorageKey(null);
+    setFile(null);
+    setFlow("processing");
+    setProgress(92);
+    setStatusText(row.status === "queued" ? "Queued…" : "Processing…");
+    setClipsGenerated(Math.max(0, Number(row.clips_generated ?? 0)));
+    setUploadStartedAt(Date.now());
+    persistSession({
+      uploadId: row.upload_id,
+      jobId: row.id,
+      storageKey: null,
+      fileName: lastKnownFileName,
+      flow: "processing",
+      progress: 92,
+      startedAt: Date.now(),
+    });
+    pollJobUntilComplete(row.id).catch(() => {});
+  }
 
 
   function pulseDropzone() {
@@ -975,27 +1022,21 @@ function UploadWorkspace() {
     }
 
     const sess = loadPersistedSession();
-    if (!sess) return;
+    let resumed = false;
+    if (sess?.fileName) setLastKnownFileName(sess.fileName);
+    if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
 
-    if (sess.fileName) setLastKnownFileName(sess.fileName);
-    if (Number.isFinite(sess.startedAt)) setUploadStartedAt(sess.startedAt as number);
-
-    if (sess.jobId) {
+    if (sess?.jobId) {
+      resumed = true;
       setUploadId(sess.uploadId);
       setJobId(sess.jobId);
       setStorageKey(sess.storageKey);
-
       setFile(null);
       setFlow("processing");
       setProgress(92);
       setStatusText("Resuming…");
-
       pollJobUntilComplete(sess.jobId).catch(() => {});
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      return;
-    }
-
-    if (sess.flow === "uploading" && sess.fileName) {
+    } else if (sess?.flow === "uploading" && sess.fileName) {
       setInterruptedUpload({
         fileName: sess.fileName,
         progress: Number.isFinite(sess.progress) ? Number(sess.progress) : null,
@@ -1003,6 +1044,25 @@ function UploadWorkspace() {
       });
       clearPersistedSession();
     }
+
+    const ac = new AbortController();
+    const refresh = async () => {
+      const active = await refreshActiveJobs(ac.signal);
+      if (!resumed && active.length > 0) {
+        resumed = true;
+        trackServerJob(active[0]);
+      }
+    };
+    void refresh();
+
+    const timer = window.setInterval(() => {
+      void refreshActiveJobs();
+    }, 10000);
+
+    return () => {
+      ac.abort();
+      window.clearInterval(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1078,7 +1138,7 @@ function UploadWorkspace() {
   }
 
   async function cancelUpload() {
-   uploadAbort.current?.abort();
+    uploadAbort.current?.abort();
     pollAbort.current?.abort();
     uploadAbort.current = null;
     pollAbort.current = null;
@@ -1091,6 +1151,7 @@ function UploadWorkspace() {
 
     setStatusText("Canceled.");
     setFlow("canceled");
+    void refreshActiveJobs();
   }
 
 
@@ -1197,10 +1258,18 @@ function UploadWorkspace() {
         setProgress(100);
         setFlow("done");
         clearPersistedSession();
+        void refreshActiveJobs();
         return;
       } else if (hit.status === "failed") {
         fail("Job failed", hit.error ?? "Unknown worker error.");
         clearPersistedSession();
+        void refreshActiveJobs();
+        return;
+      } else if (hit.status === "canceled") {
+        setStatusText("Canceled.");
+        setFlow("canceled");
+        clearPersistedSession();
+        void refreshActiveJobs();
         return;
       }
 
@@ -1426,6 +1495,7 @@ function UploadWorkspace() {
       setProgress(92);
       setFlow("processing");
       setStatusText(reg.status === "queued" ? "Queued…" : "Processing…");
+      void refreshActiveJobs();
 
       await pollJobUntilComplete(reg.job_id);
     } catch (e: any) {
@@ -1538,6 +1608,7 @@ function UploadWorkspace() {
 
       setProgress(92);
       setStatusText(reg.status === "queued" ? "Queued…" : "Processing…");
+      void refreshActiveJobs();
       await pollJobUntilComplete(reg.job_id);
     } catch (e: any) {
       const msg =
@@ -1702,6 +1773,68 @@ function UploadWorkspace() {
                       >
                         Dismiss
                       </button>
+                    </div>
+                  </div>
+                ) : null}
+                {activeJobs.length > 0 ? (
+                  <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-semibold">
+                        Queue: {activeJobs.length} active job{activeJobs.length === 1 ? "" : "s"}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void refreshActiveJobs()}
+                        className="btn-ghost px-2 py-1 text-[11px]"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {activeJobs.slice(0, 4).map((j) => (
+                        <div
+                          key={j.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2 py-1.5 text-[11px]"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate text-white/85">
+                              Job {j.id} • Upload {j.upload_id}
+                            </div>
+                            <div className="text-white/55">
+                              {j.status === "queued" ? "Queued" : "Processing"}
+                              {Number.isFinite(j.clips_generated) && Number(j.clips_generated) > 0
+                                ? ` • ${j.clips_generated} clip${j.clips_generated === 1 ? "" : "s"}`
+                                : ""}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {jobId === j.id ? (
+                              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] text-white/60">
+                                Tracking
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => trackServerJob(j)}
+                                className="btn-ghost px-2 py-1 text-[10px]"
+                              >
+                                Track
+                              </button>
+                            )}
+                            <Link
+                              href={`/app/clips?upload_id=${j.upload_id}`}
+                              className="btn-ghost px-2 py-1 text-[10px]"
+                            >
+                              Open
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                      {activeJobs.length > 4 ? (
+                        <div className="text-[11px] text-white/45">
+                          +{activeJobs.length - 4} more active jobs
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
