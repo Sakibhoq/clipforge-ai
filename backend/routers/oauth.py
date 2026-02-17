@@ -68,8 +68,8 @@ PROVIDERS: Dict[str, Dict[str, object]] = {
     },
     "facebook": {
         "label": "Facebook",
-        "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
-        "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
+        "auth_url": "https://www.facebook.com/v20.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",
         "userinfo_url": "https://graph.facebook.com/me",
         # Keep login scopes minimal; some Meta app modes reject "email".
         # We can still identify users via provider id and synthesize account email if needed.
@@ -198,6 +198,19 @@ def _client_secret(provider: str) -> Optional[str]:
     return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_SECRET")
 
 
+def _facebook_config_id() -> Optional[str]:
+    v = (os.getenv("OAUTH_FACEBOOK_CONFIG_ID") or "").strip()
+    return v or None
+
+
+def _facebook_use_config_id() -> bool:
+    raw = (os.getenv("OAUTH_FACEBOOK_USE_CONFIG_ID") or "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    # default to enabled when config id exists
+    return bool(_facebook_config_id())
+
+
 def _require_provider_ready(provider: str) -> Dict[str, object]:
     conf = _provider_conf(provider)
     if not _client_id(provider) or not _client_secret(provider):
@@ -319,9 +332,11 @@ def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]
         "response_type": "code",
         "client_id": client_id,
         "redirect_uri": redirect_uri,
-        "scope": " ".join(conf.get("scopes", [])),
         "state": state,
     }
+    scopes = conf.get("scopes", [])
+    if scopes:
+        params["scope"] = " ".join(scopes)
 
     if conf.get("pkce", True):
         params["code_challenge"] = challenge
@@ -332,6 +347,14 @@ def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]
     if provider in {"google", "youtube"}:
         params["access_type"] = "offline"
         params["prompt"] = "consent"
+    if provider == "facebook" and _facebook_use_config_id():
+        config_id = _facebook_config_id()
+        if config_id:
+            # Facebook Login for Business requires config_id and uses scopes
+            # from the selected configuration.
+            params["config_id"] = config_id
+            params["override_default_response_type"] = "true"
+            params.pop("scope", None)
 
     auth_url = conf["auth_url"]
     url = f"{auth_url}?{urlencode(params)}"
