@@ -569,6 +569,7 @@ SILENCEDETECT_TIMEOUT = int(os.getenv("WORKER_SILENCEDETECT_TIMEOUT", str(max(FF
 SILENCEDETECT_MAX_SOURCE_SECONDS = float(
     os.getenv("WORKER_SILENCEDETECT_MAX_SOURCE_SECONDS", "720")  # 12 min
 )
+FFMPEG_RENDER_PRESET = os.getenv("WORKER_FFMPEG_RENDER_PRESET", "superfast").strip() or "superfast"
 
 # -----------------------------------------------------
 # Audio extraction
@@ -1161,13 +1162,13 @@ CLIP_MIN_SECONDS = float(
     os.getenv("WORKER_CLIP_MIN_SECONDS", "20.0")
 )
 CLIP_TARGET_SECONDS = float(
-    os.getenv("WORKER_CLIP_TARGET_SECONDS", "55.0")
+    os.getenv("WORKER_CLIP_TARGET_SECONDS", "40.0")
 )
 CLIP_MAX_SECONDS = float(
-    os.getenv("WORKER_CLIP_MAX_SECONDS", "65.0")
+    os.getenv("WORKER_CLIP_MAX_SECONDS", "50.0")
 )
 MIN_CLIPS_PER_MINUTE = float(
-    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.6")
+    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.4")
 )
 
 SILENCE_PADDING = float(
@@ -4372,7 +4373,7 @@ def render_clip_mp4(
             "-ac", "2",
             "-ar", "44100",
             "-pix_fmt", "yuv420p",
-            "-preset", "veryfast",
+            "-preset", FFMPEG_RENDER_PRESET,
             "-movflags", "+faststart",
             "-shortest",
             str(out_path),
@@ -4396,7 +4397,7 @@ def render_clip_mp4(
                 "-ac", "2",
                 "-ar", "44100",
                 "-pix_fmt", "yuv420p",
-                "-preset", "veryfast",
+                "-preset", FFMPEG_RENDER_PRESET,
                 "-movflags", "+faststart",
                 "-shortest",
                 str(out_path),
@@ -4418,7 +4419,7 @@ def render_clip_mp4(
                 "-ac", "2",
                 "-ar", "44100",
                 "-pix_fmt", "yuv420p",
-                "-preset", "veryfast",
+                "-preset", FFMPEG_RENDER_PRESET,
                 "-movflags", "+faststart",
                 "-shortest",
                 str(out_path),
@@ -4767,7 +4768,12 @@ def run_job(job_id: int) -> None:
         for idx, plan in enumerate(selected):
             clip_start = float(plan["start"])
             clip_end = float(plan["end"])
+            clip_dur = max(0.0, clip_end - clip_start)
             clip_t0 = time.perf_counter()
+            log(
+                f"Rendering clip {idx + 1}/{len(selected)} ({clip_dur:.1f}s)",
+                job_id=job_id,
+            )
 
             local_out = Path(f"/tmp/job_{job_id}_clip_{idx}.mp4")
             clip_path = Path(local_out)
