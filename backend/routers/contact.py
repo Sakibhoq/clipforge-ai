@@ -135,11 +135,15 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
 
     # Optional auto-reply confirmation for the user.
     try:
-        send_contact_autoreply(
+        sent = send_contact_autoreply(
             to_email=clean_email,
             name=clean_name,
             subject=clean_subject,
         )
+        if sent:
+            print(f"[contact] auto-reply sent to {clean_email}")
+        else:
+            print(f"[contact] auto-reply not sent for {clean_email}")
     except Exception as exc:
         print(f"[contact] auto-reply skipped: {type(exc).__name__}")
 

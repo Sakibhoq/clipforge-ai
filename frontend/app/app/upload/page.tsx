@@ -71,6 +71,8 @@ type RegisterResponse = {
 
 type JobRow = {
   clips_generated?: number;
+  credits_reserved?: number;
+  credits_refunded?: boolean;
   id: number;
   upload_id: number;
   status: JobStatus;
@@ -1164,6 +1166,7 @@ function UploadWorkspace() {
     setStatusText("Canceled.");
     setFlow("canceled");
     void refreshActiveJobs();
+    void refreshMeState();
   }
 
 
@@ -1271,17 +1274,27 @@ function UploadWorkspace() {
         setFlow("done");
         clearPersistedSession();
         void refreshActiveJobs();
+        void refreshMeState();
         return;
       } else if (hit.status === "failed") {
-        fail("Job failed", hit.error ?? "Unknown worker error.");
+        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
+        const refundNote = refunded
+          ? ` Credits refunded: ${Number(hit.credits_reserved)}.`
+          : "";
+        fail("Job failed", `${hit.error ?? "Unknown worker error."}${refundNote}`);
         clearPersistedSession();
         void refreshActiveJobs();
+        void refreshMeState();
         return;
       } else if (hit.status === "canceled") {
-        setStatusText("Canceled.");
+        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
+        setStatusText(
+          refunded ? `Canceled. Credits refunded: ${Number(hit.credits_reserved)}.` : "Canceled."
+        );
         setFlow("canceled");
         clearPersistedSession();
         void refreshActiveJobs();
+        void refreshMeState();
         return;
       }
 

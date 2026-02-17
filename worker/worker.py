@@ -921,7 +921,8 @@ from typing import Dict, Any, List
 # Whisper configuration
 # -----------------------------------------------------
 
-WHISPER_MODEL_NAME = os.getenv("WORKER_WHISPER_MODEL", "base")
+# Launch default tuned for faster first-clip time on modest EC2 instances.
+WHISPER_MODEL_NAME = os.getenv("WORKER_WHISPER_MODEL", "tiny")
 WHISPER_FP16 = os.getenv("WORKER_WHISPER_FP16", "0") == "1"
 
 _whisper_model = None
@@ -1882,8 +1883,8 @@ except Exception:
 # Reframing configuration
 # -----------------------------------------------------
 
-REFRAME_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_SAMPLE_FPS", "6.0"))
-REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "10.0"))
+REFRAME_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_SAMPLE_FPS", "3.0"))
+REFRAME_MAX_SAMPLE_FPS = float(os.getenv("WORKER_REFRAME_MAX_SAMPLE_FPS", "5.0"))
 REFRAME_ANALYZE_EVERY_FRAME = os.getenv("WORKER_REFRAME_ANALYZE_EVERY_FRAME", "0") == "1"
 REFRAME_MAX_KEYFRAMES = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES", "220"))
 REFRAME_MAX_KEYFRAMES_PER_CLIP = int(os.getenv("WORKER_REFRAME_MAX_KEYFRAMES_PER_CLIP", "120"))
@@ -1905,8 +1906,8 @@ REFRAME_MAX_STEP_PX = float(os.getenv("WORKER_REFRAME_MAX_STEP_PX", "72.0"))
 
 # If no faces/people detected, keep crops biased slightly above center (good for talking heads)
 FALLBACK_CENTER_BIAS_Y = float(os.getenv("WORKER_FALLBACK_CENTER_BIAS_Y", "0.58"))
-FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "1"))
-PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "3"))
+FACE_DETECT_EVERY_N = int(os.getenv("WORKER_FACE_DETECT_EVERY_N", "2"))
+PERSON_DETECT_EVERY_N = int(os.getenv("WORKER_PERSON_DETECT_EVERY_N", "4"))
 REFRAME_FACE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_FACE_DETECT_MAX_WIDTH", "640"))
 REFRAME_PEOPLE_DETECT_MAX_WIDTH = int(os.getenv("WORKER_REFRAME_PEOPLE_DETECT_MAX_WIDTH", "576"))
 

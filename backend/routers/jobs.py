@@ -50,6 +50,8 @@ def list_jobs(
             "upload_id": job.upload_id,
             "status": job.status,
             "error": job.error,
+            "credits_reserved": int(job.credits_reserved or 0),
+            "credits_refunded": bool(job.credits_refunded),
             "created_at": job.created_at,
             "updated_at": getattr(job, "updated_at", None),
         }
@@ -86,6 +88,8 @@ def get_job(
         "upload_id": job.upload_id,
         "status": job.status,
         "error": job.error,
+        "credits_reserved": int(job.credits_reserved or 0),
+        "credits_refunded": bool(job.credits_refunded),
         "created_at": job.created_at,
         "updated_at": getattr(job, "updated_at", None),
     }
@@ -119,14 +123,33 @@ def cancel_job(
             "status": job.status,
         }
 
+    refunded = 0
+    # Refund reserved credits immediately on cancel so users are not charged
+    # for jobs they explicitly canceled (queued or currently running).
+    if job.status in ("queued", "running"):
+        reserved = int(job.credits_reserved or 0)
+        already_refunded = bool(job.credits_refunded)
+        if reserved > 0 and not already_refunded:
+            # Lock user row while updating credit balance.
+            user_row = (
+                db.query(User)
+                .filter(User.id == current_user.id)
+                .with_for_update()
+                .first()
+            )
+            if user_row:
+                user_row.credits = int(user_row.credits or 0) + reserved
+                job.credits_refunded = True
+                refunded = reserved
+
     # Mark canceled
     job.status = "canceled"
     job.error = "Canceled by user"
-    job.running_stage = None
 
     db.commit()
 
     return {
         "ok": True,
         "status": "canceled",
+        "credits_refunded": refunded,
     }

@@ -93,7 +93,7 @@ def send_email(
                 server.send_message(msg)
         return True
     except Exception as exc:
-        print(f"[mailer] send failed: {type(exc).__name__}")
+        print(f"[mailer] send failed: {type(exc).__name__}: {exc}")
         return False
 
 
