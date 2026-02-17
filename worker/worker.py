@@ -1576,8 +1576,8 @@ def generate_even_timeline_plans(
 
 HOOK_CONF_THRESHOLD = float(os.getenv("WORKER_HOOK_CONF_THRESHOLD", "0.55"))
 TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "6"))
-MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "12"))
-MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "8"))
+MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "30"))
+MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "30"))
 
 def compute_clip_quality_score(
     *,
