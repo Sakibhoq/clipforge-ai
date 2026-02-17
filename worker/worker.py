@@ -1159,16 +1159,16 @@ from typing import List, Dict
 # -----------------------------------------------------
 
 CLIP_MIN_SECONDS = float(
-    os.getenv("WORKER_CLIP_MIN_SECONDS", "20.0")
+    os.getenv("WORKER_CLIP_MIN_SECONDS", "25.0")
 )
 CLIP_TARGET_SECONDS = float(
-    os.getenv("WORKER_CLIP_TARGET_SECONDS", "40.0")
+    os.getenv("WORKER_CLIP_TARGET_SECONDS", "42.0")
 )
 CLIP_MAX_SECONDS = float(
     os.getenv("WORKER_CLIP_MAX_SECONDS", "50.0")
 )
 MIN_CLIPS_PER_MINUTE = float(
-    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.4")
+    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "1.2")
 )
 
 SILENCE_PADDING = float(
@@ -1577,7 +1577,7 @@ def generate_even_timeline_plans(
 # -----------------------------------------------------
 
 HOOK_CONF_THRESHOLD = float(os.getenv("WORKER_HOOK_CONF_THRESHOLD", "0.55"))
-TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "6"))
+TOP_K_CLIPS = int(os.getenv("WORKER_TOP_K_CLIPS", "0"))
 MAX_TOP_K_CLIPS = int(os.getenv("WORKER_MAX_TOP_K_CLIPS", "30"))
 MAX_RENDER_CLIPS_PER_JOB = int(os.getenv("WORKER_MAX_RENDER_CLIPS_PER_JOB", "30"))
 
