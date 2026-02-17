@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from core.database import SessionLocal
 from models.user import User
 from routers.auth import get_current_user
+from services.mailer import send_billing_confirmation_email
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -379,5 +380,16 @@ async def stripe_webhook(
             user.last_stripe_event_id = event_id
 
         db.commit()
+
+        try:
+            send_billing_confirmation_email(
+                to_email=user.email,
+                plan=plan,
+                interval=interval,
+                credits_granted=int(grant),
+                credits_balance=int(user.credits or 0),
+            )
+        except Exception as exc:
+            print(f"[billing] confirmation email skipped: {type(exc).__name__}")
 
     return {"status": "ok"}

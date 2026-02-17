@@ -22,6 +22,7 @@ from core.config import settings
 from core.database import SessionLocal
 from models.user import User
 from routers.auth import cookie_options, create_token, set_auth_cookie
+from services.mailer import send_welcome_email
 
 router = APIRouter(prefix="/auth/oauth", tags=["auth"])
 
@@ -570,6 +571,7 @@ def oauth_callback(
 
     # Find or create user
     user = db.query(User).filter(User.email == email).first()
+    created_user = False
     if not user:
         random_pw = secrets.token_urlsafe(20)
         user = User(
@@ -582,9 +584,16 @@ def oauth_callback(
         db.add(user)
         db.commit()
         db.refresh(user)
+        created_user = True
     elif name and not getattr(user, "name", None):
         user.name = name
         db.commit()
+
+    if created_user:
+        try:
+            send_welcome_email(user.email, user.name)
+        except Exception as exc:
+            print(f"[oauth] welcome email skipped provider={provider} err={type(exc).__name__}")
 
     # Issue session cookie
     token = create_token(user.email)

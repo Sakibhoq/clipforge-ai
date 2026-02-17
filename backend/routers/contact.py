@@ -9,6 +9,7 @@ from threading import Lock
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
+from services.mailer import send_contact_autoreply
 
 router = APIRouter(prefix="/contact", tags=["contact"])
 
@@ -132,5 +133,14 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
     except Exception:
         raise HTTPException(status_code=500, detail="Could not send message right now.")
 
-    return ContactSendResponse(status="sent")
+    # Optional auto-reply confirmation for the user.
+    try:
+        send_contact_autoreply(
+            to_email=clean_email,
+            name=clean_name,
+            subject=clean_subject,
+        )
+    except Exception as exc:
+        print(f"[contact] auto-reply skipped: {type(exc).__name__}")
 
+    return ContactSendResponse(status="sent")

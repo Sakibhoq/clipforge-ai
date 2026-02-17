@@ -11,6 +11,7 @@ import jwt
 from core.database import SessionLocal
 from models.user import User
 from core.config import settings
+from services.mailer import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -310,6 +311,12 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Fire-and-forget transactional welcome email.
+    try:
+        send_welcome_email(user.email, user.name)
+    except Exception as exc:
+        print(f"[auth] welcome email skipped: {type(exc).__name__}")
 
     return {"ok": True}
 
