@@ -462,28 +462,10 @@ function RegisterPageInner() {
     minHeight: "100dvh",
     paddingTop: "env(safe-area-inset-top)",
     paddingBottom: "env(safe-area-inset-bottom)",
-    background:
-      "radial-gradient(1200px 700px at 50% 10%, rgba(255,255,255,0.06), transparent 62%), linear-gradient(180deg, #030712 0%, #020617 100%)",
   };
 
   return (
     <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
-      {/* PAGE AURORA (mobile-safe) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
-          <div className="aurora" />
-        </div>
-
-        {/* blobs: vmin positioning reduces iOS overflow edge cases */}
-        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
-        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
-
-        {/* grid: disable on small screens (can shimmer / seams on iOS) */}
-        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
-      </div>
-
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12 overflow-visible">
         <section className="surface relative overflow-visible p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
