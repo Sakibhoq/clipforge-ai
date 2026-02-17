@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, getDirectApiBase } from "@/lib/api";
+import { emitMeSync } from "@/lib/me-sync";
 
 /* =========================================================
    Orbito — Uploads (REAL)
@@ -883,6 +884,19 @@ function UploadWorkspace() {
     }
   }
 
+  async function refreshMeState() {
+    try {
+      const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+      setMe(data);
+      emitMeSync(data);
+      return data;
+    } catch {
+      setMe(null);
+      emitMeSync(null);
+      return null;
+    }
+  }
+
   function trackServerJob(row: JobRow) {
     setUploadId(row.upload_id);
     setJobId(row.id);
@@ -1010,9 +1024,7 @@ function UploadWorkspace() {
   }
 
   useEffect(() => {
-    apiFetch<MeResponse>("/auth/me")
-      .then((d) => setMe(d))
-      .catch(() => setMe(null));
+    void refreshMeState();
 
     const s = loadSettings();
     if (s) {
@@ -1481,6 +1493,7 @@ function UploadWorkspace() {
 
       setUploadId(reg.upload_id);
       setJobId(reg.job_id);
+      void refreshMeState();
 
       persistSession({
         uploadId: reg.upload_id,
@@ -1593,6 +1606,7 @@ function UploadWorkspace() {
 
       setUploadId(reg.upload_id);
       setJobId(reg.job_id);
+      void refreshMeState();
       setStorageKey(null);
       setLastKnownFileName(ytPreview?.title || normalized);
 

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
+import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
 
 type MeResponse = {
   name?: string | null;
@@ -59,9 +60,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
         if (!mounted) return;
         setMe(data);
+        emitMeSync(data);
       } catch (err: any) {
         if (!mounted) return;
         setMe(null);
+        emitMeSync(null);
         if (err?.status === 401) {
           router.replace("/login");
         }
@@ -76,6 +79,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return subscribeMeSync((payload) => {
+      setMe(payload);
+      setLoading(false);
+    });
   }, []);
 
   // Mobile polish: only handle Esc close.
@@ -105,6 +115,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
     setMobileOpen(false);
     setMe(null);
+    emitMeSync(null);
     setLoading(false);
     router.push("/login");
     router.refresh();
