@@ -71,7 +71,9 @@ PROVIDERS: Dict[str, Dict[str, object]] = {
         "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
         "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
         "userinfo_url": "https://graph.facebook.com/me",
-        "scopes": ["email", "public_profile"],
+        # Keep login scopes minimal; some Meta app modes reject "email".
+        # We can still identify users via provider id and synthesize account email if needed.
+        "scopes": ["public_profile"],
         "pkce": True,
     },
     "discord": {
