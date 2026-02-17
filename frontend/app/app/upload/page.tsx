@@ -577,11 +577,15 @@ async function uploadViaBackendProxyChunked(args: {
 
   const chunkSize = Math.max(64 * 1024, Number(init.chunk_size || 64 * 1024));
   const totalParts = Math.max(1, Math.ceil(file.size / chunkSize));
+  const parallelism = Math.max(1, Math.min(4, totalParts));
+  let nextPartIndex = 0;
+  let uploadedBytes = 0;
 
-  for (let partIndex = 0; partIndex < totalParts; partIndex++) {
+  const uploadPart = async (partIndex: number) => {
     const start = partIndex * chunkSize;
     const end = Math.min(file.size, start + chunkSize);
     const blob = file.slice(start, end);
+    const partBytes = Math.max(0, end - start);
 
     const fd = new FormData();
     fd.append("upload_id", init.upload_id);
@@ -599,11 +603,22 @@ async function uploadViaBackendProxyChunked(args: {
       }
     );
 
+    uploadedBytes += partBytes;
     if (onProgress) {
-      const pct = file.size > 0 ? (end / file.size) * 100 : ((partIndex + 1) / totalParts) * 100;
+      const pct = file.size > 0 ? (uploadedBytes / file.size) * 100 : 100;
       onProgress(Math.max(0, Math.min(100, pct)));
     }
-  }
+  };
+
+  const worker = async () => {
+    while (true) {
+      const partIndex = nextPartIndex++;
+      if (partIndex >= totalParts) return;
+      await uploadPart(partIndex);
+    }
+  };
+
+  await Promise.all(Array.from({ length: parallelism }, () => worker()));
 
   return apiFetchWithEndpointFallback<ProxyUploadResponse>(
     uploadEndpointCandidates("/storage/upload-proxy-complete"),
