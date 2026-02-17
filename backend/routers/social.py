@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import secrets
 import time
@@ -1002,9 +1003,21 @@ def _instagram_publish_reel(
     return str(pub.get("id") or container_id)
 
 
-def _tiktok_publish_video(access_token: str, title: str, description: str, video_url: str) -> str:
+def _tiktok_publish_video(access_token: str, title: str, description: str, video_path: str) -> str:
     privacy = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip() or "PUBLIC_TO_EVERYONE"
     text = (description or title or "New Orbito clip").strip()
+    video_size = int(os.path.getsize(video_path))
+    if video_size <= 0:
+        raise RuntimeError("TikTok upload failed: empty video file")
+
+    # Keep chunks small and predictable to avoid gateway timeouts on large clips.
+    default_chunk_size = 10 * 1024 * 1024
+    chunk_size = int(
+        (os.getenv("TIKTOK_UPLOAD_CHUNK_SIZE") or str(default_chunk_size)).strip() or default_chunk_size
+    )
+    chunk_size = max(256 * 1024, min(chunk_size, video_size))
+    total_chunk_count = int(math.ceil(video_size / float(chunk_size)))
+
     payload = {
         "post_info": {
             "title": text[:150],
@@ -1014,11 +1027,13 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
             "disable_stitch": False,
         },
         "source_info": {
-            "source": "PULL_FROM_URL",
-            "video_url": video_url,
+            "source": "FILE_UPLOAD",
+            "video_size": video_size,
+            "chunk_size": chunk_size,
+            "total_chunk_count": total_chunk_count,
         },
     }
-    resp = requests.post(
+    init_resp = requests.post(
         "https://open.tiktokapis.com/v2/post/publish/video/init/",
         headers={
             "Authorization": f"Bearer {access_token}",
@@ -1027,10 +1042,36 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
         json=payload,
         timeout=45,
     )
-    if resp.status_code >= 400:
-        raise RuntimeError(f"TikTok publish init failed: {resp.text[:300]}")
-    data = resp.json() if resp.text else {}
+    if init_resp.status_code >= 400:
+        raise RuntimeError(f"TikTok publish init failed: {init_resp.text[:300]}")
+    data = init_resp.json() if init_resp.text else {}
     d = data.get("data") if isinstance(data, dict) else {}
+    upload_url = str((d or {}).get("upload_url") or "").strip()
+    if not upload_url:
+        raise RuntimeError(f"TikTok publish init failed: upload_url missing ({str(data)[:220]})")
+
+    with open(video_path, "rb") as src:
+        for index in range(total_chunk_count):
+            start = index * chunk_size
+            expected_size = min(chunk_size, video_size - start)
+            end = start + expected_size - 1
+            chunk = src.read(expected_size)
+            if len(chunk) != expected_size:
+                raise RuntimeError("TikTok upload failed: unexpected EOF while reading video")
+
+            upload_resp = requests.put(
+                upload_url,
+                data=chunk,
+                headers={
+                    "Content-Type": "video/mp4",
+                    "Content-Length": str(expected_size),
+                    "Content-Range": f"bytes {start}-{end}/{video_size}",
+                },
+                timeout=180,
+            )
+            if upload_resp.status_code not in (200, 201, 204):
+                raise RuntimeError(f"TikTok upload failed: {upload_resp.text[:300]}")
+
     return str((d or {}).get("publish_id") or (d or {}).get("video_id") or "")
 
 
@@ -1248,8 +1289,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                 remote_id = _instagram_publish_reel(page_token, ig_user_id, desc, clip_url)
                 post.remote_id = remote_id
             elif post.provider == "tiktok":
-                clip_url = _absolute_storage_url(storage, post.storage_key)
-                remote_id = _tiktok_publish_video(access_token, title, desc, clip_url)
+                remote_id = _tiktok_publish_video(access_token, title, desc, tmp_path)
                 post.remote_id = remote_id
             else:
                 raise RuntimeError(f"Unsupported provider: {post.provider}")
