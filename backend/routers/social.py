@@ -1010,13 +1010,32 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
     if video_size <= 0:
         raise RuntimeError("TikTok upload failed: empty video file")
 
-    # Keep chunks small and predictable to avoid gateway timeouts on large clips.
+    # TikTok chunk rules:
+    # - <5MB must be one whole chunk (chunk_size == video_size)
+    # - chunk_size for multi-chunk should stay within [5MB, 64MB]
+    # - total_chunk_count for init must follow floor(video_size/chunk_size)
+    #   and the final uploaded chunk carries any remainder bytes.
+    min_chunk = 5 * 1024 * 1024
+    max_chunk = 64 * 1024 * 1024
     default_chunk_size = 10 * 1024 * 1024
-    chunk_size = int(
-        (os.getenv("TIKTOK_UPLOAD_CHUNK_SIZE") or str(default_chunk_size)).strip() or default_chunk_size
-    )
-    chunk_size = max(256 * 1024, min(chunk_size, video_size))
-    total_chunk_count = int(math.ceil(video_size / float(chunk_size)))
+
+    if video_size < min_chunk:
+        chunk_size = video_size
+        total_chunk_count = 1
+    elif video_size <= max_chunk:
+        chunk_size = video_size
+        total_chunk_count = 1
+    else:
+        configured_chunk = int(
+            (os.getenv("TIKTOK_UPLOAD_CHUNK_SIZE") or str(default_chunk_size)).strip() or default_chunk_size
+        )
+        chunk_size = max(min_chunk, min(configured_chunk, max_chunk))
+        total_chunk_count = max(1, int(video_size // chunk_size))
+        if total_chunk_count > 1000:
+            chunk_size = max(min_chunk, min(max_chunk, int(math.ceil(video_size / 1000.0))))
+            total_chunk_count = max(1, int(video_size // chunk_size))
+        if total_chunk_count > 1000:
+            raise RuntimeError("TikTok upload failed: video exceeds 1000-chunk limit")
 
     payload = {
         "post_info": {
@@ -1053,7 +1072,11 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
     with open(video_path, "rb") as src:
         for index in range(total_chunk_count):
             start = index * chunk_size
-            expected_size = min(chunk_size, video_size - start)
+            if index == total_chunk_count - 1:
+                # Final chunk includes all remaining bytes (may exceed chunk_size).
+                expected_size = video_size - start
+            else:
+                expected_size = chunk_size
             end = start + expected_size - 1
             chunk = src.read(expected_size)
             if len(chunk) != expected_size:
@@ -1069,7 +1092,7 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
                 },
                 timeout=180,
             )
-            if upload_resp.status_code not in (200, 201, 204):
+            if upload_resp.status_code not in (200, 201, 204, 206):
                 raise RuntimeError(f"TikTok upload failed: {upload_resp.text[:300]}")
 
     return str((d or {}).get("publish_id") or (d or {}).get("video_id") or "")
