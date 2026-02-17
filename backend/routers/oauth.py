@@ -328,9 +328,10 @@ def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]
 
     redirect_uri = _redirect_uri(request, provider)
 
+    client_id_param = str(conf.get("client_id_param", "client_id"))
     params = {
         "response_type": "code",
-        "client_id": client_id,
+        client_id_param: client_id,
         "redirect_uri": redirect_uri,
         "state": state,
     }
