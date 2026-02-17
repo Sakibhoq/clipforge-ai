@@ -577,7 +577,7 @@ async function uploadViaBackendProxyChunked(args: {
 
   const chunkSize = Math.max(64 * 1024, Number(init.chunk_size || 64 * 1024));
   const totalParts = Math.max(1, Math.ceil(file.size / chunkSize));
-  const parallelism = Math.max(1, Math.min(4, totalParts));
+  const parallelism = Math.max(1, Math.min(6, totalParts));
   let nextPartIndex = 0;
   let uploadedBytes = 0;
 

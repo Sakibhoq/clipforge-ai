@@ -31,8 +31,9 @@ ALLOWED_CONTENT_PREFIXES = ("video/",)
 
 # Optional safety limit (shared convention with your upload router)
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))  # 2GB
-# Keep each chunk safely under strict 1MB proxy defaults while reducing request count.
-UPLOAD_PROXY_CHUNK_SIZE = int(os.getenv("UPLOAD_PROXY_CHUNK_SIZE", str(512 * 1024)))  # 512KB
+# Proxy-chunk fallback default.
+# Larger chunks dramatically reduce request overhead for big files.
+UPLOAD_PROXY_CHUNK_SIZE = int(os.getenv("UPLOAD_PROXY_CHUNK_SIZE", str(5 * 1024 * 1024)))  # 5MB
 UPLOAD_PROXY_SESSION_TTL_SEC = int(os.getenv("UPLOAD_PROXY_SESSION_TTL_SEC", str(24 * 60 * 60)))
 UPLOAD_PROXY_TMP_DIR = os.getenv("UPLOAD_PROXY_TMP_DIR", "/tmp/orbito-upload-proxy")
 os.makedirs(UPLOAD_PROXY_TMP_DIR, exist_ok=True)
