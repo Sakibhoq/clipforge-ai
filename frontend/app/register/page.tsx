@@ -459,13 +459,15 @@ function RegisterPageInner() {
   }
 
   const rootStyle: React.CSSProperties = {
-    minHeight: "100svh",
+    minHeight: "100dvh",
     paddingTop: "env(safe-area-inset-top)",
     paddingBottom: "env(safe-area-inset-bottom)",
+    background:
+      "radial-gradient(1200px 700px at 50% 10%, rgba(255,255,255,0.06), transparent 62%), linear-gradient(180deg, #030712 0%, #020617 100%)",
   };
 
   return (
-    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+    <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
       {/* PAGE AURORA (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />

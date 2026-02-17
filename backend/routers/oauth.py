@@ -102,12 +102,16 @@ PROVIDERS: Dict[str, Dict[str, object]] = {
     },
 }
 
-# Limit sign-in providers (launch-safe). Default to Google-only.
+# Limit sign-in providers. If creds are present for key launch providers,
+# auto-enable them so UI doesn't get stuck on Google-only by default.
 ENABLED_PROVIDERS = {
     p.strip().lower()
     for p in (os.getenv("OAUTH_ENABLED_PROVIDERS") or "google").split(",")
     if p.strip()
 }
+for _p in ("google", "facebook", "instagram", "tiktok"):
+    if os.getenv(f"OAUTH_{_p.upper()}_CLIENT_ID") and os.getenv(f"OAUTH_{_p.upper()}_CLIENT_SECRET"):
+        ENABLED_PROVIDERS.add(_p)
 
 def _safe_err_body(resp: requests.Response) -> str:
     """
