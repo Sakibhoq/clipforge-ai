@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import re
 import secrets
 import time
 from typing import Dict, Optional
@@ -125,6 +126,53 @@ def _safe_err_body(resp: requests.Response) -> str:
     except Exception:
         txt = (resp.text or "").strip()
         return txt[:500]
+
+
+def _provider_profile(provider: str, userinfo: dict) -> dict:
+    if not isinstance(userinfo, dict):
+        return {}
+    if provider == "tiktok":
+        data = userinfo.get("data")
+        if isinstance(data, dict):
+            user = data.get("user")
+            if isinstance(user, dict):
+                return user
+        return {}
+    return userinfo
+
+
+def _provider_unique_id(provider: str, userinfo: dict) -> Optional[str]:
+    profile = _provider_profile(provider, userinfo)
+    if provider == "tiktok":
+        return profile.get("open_id") or profile.get("union_id")
+    return (
+        profile.get("sub")
+        or profile.get("id")
+        or profile.get("user_id")
+    )
+
+
+def _provider_display_name(provider: str, userinfo: dict) -> Optional[str]:
+    profile = _provider_profile(provider, userinfo)
+    name = (
+        profile.get("name")
+        or profile.get("display_name")
+        or profile.get("username")
+    )
+    if name:
+        return str(name)
+    given = profile.get("given_name")
+    family = profile.get("family_name")
+    if given or family:
+        return " ".join([p for p in [given, family] if p]).strip() or None
+    return None
+
+
+def _synthetic_oauth_email(provider: str, provider_id: str) -> str:
+    safe = re.sub(r"[^a-z0-9._-]+", "-", provider_id.lower()).strip("._-")
+    safe = (safe or "user")[:24]
+    digest = hashlib.sha1(provider_id.encode("utf-8")).hexdigest()[:10]
+    return f"{provider}_{safe}_{digest}@oauth.orbito.local"
 
 
 def _provider_conf(provider: str) -> Dict[str, object]:
@@ -472,24 +520,22 @@ def oauth_callback(
             raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
 
     email = None
-    if isinstance(userinfo, dict):
-        email = userinfo.get("email")
+    provider_id = None
     name = None
     if isinstance(userinfo, dict):
-        name = (
-            userinfo.get("name")
-            or userinfo.get("display_name")
-            or userinfo.get("username")
-        )
-        if not name:
-            given = userinfo.get("given_name")
-            family = userinfo.get("family_name")
-            if given or family:
-                name = " ".join([p for p in [given, family] if p]).strip() or None
+        email = userinfo.get("email")
+        provider_id = _provider_unique_id(provider, userinfo)
+        name = _provider_display_name(provider, userinfo)
+
+    # Some providers (notably TikTok/Instagram) do not provide email via OAuth.
+    # Use a stable synthetic email keyed by provider account id so users can still sign in.
+    if not email and provider_id:
+        email = _synthetic_oauth_email(provider, str(provider_id))
+
     if not email:
         raise HTTPException(
             status_code=400,
-            detail=f"{conf.get('label')} did not return an email. Enable email scope or use another login method.",
+            detail=f"{conf.get('label')} did not return an email or account id. Try another login method.",
         )
 
     # Find or create user

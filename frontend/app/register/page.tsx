@@ -195,14 +195,25 @@ function InstagramIcon() {
   );
 }
 
-type Provider = "google";
+type Provider = "google" | "facebook" | "instagram" | "tiktok";
+type OAuthProvidersResponse = {
+  providers?: Array<{ provider?: string; configured?: boolean }>;
+};
 
-function providerLabel(_: Provider) {
-  return "Google";
+const AUTH_PROVIDER_ORDER: Provider[] = ["google", "facebook", "instagram", "tiktok"];
+
+function providerLabel(provider: Provider) {
+  if (provider === "google") return "Google";
+  if (provider === "facebook") return "Facebook";
+  if (provider === "instagram") return "Instagram";
+  return "TikTok";
 }
 
 function ProviderIcon({ provider }: { provider: Provider }) {
   if (provider === "google") return <GoogleIcon />;
+  if (provider === "facebook") return <FacebookIcon />;
+  if (provider === "instagram") return <InstagramIcon />;
+  if (provider === "tiktok") return <TikTokIcon />;
   return null;
 }
 
@@ -333,6 +344,7 @@ function RegisterPageInner() {
   const [formError, setFormError] = useState<string | null>(null);
   const [socialBusy, setSocialBusy] = useState<Provider | null>(null);
   const [socialError, setSocialError] = useState<string | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<Provider[]>(["google"]);
 
   // mobile polish: keep focused input visible & avoid awkward jumps
   const lastFocusTsRef = useRef<number>(0);
@@ -342,6 +354,30 @@ function RegisterPageInner() {
     const e = email.trim();
     return n.length >= 2 && e.includes("@") && passwordRules(password).ok && agree && !submitting;
   }, [name, email, password, agree, submitting]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await apiFetch<OAuthProvidersResponse>("/auth/oauth/providers");
+        const configured = (data?.providers || [])
+          .filter((p) => p?.configured)
+          .map((p) => p?.provider)
+          .filter((p): p is Provider =>
+            AUTH_PROVIDER_ORDER.includes(p as Provider)
+          );
+        if (mounted && configured.length) {
+          const ordered = AUTH_PROVIDER_ORDER.filter((p) => configured.includes(p));
+          setOauthProviders(ordered);
+        }
+      } catch {
+        // Keep fallback provider list.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
 
   function onFieldFocus(target: HTMLInputElement) {
@@ -488,7 +524,7 @@ function RegisterPageInner() {
                 </p>
 
                 <div className="mt-6 text-xs text-white/55">
-                  Provider: <H>Google</H>
+                  Providers: <H>{oauthProviders.map(providerLabel).join(", ")}</H>
                 </div>
               </div>
 
@@ -499,7 +535,7 @@ function RegisterPageInner() {
 
                   <div className="relative">
                     <div className="text-sm font-semibold text-white/85">Sign up</div>
-                    <div className="mt-1 text-xs text-white/55">Choose Google or Email.</div>
+                    <div className="mt-1 text-xs text-white/55">Choose a provider or Email.</div>
 
                     {/* MODE TOGGLE */}
                     <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-1">
@@ -539,7 +575,7 @@ function RegisterPageInner() {
 
                     {mode === "social" ? (
                       <div className="mt-4 grid gap-2">
-                        {(["google"] as Provider[]).map((p) => (
+                        {oauthProviders.map((p) => (
                           <ProviderButton
                             key={p}
                             provider={p}
