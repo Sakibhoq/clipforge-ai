@@ -324,20 +324,39 @@ function errToHelpfulMessage(err: any) {
   const url = err?.url;
   const detail = err?.detail;
 
-  if (status === 401 || detail === "Not authenticated") {
-    return [
-      "Not authenticated.",
-      "",
-      "This usually means the browser did NOT store/send the cf_token cookie.",
-      "Check these in DevTools → Network:",
-      `- POST /auth/login response has Set-Cookie (cf_token)`,
-      `- Request URL for /auth/login and /auth/me are the SAME backend origin`,
-      `- Response has Access-Control-Allow-Credentials: true`,
-      `- Access-Control-Allow-Origin matches your frontend origin exactly`,
-      url ? `\nDebug: ${status ?? "ERR"} from ${url}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+  const detailStr = typeof detail === "string" ? detail.trim() : "";
+  const detailLower = detailStr.toLowerCase();
+  const urlStr = typeof url === "string" ? url : "";
+  const isProd = process.env.NODE_ENV === "production";
+
+  // Auth errors should be user-friendly (no DevTools/CORS/cookie debugging).
+  if (status === 401) {
+    if (detailLower.includes("account disabled")) {
+      return "This account is disabled. Contact support if you think this is a mistake.";
+    }
+
+    if (detailLower.includes("not authenticated")) {
+      // If login succeeded but /auth/me failed (cookie blocked), keep this simple for users.
+      if (isProd) return "Sign-in didn’t complete. Please try again.";
+
+      // Dev-only: keep some useful debugging hints.
+      return [
+        "Not authenticated.",
+        "",
+        "Dev hint: browser did not store/send the cf_token cookie.",
+        "Check these in DevTools → Network:",
+        `- POST /auth/login response has Set-Cookie (cf_token)`,
+        `- Request URL for /auth/login and /auth/me are the SAME backend origin`,
+        `- Response has Access-Control-Allow-Credentials: true`,
+        `- Access-Control-Allow-Origin matches your frontend origin exactly`,
+        urlStr ? `\nDebug: ${status ?? "ERR"} from ${urlStr}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    // Default 401 (e.g. invalid credentials)
+    return "Incorrect email or password.";
   }
 
   if (Array.isArray(detail)) {
@@ -345,7 +364,12 @@ function errToHelpfulMessage(err: any) {
     if (msgs.length) return msgs.join(" • ");
   }
 
-  if (typeof detail === "string" && detail.trim()) return detail;
+  if (detailStr) {
+    if (detailLower.includes("real email") || detailLower.includes("deliverable email")) {
+      return "Please use a real email address.";
+    }
+    return detailStr;
+  }
 
   if (typeof err?.message === "string" && err.message.trim()) {
     return [
