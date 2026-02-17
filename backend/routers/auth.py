@@ -3,14 +3,17 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+import os
 import re
 import secrets
 import time
 import jwt
 
+from email_validator import EmailNotValidError, validate_email
+
 from core.database import SessionLocal
 from models.user import User
-from core.config import settings
+from core.config import APP_ENV, settings
 from services.mailer import send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -20,6 +23,50 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 COOKIE_NAME = "cf_token"
 TOKEN_TTL_DAYS = 7
 PASSWORD_MIN_LENGTH = 8
+
+LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
+
+
+def _synthetic_email_domain() -> str:
+    raw = (os.getenv("OAUTH_SYNTHETIC_EMAIL_DOMAIN") or "oauth.orbito.example").strip().lower()
+    raw = raw.lstrip("@").strip()
+    return raw or "oauth.orbito.example"
+
+
+def _normalize_legacy_synthetic_email(email: str) -> str:
+    s = (email or "").strip()
+    legacy = f"@{LEGACY_SYNTHETIC_EMAIL_DOMAIN}"
+    if s.lower().endswith(legacy):
+        local = s[: -len(legacy)]
+        return f"{local}@{_synthetic_email_domain()}"
+    return s
+
+
+def _validate_signup_email_or_400(email: str):
+    """
+    Launch hardening: reject obvious fake/test emails on signup.
+
+    This is NOT a guarantee the mailbox exists, but it blocks common placeholders
+    and reserved/special-use domains.
+    """
+    em = (email or "").strip()
+    domain = em.rsplit("@", 1)[-1].strip().lower() if "@" in em else ""
+    if not domain:
+        raise HTTPException(status_code=400, detail="Enter a valid email address")
+
+    # Block common placeholder/reserved domains.
+    blocked_domains = {"test.com", "example.com", "example.org", "example.net"}
+    blocked_tlds = {"local", "test", "invalid", "example"}
+    tld = domain.rsplit(".", 1)[-1] if "." in domain else ""
+    if domain in blocked_domains or tld in blocked_tlds:
+        raise HTTPException(status_code=400, detail="Please use a real email address")
+
+    # In production, also require basic deliverability checks (MX/A records).
+    if APP_ENV == "production":
+        try:
+            validate_email(em, check_deliverability=True)
+        except EmailNotValidError:
+            raise HTTPException(status_code=400, detail="Please use a valid, deliverable email address")
 
 
 # =========================
@@ -279,7 +326,21 @@ def get_current_user(
     email = decode_token(token)
     user = db.query(User).filter(User.email == email).first()
     if not user:
+        normalized = _normalize_legacy_synthetic_email(email)
+        if normalized != email:
+            user = db.query(User).filter(User.email == normalized).first()
+    if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    # Back-compat: migrate legacy synthetic OAuth emails off `.local` so /auth/me
+    # (EmailStr response) and billing can work reliably.
+    migrated = _normalize_legacy_synthetic_email(getattr(user, "email", ""))
+    if migrated and migrated != getattr(user, "email", ""):
+        conflict = db.query(User).filter(User.email == migrated).first()
+        if not conflict:
+            user.email = migrated
+            db.commit()
+
     if not getattr(user, "is_active", True):
         raise HTTPException(status_code=401, detail="Account disabled")
 
@@ -293,16 +354,19 @@ def get_current_user(
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
     password = (data.password or "").strip()
     name = (data.name or "").strip() or None
+    email = str(data.email).strip()
 
     _validate_password_or_400(password)
 
-    if db.query(User).filter(User.email == data.email).first():
+    _validate_signup_email_or_400(email)
+
+    if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="User already exists")
 
     # ✅ IMPORTANT: registering does NOT grant credits
     user = User(
         name=name,
-        email=data.email,
+        email=email,
         hashed_password=pwd_context.hash(password),
         plan="free",
         credits=0,

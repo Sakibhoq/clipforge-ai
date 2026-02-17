@@ -32,6 +32,22 @@ OAUTH_CTX_COOKIE = "cf_oauth_ctx"
 OAUTH_CTX_TTL_SECONDS = 10 * 60  # 10 minutes
 PUBLIC_API_BASE = os.getenv("PUBLIC_API_BASE") or os.getenv("API_BASE_URL")
 
+LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
+
+
+def _synthetic_email_domain() -> str:
+    """
+    Domain used for synthetic OAuth emails when a provider does not return an email.
+
+    IMPORTANT:
+    - Must be accepted by `email_validator` because other endpoints (e.g. /auth/me)
+      use Pydantic EmailStr validation.
+    - Historically we used oauth.orbito.local, but `.local` is rejected as reserved.
+    """
+    raw = (os.getenv("OAUTH_SYNTHETIC_EMAIL_DOMAIN") or "oauth.orbito.example").strip().lower()
+    raw = raw.lstrip("@").strip()
+    return raw or "oauth.orbito.example"
+
 
 class OAuthStartRequest(BaseModel):
     next: Optional[str] = None
@@ -179,7 +195,7 @@ def _synthetic_oauth_email(provider: str, provider_id: str) -> str:
     safe = re.sub(r"[^a-z0-9._-]+", "-", provider_id.lower()).strip("._-")
     safe = (safe or "user")[:24]
     digest = hashlib.sha1(provider_id.encode("utf-8")).hexdigest()[:10]
-    return f"{provider}_{safe}_{digest}@oauth.orbito.local"
+    return f"{provider}_{safe}_{digest}@{_synthetic_email_domain()}"
 
 
 def _provider_conf(provider: str) -> Dict[str, object]:
@@ -570,7 +586,25 @@ def oauth_callback(
         )
 
     # Find or create user
+    email = str(email).strip()
+
+    # Back-compat: older deployments used a `.local` synthetic email domain which is
+    # rejected by `email_validator` (Pydantic EmailStr) and can break /auth/me.
+    legacy_email = None
+    synthetic_domain = _synthetic_email_domain()
+    if email.lower().endswith(f"@{synthetic_domain}"):
+        local = email[: -(len(synthetic_domain) + 1)]
+        legacy_email = f"{local}@{LEGACY_SYNTHETIC_EMAIL_DOMAIN}"
+
     user = db.query(User).filter(User.email == email).first()
+    if not user and legacy_email:
+        user = db.query(User).filter(User.email == legacy_email).first()
+        if user:
+            # Migrate to the new synthetic domain if no conflict exists.
+            conflict = db.query(User).filter(User.email == email).first()
+            if not conflict:
+                user.email = email
+                db.commit()
     created_user = False
     if not user:
         random_pw = secrets.token_urlsafe(20)
