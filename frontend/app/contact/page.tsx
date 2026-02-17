@@ -468,17 +468,19 @@ export default function ContactPage() {
   const [open, setOpen] = useState(false);
 
   const rootStyle: React.CSSProperties = {
-    minHeight: "100svh",
     paddingTop: "env(safe-area-inset-top)",
     paddingBottom: "env(safe-area-inset-bottom)",
   };
 
   return (
-    <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+    <div
+      className="relative min-h-screen min-h-[100svh] min-h-[100dvh] overflow-x-hidden [max-width:100vw]"
+      style={rootStyle}
+    >
       <Navbar />
 
       {/* PAGE-LEVEL AURORA FIELD (mobile-safe) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
         <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
