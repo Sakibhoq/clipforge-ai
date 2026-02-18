@@ -764,7 +764,7 @@ select option {
   isolation: isolate;
 
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.03);
   padding: 0.55rem 0.95rem;
   font-size: 0.875rem;
@@ -791,15 +791,15 @@ select option {
   position: absolute;
   inset: 0;
   border-radius: 16px;
-  padding: 1px;
+  padding: 2px;
   background: linear-gradient(
     90deg,
-    rgba(155, 140, 255, 0.78),
-    rgba(70, 215, 255, 0.68),
-    rgba(53, 242, 166, 0.60),
-    rgba(155, 140, 255, 0.78)
+    rgba(155, 140, 255, 0.96),
+    rgba(70, 215, 255, 0.90),
+    rgba(53, 242, 166, 0.84),
+    rgba(155, 140, 255, 0.96)
   );
-  opacity: 0.35;
+  opacity: 0.62;
 
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -840,7 +840,7 @@ select option {
 }
 
 .btn-orbito:hover::before {
-  opacity: 0.65;
+  opacity: 0.95;
 }
 
 .btn-orbito:hover::after {
@@ -852,7 +852,7 @@ select option {
 }
 
 .btn-orbito:focus-visible::before {
-  opacity: 0.8;
+  opacity: 1;
 }
 
 .btn-solid-dark {

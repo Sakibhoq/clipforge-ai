@@ -6,4 +6,9 @@ export const BRAND = {
   metaTitle: "Orbito — AI Video Clipping",
   metaDescription:
     "Orbito turns long videos into high-performing clips with smart reframing, captions, and a seamless pipeline.",
+
+  // Sister product link
+  clipforgeName: "Clipforge",
+  clipforgeProduct: "Clipforge Labs",
+  clipforgeUrl: "https://clipforge.us",
 };
