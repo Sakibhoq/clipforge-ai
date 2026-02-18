@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import os
 import smtplib
 from email.message import EmailMessage
@@ -27,19 +28,27 @@ def _support_email() -> str:
     return (os.getenv("CONTACT_TO_EMAIL") or "support@orbito.cc").strip()
 
 
+def _frontend_base_url() -> str:
+    return (os.getenv("FRONTEND_BASE_URL") or "https://orbito.cc").strip().rstrip("/")
+
+
+def _email_logo_url() -> str:
+    explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
+    if explicit:
+        return explicit
+    return f"{_frontend_base_url()}/orbito-mark.svg"
+
+
 def _default_no_reply_email() -> str:
     explicit = (os.getenv("EMAIL_FROM_EMAIL") or "").strip()
     if explicit:
         return explicit
 
-    support = _support_email()
-    if "@" in support:
-        return f"no-reply@{support.split('@', 1)[1]}"
     return "no-reply@orbito.cc"
 
 
 def _from_header() -> str:
-    name = (os.getenv("EMAIL_FROM_NAME") or "Orbito").strip()
+    name = (os.getenv("EMAIL_FROM_NAME") or "Orbito Team").strip()
     sender = _default_no_reply_email()
     if name and sender:
         return f"{name} <{sender}>"
@@ -59,6 +68,7 @@ def send_email(
     to_email: str,
     subject: str,
     text_body: str,
+    html_body: str | None = None,
     from_header: str | None = None,
     reply_to: str | None = None,
 ) -> bool:
@@ -75,6 +85,8 @@ def send_email(
     if reply_to:
         msg["Reply-To"] = reply_to.strip()
     msg.set_content((text_body or "").strip())
+    if html_body and html_body.strip():
+        msg.add_alternative(html_body.strip(), subtype="html")
 
     try:
         if cfg["use_ssl"]:
@@ -103,21 +115,78 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
 
     first = (name or "").strip().split(" ")[0] or "there"
     support = _support_email()
+    app_url = _frontend_base_url()
+    logo_url = _email_logo_url()
+
     body = "\n".join(
         [
             f"Hi {first},",
             "",
             "Welcome to Orbito.",
-            "Your account is ready. You can now upload videos, generate clips, and publish to connected platforms.",
+            "Your account is ready.",
             "",
-            "This is an automated message from an unmonitored inbox. Please do not reply to this email.",
+            "You can now:",
+            "- Upload videos",
+            "- Generate clips",
+            "- Publish to connected platforms",
+            "",
+            f"Open Orbito: {app_url}",
+            "",
+            "This is an automated message from an unmonitored inbox.",
             f"For help, contact {support}.",
         ]
     )
+
+    esc_first = html.escape(first)
+    esc_support = html.escape(support)
+    esc_app_url = html.escape(app_url, quote=True)
+    esc_logo_url = html.escape(logo_url, quote=True)
+    esc_logo_alt = html.escape("Orbito")
+
+    html_body = f"""
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f7fb;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;text-align:center;">
+                <img src="{esc_logo_url}" alt="{esc_logo_alt}" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Welcome to Orbito</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
+                Hi {esc_first},<br /><br />
+                Your account is ready. You can now upload videos, generate clips, and publish to connected platforms.
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:20px 24px 16px 24px;">
+                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Orbito</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
+                This is an automated message from an unmonitored inbox.<br />
+                For help, contact <a href="mailto:{html.escape(support, quote=True)}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+""".strip()
+
     return send_email(
         to_email=to_email,
         subject="Welcome to Orbito",
         text_body=body,
+        html_body=html_body,
         reply_to=_reply_to_email(),
     )
 
