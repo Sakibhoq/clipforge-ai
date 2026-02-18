@@ -656,6 +656,21 @@ function ClipPreview({
     whToCss(clip.width, clip.height) ??
     "9 / 16";
   const [resolvedAR, setResolvedAR] = useState(clipAR);
+  const displayAR = aspectStringToCss(clip.aspect_ratio) ?? whToCss(clip.width, clip.height) ?? resolvedAR ?? "9 / 16";
+
+  function ratioToNumber(ar: string): number {
+    const m = String(ar || "").match(/^\s*([\d.]+)\s*\/\s*([\d.]+)\s*$/);
+    if (!m) return 1;
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return 1;
+    return a / b;
+  }
+  const displayRatio = ratioToNumber(displayAR);
+  const gridFrameStyle =
+    displayRatio >= 1
+      ? { width: "100%", maxWidth: "100%", maxHeight: "100%", aspectRatio: displayAR as any }
+      : { height: "100%", maxWidth: "100%", maxHeight: "100%", aspectRatio: displayAR as any };
 
   useEffect(() => {
     setResolvedAR(clipAR);
@@ -667,25 +682,50 @@ function ClipPreview({
       : "relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] w-14";
 
   return (
-    <div className={wrapper} style={{ aspectRatio: variant === "grid" ? "1 / 1" : resolvedAR }}>
-      <video
-        src={clip.url}
-        controls={variant === "grid"}
-        muted={variant !== "grid"}
-        autoPlay={variant !== "grid" && autoPlayEnabled}
-        loop={variant !== "grid" && autoPlayEnabled}
-        playsInline
-        preload="metadata"
-        className="h-full w-full object-contain bg-black cf-video rounded-xl"
-        onLoadedMetadata={(e) => {
-          const video = e.currentTarget;
-          const vw = Number(video.videoWidth || 0);
-          const vh = Number(video.videoHeight || 0);
-          if (vw > 0 && vh > 0) {
-            setResolvedAR(`${vw} / ${vh}`);
-          }
-        }}
-      />
+    <div className={wrapper} style={{ aspectRatio: variant === "grid" ? "1 / 1" : displayAR }}>
+      {variant === "grid" ? (
+        <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black">
+          <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black" style={gridFrameStyle}>
+            <video
+              src={clip.url}
+              controls
+              muted={false}
+              autoPlay={false}
+              loop={false}
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-contain bg-black cf-video"
+              onLoadedMetadata={(e) => {
+                const video = e.currentTarget;
+                const vw = Number(video.videoWidth || 0);
+                const vh = Number(video.videoHeight || 0);
+                if (vw > 0 && vh > 0) {
+                  setResolvedAR(`${vw} / ${vh}`);
+                }
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <video
+          src={clip.url}
+          controls={false}
+          muted
+          autoPlay={autoPlayEnabled}
+          loop={autoPlayEnabled}
+          playsInline
+          preload="metadata"
+          className="h-full w-full object-contain bg-black cf-video rounded-xl"
+          onLoadedMetadata={(e) => {
+            const video = e.currentTarget;
+            const vw = Number(video.videoWidth || 0);
+            const vh = Number(video.videoHeight || 0);
+            if (vw > 0 && vh > 0) {
+              setResolvedAR(`${vw} / ${vh}`);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
