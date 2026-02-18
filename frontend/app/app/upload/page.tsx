@@ -847,6 +847,8 @@ function UploadWorkspace() {
   const [clipsGenerated, setClipsGenerated] = useState(0);
   const [storageKey, setStorageKey] = useState<string | null>(null);
   const [activeJobs, setActiveJobs] = useState<JobRow[]>([]);
+  const [jobOrdinalById, setJobOrdinalById] = useState<Record<number, number>>({});
+  const [uploadOrdinalById, setUploadOrdinalById] = useState<Record<number, number>>({});
 
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState<string>("");
@@ -893,10 +895,32 @@ function UploadWorkspace() {
   async function refreshActiveJobs(signal?: AbortSignal): Promise<JobRow[]> {
     try {
       const rows = await apiFetch<JobRow[]>("/jobs", { signal });
+      const ordered = [...rows].sort((a, b) => {
+        const at = Date.parse(a.created_at || "");
+        const bt = Date.parse(b.created_at || "");
+        if (Number.isFinite(at) && Number.isFinite(bt) && at !== bt) return at - bt;
+        return (a.id || 0) - (b.id || 0);
+      });
+      const nextJobOrd: Record<number, number> = {};
+      const nextUploadOrd: Record<number, number> = {};
+      let uploadSeq = 1;
+      const seenUploads = new Set<number>();
+      ordered.forEach((row, idx) => {
+        nextJobOrd[row.id] = idx + 1;
+        if (!seenUploads.has(row.upload_id)) {
+          seenUploads.add(row.upload_id);
+          nextUploadOrd[row.upload_id] = uploadSeq;
+          uploadSeq += 1;
+        }
+      });
+      setJobOrdinalById(nextJobOrd);
+      setUploadOrdinalById(nextUploadOrd);
       const active = toActiveJobs(rows);
       setActiveJobs(active);
       return active;
     } catch {
+      setJobOrdinalById({});
+      setUploadOrdinalById({});
       return [];
     }
   }
@@ -1840,8 +1864,12 @@ function UploadWorkspace() {
                         >
                           <div className="min-w-0">
                             <div className="truncate text-white/85">
-                              Job {j.id} • Upload {j.upload_id}
+                              {jobOrdinalById[j.id] ? `My Job #${jobOrdinalById[j.id]}` : `Job ${j.id}`} •{" "}
+                              {uploadOrdinalById[j.upload_id]
+                                ? `My Upload #${uploadOrdinalById[j.upload_id]}`
+                                : `Upload ${j.upload_id}`}
                             </div>
+                            <div className="text-white/45">ID {j.id} • Upload ID {j.upload_id}</div>
                             <div className="text-white/55">
                               {j.status === "queued" ? "Queued" : "Processing"}
                               {Number.isFinite(j.clips_generated) && Number(j.clips_generated) > 0

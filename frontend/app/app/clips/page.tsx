@@ -1324,6 +1324,27 @@ function ClipsWorkspace() {
     return out;
   }, [groups, query]);
 
+  const uploadOrdinalById = useMemo(() => {
+    const ids = Array.from(
+      new Set(
+        groups
+          .map((g) => Number(g.upload.id))
+          .filter((id) => Number.isFinite(id))
+      )
+    ).sort((a, b) => a - b);
+    const map: Record<number, number> = {};
+    ids.forEach((id, idx) => {
+      map[id] = idx + 1;
+    });
+    return map;
+  }, [groups]);
+
+  function uploadLabel(uploadIdValue: number): string {
+    const ord = uploadOrdinalById[uploadIdValue];
+    if (ord) return `My Upload #${ord}`;
+    return `Upload #${uploadIdValue}`;
+  }
+
   // Visible clips (focused mode)
   const visibleClips = useMemo(() => {
     let out = [...clips];
@@ -1382,7 +1403,15 @@ function ClipsWorkspace() {
             <div className="mt-2 max-w-2xl text-sm text-white/65">
               {focused ? (
                 <>
-                  Showing clips from <span className="text-white/85 font-semibold">upload_id={uploadId}</span>.
+                  Showing clips from{" "}
+                  <span className="text-white/85 font-semibold">
+                    {uploadId && Number.isFinite(uploadId)
+                      ? uploadOrdinalById[uploadId]
+                        ? `${uploadLabel(uploadId)} (ID ${uploadId})`
+                        : `Upload ID ${uploadId}`
+                      : "selected upload"}
+                  </span>
+                  .
                 </>
               ) : (
                 <>All clips grouped by upload. Newest uploads show first.</>
@@ -1571,7 +1600,10 @@ function ClipsWorkspace() {
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] font-semibold text-white/75">
                         <Icon name="folder" />
-                        Upload #{g.upload.id}
+                        {uploadLabel(g.upload.id)}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/45">
+                        ID {g.upload.id}
                       </span>
                       <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/60">
                         {clipCount} clip(s)
