@@ -1,0 +1,16 @@
+# Frontend build context should stay tiny.
+# Never send local build outputs or dependencies to Docker.
+
+node_modules
+.next
+.turbo
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.env*
+
+.DS_Store

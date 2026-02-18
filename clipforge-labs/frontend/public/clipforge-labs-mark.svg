@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="g" x1="8" y1="10" x2="56" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB703"/>
+      <stop offset="0.52" stop-color="#FB5607"/>
+      <stop offset="1" stop-color="#3A86FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#g)"/>
+
+  <!-- Film frame -->
+  <rect x="16" y="19" width="32" height="26" rx="7" fill="#0B0B10" opacity="0.92"/>
+
+  <!-- Sprockets (stylized) -->
+  <rect x="18.5" y="23" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+  <rect x="18.5" y="30.5" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+  <rect x="18.5" y="38" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+  <rect x="42.5" y="23" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+  <rect x="42.5" y="30.5" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+  <rect x="42.5" y="38" width="3" height="3" rx="1" fill="#FFFFFF" opacity="0.16"/>
+
+  <!-- Play -->
+  <path d="M29 26.4L40.6 32 29 37.6V26.4Z" fill="#FFFFFF" opacity="0.88"/>
+
+  <!-- Small spark -->
+  <path d="M49.6 12.8l1 2.8 2.8 1-2.8 1-1 2.8-1-2.8-2.8-1 2.8-1 1-2.8Z" fill="#FFFFFF" opacity="0.22"/>
+</svg>

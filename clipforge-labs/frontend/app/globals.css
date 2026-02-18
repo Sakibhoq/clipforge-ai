@@ -1,0 +1,1136 @@
+@import "tailwindcss";
+
+/* =========================================================
+   Clipforge Labs System UI — globals.css
+   Cinematic dark UI (light-leaks + film grain + crisp surfaces)
+========================================================= */
+
+/* -----------------------------
+   Base
+----------------------------- */
+:root {
+  color-scheme: dark;
+  --bg: #06060b; /* graphite */
+  --text: rgb(248 250 252);
+  --muted: rgba(248, 250, 252, 0.68);
+
+  --line: rgba(255, 255, 255, 0.10);
+  --line-2: rgba(255, 255, 255, 0.14);
+
+  --glass: rgba(255, 255, 255, 0.04);
+  --glass-2: rgba(255, 255, 255, 0.02);
+
+  --shadow: 0 22px 90px rgba(0, 0, 0, 0.62);
+  --shadow-soft: 0 14px 48px rgba(0, 0, 0, 0.50);
+
+  --r-xl: 20px;
+  --r-lg: 16px;
+  --r-md: 14px;
+  --r-sm: 12px;
+
+  /* Accent palette: gold -> orange -> electric blue */
+  --a: rgba(255, 183, 3, 1);
+  --b: rgba(251, 86, 7, 1);
+  --c: rgba(58, 134, 255, 1);
+
+  --a-soft: rgba(255, 183, 3, 0.18);
+  --b-soft: rgba(251, 86, 7, 0.16);
+  --c-soft: rgba(58, 134, 255, 0.16);
+
+  /* Button-border lighting (same family as aurora, slightly darker) */
+  --btn-a: rgba(255, 183, 3, 0.44);
+  --btn-b: rgba(251, 86, 7, 0.42);
+  --btn-c: rgba(58, 134, 255, 0.38);
+
+  --btn-a-dim: rgba(255, 183, 3, 0.12);
+  --btn-b-dim: rgba(251, 86, 7, 0.11);
+  --btn-c-dim: rgba(58, 134, 255, 0.11);
+
+  /* Safe-area helpers (iOS notch) */
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+/* IMPORTANT:
+   Avoid "inner scrollbar" + half-scroll bugs:
+   - Do NOT force html/body to height:100%
+   - Do NOT set body overflow-y:auto/hidden
+   Let the browser viewport handle scrolling naturally.
+*/
+html {
+  height: auto;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Prevent sideways scroll from fixed/blur layers */
+  overflow-x: hidden;
+
+  /* ✅ allow normal page scroll (fixes "scroll starts under navbar" + half-scroll) */
+  overflow-y: visible;
+
+  /* iOS viewport correctness */
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+
+  /* iOS smooth scroll */
+  -webkit-overflow-scrolling: touch;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile performance / Safari polish */
+@media (max-width: 640px) {
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl,
+  .blur-lg {
+    filter: none !important;
+  }
+
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* iOS Safari (all sizes): reduce expensive filters + fix viewport fill */
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    min-height: -webkit-fill-available;
+  }
+
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl,
+  .blur-lg {
+    filter: none !important;
+  }
+
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Better defaults for media on mobile */
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+code,
+pre,
+kbd,
+samp,
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Selection */
+::selection {
+  background: rgba(251, 86, 7, 0.24);
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* -----------------------------
+   Mobile polish utilities
+   (Use these in components when needed)
+----------------------------- */
+
+/* Safe-area padding helpers */
+.safe-x {
+  padding-left: max(0px, var(--sal));
+  padding-right: max(0px, var(--sar));
+}
+.safe-top {
+  padding-top: max(0px, var(--sat));
+}
+.safe-bottom {
+  padding-bottom: max(0px, var(--sab));
+}
+
+/* Viewport height helpers (avoid iOS address bar issues) */
+.vh-safe {
+  min-height: 100svh; /* stable viewport height */
+  min-height: 100dvh; /* dynamic viewport height */
+}
+
+/* Prevent iOS “double-tap to zoom” vibes on buttons/links */
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* iOS: prevent input focus zoom (Safari zooms if font-size < 16px) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Dark selects (Safari/Chrome option menus can default to white otherwise) */
+select {
+  color-scheme: dark;
+}
+select option {
+  background: #0b0b10;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Keep your input styling (you already use .field) */
+.field {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.7rem 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+
+.field::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.field:focus {
+  border-color: rgba(58, 134, 255, 0.26);
+  box-shadow: 0 0 0 4px rgba(58, 134, 255, 0.14);
+}
+
+/* -----------------------------
+   Smooth animated site background (NO GRID, NO SEAMS)
+   Apply .bg-system to body wrapper (you already do).
+----------------------------- */
+.bg-system {
+  position: relative;
+  background: var(--bg);
+}
+
+/* Animated color wash (fixed so it never “cuts” mid-page) */
+.bg-system::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: -2;
+
+  background:
+    radial-gradient(1100px 700px at 50% 8%, rgba(255, 255, 255, 0.07), transparent 60%),
+    radial-gradient(950px 640px at 10% 40%, rgba(255, 183, 3, 0.15), transparent 62%),
+    radial-gradient(900px 620px at 88% 46%, rgba(58, 134, 255, 0.14), transparent 64%),
+    radial-gradient(980px 700px at 52% 92%, rgba(251, 86, 7, 0.12), transparent 64%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.92));
+
+  filter: blur(44px);
+  opacity: 0.85;
+  transform: translateZ(0);
+
+  animation: bgHue 16s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+@keyframes bgHue {
+  0% {
+    transform: translate3d(-1%, -1%, 0) scale(1.04);
+    filter: blur(44px);
+  }
+  50% {
+    transform: translate3d(1.2%, 0.7%, 0) scale(1.07);
+    filter: blur(46px);
+  }
+  100% {
+    transform: translate3d(-1%, -1%, 0) scale(1.04);
+    filter: blur(44px);
+  }
+}
+
+/* Vignette + tiny film grain (subtle, also fixed = no seams) */
+.bg-system::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+
+  background:
+    radial-gradient(1200px 700px at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.62) 100%),
+    radial-gradient(900px 450px at 50% 0%, rgba(255, 255, 255, 0.04), transparent 60%),
+    radial-gradient(900px 450px at 50% 100%, rgba(0, 0, 0, 0.25), transparent 55%),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.028) 0px,
+      rgba(255, 255, 255, 0.028) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+
+  opacity: 0.92;
+}
+
+/* OPTIONAL: if you ever want the grid back, use this class on a wrapper */
+.bg-grid {
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 84px
+    );
+}
+
+/* -----------------------------
+   Animated aurora (LOCAL USE ONLY)
+----------------------------- */
+.aurora {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  filter: blur(42px);
+  opacity: 0.75;
+  transform: translateZ(0);
+}
+
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(closest-side, rgba(255, 183, 3, 0.20), transparent 60%),
+    radial-gradient(closest-side, rgba(251, 86, 7, 0.16), transparent 60%),
+    radial-gradient(closest-side, rgba(58, 134, 255, 0.16), transparent 60%);
+  animation: auroraShift 10s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+.aurora::after {
+  opacity: 0.75;
+  animation-duration: 14s;
+  animation-direction: reverse;
+}
+
+@keyframes auroraShift {
+  0% {
+    transform: translate3d(-4%, -3%, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(4%, 2%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-4%, -3%, 0) scale(1.05);
+  }
+}
+
+@keyframes labGlow {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(2%, -1%, 0) scale(1.05);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.8;
+  }
+}
+
+/* Small floating blobs (optional) */
+.blob {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(28px);
+  opacity: 0.55;
+  transform: translateZ(0);
+  animation: blobFloat 11s ease-in-out infinite;
+}
+.blob.b2 {
+  animation-duration: 15s;
+  animation-direction: reverse;
+  opacity: 0.45;
+}
+.blob.b3 {
+  animation-duration: 18s;
+  opacity: 0.35;
+}
+
+@keyframes blobFloat {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(18px, -12px, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+}
+
+/* -----------------------------
+   Gradient text
+----------------------------- */
+.grad-text {
+  background: linear-gradient(90deg, var(--a), var(--b), var(--c));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grad-text-soft {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 183, 3, 0.95),
+    rgba(251, 86, 7, 0.95),
+    rgba(58, 134, 255, 0.95)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* -----------------------------
+   Cards / surfaces
+----------------------------- */
+.surface {
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(900px 300px at 14% 0%, rgba(255, 183, 3, 0.10), transparent 62%),
+    radial-gradient(900px 320px at 112% 10%, rgba(58, 134, 255, 0.09), transparent 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), var(--shadow);
+}
+
+.surface-soft {
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
+.surface-inset {
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    radial-gradient(800px 260px at 22% 0%, rgba(255, 183, 3, 0.08), transparent 62%),
+    radial-gradient(760px 260px at 88% 0%, rgba(251, 86, 7, 0.06), transparent 66%),
+    rgba(255, 255, 255, 0.02);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--shadow-soft);
+}
+
+.hairline {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.divider {
+  height: 1px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* Glass highlight sweep */
+.sweep {
+  position: relative;
+  overflow: hidden;
+}
+.sweep::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.08), transparent 60%);
+  transform: translate3d(-18%, -12%, 0);
+  pointer-events: none;
+}
+
+/* -----------------------------
+   Pills / chips
+----------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 183, 3, 0.95);
+  box-shadow: 0 0 18px rgba(255, 183, 3, 0.32);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* -----------------------------
+   Animated icon / accent
+----------------------------- */
+@keyframes iconHue {
+  0% {
+    filter: saturate(1.05) brightness(1);
+  }
+  50% {
+    filter: saturate(1.25) brightness(1.08);
+  }
+  100% {
+    filter: saturate(1.05) brightness(1);
+  }
+}
+
+.icon-aurora {
+  display: inline-flex;
+  animation: iconHue 6.5s ease-in-out infinite;
+}
+
+.icon-aurora svg {
+  filter: drop-shadow(0 0 10px rgba(58, 134, 255, 0.20));
+}
+
+.icon-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.icon-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: conic-gradient(from 180deg, var(--a), var(--b), var(--c), var(--a));
+  filter: blur(10px);
+  opacity: 0.85;
+  animation: spinGlow 3.5s linear infinite;
+  z-index: 0;
+}
+
+.icon-ring > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes spinGlow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* -----------------------------
+   Animated CTA buttons (CLEANED)
+   btn-aurora = WHITE button with moving stripe border (your reference)
+----------------------------- */
+.btn-aurora {
+  position: relative;
+  isolation: isolate;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  border-radius: 16px;
+  padding: 0.75rem 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+
+  background: rgba(12, 13, 18, 0.72);
+  color: rgba(255, 255, 255, 0.92);
+
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.58);
+  overflow: hidden;
+  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+}
+
+/* moving stripe border (NOT spinning) */
+.btn-aurora::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+
+  /* border thickness */
+  padding: 3px;
+
+  /* stripe bands — matched to aurora palette + darker */
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    var(--btn-a) 16%,
+    var(--btn-b) 36%,
+    var(--btn-c) 54%,
+    var(--btn-b) 72%,
+    var(--btn-a) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+
+  background-size: 240% 100%;
+  background-position: 0% 50%;
+  animation: auroraBorderSlide 2.9s linear infinite;
+
+  /* cut out center so only border shows */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  pointer-events: none;
+  z-index: 0;
+
+  /* slightly darker border glow */
+  filter: drop-shadow(0 0 12px rgba(58, 134, 255, 0.16))
+    drop-shadow(0 0 16px rgba(251, 86, 7, 0.10));
+  opacity: 0.95;
+}
+
+/* subtle inner tint to better match page aurora */
+.btn-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 15px;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(140px 90px at 35% 45%, var(--btn-a-dim), transparent 70%),
+    radial-gradient(140px 90px at 70% 55%, var(--btn-c-dim), transparent 72%);
+  opacity: 0.55;
+}
+
+/* ensure content stays above */
+.btn-aurora > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-aurora:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.62);
+  filter: saturate(1.02);
+}
+
+.btn-aurora:active {
+  transform: translateY(0px);
+}
+
+@keyframes auroraBorderSlide {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 240% 50%;
+  }
+}
+
+/* -----------------------------
+   Secondary buttons
+----------------------------- */
+.btn-ghost {
+  position: relative;
+  isolation: isolate;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.55rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: rgba(255, 255, 255, 0.85);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  overflow: hidden;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+/* aurora border hint on hover/focus */
+.btn-ghost::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(90deg, var(--btn-a), var(--btn-b), var(--btn-c), var(--btn-a));
+  opacity: 0;
+  transition: opacity 180ms ease;
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(0.2px);
+}
+
+.btn-ghost > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.btn-ghost:hover::before {
+  opacity: 0.52;
+}
+
+.btn-ghost:active {
+  transform: translateY(0px);
+}
+.btn-ghost:focus-visible::before {
+  opacity: 0.65;
+}
+
+/* -----------------------------
+   Sister brand button (Orbito)
+----------------------------- */
+.btn-orbito {
+  position: relative;
+  isolation: isolate;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.55rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.92);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  overflow: hidden;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.btn-orbito::before {
+  /* Orbito gradient border (purple -> cyan -> mint) */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(155, 140, 255, 0.78),
+    rgba(70, 215, 255, 0.68),
+    rgba(53, 242, 166, 0.60),
+    rgba(155, 140, 255, 0.78)
+  );
+  opacity: 0.35;
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+.btn-orbito::after {
+  /* Soft Orbito tint fill */
+  content: "";
+  position: absolute;
+  inset: -35%;
+  background:
+    radial-gradient(140px 90px at 25% 35%, rgba(155, 140, 255, 0.22), transparent 70%),
+    radial-gradient(160px 110px at 70% 45%, rgba(70, 215, 255, 0.18), transparent 72%),
+    radial-gradient(170px 120px at 55% 80%, rgba(53, 242, 166, 0.14), transparent 72%);
+  opacity: 0.35;
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 180ms ease;
+}
+
+.btn-orbito > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-orbito:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+}
+
+.btn-orbito:hover::before {
+  opacity: 0.65;
+}
+
+.btn-orbito:hover::after {
+  opacity: 0.5;
+}
+
+.btn-orbito:active {
+  transform: translateY(0px);
+}
+
+.btn-orbito:focus-visible::before {
+  opacity: 0.8;
+}
+
+.btn-solid-dark {
+  position: relative;
+  isolation: isolate;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 13, 18, 0.78);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0.65rem 1rem;
+  font-weight: 650;
+
+  overflow: hidden;
+  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+/* subtle aurora edge for dark solid */
+.btn-solid-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(90deg, var(--btn-a), var(--btn-b), var(--btn-c), var(--btn-a));
+  opacity: 0;
+  transition: opacity 180ms ease;
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+.btn-solid-dark > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-solid-dark:hover {
+  background: rgba(15, 18, 26, 0.88);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.btn-solid-dark:hover::before {
+  opacity: 0.42;
+}
+
+.btn-solid-dark:active {
+  transform: translateY(0px);
+}
+
+/* -----------------------------
+   Reveal
+----------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  filter: blur(4px);
+  transition: opacity 700ms ease, transform 700ms ease, filter 700ms ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* -----------------------------
+   Pricing accordion
+----------------------------- */
+.benefits {
+  overflow: hidden;
+  max-height: 0px;
+  transition: max-height 450ms ease;
+}
+.benefits.open {
+  max-height: 520px;
+}
+
+/* Checklist UI */
+.checklist {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.5rem;
+}
+
+.check-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 0.55rem;
+  color: rgba(255, 255, 255, 0.80);
+  font-size: 0.9rem;
+  line-height: 1.25rem;
+}
+
+.check {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  place-items: center;
+}
+
+.check svg {
+  opacity: 0.9;
+}
+
+.note {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.85rem;
+}
+
+/* -----------------------------
+   Toggle
+----------------------------- */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.25rem;
+}
+
+.toggle button {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 650;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.toggle button.active {
+  background: rgba(255, 255, 255, 0.92);
+  color: rgba(11, 15, 20, 0.95);
+}
+
+.toggle .tag {
+  margin-left: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 750;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* -----------------------------
+   Slider
+----------------------------- */
+.sliderWrap {
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.75rem 0.85rem;
+}
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sliderLabel {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+
+.sliderValue {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+}
+
+input[type="range"].slider {
+  width: 100%;
+  accent-color: rgba(255, 255, 255, 0.92);
+}
+
+/* -----------------------------
+   Footer
+----------------------------- */
+.footerText {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.85rem;
+}
+
+/* -----------------------------
+   Scrollbar
+   Subtle, but visible (browser viewport scroll).
+----------------------------- */
+body::-webkit-scrollbar {
+  width: 8px;
+}
+body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.015);
+}
+body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+/* =========================================
+   Clipforge Labs — Single scrollbar guard (NO inner scroll)
+   Put this at the VERY BOTTOM of globals.css
+========================================= */
+
+html,
+body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: auto !important;   /* browser scrollbar */
+  overflow-x: hidden !important;
+}
+
+/* Prevent Next root wrappers from becoming scroll containers */
+body > div,
+#__next,
+main {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* -----------------------------
+   Pricing emphasis
+----------------------------- */
+.creator-highlight {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 30px 120px rgba(0, 0, 0, 0.55),
+    0 0 90px rgba(255, 183, 3, 0.12),
+    0 0 120px rgba(58, 134, 255, 0.10);
+}
+
+.price-glow {
+  display: inline-block;
+  background: linear-gradient(90deg, #ffb703 0%, #fb5607 50%, #3a86ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 0 18px rgba(255, 183, 3, 0.40),
+    0 0 44px rgba(251, 86, 7, 0.26),
+    0 0 56px rgba(58, 134, 255, 0.22);
+  animation: pricePulse 2.2s ease-in-out infinite;
+}
+
+@keyframes pricePulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    text-shadow:
+      0 0 16px rgba(255, 183, 3, 0.32),
+      0 0 40px rgba(58, 134, 255, 0.18);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.02);
+    text-shadow:
+      0 0 24px rgba(255, 183, 3, 0.52),
+      0 0 52px rgba(251, 86, 7, 0.30),
+      0 0 62px rgba(58, 134, 255, 0.28);
+  }
+}

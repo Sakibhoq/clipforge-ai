@@ -1,0 +1,93 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+    ports:
+      - "3100:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      SECRET_KEY: "${SECRET_KEY:-}"
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////data/app.db}"
+      FRONTEND_ORIGIN: "${FRONTEND_ORIGIN:-http://localhost:3100}"
+      PUBLIC_API_BASE: "${PUBLIC_API_BASE:-}"
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
+
+      # Storage
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "/data/storage"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-}"
+
+      # Social + OAuth
+      SOCIAL_DISPATCH_ENABLED: "${SOCIAL_DISPATCH_ENABLED:-0}"
+      AUTOPOST_PROVIDERS: "${AUTOPOST_PROVIDERS:-youtube,tiktok,instagram,facebook}"
+
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:3100}"
+
+      OAUTH_ENABLED_PROVIDERS: "${OAUTH_ENABLED_PROVIDERS:-google}"
+      OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"
+      OAUTH_GOOGLE_CLIENT_SECRET: "${OAUTH_GOOGLE_CLIENT_SECRET:-}"
+      OAUTH_TIKTOK_CLIENT_ID: "${OAUTH_TIKTOK_CLIENT_ID:-}"
+      OAUTH_TIKTOK_CLIENT_SECRET: "${OAUTH_TIKTOK_CLIENT_SECRET:-}"
+      OAUTH_FACEBOOK_CLIENT_ID: "${OAUTH_FACEBOOK_CLIENT_ID:-}"
+      OAUTH_FACEBOOK_CLIENT_SECRET: "${OAUTH_FACEBOOK_CLIENT_SECRET:-}"
+      OAUTH_FACEBOOK_CONFIG_ID: "${OAUTH_FACEBOOK_CONFIG_ID:-}"
+      OAUTH_INSTAGRAM_CLIENT_ID: "${OAUTH_INSTAGRAM_CLIENT_ID:-}"
+      OAUTH_INSTAGRAM_CLIENT_SECRET: "${OAUTH_INSTAGRAM_CLIENT_SECRET:-}"
+      OAUTH_INSTAGRAM_CONFIG_ID: "${OAUTH_INSTAGRAM_CONFIG_ID:-}"
+      OAUTH_META_REQUEST_PUBLISH_SCOPES: "${OAUTH_META_REQUEST_PUBLISH_SCOPES:-0}"
+
+      # Email (optional)
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_USE_TLS: "${SMTP_USE_TLS:-1}"
+      SMTP_USE_SSL: "${SMTP_USE_SSL:-0}"
+      CONTACT_TO_EMAIL: "${CONTACT_TO_EMAIL:-support@clipforge.us}"
+      EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-Clipforge Labs}"
+      EMAIL_FROM_EMAIL: "${EMAIL_FROM_EMAIL:-no-reply@clipforge.us}"
+      EMAIL_REPLY_TO: "${EMAIL_REPLY_TO:-support@clipforge.us}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/ready', timeout=3).raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  worker:
+    build: ./worker
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./data:/data
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
+    environment:
+      PYTHONFAULTHANDLER: "1"
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////data/app.db}"
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "/data/storage"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-}"
+      WORKER_BRAND_TEXT: "${WORKER_BRAND_TEXT:-Clipforge Labs}"
+    restart: unless-stopped
+

@@ -1,0 +1,12 @@
+{
+	# Optional: set an email for Let's Encrypt
+	# email you@clipforge.us
+}
+
+clipforge.us, www.clipforge.us, app.clipforge.us {
+	reverse_proxy 127.0.0.1:3100
+}
+
+api.clipforge.us {
+	reverse_proxy 127.0.0.1:8100
+}

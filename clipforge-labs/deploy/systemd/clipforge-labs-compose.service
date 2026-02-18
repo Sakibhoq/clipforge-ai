@@ -1,0 +1,15 @@
+[Unit]
+Description=Clipforge Labs (docker compose)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/clipforge-labs
+ExecStart=/bin/sh -lc 'if docker compose version >/dev/null 2>&1; then docker compose -f docker-compose.prod.yml up -d --build; else docker-compose -f docker-compose.prod.yml up -d --build; fi'
+ExecStop=/bin/sh -lc 'if docker compose version >/dev/null 2>&1; then docker compose -f docker-compose.prod.yml down; else docker-compose -f docker-compose.prod.yml down; fi'
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
