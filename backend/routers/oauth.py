@@ -208,10 +208,17 @@ def _provider_conf(provider: str) -> Dict[str, object]:
 
 
 def _client_id(provider: str) -> Optional[str]:
+    # Meta often requires a separate "consumer" app (Facebook Login) for auth,
+    # while a "business" app is used for publishing scopes in /social/connect.
+    # Support separate creds so auth login doesn't break publishing integration.
+    if provider == "facebook":
+        return os.getenv("OAUTH_FACEBOOK_LOGIN_CLIENT_ID") or os.getenv("OAUTH_FACEBOOK_CLIENT_ID")
     return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_ID")
 
 
 def _client_secret(provider: str) -> Optional[str]:
+    if provider == "facebook":
+        return os.getenv("OAUTH_FACEBOOK_LOGIN_CLIENT_SECRET") or os.getenv("OAUTH_FACEBOOK_CLIENT_SECRET")
     return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_SECRET")
 
 
