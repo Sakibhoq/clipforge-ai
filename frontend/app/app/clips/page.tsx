@@ -2999,7 +2999,7 @@ function ScheduleForm({
           </span>
         </div>
         <textarea
-          className="mt-2 min-h-[110px] resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
+          className="mt-2 w-full min-h-[110px] resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
           value={caption}
           onChange={(e) => onCaptionChange(e.target.value)}
           placeholder="Write a clear caption for this clip"
