@@ -3,7 +3,8 @@
 
 import React, { useEffect, useState } from "react";
 
-const STORAGE_KEY = "clipforge_dev_notice_dismissed_v1";
+// Bump version to re-show after deploy if someone dismissed the previous notice.
+const STORAGE_KEY = "clipforge_dev_notice_dismissed_v2";
 
 export default function DevNotice() {
   const [open, setOpen] = useState(false);
@@ -71,4 +72,3 @@ export default function DevNotice() {
     </div>
   );
 }
-

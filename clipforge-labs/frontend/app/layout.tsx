@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import DevNotice from "@/components/DevNotice";
 
 // bump when you want browsers to re-fetch the favicon (they can be aggressively cached)
 const ICON_V = "cflabs-2";
@@ -43,7 +44,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fontSans.variable} ${fontMono.variable}`} suppressHydrationWarning>
-      <body className="bg-system text-white antialiased">{children}</body>
+      <body className="bg-system text-white antialiased">
+        <DevNotice />
+        {children}
+      </body>
     </html>
   );
 }
