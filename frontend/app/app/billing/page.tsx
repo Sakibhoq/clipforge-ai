@@ -413,9 +413,9 @@ function CreditsCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <button type="button" onClick={onBuy} className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
+        <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           Buy credits
-        </button>
+        </Link>
         <Link href="/app/upload" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           New upload
         </Link>

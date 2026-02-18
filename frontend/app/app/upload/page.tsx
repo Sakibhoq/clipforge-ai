@@ -1748,7 +1748,7 @@ function UploadWorkspace() {
               >
                 Go to clips
               </Link>
-              <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
+              <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
                 Buy credits
               </Link>
             </div>
@@ -2004,7 +2004,7 @@ function UploadWorkspace() {
                       onReset={resetFileFlow}
                       cta={
                         isInsufficientCreditsError({ message: errorDetail || "" }) ? (
-                          <Link href="/app/billing" className="btn-ghost px-4 py-2 text-[12px]">
+                          <Link href="/pricing" className="btn-ghost px-4 py-2 text-[12px]">
                             Buy credits
                           </Link>
                         ) : null
