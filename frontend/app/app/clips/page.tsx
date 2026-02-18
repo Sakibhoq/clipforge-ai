@@ -651,10 +651,15 @@ function ClipPreview({
   variant: "grid" | "thumb";
   autoPlayEnabled: boolean;
 }) {
-  const cssAR =
+  const clipAR =
     aspectStringToCss(clip.aspect_ratio) ??
     whToCss(clip.width, clip.height) ??
     "9 / 16";
+  const [resolvedAR, setResolvedAR] = useState(clipAR);
+
+  useEffect(() => {
+    setResolvedAR(clipAR);
+  }, [clip.url, clipAR]);
 
   const wrapper =
     variant === "grid"
@@ -662,7 +667,7 @@ function ClipPreview({
       : "relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] w-14";
 
   return (
-    <div className={wrapper} style={{ aspectRatio: cssAR }}>
+    <div className={wrapper} style={{ aspectRatio: variant === "grid" ? "1 / 1" : resolvedAR }}>
       <video
         src={clip.url}
         controls={variant === "grid"}
@@ -672,6 +677,14 @@ function ClipPreview({
         playsInline
         preload="metadata"
         className="h-full w-full object-contain bg-black cf-video rounded-xl"
+        onLoadedMetadata={(e) => {
+          const video = e.currentTarget;
+          const vw = Number(video.videoWidth || 0);
+          const vh = Number(video.videoHeight || 0);
+          if (vw > 0 && vh > 0) {
+            setResolvedAR(`${vw} / ${vh}`);
+          }
+        }}
       />
     </div>
   );
