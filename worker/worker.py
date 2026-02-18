@@ -1747,7 +1747,30 @@ TITLE_STOPWORDS = {
     "of", "on", "or", "our", "ours", "out", "so", "that", "the", "their",
     "them", "there", "they", "this", "to", "too", "up", "was", "we", "were",
     "what", "when", "where", "which", "who", "why", "with", "you", "your",
+    "okay", "ok", "yeah", "really", "actually", "gonna", "wanna", "kind",
+    "sort", "maybe", "thing", "things", "stuff",
 }
+
+TITLE_FILLER_START_RE = re.compile(
+    r"^\s*(?:um+|uh+|ah+|like|you know|i mean|so|well|okay|ok|right)\b[:,]?\s*",
+    flags=re.IGNORECASE,
+)
+TITLE_CONNECTOR_WORDS = {"and", "or", "to", "for", "with", "of", "in", "on"}
+TITLE_ACTION_WORDS = {
+    "build", "create", "grow", "improve", "fix", "launch", "scale", "optimize",
+    "edit", "post", "publish", "design", "sell", "start", "learn", "choose",
+    "avoid", "save", "increase", "reduce", "convert", "automate",
+}
+
+
+def _strip_leading_filler(text: str) -> str:
+    s = clean_text(text or "")
+    for _ in range(3):
+        nxt = TITLE_FILLER_START_RE.sub("", s)
+        if nxt == s:
+            break
+        s = nxt
+    return s.strip()
 
 
 def _title_tokens(text: str) -> List[str]:
@@ -1762,30 +1785,148 @@ def _title_tokens(text: str) -> List[str]:
     return out
 
 
-def _extract_title_keywords(snippet: str, clip_words: Optional[list]) -> List[str]:
+def _build_title_corpus_counts(words: Optional[list]) -> Dict[str, int]:
     counts: Dict[str, int] = {}
-    if clip_words:
-        source = [str(w.get("word", "")) for w in clip_words]
-        text = " ".join(source)
-    else:
-        text = snippet or ""
+    for w in words or []:
+        raw = str((w or {}).get("word", ""))
+        for t in _title_tokens(raw):
+            counts[t] = counts.get(t, 0) + 1
+    return counts
 
-    for t in _title_tokens(text):
-        counts[t] = counts.get(t, 0) + 1
 
-    if not counts:
+def _extract_title_keywords(
+    snippet: str,
+    clip_words: Optional[list],
+    *,
+    corpus_counts: Optional[Dict[str, int]] = None,
+    max_keywords: int = 6,
+) -> List[str]:
+    clip_counts: Dict[str, int] = {}
+    first_seen: Dict[str, int] = {}
+    tokens = _title_tokens(" ".join(str(w.get("word", "")) for w in (clip_words or []))) if clip_words else _title_tokens(snippet or "")
+    for i, t in enumerate(tokens):
+        clip_counts[t] = clip_counts.get(t, 0) + 1
+        if t not in first_seen:
+            first_seen[t] = i
+
+    if not clip_counts:
         return []
 
-    ranked = sorted(counts.items(), key=lambda kv: (kv[1], len(kv[0])), reverse=True)
-    return [w for w, _n in ranked[:3]]
+    global_counts = corpus_counts or {}
+    scored: List[Tuple[str, float]] = []
+    for tok, tf in clip_counts.items():
+        if tok in TITLE_CONNECTOR_WORDS:
+            continue
+        global_freq = max(1, int(global_counts.get(tok, 1)))
+        rarity = 1.0 / math.sqrt(float(global_freq))
+        early_bonus = 0.4 if first_seen.get(tok, 9999) <= 8 else 0.0
+        score = (float(tf) * 1.6) + (rarity * 1.5) + early_bonus + (0.12 * min(len(tok), 10))
+        scored.append((tok, score))
+
+    scored.sort(key=lambda kv: (kv[1], -first_seen.get(kv[0], 9999), len(kv[0])), reverse=True)
+    return [w for w, _score in scored[:max_keywords]]
+
+
+def _split_sentence_candidates(text: str) -> List[str]:
+    raw = clean_text(text or "")
+    if not raw:
+        return []
+    pieces = re.split(r"(?<=[\.\?!…])\s+|[;:\n]+", raw)
+    out: List[str] = []
+    for p in pieces:
+        c = _strip_leading_filler(p)
+        c = re.sub(r"^(and|but|so|then|because)\b[:,]?\s*", "", c, flags=re.IGNORECASE).strip()
+        c = c.strip(" -_,")
+        if c:
+            out.append(c)
+    return out
+
+
+def _score_title_sentence(
+    sentence: str,
+    *,
+    sentence_index: int,
+    corpus_counts: Optional[Dict[str, int]] = None,
+) -> float:
+    tokens = _title_tokens(sentence)
+    if len(tokens) < 3:
+        return 0.0
+
+    global_counts = corpus_counts or {}
+    info_score = 0.0
+    for t in tokens:
+        g = max(1, int(global_counts.get(t, 1)))
+        info_score += 1.0 / math.sqrt(float(g))
+
+    words = re.findall(r"[A-Za-z0-9']+", sentence)
+    wc = len(words)
+    if wc <= 2:
+        return 0.0
+    if wc <= 4:
+        length_score = 0.8
+    elif wc <= 12:
+        length_score = 1.0
+    elif wc <= 16:
+        length_score = 0.7
+    else:
+        length_score = 0.45
+
+    action_bonus = 0.0
+    if any(t in TITLE_ACTION_WORDS for t in tokens):
+        action_bonus += 0.45
+    if sentence.strip().endswith("?"):
+        action_bonus += 0.35
+    if re.search(r"\b\d+(?:\.\d+)?\b", sentence):
+        action_bonus += 0.2
+
+    start_bonus = max(0.0, 0.6 - (0.15 * float(sentence_index)))
+    return (info_score * 0.9) + (length_score * 1.1) + action_bonus + start_bonus
+
+
+def _best_title_phrase_from_words(clip_words: Optional[list], keywords: List[str]) -> str:
+    if not clip_words:
+        return ""
+    words_raw = [str(w.get("word", "")).strip() for w in clip_words if str(w.get("word", "")).strip()]
+    if not words_raw:
+        return ""
+
+    best_phrase = ""
+    best_score = -1.0
+    n_words = len(words_raw)
+    keyword_set = {k.lower() for k in keywords[:4]}
+
+    for i in range(n_words):
+        for span in range(4, 10):
+            j = i + span
+            if j > n_words:
+                break
+            phrase = clean_text(" ".join(words_raw[i:j])).strip(" -_,.")
+            if not phrase:
+                continue
+            toks = _title_tokens(phrase)
+            if len(toks) < 3:
+                continue
+            if toks[0] in TITLE_CONNECTOR_WORDS:
+                continue
+            kw_hits = sum(1 for t in toks if t in keyword_set)
+            if kw_hits <= 0:
+                continue
+            numerics = 1 if re.search(r"\b\d+(?:\.\d+)?\b", phrase) else 0
+            score = (kw_hits * 1.5) + (numerics * 0.3) - (0.06 * abs(len(toks) - 7))
+            if score > best_score:
+                best_score = score
+                best_phrase = phrase
+
+    return best_phrase
 
 
 def _headline_case(s: str) -> str:
     if not s:
         return s
-    s = clean_text(s)
+    s = _strip_leading_filler(clean_text(s))
     if not s:
         return s
+    s = s.strip(" -_,.")
     return s[0].upper() + s[1:]
 
 
@@ -1803,48 +1944,88 @@ def _slugify_filename_base(text: str, *, fallback: str = "clip", max_len: int = 
     return s or fallback
 
 
+def _make_unique_title(
+    title: str,
+    *,
+    seen_keys: set,
+    keywords: List[str],
+    clip_index: int,
+) -> str:
+    base = _headline_case(truncate_text(title, 78))
+    if not base:
+        base = f"Clip {int(clip_index) + 1}"
+
+    base_key = _slugify_filename_base(base, fallback=f"clip-{int(clip_index) + 1}", max_len=96)
+    if base_key not in seen_keys:
+        return base
+
+    for kw in keywords:
+        if not kw or kw.lower() in base.lower():
+            continue
+        cand = _headline_case(truncate_text(f"{base} - {kw}", 78))
+        cand_key = _slugify_filename_base(cand, fallback=base_key, max_len=96)
+        if cand_key not in seen_keys:
+            return cand
+
+    suffix = 2
+    while True:
+        cand = _headline_case(truncate_text(f"{base} ({suffix})", 78))
+        cand_key = _slugify_filename_base(cand, fallback=base_key, max_len=96)
+        if cand_key not in seen_keys:
+            return cand
+        suffix += 1
+
+
 def generate_title_heuristic(
     snippet: str,
     *,
     clip_words: Optional[list] = None,
     clip_index: Optional[int] = None,
+    corpus_counts: Optional[Dict[str, int]] = None,
 ) -> Tuple[str, float]:
     """
-    Simple launch-safe title generator from transcript snippet.
+    Content-aware title generator from transcript content.
     Returns (title, confidence).
     """
-    s = clean_text(snippet or "")
-    if s:
-        s = re.sub(r"^(um|uh|like|you know)\b[:,]?\s*", "", s, flags=re.IGNORECASE).strip()
+    clip_text = clean_text(" ".join(str(w.get("word", "")) for w in (clip_words or [])))
+    s = _strip_leading_filler(clip_text or snippet or "")
+    kws = _extract_title_keywords(s, clip_words, corpus_counts=corpus_counts)
 
-    kws = _extract_title_keywords(s, clip_words)
-    first_sentence = re.split(r"(?<=[\.\?\!])\s+", s)[0] if s else ""
-    first_sentence = truncate_text(first_sentence, 68)
+    candidates = _split_sentence_candidates(s)
+    ranked: List[Tuple[str, float]] = []
+    for i, cand in enumerate(candidates):
+        ranked.append((cand, _score_title_sentence(cand, sentence_index=i, corpus_counts=corpus_counts)))
+    ranked.sort(key=lambda kv: kv[1], reverse=True)
 
     title = ""
-    conf = 0.35
+    conf = 0.34
 
-    if first_sentence and "?" in first_sentence and len(first_sentence) >= 16:
-        title = first_sentence
-        conf = 0.80
-    elif kws and len(kws) >= 2:
-        title = f"{kws[0].capitalize()} and {kws[1]}: key takeaway"
-        conf = 0.76
-    elif kws:
-        title = f"{kws[0].capitalize()} explained in under a minute"
+    if ranked and ranked[0][1] >= 1.55:
+        title = ranked[0][0]
+        conf = 0.86 if ranked[0][0].endswith("?") else 0.80
+    elif ranked:
+        title = ranked[0][0]
         conf = 0.72
-    elif first_sentence:
-        title = first_sentence
-        conf = 0.62
     else:
-        n = int(clip_index or 0) + 1
-        title = f"Highlight {n}"
-        conf = 0.30
+        phrase = _best_title_phrase_from_words(clip_words, kws)
+        if phrase:
+            title = phrase
+            conf = 0.66
+        elif kws and len(kws) >= 2:
+            title = f"{kws[0]} {kws[1]}"
+            conf = 0.58
+        elif kws:
+            title = kws[0]
+            conf = 0.52
+        else:
+            n = int(clip_index or 0) + 1
+            title = f"Clip {n}"
+            conf = 0.30
 
-    title = _headline_case(truncate_text(title, 68))
+    title = _headline_case(truncate_text(title, 78))
     if not title:
         n = int(clip_index or 0) + 1
-        return (f"Highlight {n}", 0.25)
+        return (f"Clip {n}", 0.25)
     return (title, conf)
 
 def generate_title_llm(snippet: str) -> Optional[str]:
@@ -4758,11 +4939,12 @@ def run_job(job_id: int) -> None:
             f"Clip selection: planned={len(clip_plans)} scored={len(scored)} selected={len(selected)} (limit={limit_label})",
             job_id=job_id,
         )
+        title_corpus_counts = _build_title_corpus_counts(words)
 
         # ---------------------------------------------
         # Render + UPLOAD EACH CLIP (VERIFIED)
         # ---------------------------------------------
-        seen_titles: set[str] = set()
+        seen_title_keys: set[str] = set()
         clip_errors: List[str] = []
         storage = get_storage()
         for idx, plan in enumerate(selected):
@@ -4784,19 +4966,28 @@ def run_job(job_id: int) -> None:
                 clip_words = words_in_range(words, clip_start, clip_end)
                 snippet = clean_text(" ".join(str(w.get("word", "")) for w in clip_words))
                 hook, _hook_conf = generate_hook_heuristic(snippet)
+                title_keywords = _extract_title_keywords(
+                    hook or snippet,
+                    clip_words,
+                    corpus_counts=title_corpus_counts,
+                )
                 title, _title_conf = generate_title_heuristic(
                     hook or snippet,
                     clip_words=clip_words,
                     clip_index=idx,
+                    corpus_counts=title_corpus_counts,
                 )
-                if not title or title.strip().lower() in {"new clip", "untitled", "highlight"}:
+                if not title or title.strip().lower() in {"new clip", "untitled", "highlight", "clip"}:
                     title = f"Clip {idx + 1}"
-                base_title = title
-                suffix = 2
-                while title.lower() in seen_titles:
-                    title = f"{base_title} ({suffix})"
-                    suffix += 1
-                seen_titles.add(title.lower())
+                title = _make_unique_title(
+                    title,
+                    seen_keys=seen_title_keys,
+                    keywords=title_keywords,
+                    clip_index=idx,
+                )
+                seen_title_keys.add(
+                    _slugify_filename_base(title, fallback=f"clip-{idx + 1}", max_len=96)
+                )
 
                 clip_cam_samples: List[tuple] = []
                 clip_cam_meta: Dict[str, Any] = {}

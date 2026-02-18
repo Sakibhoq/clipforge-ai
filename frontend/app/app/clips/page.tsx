@@ -1680,6 +1680,7 @@ function ClipsWorkspace() {
         open={scheduleClipId !== null}
         onClose={() => setScheduleClipId(null)}
         title={scheduleClipId ? `Schedule - Clip #${scheduleClipId}` : "Schedule"}
+        subtitle="Publish to social platforms"
       >
         {scheduleClipId ? (
           <ScheduleForm
@@ -1876,7 +1877,8 @@ function CropForm({
   onTrimChange: (start: number, end: number) => void;
   onSubmit: () => void;
 }) {
-  type DragMode = "move" | "resize" | "draw";
+  type DragMode = "move" | "draw" | "resize-se" | "resize-sw" | "resize-ne" | "resize-nw";
+  type TimelineDragMode = "playhead" | "start" | "end" | "range";
   type DragState = {
     mode: DragMode;
     startX: number;
@@ -1888,15 +1890,28 @@ function CropForm({
     startRect: ClipCropRect;
     ratio: number;
   };
+  type TimelineDragState = {
+    mode: TimelineDragMode;
+    offsetSec?: number;
+    rangeLen?: number;
+    anchorStart?: number;
+    anchorEnd?: number;
+  };
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const timelineDragRef = useRef<TimelineDragState | null>(null);
 
   const [duration, setDuration] = useState(0);
   const [scrub, setScrub] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [lockAspect, setLockAspect] = useState(true);
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapGuides, setSnapGuides] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const frameStep = 1 / 30;
 
   const previewAspect =
     whToCss(clip.width, clip.height) || aspectStringToCss(clip.aspect_ratio) || "9 / 16";
@@ -1914,6 +1929,9 @@ function CropForm({
   const trimStartSafe = Math.max(0, Math.min(trimStart, Math.max(0, effectiveDuration - minTrim)));
   const trimEndSafe = Math.max(trimStartSafe + minTrim, Math.min(trimEnd || effectiveDuration, effectiveDuration));
   const trimLen = Math.max(0, trimEndSafe - trimStartSafe);
+  const startPct = (trimStartSafe / effectiveDuration) * 100;
+  const endPct = (trimEndSafe / effectiveDuration) * 100;
+  const scrubPct = (Math.max(0, Math.min(scrub, effectiveDuration)) / effectiveDuration) * 100;
 
   function setTrimRange(nextStart: number, nextEnd: number) {
     const cap = Math.max(minTrim, effectiveDuration);
@@ -1944,6 +1962,20 @@ function CropForm({
       w: Math.min(1, Math.max(0.1, next.w)),
       h: Math.min(1, Math.max(0.1, next.h)),
     };
+
+    if (snapGuides) {
+      const snap = 0.012;
+      const centerX = clamped.x + clamped.w / 2;
+      const centerY = clamped.y + clamped.h / 2;
+
+      if (Math.abs(clamped.x) <= snap) clamped.x = 0;
+      if (Math.abs(clamped.y) <= snap) clamped.y = 0;
+      if (Math.abs(1 - (clamped.x + clamped.w)) <= snap) clamped.x = 1 - clamped.w;
+      if (Math.abs(1 - (clamped.y + clamped.h)) <= snap) clamped.y = 1 - clamped.h;
+      if (Math.abs(centerX - 0.5) <= snap) clamped.x = 0.5 - clamped.w / 2;
+      if (Math.abs(centerY - 0.5) <= snap) clamped.y = 0.5 - clamped.h / 2;
+    }
+
     if (clamped.x + clamped.w > 1) clamped.x = Math.max(0, 1 - clamped.w);
     if (clamped.y + clamped.h > 1) clamped.y = Math.max(0, 1 - clamped.h);
     onChange(clamped);
@@ -2004,22 +2036,69 @@ function CropForm({
       return;
     }
 
-    let w = state.startRect.w + dx;
-    let h = state.startRect.h + dy;
+    let x = state.startRect.x;
+    let y = state.startRect.y;
+    let w = state.startRect.w;
+    let h = state.startRect.h;
 
-    if (lockAspect) {
-      if (Math.abs(dx) >= Math.abs(dy)) {
-        h = w / state.ratio;
-      } else {
-        w = h * state.ratio;
+    if (state.mode === "resize-se") {
+      w = state.startRect.w + dx;
+      h = state.startRect.h + dy;
+      if (lockAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) h = w / state.ratio;
+        else w = h * state.ratio;
+      }
+    } else if (state.mode === "resize-sw") {
+      x = state.startRect.x + dx;
+      w = state.startRect.w - dx;
+      h = state.startRect.h + dy;
+      if (lockAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.1, w);
+          h = w / state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+        } else {
+          h = Math.max(0.1, h);
+          w = h * state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+        }
+      }
+    } else if (state.mode === "resize-ne") {
+      y = state.startRect.y + dy;
+      h = state.startRect.h - dy;
+      w = state.startRect.w + dx;
+      if (lockAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.1, w);
+          h = w / state.ratio;
+          y = state.startRect.y + (state.startRect.h - h);
+        } else {
+          h = Math.max(0.1, h);
+          w = h * state.ratio;
+          y = state.startRect.y + (state.startRect.h - h);
+        }
+      }
+    } else {
+      x = state.startRect.x + dx;
+      y = state.startRect.y + dy;
+      w = state.startRect.w - dx;
+      h = state.startRect.h - dy;
+      if (lockAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.1, w);
+          h = w / state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+          y = state.startRect.y + (state.startRect.h - h);
+        } else {
+          h = Math.max(0.1, h);
+          w = h * state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+          y = state.startRect.y + (state.startRect.h - h);
+        }
       }
     }
 
-    applyRect({
-      ...state.startRect,
-      w,
-      h,
-    });
+    applyRect({ x, y, w, h });
   }
 
   function stopDrag() {
@@ -2072,12 +2151,90 @@ function CropForm({
     window.addEventListener("pointerup", stopDrag, { once: true });
   }
 
-  function syncScrub(v: number) {
+  function syncScrub(v: number, opts?: { clampToTrim?: boolean }) {
     const video = videoRef.current;
     if (!video || !Number.isFinite(v)) return;
-    const next = Math.max(0, Math.min(effectiveDuration, v));
+    let next = Math.max(0, Math.min(effectiveDuration, v));
+    if (opts?.clampToTrim) {
+      next = Math.max(trimStartSafe, Math.min(trimEndSafe, next));
+    }
     video.currentTime = next;
     setScrub(next);
+  }
+
+  function seekBy(deltaSeconds: number) {
+    syncScrub(scrub + deltaSeconds, { clampToTrim: true });
+  }
+
+  function stepFrame(deltaFrames: number) {
+    seekBy(deltaFrames * frameStep);
+  }
+
+  function getTimelineSecondsFromClientX(clientX: number) {
+    const timeline = timelineRef.current;
+    if (!timeline) return null;
+    const bounds = timeline.getBoundingClientRect();
+    const pct = clamp01((clientX - bounds.left) / Math.max(1, bounds.width));
+    return pct * effectiveDuration;
+  }
+
+  function onTimelinePointerMove(ev: PointerEvent) {
+    const state = timelineDragRef.current;
+    if (!state) return;
+    const sec = getTimelineSecondsFromClientX(ev.clientX);
+    if (sec === null) return;
+
+    if (state.mode === "playhead") {
+      syncScrub(sec, { clampToTrim: true });
+      return;
+    }
+
+    if (state.mode === "start") {
+      setTrimRange(sec, state.anchorEnd ?? trimEndSafe);
+      return;
+    }
+
+    if (state.mode === "end") {
+      setTrimRange(state.anchorStart ?? trimStartSafe, sec);
+      return;
+    }
+
+    const rangeLen = Math.max(minTrim, state.rangeLen ?? trimLen);
+    const offset = state.offsetSec ?? 0;
+    let start = sec - offset;
+    start = Math.max(0, Math.min(start, Math.max(0, effectiveDuration - rangeLen)));
+    setTrimRange(start, start + rangeLen);
+    if (scrub < start || scrub > start + rangeLen) {
+      syncScrub(start, { clampToTrim: true });
+    }
+  }
+
+  function stopTimelineDrag() {
+    timelineDragRef.current = null;
+    window.removeEventListener("pointermove", onTimelinePointerMove);
+    window.removeEventListener("pointerup", stopTimelineDrag);
+  }
+
+  function beginTimelineDrag(e: React.PointerEvent, mode: TimelineDragMode) {
+    e.preventDefault();
+    e.stopPropagation();
+    const sec = getTimelineSecondsFromClientX(e.clientX);
+    if (sec === null) return;
+    const next: TimelineDragState = { mode };
+    if (mode === "start") {
+      next.anchorEnd = trimEndSafe;
+    } else if (mode === "end") {
+      next.anchorStart = trimStartSafe;
+    } else if (mode === "range") {
+      next.rangeLen = trimLen;
+      next.offsetSec = sec - trimStartSafe;
+    }
+    timelineDragRef.current = next;
+    if (mode === "playhead") {
+      syncScrub(sec, { clampToTrim: true });
+    }
+    window.addEventListener("pointermove", onTimelinePointerMove, { passive: true });
+    window.addEventListener("pointerup", stopTimelineDrag, { once: true });
   }
 
   function togglePlayback() {
@@ -2095,6 +2252,100 @@ function CropForm({
       setPlaying(false);
     }
   }
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = playbackRate;
+  }, [playbackRate]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.currentTime < trimStartSafe || video.currentTime > trimEndSafe) {
+      video.currentTime = trimStartSafe;
+      setScrub(trimStartSafe);
+    }
+  }, [trimStartSafe, trimEndSafe]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)
+      ) {
+        return;
+      }
+
+      const k = e.key.toLowerCase();
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlayback();
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        seekBy(e.shiftKey ? -1 : -0.2);
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        seekBy(e.shiftKey ? 1 : 0.2);
+        return;
+      }
+
+      if (e.key === "[") {
+        e.preventDefault();
+        setTrimStartFromPlayhead();
+        return;
+      }
+
+      if (e.key === "]") {
+        e.preventDefault();
+        setTrimEndFromPlayhead();
+        return;
+      }
+
+      if (k === "j") {
+        e.preventDefault();
+        seekBy(-2);
+        return;
+      }
+
+      if (k === "l") {
+        e.preventDefault();
+        seekBy(2);
+        return;
+      }
+
+      const nudge = e.shiftKey ? 0.02 : 0.01;
+      if (k === "a") {
+        e.preventDefault();
+        applyRect({ ...rect, x: rect.x - nudge });
+        return;
+      }
+      if (k === "d") {
+        e.preventDefault();
+        applyRect({ ...rect, x: rect.x + nudge });
+        return;
+      }
+      if (k === "w") {
+        e.preventDefault();
+        applyRect({ ...rect, y: rect.y - nudge });
+        return;
+      }
+      if (k === "s") {
+        e.preventDefault();
+        applyRect({ ...rect, y: rect.y + nudge });
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [rect, scrub, trimStartSafe, trimEndSafe, playbackRate, effectiveDuration]);
 
   return (
     <div className="grid gap-4">
@@ -2167,10 +2418,50 @@ function CropForm({
             </button>
           </label>
 
+          <label className="inline-flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <span className="text-[12px] text-white/70">Show grid</span>
+            <button
+              type="button"
+              onClick={() => setShowGrid((v) => !v)}
+              className={cx(
+                "inline-flex h-6 w-11 items-center rounded-full border transition",
+                showGrid ? "border-cyan-300/40 bg-cyan-300/12" : "border-white/15 bg-white/[0.04]"
+              )}
+            >
+              <span
+                className={cx(
+                  "ml-0.5 h-5 w-5 rounded-full transition",
+                  showGrid ? "translate-x-5 bg-cyan-100/95" : "bg-white/40"
+                )}
+              />
+            </button>
+          </label>
+
+          <label className="inline-flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <span className="text-[12px] text-white/70">Snap guides</span>
+            <button
+              type="button"
+              onClick={() => setSnapGuides((v) => !v)}
+              className={cx(
+                "inline-flex h-6 w-11 items-center rounded-full border transition",
+                snapGuides ? "border-cyan-300/40 bg-cyan-300/12" : "border-white/15 bg-white/[0.04]"
+              )}
+            >
+              <span
+                className={cx(
+                  "ml-0.5 h-5 w-5 rounded-full transition",
+                  snapGuides ? "translate-x-5 bg-cyan-100/95" : "bg-white/40"
+                )}
+              />
+            </button>
+          </label>
+
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/60">
             Drag the crop box with mouse.
             <br />
             Drag outside the box on preview to draw a new crop area.
+            <br />
+            Keyboard: Space play/pause, [ and ] set trim, WASD nudge crop.
           </div>
 
           <div className="grid gap-3">
@@ -2238,11 +2529,14 @@ function CropForm({
               playsInline
               muted
               onLoadedMetadata={(e) => {
-                const d = Number((e.currentTarget as HTMLVideoElement).duration || 0);
+                const video = e.currentTarget as HTMLVideoElement;
+                const d = Number(video.duration || 0);
                 const clean = Number.isFinite(d) ? Math.max(minTrim, d) : minTrim;
                 setDuration(clean);
                 setTrimRange(trimStartSafe, Math.min(trimEndSafe, clean));
-                setScrub(0);
+                video.currentTime = trimStartSafe;
+                video.playbackRate = playbackRate;
+                setScrub(trimStartSafe);
               }}
               onTimeUpdate={(e) => {
                 const t = Number((e.currentTarget as HTMLVideoElement).currentTime || 0);
@@ -2262,6 +2556,19 @@ function CropForm({
               onPause={() => setPlaying(false)}
             />
 
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute left-0 right-0 top-0 bg-black/45" style={{ height: `${rect.y * 100}%` }} />
+              <div className="absolute bottom-0 left-0 right-0 bg-black/45" style={{ height: `${(1 - (rect.y + rect.h)) * 100}%` }} />
+              <div
+                className="absolute left-0 bg-black/45"
+                style={{ top: `${rect.y * 100}%`, width: `${rect.x * 100}%`, height: `${rect.h * 100}%` }}
+              />
+              <div
+                className="absolute right-0 bg-black/45"
+                style={{ top: `${rect.y * 100}%`, width: `${(1 - (rect.x + rect.w)) * 100}%`, height: `${rect.h * 100}%` }}
+              />
+            </div>
+
             <div
               className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.28)] cursor-move"
               style={{
@@ -2275,33 +2582,41 @@ function CropForm({
               <div className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white/80">
                 Crop
               </div>
+
+              {showGrid && (
+                <>
+                  <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-cyan-100/40" />
+                  <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-cyan-100/40" />
+                  <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-cyan-100/40" />
+                  <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-cyan-100/40" />
+                </>
+              )}
+
               <button
                 type="button"
-                aria-label="Resize crop"
-                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/60 bg-cyan-200 shadow"
-                onPointerDown={(e) => beginDrag(e, "resize")}
+                aria-label="Resize top left"
+                className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/70 bg-cyan-200 shadow cursor-nwse-resize"
+                onPointerDown={(e) => beginDrag(e, "resize-nw")}
+              />
+              <button
+                type="button"
+                aria-label="Resize top right"
+                className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/70 bg-cyan-200 shadow cursor-nesw-resize"
+                onPointerDown={(e) => beginDrag(e, "resize-ne")}
+              />
+              <button
+                type="button"
+                aria-label="Resize bottom left"
+                className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/70 bg-cyan-200 shadow cursor-nesw-resize"
+                onPointerDown={(e) => beginDrag(e, "resize-sw")}
+              />
+              <button
+                type="button"
+                aria-label="Resize bottom right"
+                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/70 bg-cyan-200 shadow cursor-nwse-resize"
+                onPointerDown={(e) => beginDrag(e, "resize-se")}
               />
             </div>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={togglePlayback} className="btn-ghost text-[12px] px-3 py-1.5 min-w-[78px]">
-                {playing ? "Pause" : "Play"}
-              </button>
-              <div className="text-[12px] text-white/60 tabular-nums">
-                {formatTime(scrub)} / {formatTime(effectiveDuration)}
-              </div>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(0.01, effectiveDuration)}
-              step={0.05}
-              value={Math.min(scrub, Math.max(0.01, effectiveDuration))}
-              onChange={(e) => syncScrub(Number(e.target.value))}
-              className="mt-3 w-full"
-            />
           </div>
 
           <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
@@ -2312,25 +2627,90 @@ function CropForm({
               </span>
             </div>
 
-            <div className="mt-3 grid gap-2">
-              <label className="text-[12px] text-white/65">Start</label>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(minTrim, effectiveDuration - minTrim)}
-                step={0.05}
-                value={trimStartSafe}
-                onChange={(e) => setTrimRange(Number(e.target.value), trimEndSafe)}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => stepFrame(-1)} className="btn-ghost text-[12px] px-2.5 py-1.5">
+                  -1f
+                </button>
+                <button type="button" onClick={() => seekBy(-2)} className="btn-ghost text-[12px] px-2.5 py-1.5">
+                  -2s
+                </button>
+                <button type="button" onClick={togglePlayback} className="btn-ghost text-[12px] px-3 py-1.5 min-w-[72px]">
+                  {playing ? "Pause" : "Play"}
+                </button>
+                <button type="button" onClick={() => seekBy(2)} className="btn-ghost text-[12px] px-2.5 py-1.5">
+                  +2s
+                </button>
+                <button type="button" onClick={() => stepFrame(1)} className="btn-ghost text-[12px] px-2.5 py-1.5">
+                  +1f
+                </button>
+              </div>
+
+              <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1">
+                <span className="text-[11px] text-white/60">Speed</span>
+                <select
+                  value={playbackRate}
+                  onChange={(e) => setPlaybackRate(Number(e.target.value))}
+                  className="h-7 rounded-md border border-white/15 bg-black/55 px-2 text-[12px] text-white outline-none"
+                >
+                  <option value={0.5}>0.5x</option>
+                  <option value={0.75}>0.75x</option>
+                  <option value={1}>1x</option>
+                  <option value={1.25}>1.25x</option>
+                  <option value={1.5}>1.5x</option>
+                  <option value={2}>2x</option>
+                </select>
+              </div>
+            </div>
+
+            <div ref={timelineRef} className="relative mt-3 h-14 select-none touch-none">
+              <button
+                type="button"
+                aria-label="Seek playhead"
+                className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 cursor-pointer"
+                onPointerDown={(e) => beginTimelineDrag(e, "playhead")}
               />
-              <label className="text-[12px] text-white/65">End</label>
-              <input
-                type="range"
-                min={Math.min(minTrim, effectiveDuration)}
-                max={Math.max(minTrim, effectiveDuration)}
-                step={0.05}
-                value={trimEndSafe}
-                onChange={(e) => setTrimRange(trimStartSafe, Number(e.target.value))}
+              <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/15" />
+              <button
+                type="button"
+                aria-label="Move trimmed range"
+                className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-cyan-300/45 cursor-grab active:cursor-grabbing"
+                style={{ left: `${startPct}%`, width: `${Math.max(1, endPct - startPct)}%` }}
+                onPointerDown={(e) => beginTimelineDrag(e, "range")}
               />
+              <button
+                type="button"
+                aria-label="Trim start"
+                className="absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/80 bg-cyan-200 shadow"
+                style={{ left: `${startPct}%` }}
+                onPointerDown={(e) => beginTimelineDrag(e, "start")}
+              />
+              <button
+                type="button"
+                aria-label="Trim end"
+                className="absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/80 bg-cyan-200 shadow"
+                style={{ left: `${endPct}%` }}
+                onPointerDown={(e) => beginTimelineDrag(e, "end")}
+              />
+              <div
+                className="pointer-events-none absolute bottom-1 top-1 w-px bg-cyan-100/80"
+                style={{ left: `${scrubPct}%` }}
+              />
+              <button
+                type="button"
+                aria-label="Drag playhead"
+                className="absolute top-1/2 z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 bg-white shadow"
+                style={{ left: `${scrubPct}%` }}
+                onPointerDown={(e) => beginTimelineDrag(e, "playhead")}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] tabular-nums text-white/55">
+              <span>{formatTime(0)}</span>
+              <span>
+                {formatTime(scrub)} / {formatTime(effectiveDuration)}
+              </span>
+              <span>{formatTime(effectiveDuration)}</span>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2340,6 +2720,10 @@ function CropForm({
               <button type="button" onClick={setTrimEndFromPlayhead} className="btn-ghost text-[12px] px-3 py-2">
                 Set end @ playhead
               </button>
+            </div>
+
+            <div className="mt-2 text-[11px] text-white/45">
+              Shortcuts: Space play/pause, J/L jump 2s, arrows nudge, [ set start, ] set end.
             </div>
           </div>
         </div>
@@ -2422,7 +2806,15 @@ function ScheduleForm({
   onPostNow: () => void;
 }) {
   const connectedSet = useMemo(() => new Set(providers), [providers]);
+  const selectedSet = useMemo(() => new Set(selectedProviders), [selectedProviders]);
+  const disconnectedProviders = useMemo(
+    () => SUPPORTED_SOCIAL_PROVIDERS.filter((p) => !connectedSet.has(p)),
+    [connectedSet]
+  );
   const limitReached = maxPlatforms !== null && selectedProviders.length >= maxPlatforms;
+  const remainingSlots = maxPlatforms === null ? null : Math.max(0, maxPlatforms - selectedProviders.length);
+  const hasConnected = providers.length > 0;
+  const captionLen = caption.trim().length;
 
   function toggleProvider(provider: SupportedSocialProvider) {
     if (!connectedSet.has(provider)) return;
@@ -2449,141 +2841,220 @@ function ScheduleForm({
     onProvidersChange([]);
   }
 
+  function dateTimeLocalValue(d: Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function scheduleInMinutes(minutes: number) {
+    const d = new Date(Date.now() + minutes * 60 * 1000);
+    d.setSeconds(0, 0);
+    onWhenChange(dateTimeLocalValue(d));
+  }
+
+  function scheduleTodayAt(hour: number) {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    if (d.getTime() <= Date.now() + 5 * 60 * 1000) d.setDate(d.getDate() + 1);
+    onWhenChange(dateTimeLocalValue(d));
+  }
+
+  function scheduleTomorrowAt(hour: number) {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(hour, 0, 0, 0);
+    onWhenChange(dateTimeLocalValue(d));
+  }
+
+  function providerAccent(provider: SupportedSocialProvider): string {
+    if (provider === "youtube") return "border-rose-300/35 bg-rose-300/10 text-rose-100";
+    if (provider === "tiktok") return "border-cyan-300/35 bg-cyan-300/10 text-cyan-100";
+    if (provider === "instagram") return "border-fuchsia-300/35 bg-fuchsia-300/10 text-fuchsia-100";
+    return "border-blue-300/35 bg-blue-300/10 text-blue-100";
+  }
+
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <div className="text-sm font-semibold text-white/85">Social scheduling</div>
-        <div className="mt-1 text-[12px] text-white/55">
-          Pick one or more platforms, add caption, and choose post time.
+      <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-400/12 via-sky-300/10 to-white/[0.03] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-white/90">Social publishing</div>
+          <div className="text-[11px] text-white/70">
+            {selectedProviders.length} selected{maxPlatforms !== null ? ` / ${maxPlatforms}` : ""}
+          </div>
         </div>
-        <div className="mt-2 text-[12px] text-white/65">
+        <div className="mt-1 text-[12px] text-white/65">
           {maxPlatforms === null
             ? `${planLabel} plan: publish to all connected platforms.`
             : `${planLabel} plan: up to ${maxPlatforms} platform${maxPlatforms === 1 ? "" : "s"} per clip.`}{" "}
           {maxPlatforms !== null ? (
-            <Link href="/app/billing" className="text-cyan-200/90 underline underline-offset-2 hover:text-cyan-100">
+            <Link href="/app/billing" className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100">
               Upgrade
             </Link>
           ) : null}
         </div>
-      </div>
-
-      <div className="grid gap-2">
-        <label className="text-[12px] text-white/60">Platforms</label>
-        <details className="rounded-2xl border border-white/10 bg-white/[0.03] p-3" open>
-          <summary className="cursor-pointer list-none text-sm text-white/90">
-            {selectedProviders.length > 0
-              ? `${selectedProviders.length} selected`
-              : "No platform selected"}
-          </summary>
-          <div className="mt-3 grid gap-3 border-t border-white/10 pt-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={selectAllConnected}
-                className="btn-ghost px-3 py-1.5 text-[11px]"
-                disabled={busy || providers.length === 0}
-              >
-                Select all
-              </button>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="btn-ghost px-3 py-1.5 text-[11px]"
-                disabled={busy || selectedProviders.length === 0}
-              >
-                Clear
-              </button>
-            </div>
-            <div className="grid gap-2">
-              {SUPPORTED_SOCIAL_PROVIDERS.map((provider) => {
-                const connected = connectedSet.has(provider);
-                const checked = selectedProviders.includes(provider);
-                const disabledByLimit = !checked && limitReached;
-                return (
-                  <label
-                    key={provider}
-                    className={cx(
-                      "flex items-center justify-between rounded-xl border px-3 py-2 text-sm",
-                      connected
-                        ? "border-white/10 bg-white/[0.02] text-white/90"
-                        : "border-white/5 bg-white/[0.01] text-white/45"
-                    )}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleProvider(provider)}
-                        disabled={busy || !connected || disabledByLimit}
-                        className="h-4 w-4 accent-cyan-400"
-                      />
-                      {socialLabel(provider)}
-                    </span>
-                    <span className="text-[11px] text-white/55">
-                      {connected ? (disabledByLimit ? `Limit ${maxPlatforms}` : "Connected") : "Connect in Studio"}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        </details>
-        <div className="text-[12px] text-white/45">
-          {maxPlatforms === null
-            ? "Your plan allows publishing to all connected platforms."
-            : `Your ${planLabel} plan allows up to ${maxPlatforms} platform${
-                maxPlatforms === 1 ? "" : "s"
-              } per clip.`}
+        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/75">
+            Connected: {providers.length}
+          </span>
+          <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/75">
+            Selected: {selectedProviders.length}
+          </span>
+          {remainingSlots !== null ? (
+            <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/75">
+              Remaining: {remainingSlots}
+            </span>
+          ) : (
+            <span className="rounded-full border border-emerald-300/25 bg-emerald-300/12 px-2.5 py-1 text-emerald-100">
+              Unlimited slots
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <label className="text-[12px] text-white/60">Caption</label>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-white/90">Platforms</div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={selectAllConnected}
+              className="btn-ghost px-3 py-1.5 text-[11px]"
+              disabled={busy || providers.length === 0}
+            >
+              Select connected
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="btn-ghost px-3 py-1.5 text-[11px]"
+              disabled={busy || selectedProviders.length === 0}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {!hasConnected ? (
+          <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-[12px] text-amber-100/90">
+            No connected platforms yet. Connect at least one account in{" "}
+            <Link href="/app/studio" className="underline underline-offset-2">
+              Studio -&gt; Connections
+            </Link>
+            .
+          </div>
+        ) : null}
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {SUPPORTED_SOCIAL_PROVIDERS.map((provider) => {
+            const connected = connectedSet.has(provider);
+            const checked = selectedSet.has(provider);
+            const disabledByLimit = !checked && limitReached;
+            const statusText = connected ? (disabledByLimit ? `Limit ${maxPlatforms}` : "Connected") : "Not connected";
+            return (
+              <label
+                key={provider}
+                className={cx(
+                  "rounded-xl border px-3 py-3 text-left transition",
+                  checked
+                    ? "border-cyan-300/45 bg-cyan-300/12 shadow-[0_0_0_1px_rgba(103,232,249,0.25)]"
+                    : connected
+                      ? "border-white/15 bg-white/[0.03] hover:border-white/25"
+                      : "border-white/10 bg-white/[0.02] opacity-60",
+                  (busy || !connected || disabledByLimit) ? "cursor-not-allowed" : "cursor-pointer"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cx("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide", providerAccent(provider))}>
+                    {socialLabel(provider)}
+                  </span>
+                  <span className="text-[11px] text-white/65">{statusText}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleProvider(provider)}
+                    disabled={busy || !connected || disabledByLimit}
+                    className="h-4 w-4 accent-cyan-400"
+                  />
+                  <span className="text-sm text-white/90">{checked ? "Selected for publish" : "Tap to select"}</span>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        {disconnectedProviders.length > 0 ? (
+          <div className="mt-3 text-[12px] text-white/50">
+            Not connected: {disconnectedProviders.map((p) => socialLabel(p)).join(", ")}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[12px] text-white/60">Caption</label>
+          <span className={cx("text-[11px]", captionLen > 220 ? "text-amber-200" : "text-white/50")}>
+            {captionLen} chars
+          </span>
+        </div>
         <textarea
-          className="min-h-[90px] rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90"
+          className="mt-2 min-h-[110px] rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
           value={caption}
           onChange={(e) => onCaptionChange(e.target.value)}
-          placeholder="New Orbito clip"
+          placeholder="Write a clear caption for this clip"
         />
       </div>
 
-      <div className="grid gap-2">
-        <label className="text-[12px] text-white/60">Schedule time (optional)</label>
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <label className="text-[12px] text-white/60">Schedule time</label>
         <input
           type="datetime-local"
-          className="h-11 rounded-2xl border border-white/10 bg-white/5 px-4 text-sm text-white/90"
+          className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white/90 outline-none focus:border-cyan-300/50"
           value={when}
           onChange={(e) => onWhenChange(e.target.value)}
         />
-        <div className="text-[12px] text-white/45">Leave blank to post immediately.</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" onClick={() => scheduleInMinutes(60)} className="btn-ghost px-3 py-1.5 text-[11px]" disabled={busy}>
+            In 1 hour
+          </button>
+          <button type="button" onClick={() => scheduleTodayAt(20)} className="btn-ghost px-3 py-1.5 text-[11px]" disabled={busy}>
+            Tonight 8:00 PM
+          </button>
+          <button type="button" onClick={() => scheduleTomorrowAt(9)} className="btn-ghost px-3 py-1.5 text-[11px]" disabled={busy}>
+            Tomorrow 9:00 AM
+          </button>
+        </div>
+        <div className="mt-2 text-[12px] text-white/45">Leave blank if you want to post immediately.</div>
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/70 whitespace-pre-line break-words">
+        <div className="rounded-2xl border border-rose-300/25 bg-rose-300/10 px-4 py-3 text-sm text-rose-100/90 whitespace-pre-line break-words">
           {error}
         </div>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          onClick={onPostNow}
-          className="btn-aurora text-sm px-4 py-2"
-          disabled={busy}
-        >
-          {busy ? "Posting..." : "Post now"}
-        </button>
-        <button
-          type="button"
-          onClick={onSchedule}
-          className="btn-ghost text-sm px-4 py-2"
-          disabled={busy || !when}
-        >
-          {busy ? "Scheduling..." : "Schedule post(s)"}
-        </button>
-        <div className="text-[12px] text-white/55">
-          Connect platforms in Studio -&gt; Connections. Choose a date/time to enable scheduling.
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={onPostNow}
+            className="btn-aurora text-sm px-4 py-2"
+            disabled={busy}
+          >
+            {busy ? "Posting..." : "Post now"}
+          </button>
+          <button
+            type="button"
+            onClick={onSchedule}
+            className="btn-ghost text-sm px-4 py-2"
+            disabled={busy || !when}
+          >
+            {busy ? "Scheduling..." : "Schedule post"}
+          </button>
+          <div className="text-[12px] text-white/55">
+            Set a time to schedule, or use Post now to publish instantly.
+          </div>
         </div>
       </div>
     </div>
