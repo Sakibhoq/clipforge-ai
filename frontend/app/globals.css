@@ -780,6 +780,8 @@ textarea {
     rgba(58, 134, 255, 0.90),
     rgba(255, 183, 3, 0.95)
   );
+  background-size: 300% 100%;
+  animation: clipforgeBorderShift 4.5s linear infinite;
   opacity: 0.48;
 
   -webkit-mask:
@@ -790,6 +792,25 @@ textarea {
 
   pointer-events: none;
   z-index: 0;
+}
+
+.btn-clipforge:hover::before {
+  animation-duration: 2.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-clipforge::before {
+    animation: none;
+  }
+}
+
+@keyframes clipforgeBorderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
 }
 
 .btn-clipforge::after {

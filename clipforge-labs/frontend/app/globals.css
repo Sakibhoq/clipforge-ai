@@ -799,6 +799,8 @@ select option {
     rgba(53, 242, 166, 0.84),
     rgba(155, 140, 255, 0.96)
   );
+  background-size: 300% 100%;
+  animation: orbitoBorderShift 4.5s linear infinite;
   opacity: 0.62;
 
   -webkit-mask:
@@ -809,6 +811,25 @@ select option {
 
   pointer-events: none;
   z-index: 0;
+}
+
+.btn-orbito:hover::before {
+  animation-duration: 2.2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-orbito::before {
+    animation: none;
+  }
+}
+
+@keyframes orbitoBorderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
 }
 
 .btn-orbito::after {
