@@ -2999,7 +2999,7 @@ function ScheduleForm({
           </span>
         </div>
         <textarea
-          className="mt-2 min-h-[110px] rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
+          className="mt-2 min-h-[110px] resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
           value={caption}
           onChange={(e) => onCaptionChange(e.target.value)}
           placeholder="Write a clear caption for this clip"
@@ -3034,7 +3034,7 @@ function ScheduleForm({
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="sticky bottom-0 z-20 rounded-2xl border border-cyan-300/25 bg-black/75 p-4 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
@@ -3119,7 +3119,7 @@ function Drawer({
 
       <div
         className={cx(
-          "absolute border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]",
+          "absolute flex flex-col border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]",
           variant === "studio"
             ? "inset-2 sm:inset-4 rounded-3xl border"
             : "right-0 top-0 h-full w-full max-w-md border-l"
@@ -3140,7 +3140,7 @@ function Drawer({
           </button>
         </div>
 
-        <div className={cx("mt-5 pr-1", variant === "studio" && "h-[calc(100%-64px)] overflow-y-auto pr-2")}>
+        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto pr-2")}>
           {children}
         </div>
       </div>
