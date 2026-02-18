@@ -332,6 +332,57 @@ export default function Page() {
           </div>
         </section>
 
+        {/* SISTER SITE */}
+        <section className="mt-14">
+          <div
+            data-reveal
+            className="reveal relative overflow-hidden rounded-3xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]"
+          >
+            <div
+              aria-hidden="true"
+              className="absolute -inset-10 opacity-70 blur-2xl"
+              style={{
+                background:
+                  "conic-gradient(from 120deg, rgba(53,242,166,0.18), rgba(70,215,255,0.20), rgba(155,140,255,0.20), rgba(53,242,166,0.18))",
+              }}
+            />
+            <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">{BRAND.orbitoName}</span>
+                <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
+                  {BRAND.orbitoUrl.replace(/^https?:\/\//, "")} • AI clipping
+                </span>
+              </div>
+
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                Have long videos? Clip them with Orbito.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
+                Orbito is Clipforge&apos;s sister site for AI video clipping. Turn long-form into share-ready clips with smart
+                reframing, captions, and scheduling.
+              </p>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {[
+                  { t: "Smart reframing", d: "Keep the subject centered for 9:16, 1:1, and 16:9." },
+                  { t: "Captions + pipeline", d: "Generate, review, and publish clips across your channels." },
+                ].map((x) => (
+                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
+                    <div className="text-sm font-semibold">{x.t}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <a href={BRAND.orbitoUrl} target="_blank" rel="noreferrer" className="btn-orbito">
+                  Visit Orbito
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <section className="mt-14">
           <div data-reveal className="reveal surface relative overflow-hidden p-6 sm:p-8">

@@ -541,33 +541,33 @@ export default function Page() {
               className="absolute -inset-10 opacity-70 blur-2xl"
               style={{
                 background:
-                  "conic-gradient(from 120deg, rgba(45,212,191,0.24), rgba(125,211,252,0.24), rgba(167,139,250,0.22), rgba(45,212,191,0.24))",
+                  "conic-gradient(from 120deg, rgba(255,183,3,0.26), rgba(251,86,7,0.22), rgba(58,134,255,0.22), rgba(255,183,3,0.26))",
               }}
             />
             <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
                 <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Clipforge Labs</span>
                 <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
-                  clipforge.us • coming soon
+                  {BRAND.clipforgeUrl.replace(/^https?:\/\//, "")} • AI video generation
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Clipforge Labs is coming soon.
+                Want to generate AI clips? Visit Clipforge.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Orbito is live now for clipping. Clipforge Labs at clipforge.us will launch AI video and AI song
-                generation next.
+                Clipforge Labs is Orbito&apos;s sister site for AI video generation: prompt in, MP4 out. Generate short,
+                platform-ready clips and post them anywhere.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {[
                   {
-                    t: "AI video generation (coming soon)",
-                    d: "Create social-ready videos from prompts.",
+                    t: "Prompt-to-video",
+                    d: "Create scroll-stopping clips from a single prompt.",
                   },
                   {
-                    t: "AI song generation (coming soon)",
-                    d: "Generate original songs that match your content.",
+                    t: "Export + publish",
+                    d: "Download MP4s or publish to your connected channels.",
                   },
                 ].map((x) => (
                   <div key={x.t} className="surface-soft relative overflow-hidden p-5">
@@ -575,6 +575,12 @@ export default function Page() {
                     <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <a href={BRAND.clipforgeUrl} target="_blank" rel="noreferrer" className="btn-clipforge">
+                  Visit Clipforge
+                </a>
               </div>
             </div>
           </div>

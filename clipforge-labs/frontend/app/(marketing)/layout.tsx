@@ -1,6 +1,7 @@
 // frontend/app/(marketing)/layout.tsx
 import React from "react";
 import Navbar from "@/components/Navbar";
+import DevNotice from "@/components/DevNotice";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       }}
     >
       {/* Navbar must be in normal document flow for sticky to work */}
+      <DevNotice />
       <Navbar />
 
       {/* Clip x-overflow HERE (not on the parent that contains sticky) */}
