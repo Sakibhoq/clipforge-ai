@@ -609,8 +609,8 @@ export default function BillingPage() {
   }
 
   const plans: Plan[] = useMemo(() => {
-    const starterMonthlyPrice = 19.0;
-    const creatorMonthlyPrice = 49.0;
+    const starterMonthlyPrice = 39.0;
+    const creatorMonthlyPrice = 99.0;
     const creatorPrice = `$${formatMoney(creatorMonthlyPrice)} / mo`;
 
     return [

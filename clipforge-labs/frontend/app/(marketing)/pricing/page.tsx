@@ -575,8 +575,8 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
       ? creatorYearlyCreditsUpfront * pack
       : creatorMonthlyCredits * pack;
 
-  const starterMonthlyPrice = 19.0;
-  const creatorMonthlyPrice = 49.0;
+  const starterMonthlyPrice = 39.0;
+  const creatorMonthlyPrice = 99.0;
 
   const yearlyDiscount = 0.2;
   const months = 12;
