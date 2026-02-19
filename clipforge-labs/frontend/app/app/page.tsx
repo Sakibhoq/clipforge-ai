@@ -150,6 +150,9 @@ export default function AppConsolePage() {
               <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
                 Open generator
               </Link>
+              <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
+                Buy more credits
+              </Link>
               <Link href="/app/clips" className="btn-solid-dark text-[12px] px-4 py-2">
                 My clips
               </Link>
@@ -213,6 +216,9 @@ export default function AppConsolePage() {
               <div className="mt-5 flex flex-wrap items-center gap-2">
                 <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
                   Open generator
+                </Link>
+                <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
+                  Buy more credits
                 </Link>
                 <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
                   Studio

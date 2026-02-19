@@ -97,6 +97,9 @@ Use `.env.prod.example` as template and set real values for:
   - Exact redirect URIs for each provider
 - Generation:
   - `LABS_CREDITS_PER_SECOND=1`
+  - `LABS_IMAGE_CREDITS=4`
+  - `LABS_VOICE_CHARS_PER_CREDIT=250`
+  - `LABS_VOICE_MIN_CREDITS=1`
 
 ## 6) Deploy application
 

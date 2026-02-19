@@ -70,12 +70,12 @@ def _video_credits_needed(duration_seconds: int) -> int:
 
 
 def _image_credits_needed() -> int:
-    return _env_int("LABS_IMAGE_CREDITS", 6, min_value=1, max_value=200)
+    return _env_int("LABS_IMAGE_CREDITS", 4, min_value=1, max_value=200)
 
 
 def _voiceover_credits_needed(script: str) -> int:
-    chars_per_credit = _env_int("LABS_VOICE_CHARS_PER_CREDIT", 180, min_value=25, max_value=5000)
-    min_credits = _env_int("LABS_VOICE_MIN_CREDITS", 2, min_value=1, max_value=200)
+    chars_per_credit = _env_int("LABS_VOICE_CHARS_PER_CREDIT", 250, min_value=25, max_value=5000)
+    min_credits = _env_int("LABS_VOICE_MIN_CREDITS", 1, min_value=1, max_value=200)
     length = max(0, len((script or "").strip()))
     usage_credits = int(math.ceil(float(length) / float(chars_per_credit))) if length > 0 else 0
     return max(min_credits, usage_credits)

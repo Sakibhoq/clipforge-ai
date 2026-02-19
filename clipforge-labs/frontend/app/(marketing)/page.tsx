@@ -145,8 +145,8 @@ export default function Page() {
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-              {BRAND.product} is {BRAND.name}&rsquo;s video generation lab: prompt in, MP4 out. Generate, download, and publish
-              to your connected channels.
+              {BRAND.product} is {BRAND.name}&rsquo;s generation lab: create video, image, and voiceover in one clean flow, then
+              publish to your connected channels.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -176,8 +176,8 @@ export default function Page() {
               </div>
               <div className="surface-soft p-4">
                 <div className="text-xs text-white/55">Export ready</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">MP4 downloads</div>
-                <div className="mt-1 text-xs text-white/60">Post anywhere.</div>
+                <div className="mt-1 text-sm font-semibold text-white/90">Video, image, voice</div>
+                <div className="mt-1 text-xs text-white/60">One credit system, one workflow.</div>
               </div>
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 2</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Generate variants</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Pick an aspect ratio and duration. Reroll until it feels right.
+                Generate video, image, or voiceover. Reroll until it feels right.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="chip">9:16</span>

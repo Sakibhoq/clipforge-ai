@@ -44,9 +44,9 @@ type ClipRow = {
 };
 
 const CREDITS_PER_SECOND = 1;
-const IMAGE_CREDITS = 6;
-const VOICE_CHARS_PER_CREDIT = 180;
-const VOICE_MIN_CREDITS = 2;
+const IMAGE_CREDITS = 4;
+const VOICE_CHARS_PER_CREDIT = 250;
+const VOICE_MIN_CREDITS = 1;
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -275,7 +275,7 @@ export default function GenerateClient() {
       const outOfCredits = err?.status === 402 || low.includes("insufficient credits");
       if (outOfCredits) {
         setNeedsBilling(true);
-        setError("You’re out of credits. Add credits in Billing to generate more assets.");
+        setError("You’re out of credits. Add more from Pricing to keep generating.");
       } else {
         setError(msg);
       }
@@ -310,24 +310,29 @@ export default function GenerateClient() {
               </p>
             </div>
 
-            {activeJob ? (
-              <div
-                className={cx(
-                  "rounded-full border px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em]",
-                  status === "running"
-                    ? "border-white/15 bg-white/5 text-white/70"
-                    : status === "queued"
-                      ? "border-white/10 bg-white/5 text-white/60"
-                      : status === "failed"
-                        ? "border-rose-400/25 bg-rose-500/10 text-rose-100"
-                        : status === "done"
-                          ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
-                          : "border-white/10 bg-white/5 text-white/70"
-                )}
-              >
-                Status: <span className="text-white/90">{statusLabel}</span>
-              </div>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
+                Buy more credits
+              </Link>
+              {activeJob ? (
+                <div
+                  className={cx(
+                    "rounded-full border px-3 py-1.5 text-[12px] font-semibold uppercase tracking-[0.08em]",
+                    status === "running"
+                      ? "border-white/15 bg-white/5 text-white/70"
+                      : status === "queued"
+                        ? "border-white/10 bg-white/5 text-white/60"
+                        : status === "failed"
+                          ? "border-rose-400/25 bg-rose-500/10 text-rose-100"
+                          : status === "done"
+                            ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
+                            : "border-white/10 bg-white/5 text-white/70"
+                  )}
+                >
+                  Status: <span className="text-white/90">{statusLabel}</span>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -423,11 +428,19 @@ export default function GenerateClient() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/70">
-                  Estimated cost: <span className="text-white/90">{estimatedCredits} credits</span>
-                  {mode === "voiceover" ? (
-                    <span className="ml-2 text-white/55">({textLength.toLocaleString()} chars)</span>
-                  ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/70">
+                  <div>
+                    Estimated cost: <span className="text-white/90">{estimatedCredits} credits</span>
+                    {mode === "voiceover" ? (
+                      <span className="ml-2 text-white/55">({textLength.toLocaleString()} chars)</span>
+                    ) : null}
+                  </div>
+                  <Link href="/pricing" className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/[0.08]">
+                    Buy more credits
+                  </Link>
+                </div>
+                <div className="text-[11px] text-white/52">
+                  Cost guide: Video 1 credit/second • Image 4 credits • Voiceover 1 credit/250 characters.
                 </div>
 
                 {error ? (
@@ -435,8 +448,8 @@ export default function GenerateClient() {
                     <div>{error}</div>
                     {needsBilling ? (
                       <div className="mt-2">
-                        <Link href="/app/billing" className="text-rose-50/90 underline decoration-rose-200/25 underline-offset-4">
-                          Open Billing
+                        <Link href="/pricing" className="text-rose-50/90 underline decoration-rose-200/25 underline-offset-4">
+                          Open pricing
                         </Link>
                       </div>
                     ) : null}

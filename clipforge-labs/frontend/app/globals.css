@@ -764,8 +764,8 @@ select option {
   isolation: isolate;
 
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(155, 140, 255, 0.34);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
   padding: 0.55rem 0.95rem;
   font-size: 0.875rem;
   font-weight: 650;
@@ -783,25 +783,30 @@ select option {
     transform 160ms ease,
     border-color 160ms ease,
     box-shadow 160ms ease;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 0 1px rgba(70, 215, 255, 0.10),
+    0 12px 34px rgba(18, 28, 50, 0.45);
 }
 
 .btn-orbito::before {
-  /* Orbito gradient border (purple -> cyan -> mint) */
+  /* Moving Orbito border (purple -> cyan -> mint) */
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 16px;
-  padding: 2px;
+  padding: 2.25px;
   background: linear-gradient(
-    90deg,
+    115deg,
     rgba(155, 140, 255, 0.96),
     rgba(70, 215, 255, 0.90),
     rgba(53, 242, 166, 0.84),
     rgba(155, 140, 255, 0.96)
   );
-  background-size: 300% 100%;
-  animation: orbitoBorderShift 4.5s linear infinite;
-  opacity: 0.62;
+  background-size: 260% 260%;
+  animation: orbitoBorderShift 3.2s linear infinite, orbitoBorderPulse 2.4s ease-in-out infinite;
+  opacity: 0.88;
 
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -814,11 +819,12 @@ select option {
 }
 
 .btn-orbito:hover::before {
-  animation-duration: 2.2s;
+  animation-duration: 1.4s, 1.9s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn-orbito::before {
+  .btn-orbito::before,
+  .btn-orbito::after {
     animation: none;
   }
 }
@@ -827,25 +833,53 @@ select option {
   0% {
     background-position: 0% 50%;
   }
+  50% {
+    background-position: 100% 50%;
+  }
   100% {
-    background-position: 300% 50%;
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes orbitoBorderPulse {
+  0% {
+    filter: saturate(110%) brightness(1);
+  }
+  50% {
+    filter: saturate(130%) brightness(1.12);
+  }
+  100% {
+    filter: saturate(110%) brightness(1);
   }
 }
 
 .btn-orbito::after {
-  /* Soft Orbito tint fill */
+  /* Rotating glow wash */
   content: "";
   position: absolute;
-  inset: -35%;
-  background:
-    radial-gradient(140px 90px at 25% 35%, rgba(155, 140, 255, 0.22), transparent 70%),
-    radial-gradient(160px 110px at 70% 45%, rgba(70, 215, 255, 0.18), transparent 72%),
-    radial-gradient(170px 120px at 55% 80%, rgba(53, 242, 166, 0.14), transparent 72%);
-  opacity: 0.35;
-  filter: blur(10px);
+  inset: -80%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(155, 140, 255, 0.34),
+    rgba(70, 215, 255, 0.30),
+    rgba(53, 242, 166, 0.28),
+    rgba(155, 140, 255, 0.34)
+  );
+  opacity: 0.44;
+  filter: blur(16px) saturate(120%);
+  animation: orbitoGlowSpin 7s linear infinite;
   pointer-events: none;
   z-index: 0;
   transition: opacity 180ms ease;
+}
+
+@keyframes orbitoGlowSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.05);
+  }
 }
 
 .btn-orbito > * {
@@ -854,18 +888,22 @@ select option {
 }
 
 .btn-orbito:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(70, 215, 255, 0.58);
   transform: translateY(-1px);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+  box-shadow:
+    0 24px 65px rgba(10, 18, 38, 0.55),
+    0 0 24px rgba(70, 215, 255, 0.34),
+    0 0 34px rgba(155, 140, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .btn-orbito:hover::before {
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .btn-orbito:hover::after {
-  opacity: 0.5;
+  opacity: 0.74;
 }
 
 .btn-orbito:active {
