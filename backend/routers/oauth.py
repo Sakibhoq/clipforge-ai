@@ -88,8 +88,10 @@ PROVIDERS: Dict[str, Dict[str, object]] = {
         "auth_url": "https://www.facebook.com/v20.0/dialog/oauth",
         "token_url": "https://graph.facebook.com/v20.0/oauth/access_token",
         "userinfo_url": "https://graph.facebook.com/me",
-        # Request email so welcome emails can be delivered to real inboxes.
-        "scopes": ["public_profile", "email"],
+        # Keep login scopes minimal by default.
+        # Some Meta app configurations reject `email` during review/setup.
+        # We can still identify users by provider id and synthesize account email if needed.
+        "scopes": ["public_profile"],
         "pkce": True,
     },
     "discord": {
@@ -228,10 +230,12 @@ def _facebook_config_id() -> Optional[str]:
 
 def _facebook_use_config_id() -> bool:
     raw = (os.getenv("OAUTH_FACEBOOK_USE_CONFIG_ID") or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
     if raw in {"0", "false", "no", "off"}:
         return False
-    # default to enabled when config id exists
-    return bool(_facebook_config_id())
+    # Safer default: OFF unless explicitly enabled.
+    return False
 
 
 def _require_provider_ready(provider: str) -> Dict[str, object]:
