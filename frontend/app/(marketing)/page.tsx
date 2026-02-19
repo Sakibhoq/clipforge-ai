@@ -372,9 +372,6 @@ export default function Page() {
                   <a href="/start-trial" className="btn-orbito-cta">
                     Start free
                   </a>
-                  <a href="#how-it-works" className="btn-ghost">
-                    See how it works
-                  </a>
                   <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
                     Get paid with <span className="whop-word">Whop</span>
                   </a>
