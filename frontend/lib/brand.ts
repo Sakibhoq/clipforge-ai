@@ -11,4 +11,8 @@ export const BRAND = {
   clipforgeName: "Clipforge",
   clipforgeProduct: "Clipforge Labs",
   clipforgeUrl: "https://clipforge.us",
+
+  // Monetization partner
+  whopName: "Whop",
+  whopUrl: "https://whop.com/discover/app/app_QRxsQodZgK1r4D/",
 };

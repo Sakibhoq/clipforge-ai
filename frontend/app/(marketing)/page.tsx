@@ -375,6 +375,9 @@ export default function Page() {
                   <a href="#how-it-works" className="btn-ghost">
                     See how it works
                   </a>
+                  <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
+                    Get paid with Whop
+                  </a>
                   <div className="text-xs text-white/50">Less editing. More posting.</div>
                 </div>
 
@@ -383,6 +386,8 @@ export default function Page() {
                     Upload once
                   </span>{" "}
                   → pick clips → post
+                  <span className="text-white/35"> • </span>
+                  <span className="text-white/70">best clips can become your next payout.</span>
                 </div>
               </div>
 
@@ -512,6 +517,25 @@ export default function Page() {
                   <div className="mt-4 flex items-center gap-2 text-[11px] text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 animate-pulse" />
                     Queue ready
+                  </div>
+                </div>
+              </div>
+
+              <div
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-xs text-white/50">Monetization</div>
+                  <div className="mt-2 text-sm font-semibold text-white/90">Turn your clips into payouts with Whop</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Publish strong clips, join campaigns, and start earning from the content you already create.
+                  </div>
+                  <div className="mt-4">
+                    <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop text-xs">
+                      Open Whop
+                    </a>
                   </div>
                 </div>
               </div>

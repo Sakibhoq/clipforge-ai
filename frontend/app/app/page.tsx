@@ -3,6 +3,7 @@
 import React from "react";
 import UploadsPage from "@/app/app/upload/page";
 import ClipsPage from "@/app/app/clips/page";
+import { BRAND } from "@/lib/brand";
 
 export default function OverviewPage() {
   return (
@@ -31,6 +32,34 @@ export default function OverviewPage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
               Status: <span className="text-white/85">Live</span>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-6 surface-soft relative overflow-hidden rounded-3xl p-5 md:p-6">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-12 opacity-45 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(260px 180px at 18% 28%, rgba(255,177,115,0.28), transparent 70%), radial-gradient(260px 180px at 78% 35%, rgba(255,102,36,0.24), transparent 72%), radial-gradient(260px 180px at 55% 92%, rgba(255,141,66,0.18), transparent 72%)",
+            }}
+          />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-xs text-white/55">• Monetize your output</div>
+              <div className="mt-1 text-sm font-semibold text-white/90">Create clips in Orbito, then get paid with Whop</div>
+              <div className="mt-1 text-sm text-white/65">
+                Use your best-performing clips to join campaigns and open new revenue.
+              </div>
+            </div>
+            <a
+              href={BRAND.whopUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-whop text-[12px] px-4 py-2 w-full md:w-auto text-center"
+            >
+              Open Whop monetization
+            </a>
           </div>
         </section>
 

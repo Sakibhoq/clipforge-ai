@@ -440,6 +440,17 @@ export default function Navbar() {
             <div className="flex items-center gap-3">
               <div className="hidden md:flex items-center gap-3">
                 <a
+                  href={BRAND.whopUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-whop text-xs"
+                  title="Monetize your clips with Whop"
+                >
+                  <span>Earn with Whop</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+
+                <a
                   href={BRAND.clipforgeUrl}
                   target="_blank"
                   rel="noreferrer"
@@ -576,7 +587,18 @@ export default function Navbar() {
                   ))}
                 </div>
 
-                <div className="px-2 pb-1">
+                <div className="px-2 pb-1 grid gap-2">
+                  <a
+                    href={BRAND.whopUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setOpen(false)}
+                    className="btn-whop w-full text-xs"
+                    title="Monetize your clips with Whop"
+                  >
+                    <span>Earn with Whop</span>
+                    <span aria-hidden="true">↗</span>
+                  </a>
                   <a
                     href={BRAND.clipforgeUrl}
                     target="_blank"
