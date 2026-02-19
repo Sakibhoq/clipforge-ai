@@ -10,6 +10,8 @@ type ClipRow = {
   upload_id: number;
   storage_key: string;
   url: string;
+  asset_type?: string;
+  mime_type?: string;
   duration: number;
   title?: string | null;
   hook?: string | null;
@@ -23,6 +25,20 @@ function clip(s: string, n: number) {
   const t = String(s || "").trim();
   if (t.length <= n) return t;
   return `${t.slice(0, n - 1).trim()}…`;
+}
+
+function extFromStorageKey(key: string): string {
+  const m = String(key || "").toLowerCase().match(/(\.[a-z0-9]+)$/);
+  return m ? m[1] : "";
+}
+
+function detectAssetType(row: ClipRow): "video" | "image" | "audio" {
+  const t = String(row.asset_type || "").toLowerCase();
+  if (t === "image" || t === "audio" || t === "video") return t;
+  const ext = extFromStorageKey(row.storage_key || "");
+  if ([".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)) return "image";
+  if ([".mp3", ".wav", ".m4a", ".ogg"].includes(ext)) return "audio";
+  return "video";
 }
 
 export default function ClipsPage() {
@@ -71,16 +87,16 @@ export default function ClipsPage() {
             <div>
               <div className="text-xs text-white/55">• Clips</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">
-                Your <span className="grad-text">generated</span> videos
+                Your <span className="grad-text">generated</span> assets
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                All your outputs in one place. Download MP4s, preview, and publish from Studio.
+                All your outputs in one place: video, image, and voiceover.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
-                Generate a new clip
+                Generate a new asset
               </Link>
               <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
                 Studio
@@ -109,7 +125,7 @@ export default function ClipsPage() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search prompts or titles…"
+                placeholder="Search titles or hooks…"
                 className="field max-w-md"
               />
             </div>
@@ -124,6 +140,10 @@ export default function ClipsPage() {
             <div className="grid gap-4 md:grid-cols-2">
               {filtered.map((c) => (
                 <div key={c.id} className="surface-soft overflow-hidden rounded-3xl">
+                  {(() => {
+                    const assetType = detectAssetType(c);
+                    return (
+                      <>
                   <div className="border-b border-white/10 p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -136,7 +156,9 @@ export default function ClipsPage() {
                           <div className="mt-1 text-[12px] text-white/45">Upload #{c.upload_id}</div>
                         )}
                       </div>
-                      <span className="chip">{Math.max(0, Math.round(c.duration || 0))}s</span>
+                      <span className="chip">
+                        {assetType === "image" ? "Image" : assetType === "audio" ? `${Math.max(0, Math.round(c.duration || 0))}s audio` : `${Math.max(0, Math.round(c.duration || 0))}s`}
+                      </span>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -156,15 +178,26 @@ export default function ClipsPage() {
 
                   <div className="bg-black/35 p-4">
                     <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      <video src={c.url} controls playsInline preload="metadata" className="block w-full" />
+                      {assetType === "image" ? (
+                        <img src={c.url} alt={c.title || `Image ${c.id}`} className="block w-full object-contain" />
+                      ) : assetType === "audio" ? (
+                        <div className="p-4">
+                          <audio src={c.url} controls preload="metadata" className="w-full" />
+                        </div>
+                      ) : (
+                        <video src={c.url} controls playsInline preload="metadata" className="block w-full" />
+                      )}
                     </div>
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
           ) : (
             <div className="surface-soft rounded-3xl p-7 text-sm text-white/60">
-              {loading ? "Loading clips…" : "No clips yet. Generate your first one from the Generator."}
+              {loading ? "Loading assets…" : "No assets yet. Generate your first one from the Generator."}
             </div>
           )}
         </section>

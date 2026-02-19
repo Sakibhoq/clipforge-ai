@@ -24,12 +24,45 @@ from routers.auth import get_current_user
 router = APIRouter(prefix="/clips", tags=["clips"])
 
 
-def _sanitize_download_name(name: str) -> str:
+def _key_ext(key: str | None) -> str:
+    _, ext = os.path.splitext(str(key or "").lower())
+    return ext
+
+
+def _mime_from_key(key: str | None) -> str:
+    ext = _key_ext(key)
+    return {
+        ".mp4": "video/mp4",
+        ".mov": "video/quicktime",
+        ".webm": "video/webm",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".m4a": "audio/mp4",
+        ".ogg": "audio/ogg",
+    }.get(ext, "application/octet-stream")
+
+
+def _asset_type_from_key(key: str | None) -> str:
+    ext = _key_ext(key)
+    if ext in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+        return "image"
+    if ext in {".mp3", ".wav", ".m4a", ".ogg"}:
+        return "audio"
+    return "video"
+
+
+def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:
     cleaned = "".join(ch for ch in (name or "clip.mp4") if ch not in '/\\:*?"<>|').strip()
     if not cleaned:
-        cleaned = "clip.mp4"
-    if not cleaned.lower().endswith(".mp4"):
-        cleaned += ".mp4"
+        cleaned = f"asset{default_ext}"
+    _, ext = os.path.splitext(cleaned)
+    if not ext and default_ext:
+        cleaned += default_ext
     return cleaned
 
 
@@ -48,14 +81,15 @@ def _slugify_filename_base(text: str, fallback: str = "clip", max_len: int = 64)
 
 
 def _clip_download_name(clip: Clip, override: Optional[str] = None) -> str:
+    ext = _key_ext(clip.storage_key) or ".mp4"
     if override:
-        return _sanitize_download_name(override)
+        return _sanitize_download_name(override, default_ext=ext)
     title = (clip.title or "").strip()
     if title:
-        return _sanitize_download_name(f"{title}.mp4")
+        return _sanitize_download_name(f"{title}{ext}", default_ext=ext)
     if clip.storage_key:
-        return _sanitize_download_name(clip.storage_key.split("/")[-1])
-    return _sanitize_download_name(f"clip-{clip.id}.mp4")
+        return _sanitize_download_name(clip.storage_key.split("/")[-1], default_ext=ext)
+    return _sanitize_download_name(f"asset-{clip.id}{ext}", default_ext=ext)
 
 
 def _stream_filelike(body, chunk_size: int = 1024 * 1024):
@@ -139,6 +173,8 @@ def _clip_dict(clip: Clip, storage, request: Optional[Request]):
         "upload_id": clip.upload_id,
         "storage_key": clip.storage_key,
         "url": _clip_url(storage, clip.storage_key, request),
+        "asset_type": _asset_type_from_key(clip.storage_key),
+        "mime_type": _mime_from_key(clip.storage_key),
         "start_time": clip.start_time,
         "end_time": clip.end_time,
         "duration": clip.duration,
@@ -213,6 +249,7 @@ def download_clip(
         raise HTTPException(status_code=404, detail="Clip not found")
 
     safe_name = _clip_download_name(clip, filename)
+    media_type = _mime_from_key(clip.storage_key)
     storage = get_storage()
 
     if not _clip_storage_exists(storage, clip.storage_key):
@@ -228,7 +265,7 @@ def download_clip(
     headers = {
         "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quote(safe_name)}'
     }
-    return StreamingResponse(_stream_filelike(body), media_type="video/mp4", headers=headers)
+    return StreamingResponse(_stream_filelike(body), media_type=media_type, headers=headers)
 
 
 @router.post("/{clip_id}/crop")
@@ -247,6 +284,8 @@ def crop_clip(
     )
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
+    if _asset_type_from_key(clip.storage_key) != "video":
+        raise HTTPException(status_code=422, detail="Crop is only supported for video assets")
 
     if (payload.x + payload.w) > 1.000001 or (payload.y + payload.h) > 1.000001:
         raise HTTPException(status_code=422, detail="Crop rectangle must stay within frame bounds")

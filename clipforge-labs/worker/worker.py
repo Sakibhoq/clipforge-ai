@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import math
 import os
 import shutil
 import subprocess
@@ -10,6 +12,10 @@ import uuid
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+JOB_KIND_VIDEO = "generate"
+JOB_KIND_IMAGE = "generate_image"
+JOB_KIND_VOICEOVER = "generate_voiceover"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -45,7 +51,7 @@ def _local_storage_path() -> str:
     return os.path.abspath(_env("LOCAL_STORAGE_PATH", "/data/storage"))
 
 
-def _upload_file(path: str, key: str, *, content_type: str = "video/mp4") -> None:
+def _upload_file(path: str, key: str, *, content_type: str) -> None:
     backend = _storage_backend()
     if backend == "s3":
         import boto3
@@ -66,21 +72,18 @@ def _upload_file(path: str, key: str, *, content_type: str = "video/mp4") -> Non
 
 def _clip_dimensions(aspect_ratio: str) -> tuple[int, int]:
     ar = (aspect_ratio or "").strip()
-    # Reasonable defaults for social video.
     if ar == "16:9":
         return 1920, 1080
     if ar == "1:1":
         return 1080, 1080
-    # default 9:16
-    return 1080, 1920
+    return 1080, 1920  # default 9:16
 
 
 def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out_path: str) -> None:
     w, h = _clip_dimensions(aspect_ratio)
     safe_duration = max(2, min(int(duration or 6), 20))
 
-    # Avoid shell escaping by using a textfile.
-    fd, txt_path = tempfile.mkstemp(prefix="cflabs-prompt-", suffix=".txt")
+    fd, txt_path = tempfile.mkstemp(prefix="cflabs-video-prompt-", suffix=".txt")
     os.close(fd)
     try:
         with open(txt_path, "w", encoding="utf-8") as f:
@@ -95,11 +98,9 @@ def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out
         vf = (
             f"scale={w}:{h},"
             "format=yuv420p,"
-            # Prompt text
             f"drawtext=fontfile={fontfile}:textfile={txt_path}:reload=1:"
             "fontcolor=white:fontsize=48:line_spacing=10:"
             "x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.35:boxborderw=22,"
-            # Brand footer
             f"drawtext=fontfile={fontfile}:text='{brand}':"
             "fontcolor=white@0.75:fontsize=24:"
             "x=(w-text_w)/2:y=h-72"
@@ -124,10 +125,151 @@ def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out
         ]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0:
-            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg failed").strip()[:500])
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg video failed").strip()[:500])
     finally:
         try:
             os.unlink(txt_path)
+        except Exception:
+            pass
+
+
+def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> None:
+    w, h = _clip_dimensions(aspect_ratio)
+    fd, txt_path = tempfile.mkstemp(prefix="cflabs-image-prompt-", suffix=".txt")
+    os.close(fd)
+    try:
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write((prompt or "").strip()[:1200])
+
+        fontfile = _env(
+            "WORKER_DRAWTEXT_FONTFILE",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        )
+        brand = _env("WORKER_BRAND_TEXT", "Clipforge Labs")
+
+        vf = (
+            "format=rgb24,"
+            f"drawtext=fontfile={fontfile}:textfile={txt_path}:reload=1:"
+            "fontcolor=white:fontsize=44:line_spacing=8:"
+            "x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.4:boxborderw=20,"
+            f"drawtext=fontfile={fontfile}:text='{brand}':"
+            "fontcolor=white@0.78:fontsize=26:x=(w-text_w)/2:y=h-84"
+        )
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c=#0f172a:s={w}x{h}:d=1",
+            "-frames:v",
+            "1",
+            "-vf",
+            vf,
+            out_path,
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg image failed").strip()[:500])
+    finally:
+        try:
+            os.unlink(txt_path)
+        except Exception:
+            pass
+
+
+def _probe_audio_duration(path: str) -> float:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return 0.0
+    raw = (proc.stdout or "").strip()
+    try:
+        return max(0.0, float(raw))
+    except Exception:
+        return 0.0
+
+
+def _run_fallback_tone_voiceover(*, script: str, out_path: str) -> None:
+    # Fallback when espeak is unavailable: duration scales with text length.
+    duration = max(2, min(90, int(math.ceil(max(1, len(script or "")) / 13.0))))
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"sine=frequency=220:duration={duration}",
+        "-filter:a",
+        "volume=0.18",
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        "160k",
+        out_path,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg tone voiceover failed").strip()[:500])
+
+
+def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
+    safe_script = (script or "").strip()[:6000]
+    if not safe_script:
+        safe_script = "Untitled voiceover."
+
+    espeak_bin = shutil.which("espeak-ng") or shutil.which("espeak")
+    if not espeak_bin:
+        _run_fallback_tone_voiceover(script=safe_script, out_path=out_path)
+        return
+
+    fd, wav_path = tempfile.mkstemp(prefix="cflabs-voice-", suffix=".wav")
+    os.close(fd)
+    try:
+        voice = (voice_name or "en-us").strip()[:64] or "en-us"
+        speed = max(80, min(260, int(speed_wpm or 165)))
+        tts = [
+            espeak_bin,
+            "-v",
+            voice,
+            "-s",
+            str(speed),
+            "-w",
+            wav_path,
+            safe_script,
+        ]
+        tts_proc = subprocess.run(tts, capture_output=True, text=True)
+        if tts_proc.returncode != 0:
+            _run_fallback_tone_voiceover(script=safe_script, out_path=out_path)
+            return
+
+        enc = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            wav_path,
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "160k",
+            out_path,
+        ]
+        enc_proc = subprocess.run(enc, capture_output=True, text=True)
+        if enc_proc.returncode != 0:
+            raise RuntimeError((enc_proc.stderr or enc_proc.stdout or "ffmpeg mp3 encode failed").strip()[:500])
+    finally:
+        try:
+            os.unlink(wav_path)
         except Exception:
             pass
 
@@ -139,13 +281,16 @@ def _next_generate_job(db) -> dict | None:
             SELECT
               id,
               upload_id,
+              COALESCE(kind, 'generate') AS kind,
               COALESCE(prompt, '') AS prompt,
               COALESCE(negative_prompt, '') AS negative_prompt,
               COALESCE(model, '') AS model,
               COALESCE(duration_seconds, 6) AS duration_seconds,
-              COALESCE(aspect_ratio, '9:16') AS aspect_ratio
+              COALESCE(aspect_ratio, '9:16') AS aspect_ratio,
+              COALESCE(caption_style_json, '{}') AS settings_json
             FROM jobs
-            WHERE kind = 'generate' AND status = 'queued'
+            WHERE kind IN ('generate', 'generate_image', 'generate_voiceover')
+              AND status = 'queued'
             ORDER BY id ASC
             LIMIT 1
             """
@@ -160,12 +305,8 @@ def _mark_job_status(db, job_id: int, status: str, error: str | None = None) -> 
         {"s": status, "e": error, "id": int(job_id)},
     )
 
+
 def _refund_reserved_credits(db, job_id: int) -> int:
-    """
-    Best-effort refund for failed jobs.
-    - Uses jobs.credits_reserved as the amount already deducted at job creation.
-    - Guards with jobs.credits_refunded for idempotency.
-    """
     row = db.execute(
         text(
             """
@@ -215,6 +356,7 @@ def _insert_clip(
     duration_seconds: float,
     title: str | None,
 ) -> None:
+    safe_duration = max(0.0, float(duration_seconds or 0.0))
     db.execute(
         text(
             """
@@ -227,8 +369,8 @@ def _insert_clip(
             "job_id": int(job_id),
             "storage_key": str(storage_key),
             "start_time": 0.0,
-            "end_time": float(duration_seconds),
-            "duration": float(duration_seconds),
+            "end_time": safe_duration,
+            "duration": safe_duration,
             "title": (title or None),
             "hook": None,
         },
@@ -239,14 +381,87 @@ def _title_from_prompt(prompt: str) -> str | None:
     s = (prompt or "").strip()
     if not s:
         return None
-    # Keep titles short and clean for UI + filenames.
     if len(s) > 64:
         s = s[:61].rstrip() + "..."
     return s
 
 
+def _parse_settings(raw: str) -> dict:
+    text_value = (raw or "").strip()
+    if not text_value:
+        return {}
+    try:
+        data = json.loads(text_value)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _process_job(job: dict) -> tuple[str, str, float, str | None]:
+    """
+    Returns:
+      storage_key, content_type, duration_seconds, title
+    """
+    job_id = int(job["id"])
+    kind = str(job.get("kind") or JOB_KIND_VIDEO).strip().lower()
+    prompt = str(job.get("prompt") or "").strip()
+    aspect_ratio = str(job.get("aspect_ratio") or "9:16").strip()
+    duration = int(job.get("duration_seconds") or 6)
+    settings = _parse_settings(str(job.get("settings_json") or "{}"))
+
+    if kind == JOB_KIND_IMAGE:
+        fd, out_path = tempfile.mkstemp(prefix=f"cflabs-image-{job_id}-", suffix=".png")
+        os.close(fd)
+        try:
+            _run_ffmpeg_text_image(prompt=prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
+            key = f"assets/images/{job_id}-{uuid.uuid4().hex}.png"
+            _upload_file(out_path, key, content_type="image/png")
+            return key, "image/png", 0.0, _title_from_prompt(prompt) or f"Image {job_id}"
+        finally:
+            try:
+                os.unlink(out_path)
+            except Exception:
+                pass
+
+    if kind == JOB_KIND_VOICEOVER:
+        fd, out_path = tempfile.mkstemp(prefix=f"cflabs-voice-{job_id}-", suffix=".mp3")
+        os.close(fd)
+        try:
+            voice_name = str(settings.get("voice_name") or "en-us")
+            speed = int(settings.get("speed_wpm") or 165)
+            _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
+            dur = _probe_audio_duration(out_path)
+            key = f"assets/voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
+            _upload_file(out_path, key, content_type="audio/mpeg")
+            final_duration = dur if dur > 0 else max(2.0, min(90.0, len(prompt) / 12.0))
+            return key, "audio/mpeg", final_duration, _title_from_prompt(prompt) or f"Voiceover {job_id}"
+        finally:
+            try:
+                os.unlink(out_path)
+            except Exception:
+                pass
+
+    # Default video generation
+    fd, out_path = tempfile.mkstemp(prefix=f"cflabs-video-{job_id}-", suffix=".mp4")
+    os.close(fd)
+    try:
+        _run_ffmpeg_text_video(
+            prompt=prompt or "Untitled",
+            duration=duration,
+            aspect_ratio=aspect_ratio,
+            out_path=out_path,
+        )
+        key = f"clips/generated/{job_id}-{uuid.uuid4().hex}.mp4"
+        _upload_file(out_path, key, content_type="video/mp4")
+        return key, "video/mp4", float(max(2, duration)), _title_from_prompt(prompt)
+    finally:
+        try:
+            os.unlink(out_path)
+        except Exception:
+            pass
+
+
 def main() -> None:
-    # Support local runs: load ./worker/.env when present.
     load_dotenv()
 
     poll = max(2, int(_env("WORKER_POLL_SECONDS", "5")))
@@ -265,47 +480,27 @@ def main() -> None:
 
             job_id = int(job["id"])
             upload_id = int(job["upload_id"])
-            prompt = str(job.get("prompt") or "").strip()
-            aspect_ratio = str(job.get("aspect_ratio") or "9:16").strip()
-            duration = int(job.get("duration_seconds") or 6)
+            kind = str(job.get("kind") or JOB_KIND_VIDEO)
 
             try:
                 _mark_job_status(db, job_id, "running", None)
                 db.commit()
 
-                fd, out_path = tempfile.mkstemp(prefix=f"cflabs-{job_id}-", suffix=".mp4")
-                os.close(fd)
-                try:
-                    # TODO: replace with Google video generation API when configured.
-                    # For now, always generate a placeholder MP4 so the full flow can ship.
-                    _run_ffmpeg_text_video(
-                        prompt=prompt or "Untitled",
-                        duration=duration,
-                        aspect_ratio=aspect_ratio,
-                        out_path=out_path,
-                    )
-
-                    key = f"clips/generated/{job_id}-{uuid.uuid4().hex}.mp4"
-                    _upload_file(out_path, key, content_type="video/mp4")
-
-                finally:
-                    try:
-                        os.unlink(out_path)
-                    except Exception:
-                        pass
+                key, content_type, duration_seconds, title = _process_job(job)
 
                 _insert_clip(
                     db,
                     upload_id=upload_id,
                     job_id=job_id,
                     storage_key=key,
-                    duration_seconds=float(max(2, duration)),
-                    title=_title_from_prompt(prompt),
+                    duration_seconds=duration_seconds,
+                    title=title,
                 )
                 _mark_job_status(db, job_id, "done", None)
                 db.commit()
-                print(f"[worker] generated clip job_id={job_id} key={key}")
+                print(f"[worker] generated asset kind={kind} job_id={job_id} key={key} content_type={content_type}")
             except Exception as exc:
+                refunded = 0
                 try:
                     refunded = _refund_reserved_credits(db, job_id)
                     _mark_job_status(db, job_id, "failed", str(exc)[:500])
@@ -314,7 +509,7 @@ def main() -> None:
                     db.rollback()
                 if refunded:
                     print(f"[worker] refunded {refunded} credits for failed job_id={job_id}")
-                print(f"[worker] job failed job_id={job_id} err={type(exc).__name__}: {exc}")
+                print(f"[worker] job failed kind={kind} job_id={job_id} err={type(exc).__name__}: {exc}")
 
 
 if __name__ == "__main__":

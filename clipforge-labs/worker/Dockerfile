@@ -7,6 +7,7 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    espeak-ng \
     fonts-dejavu-core \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -22,4 +23,3 @@ RUN pip install --upgrade pip && \
       boto3
 
 CMD ["python", "worker.py"]
-
