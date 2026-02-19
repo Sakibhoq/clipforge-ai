@@ -6,7 +6,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-type GenerateResponse = { upload_id: number; job_id: number };
+type GenerateResponse = {
+  upload_id: number;
+  job_id: number;
+  credits_reserved?: number;
+  duration_seconds?: number;
+};
 type JobRow = {
   id: number;
   upload_id: number;
@@ -45,6 +50,8 @@ function prettyStatus(s: string) {
 }
 
 export default function GenerateClient() {
+  const CREDITS_PER_SECOND = 1;
+
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
 
@@ -69,6 +76,10 @@ export default function GenerateClient() {
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 1200 && !submitting;
   }, [prompt, submitting]);
+
+  const estimatedCredits = useMemo(() => {
+    return Math.max(1, Number(duration || 0)) * CREDITS_PER_SECOND;
+  }, [duration]);
 
   async function refreshJobs() {
     try {
@@ -137,7 +148,7 @@ export default function GenerateClient() {
     if (typeof ar === "string" && ["9:16", "16:9", "1:1"].includes(ar)) setAspectRatio(ar);
 
     const d = dRaw ? Number(dRaw) : NaN;
-    if (Number.isFinite(d) && [6, 10, 15, 20].includes(d)) setDuration(d);
+    if (Number.isFinite(d) && [4, 6, 8].includes(d)) setDuration(d);
 
     const jobId = jobRaw ? Number(jobRaw) : 0;
     const uploadId = uploadRaw ? Number(uploadRaw) : 0;
@@ -182,10 +193,10 @@ export default function GenerateClient() {
       const detail = err?.detail || err?.message || "Could not start generation.";
       const msg = typeof detail === "string" ? detail : "Could not start generation.";
       const low = String(msg || "").toLowerCase();
-      const outOfMinutes = err?.status === 402 || low.includes("insufficient credits");
-      if (outOfMinutes) {
+      const outOfCredits = err?.status === 402 || low.includes("insufficient credits");
+      if (outOfCredits) {
         setNeedsBilling(true);
-        setError("You’re out of minutes. Add minutes in Billing to generate more videos.");
+        setError("You’re out of credits. Add credits in Billing to generate more videos.");
       } else {
         setError(msg);
       }
@@ -275,12 +286,15 @@ export default function GenerateClient() {
                       onChange={(e) => setDuration(Number(e.target.value))}
                       className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-[14px] text-white/85 outline-none hover:bg-black/60 focus:border-white/20 focus:bg-black/60"
                     >
+                      <option value={4}>4 seconds</option>
                       <option value={6}>6 seconds</option>
-                      <option value={10}>10 seconds</option>
-                      <option value={15}>15 seconds</option>
-                      <option value={20}>20 seconds</option>
+                      <option value={8}>8 seconds</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px] text-white/70">
+                  Estimated cost: <span className="text-white/90">{estimatedCredits} credits</span> for this generation.
                 </div>
 
                 {error ? (
@@ -326,7 +340,7 @@ export default function GenerateClient() {
                 </button>
 
                 <div className="text-[12px] text-white/50">
-                  Tip: mention camera motion, lighting, and the subject. Keep it under 2 sentences.
+                  Tip: mention camera motion, lighting, and the subject. Keep it under 2 sentences for better results.
                 </div>
               </form>
             </div>

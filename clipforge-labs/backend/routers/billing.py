@@ -117,25 +117,28 @@ def _get_user_from_session(db: Session, session_obj: dict) -> Optional[User]:
 
 def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     """
-    Launch credit rules:
-    - Free trial: 60 (one-time)
-    - Starter: 240 / month
-    - Creator: 600 / month * pack_qty
-    - Studio: manual
+    Clipforge Labs launch credit rules (1 credit = 1 second generated):
+    - Free trial: 5 credits (one-time)
+    - Starter: 40 credits / month
+    - Creator: 120 credits / month * pack_qty
+    - Studio: 300 credits / month
     """
     plan = plan.lower().strip()
     interval = interval.lower().strip()
 
     if plan == "free":
-        return 60
+        return 5
 
     if plan == "starter":
-        return 240 if interval in {"month", "monthly"} else 240 * 12
+        return 40 if interval in {"month", "monthly"} else 40 * 12
 
     if plan == "creator":
-        base = 600 if interval in {"month", "monthly"} else 600 * 12
+        base = 120 if interval in {"month", "monthly"} else 120 * 12
         qty = max(1, int(pack_qty or 1))
         return base * qty
+
+    if plan == "studio":
+        return 300 if interval in {"month", "monthly"} else 300 * 12
 
     return 0
 
@@ -370,7 +373,7 @@ async def stripe_webhook(
         user.plan = plan
 
         if plan == "free":
-            user.credits = max(int(user.credits or 0), 60)
+            user.credits = max(int(user.credits or 0), 5)
             if hasattr(user, "trial_used"):
                 user.trial_used = True
         else:

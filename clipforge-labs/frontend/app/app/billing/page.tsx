@@ -6,11 +6,11 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge Labs — Billing (UI only)
+   Clipforge Labs — Billing
    Goals:
    - Users can change plans anytime (upgrade/downgrade)
    - Users can buy more credits when they run out
-   - No Stripe calls yet (wired later)
+   - Stripe Checkout integration for plan + pack purchases
    - Premium, calm, not intimidating
 
    Mobile polish:
@@ -210,7 +210,7 @@ function PackCard({
   pack: CreditPack;
   onBuy: (key: string) => void;
 }) {
-  const minutes = Math.max(0, Math.floor((pack.credits || 0) / 2));
+  const minutes = Math.max(0, Math.floor((pack.credits || 0) / 60));
 
   return (
     <button
@@ -236,7 +236,7 @@ function PackCard({
           <div>
             <div className="text-sm font-semibold text-white/90">{pack.name}</div>
             <div className="mt-1 text-sm text-white/60">
-              {minutes.toLocaleString()} minutes <span className="text-white/35">•</span>{" "}
+              {minutes.toLocaleString()} min output <span className="text-white/35">•</span>{" "}
               {pack.credits.toLocaleString()} credits
             </div>
           </div>
@@ -250,7 +250,7 @@ function PackCard({
         </div>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <span className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">Buy minutes</span>
+          <span className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto text-center">Buy credits</span>
           <span className="text-[12px] text-white/45">Tax calculated at checkout</span>
         </div>
       </div>
@@ -383,15 +383,15 @@ function CreditsCard({
 }) {
   const creditDisplay = credits === null ? "—" : credits.toLocaleString();
   const minutesDisplay =
-    credits === null ? "—" : Math.max(0, Math.floor(credits / 2)).toLocaleString();
+    credits === null ? "—" : Math.max(0, Math.floor(credits / 60)).toLocaleString();
 
   return (
     <SoftCard className="p-6" glow>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-white/90">Video minutes balance</div>
+          <div className="text-sm font-semibold text-white/90">Generation credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Minutes are tracked as credits under the hood (2 credits = 1 minute).
+            Clipforge Labs uses a simple rule: 1 credit = 1 second generated.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -399,7 +399,7 @@ function CreditsCard({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
-          <div className="text-[12px] text-white/55">Video minutes</div>
+          <div className="text-[12px] text-white/55">Approx output</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{minutesDisplay}</div>
           <div className="mt-1 text-[12px] text-white/45">
             minutes <span className="text-white/35">•</span> {creditDisplay} credits
@@ -421,7 +421,7 @@ function CreditsCard({
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button type="button" onClick={onBuy} className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
-          Buy minutes
+          Buy credits
         </button>
         <Link href="/app/generate" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
           Open generator
@@ -431,11 +431,11 @@ function CreditsCard({
       </div>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-        <div className="text-[12px] font-semibold text-white/80">How minutes work</div>
+        <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
-          <div>• 2 credits = 1 minute of output.</div>
-          <div>• Plans add minutes each month.</div>
-          <div>• Packs add extra minutes on top of Creator.</div>
+          <div>• 1 credit = 1 second of generation.</div>
+          <div>• Plans add credits each month.</div>
+          <div>• Packs add extra credits on top of Creator.</div>
         </div>
       </div>
     </SoftCard>
@@ -621,7 +621,7 @@ export default function BillingPage() {
         desc: "Generate your first clips and test the full flow.",
         priceLabel: "$0",
         interval: "monthly",
-        note: "Includes 30 minutes (60 credits). One-time per email.",
+        note: "Includes 5 credits (~5 seconds). One-time per account.",
       },
       {
         key: "starter",
@@ -630,18 +630,18 @@ export default function BillingPage() {
         desc: "For consistent output without overthinking it.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
-        note: "Includes 120 minutes (240 credits) each month.",
+        note: "Includes 40 credits (~40 seconds) each month.",
       },
       {
         key: "creator",
         name: "Creator",
-        short: "Scale minutes",
-        desc: "More minutes plus priority throughput. Packs apply here.",
+        short: "Scale credits",
+        desc: "More credits plus priority throughput. Packs apply here.",
         priceLabel: creatorPrice,
         interval,
         recommended: true,
         highlight: true,
-        note: "Includes 300 minutes (600 credits) each month. Packs scale this plan.",
+        note: "Includes 120 credits (~2 minutes) each month. Packs scale this plan.",
       },
       {
         key: "studio",
@@ -656,7 +656,7 @@ export default function BillingPage() {
   }, [interval]);
 
   const creditPacks: CreditPack[] = useMemo(() => {
-    const base = 600;
+    const base = 120;
     return [
       {
         key: "pack_1x",
@@ -744,10 +744,10 @@ export default function BillingPage() {
           <div className="min-w-0">
             <div className="text-xs text-sky-300/60">• Billing</div>
             <div className="mt-1 text-3xl font-semibold tracking-tight text-white/92">
-              Plan and <span className="grad-text">minutes</span>
+              Plan and <span className="grad-text">credits</span>
             </div>
             <div className="mt-1 text-sm text-white/60">
-              Change your plan or buy more minutes anytime.
+              Change your plan or buy more credits anytime.
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Plan changes</span>
@@ -767,7 +767,7 @@ export default function BillingPage() {
         </div>
       </SoftCard>
 
-      {/* Minutes */}
+      {/* Credits */}
       <CreditsCard credits={credits} onBuy={() => openPackModal("pack_3x")} />
 
       {/* Current */}
@@ -775,7 +775,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Current plan</div>
-            <div className="mt-1 text-sm text-white/60">Your current subscription and minutes balance.</div>
+            <div className="mt-1 text-sm text-white/60">Your current subscription and credits balance.</div>
           </div>
           <Badge tone="good">{currentPlanLabel}</Badge>
         </div>
@@ -783,8 +783,8 @@ export default function BillingPage() {
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <StatPill label="Plan" value={currentPlanLabel} />
           <StatPill
-            label="Minutes"
-            value={credits === null ? "—" : Math.max(0, Math.floor(credits / 2)).toLocaleString()}
+            label="Approx min"
+            value={credits === null ? "—" : Math.max(0, Math.floor(credits / 60)).toLocaleString()}
           />
           <StatPill label="Status" value="Active" />
         </div>
@@ -832,8 +832,8 @@ export default function BillingPage() {
       <SoftCard className="p-6" glow>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-white/90">Buy more minutes</div>
-            <div className="mt-1 text-sm text-white/60">Add extra minutes when you need them.</div>
+            <div className="text-sm font-semibold text-white/90">Buy more credits</div>
+            <div className="mt-1 text-sm text-white/60">Add extra credits when you need them.</div>
           </div>
           <Badge>Creator packs</Badge>
         </div>
@@ -845,7 +845,7 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
-          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Minutes add after checkout</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Credits add after checkout</span>
           <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Creator required</span>
           <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1">Receipts via email</span>
         </div>
@@ -868,7 +868,7 @@ export default function BillingPage() {
           modalMode === "plan"
             ? "This will open Stripe Checkout to confirm your plan."
             : modalMode === "pack"
-            ? "This will open Stripe Checkout to add Creator minutes."
+            ? "This will open Stripe Checkout to add Creator credits."
             : "Nothing to change right now. You’re already on this plan."
         }
         confirmLabel={modalMode === "info" ? "Okay" : "Confirm"}
@@ -880,7 +880,7 @@ export default function BillingPage() {
               <div className="mt-2 grid gap-2">
                 <div>• Upgrades: immediate.</div>
                 <div>• Downgrades: handled in Stripe during checkout.</div>
-                <div>• Minutes: updated after checkout confirmation.</div>
+                <div>• Credits: updated after checkout confirmation.</div>
               </div>
             </div>
           ) : null

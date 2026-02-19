@@ -100,6 +100,15 @@ function formatMoney(n: number) {
   return fixed;
 }
 
+function formatApproxOutput(credits: number) {
+  const safe = Math.max(0, Number(credits || 0));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  if (mins <= 0) return `${secs}s`;
+  if (secs === 0) return `${mins}m`;
+  return `${mins}m ${secs}s`;
+}
+
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -287,7 +296,7 @@ function PacksBar({
               Output packs <span className="text-white/45">(Creator only)</span>
             </div>
             <div className="text-xs text-white/55">
-              Scale Creator minutes (and Creator price) without changing your
+              Scale Creator credits (and Creator price) without changing your
               plan. Choose 1× to 10×.
             </div>
           </div>
@@ -347,7 +356,7 @@ function TopMetaRow() {
           </>
         }
       />
-      <MiniPill icon={<ShieldIcon />} label={<>Minutes map to output time</>} />
+      <MiniPill icon={<ShieldIcon />} label={<>Credits map to generated seconds</>} />
       <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
     </div>
   );
@@ -556,22 +565,15 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     setOpenBenefits((p) => ({ ...p, [k]: !p[k] }));
   const toggleFaq = (k: string) => setFaqOpen((p) => ({ ...p, [k]: !p[k] }));
 
-  const CREDITS_PER_MINUTE = 2;
+  const trialCredits = 5;
+  const starterMonthlyCredits = 40;
+  const creatorMonthlyCredits = 120;
+  const creatorYearlyCreditsUpfront = creatorMonthlyCredits * 12;
 
-  // Minutes are the user-facing unit. Internally, 2 credits = 1 minute.
-  const trialMinutes = 30;
-  const starterMonthlyMinutes = 120;
-  const creatorMonthlyMinutes = 300;
-  const creatorYearlyMinutesUpfront = creatorMonthlyMinutes * 12;
-
-  const creatorMinutes =
+  const creatorCredits =
     mode === "yearly"
-      ? creatorYearlyMinutesUpfront * pack
-      : creatorMonthlyMinutes * pack;
-
-  const trialCredits = trialMinutes * CREDITS_PER_MINUTE;
-  const starterMonthlyCredits = starterMonthlyMinutes * CREDITS_PER_MINUTE;
-  const creatorCredits = creatorMinutes * CREDITS_PER_MINUTE;
+      ? creatorYearlyCreditsUpfront * pack
+      : creatorMonthlyCredits * pack;
 
   const starterMonthlyPrice = 19.0;
   const creatorMonthlyPrice = 49.0;
@@ -597,34 +599,31 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const tierBullets = useMemo(() => {
     return {
       trial: [
-        `${trialMinutes} video minutes included (${trialCredits} credits)`,
+        `${trialCredits} credits included (~${formatApproxOutput(trialCredits)} output)`,
         "MP4 downloads",
         "Connect + publish from Studio",
       ],
       starter: [
-        `${starterMonthlyMinutes} video minutes / month (${starterMonthlyCredits} credits)`,
+        `${starterMonthlyCredits} credits / month (~${formatApproxOutput(starterMonthlyCredits)} output)`,
         "Simple monthly billing",
         "Prompt presets + history",
       ],
       creator: [
         mode === "yearly"
-          ? `${creatorMinutes} video minutes / year (upfront) (${creatorCredits} credits)`
-          : `${creatorMinutes} video minutes / month (${creatorCredits} credits)`,
+          ? `${creatorCredits} credits / year upfront (~${formatApproxOutput(creatorCredits)} output)`
+          : `${creatorCredits} credits / month (~${formatApproxOutput(creatorCredits)} output)`,
         "Priority generation queue",
         "Batch runs + variations",
       ],
       studio: [
-        "Custom minutes + seats",
+        "Custom credits + seats",
         "Team roles + workspaces",
         "Support + SLA options",
       ],
     };
   }, [
-    trialMinutes,
     trialCredits,
-    starterMonthlyMinutes,
     starterMonthlyCredits,
-    creatorMinutes,
     creatorCredits,
     mode,
   ]);
@@ -642,7 +641,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const starterBenefits = useMemo(
     () => [
       "Everything in Free Trial",
-      "More minutes for consistent output",
+      "More credits for consistent output",
       "Prompt presets + history",
       "Email support",
     ],
@@ -652,12 +651,12 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const creatorBenefits = useMemo(
     () => [
       "Everything in Starter",
-      "More minutes for daily output",
+      "More credits for daily output",
       "Priority generation queue",
       "Batch runs + variations",
       mode === "yearly"
-        ? "Yearly minutes delivered upfront"
-        : "Monthly minutes refresh automatically",
+        ? "Yearly credits delivered upfront"
+        : "Monthly credits refresh automatically",
     ],
     [mode]
   );
@@ -665,7 +664,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const studioBenefits = useMemo(
     () => [
       "Everything in Creator",
-      "Custom minutes + add-ons",
+      "Custom credits + add-ons",
       "Team workspaces + permissions",
       "Shared presets + brand templates",
       "Export rules + QA workflows",
@@ -699,10 +698,10 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           <div>
             <div className="text-xs text-white/50">• Pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Video minutes. <span className="grad-text">Scale your output.</span>
+              Generation credits. <span className="grad-text">Scale your output.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free, generate real clips, then upgrade when you want more minutes and faster throughput.
+              Start free, generate real clips, then upgrade when you want more credits and faster throughput.
             </p>
             <div className="mt-3">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -932,7 +931,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/45">
-                We&rsquo;ll size Studio around seats, minutes, and your posting workflow.
+                We&rsquo;ll size Studio around seats, credits, and your posting workflow.
               </div>
             </div>
           </div>
@@ -976,13 +975,26 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   <Divider />
 
                   <ComparisonRow
-                    label="Video minutes"
-                    trial={`${trialMinutes}`}
-                    starter={`${starterMonthlyMinutes}/mo`}
+                    label="Generation credits"
+                    trial={`${trialCredits}`}
+                    starter={`${starterMonthlyCredits}/mo`}
                     creator={
                       mode === "yearly"
-                        ? `${creatorMinutes}/yr upfront`
-                        : `${creatorMinutes}/mo`
+                        ? `${creatorCredits}/yr upfront`
+                        : `${creatorCredits}/mo`
+                    }
+                    studio="Custom"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Approx output time"
+                    trial={formatApproxOutput(trialCredits)}
+                    starter={`${formatApproxOutput(starterMonthlyCredits)}/mo`}
+                    creator={
+                      mode === "yearly"
+                        ? `${formatApproxOutput(creatorCredits)}/yr upfront`
+                        : `${formatApproxOutput(creatorCredits)}/mo`
                     }
                     studio="Custom"
                   />
@@ -1041,7 +1053,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   Talk to sales
                 </Link>
                 <div className="text-xs text-white/45">
-                  Packs only affect Creator minutes and pricing.
+                  Packs only affect Creator credits and pricing.
                 </div>
               </div>
             </div>
@@ -1055,44 +1067,44 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               Answers, <span className="grad-text">no fluff</span>
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-white/65">
-              Minutes are your usage unit. Packs scale Creator only. Yearly
-              delivers Creator minutes upfront.
+              Credits are your usage unit. Packs scale Creator only. Yearly
+              delivers Creator credits upfront.
             </p>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <FAQItem
-                q="How do minutes work?"
-                a="Your plan includes minutes of generated video. Under the hood we track credits (2 credits = 1 minute) so usage stays consistent."
+                q="How do credits work?"
+                a="1 credit = 1 second generated. Plans include monthly credits, and Creator packs add extra credits."
                 open={!!faqOpen.credits}
                 onToggle={() => toggleFaq("credits")}
               />
               <FAQItem
                 q="What do packs do?"
-                a="Packs scale Creator only: both included minutes and Creator pricing. Starter stays fixed."
+                a="Packs scale Creator only: both included credits and Creator pricing. Starter stays fixed."
                 open={!!faqOpen.packs}
                 onToggle={() => toggleFaq("packs")}
               />
               <FAQItem
                 q="How does yearly billing work on Creator?"
-                a="Yearly Creator delivers the full year's minutes upfront (3600 × pack). Monthly refresh is replaced by upfront delivery."
+                a="Yearly Creator delivers the full year's credits upfront (1440 × pack). Monthly refresh is replaced by upfront delivery."
                 open={!!faqOpen.yearly}
                 onToggle={() => toggleFaq("yearly")}
               />
               <FAQItem
                 q="What do I get on the free trial?"
-                a={`${trialMinutes} minutes (${trialCredits} credits) to run the flow end-to-end. Upgrade only if you want more minutes.`}
+                a={`${trialCredits} credits (~${formatApproxOutput(trialCredits)} output) to run the flow end-to-end. Upgrade only if you want more.`}
                 open={!!faqOpen.trial}
                 onToggle={() => toggleFaq("trial")}
               />
               <FAQItem
                 q="Can I cancel?"
-                a="Yes. Monthly stops renewing anytime. Yearly keeps the delivered minutes for the billing period."
+                a="Yes. Monthly stops renewing anytime. Yearly keeps the delivered credits for the billing period."
                 open={!!faqOpen.cancel}
                 onToggle={() => toggleFaq("cancel")}
               />
               <FAQItem
                 q="What is Studio?"
-                a="Studio is for teams. We size it around seats, minutes, workflows, and support needs."
+                a="Studio is for teams. We size it around seats, credits, workflows, and support needs."
                 open={!!faqOpen.studio}
                 onToggle={() => toggleFaq("studio")}
               />
@@ -1164,8 +1176,8 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           </div>
 
           <div className="mt-6 text-[11px] text-white/35">
-            Starter is monthly-only. Packs scale Creator minutes + pricing only.
-            Creator yearly delivers minutes upfront for the year.
+            Starter is monthly-only. Packs scale Creator credits + pricing only.
+            Creator yearly delivers credits upfront for the year.
           </div>
         </footer>
       </section>

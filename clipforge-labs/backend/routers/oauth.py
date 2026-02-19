@@ -222,10 +222,12 @@ def _facebook_config_id() -> Optional[str]:
 
 def _facebook_use_config_id() -> bool:
     raw = (os.getenv("OAUTH_FACEBOOK_USE_CONFIG_ID") or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
     if raw in {"0", "false", "no", "off"}:
         return False
-    # default to enabled when config id exists
-    return bool(_facebook_config_id())
+    # Safer default: OFF unless explicitly enabled.
+    return False
 
 
 def _require_provider_ready(provider: str) -> Dict[str, object]:
