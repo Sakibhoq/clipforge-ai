@@ -58,7 +58,7 @@ export default function OverviewPage() {
               rel="noreferrer"
               className="btn-whop text-[12px] px-4 py-2 w-full md:w-auto text-center"
             >
-              Open Whop monetization
+              Open <span className="whop-word">Whop</span> monetization
             </a>
           </div>
         </section>

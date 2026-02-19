@@ -320,7 +320,13 @@ export default function Navbar() {
   const authed = !!me;
   const credits = me?.credits ?? null;
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
-  const whopLabel = authed ? "Whop" : "Earn with Whop";
+  const whopLabel = authed ? (
+    <span className="whop-word">Whop</span>
+  ) : (
+    <>
+      Earn with <span className="whop-word">Whop</span>
+    </>
+  );
 
   async function logout() {
     try {
@@ -447,7 +453,7 @@ export default function Navbar() {
                   className="btn-whop text-xs"
                   title="Monetize your clips with Whop"
                 >
-                  <span>{whopLabel}</span>
+                  {whopLabel}
                   <span aria-hidden="true">↗</span>
                 </a>
 
@@ -597,7 +603,7 @@ export default function Navbar() {
                     className="btn-whop w-full text-xs"
                     title="Monetize your clips with Whop"
                   >
-                    <span>{whopLabel}</span>
+                    {whopLabel}
                     <span aria-hidden="true">↗</span>
                   </a>
                   <a

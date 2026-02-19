@@ -376,7 +376,7 @@ export default function Page() {
                     See how it works
                   </a>
                   <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
-                    Get paid with Whop
+                    Get paid with <span className="whop-word">Whop</span>
                   </a>
                   <div className="text-xs text-white/50">Less editing. More posting.</div>
                 </div>
@@ -534,7 +534,7 @@ export default function Page() {
                   </div>
                   <div className="mt-4">
                     <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop text-xs">
-                      Open Whop
+                      Open <span className="whop-word">Whop</span>
                     </a>
                   </div>
                 </div>
