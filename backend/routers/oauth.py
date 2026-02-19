@@ -229,12 +229,9 @@ def _facebook_config_id() -> Optional[str]:
 
 
 def _facebook_use_config_id() -> bool:
-    raw = (os.getenv("OAUTH_FACEBOOK_USE_CONFIG_ID") or "").strip().lower()
-    if raw in {"1", "true", "yes", "on"}:
-        return True
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    # Safer default: OFF unless explicitly enabled.
+    # Login flow is intentionally kept on explicit minimal scopes (public_profile)
+    # to avoid Meta "Invalid Scopes" failures while app settings/review are in flux.
+    # Keep config_id disabled here; use /social/connect for Meta business scopes.
     return False
 
 
@@ -376,13 +373,11 @@ def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]
         params["access_type"] = "offline"
         params["prompt"] = "consent"
     if provider == "facebook" and _facebook_use_config_id():
+        # Disabled by default; kept for future compatibility.
         config_id = _facebook_config_id()
         if config_id:
-            # Facebook Login for Business requires config_id and uses scopes
-            # from the selected configuration.
             params["config_id"] = config_id
             params["override_default_response_type"] = "true"
-            params.pop("scope", None)
 
     auth_url = conf["auth_url"]
     url = f"{auth_url}?{urlencode(params)}"
@@ -633,7 +628,9 @@ def oauth_callback(
         user.name = name
         db.commit()
 
-    if created_user:
+    # Send welcome email only for Google OAuth signups.
+    # Email/password signups are handled in /auth/register.
+    if created_user and provider == "google":
         try:
             send_welcome_email(user.email, user.name)
         except Exception as exc:
