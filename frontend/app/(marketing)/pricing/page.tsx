@@ -732,7 +732,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora w-full",
+                    "btn-aurora btn-aurora-dark-border w-full",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -1034,7 +1034,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora",
+                    "btn-aurora btn-aurora-dark-border",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -1128,7 +1128,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora",
+                    "btn-aurora btn-aurora-dark-border",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -1147,7 +1147,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
         <footer className="pb-6 pt-12 text-xs text-white/45">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>© 2026 • {BRAND.name} by Sakib LLC</div>
+            <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((i) => (
                 <a key={i.href} href={i.href} className="hover:text-white/70">

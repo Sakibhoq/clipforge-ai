@@ -613,7 +613,7 @@ export default function ContactPage() {
 
             <footer className="pb-10 pt-14 sm:pt-20 text-xs text-white/45">
               <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>© 2026 • Orbito by Sakib LLC</div>
+                <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
                   {footerLinks.map((i) => (
                     <a key={i.href} href={i.href} className="hover:text-white/70">

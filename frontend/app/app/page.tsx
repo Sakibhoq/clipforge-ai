@@ -74,7 +74,7 @@ export default function OverviewPage() {
 
         <footer className="mt-10 border-t border-white/10 pt-6 text-xs text-white/50">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>Orbito • Simple short-form clipping.</span>
+            <span>Orbito • Simple short-form clipping. All rights reserved.</span>
             <span className="text-white/40">Need help? contact@orbito.cc</span>
           </div>
         </footer>

@@ -369,7 +369,7 @@ export default function Page() {
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <a href="/start-trial" className="btn-aurora">
+                  <a href="/start-trial" className="btn-aurora btn-aurora-dark-border">
                     Start free
                   </a>
                   <a href="#how-it-works" className="btn-ghost">
@@ -543,7 +543,7 @@ export default function Page() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/start-trial" className="btn-aurora">
+            <a href="/start-trial" className="btn-aurora btn-aurora-dark-border">
               Start free
             </a>
             <a href="/pricing" className="btn-ghost">
@@ -613,7 +613,7 @@ export default function Page() {
         {/* FOOTER */}
         <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>© 2026 • {BRAND.name} by Sakib LLC</div>
+            <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((i) => (
                 <a key={i.href} href={i.href} className="hover:text-white/75">
