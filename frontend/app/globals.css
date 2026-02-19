@@ -687,6 +687,105 @@ textarea {
   animation-duration: 1.2s;
 }
 
+/* Orbito-native CTA (used for Start free / Start free trial / Choose Creator) */
+.btn-orbito-cta {
+  position: relative;
+  isolation: isolate;
+
+  border-radius: 9999px;
+  border: 1px solid rgba(125, 211, 252, 0.30);
+  background: linear-gradient(135deg, rgba(13, 20, 34, 0.96), rgba(11, 18, 30, 0.92));
+  color: rgba(241, 248, 255, 0.96);
+  padding: 0.7rem 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  overflow: hidden;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    0 12px 36px rgba(0, 0, 0, 0.46);
+}
+
+.btn-orbito-cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  padding: 2px;
+  background: linear-gradient(
+    95deg,
+    rgba(167, 139, 250, 0.90),
+    rgba(125, 211, 252, 0.92),
+    rgba(45, 212, 191, 0.86),
+    rgba(167, 139, 250, 0.90)
+  );
+  background-size: 230% 100%;
+  background-position: 0% 50%;
+  animation: auroraBorderSlide 2.7s linear infinite;
+  opacity: 0.86;
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+.btn-orbito-cta::after {
+  content: "";
+  position: absolute;
+  inset: -42%;
+  background:
+    radial-gradient(160px 100px at 30% 40%, rgba(167, 139, 250, 0.22), transparent 72%),
+    radial-gradient(170px 110px at 70% 52%, rgba(125, 211, 252, 0.18), transparent 74%),
+    radial-gradient(160px 100px at 56% 82%, rgba(45, 212, 191, 0.12), transparent 70%);
+  opacity: 0.44;
+  filter: blur(11px);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 160ms ease;
+}
+
+.btn-orbito-cta > * {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-orbito-cta:hover {
+  transform: translateY(-1px);
+  border-color: rgba(167, 139, 250, 0.48);
+  background: linear-gradient(135deg, rgba(16, 24, 40, 0.98), rgba(14, 22, 36, 0.94));
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.52),
+    0 0 26px rgba(125, 211, 252, 0.16);
+}
+
+.btn-orbito-cta:hover::before {
+  animation-duration: 1.8s;
+  opacity: 0.98;
+}
+
+.btn-orbito-cta:hover::after {
+  opacity: 0.62;
+}
+
+.btn-orbito-cta:active {
+  transform: translateY(0);
+}
+
 @keyframes auroraBorderSlide {
   0% {
     background-position: 0% 50%;
@@ -896,8 +995,8 @@ textarea {
   isolation: isolate;
 
   border-radius: 9999px;
-  border: 1px solid rgba(224, 126, 64, 0.72);
-  background: linear-gradient(135deg, rgba(219, 98, 38, 0.94), rgba(181, 74, 22, 0.90));
+  border: 1px solid rgba(255, 116, 46, 0.76);
+  background: linear-gradient(135deg, rgba(255, 94, 28, 0.94), rgba(220, 71, 16, 0.90));
   padding: 0.55rem 0.95rem;
   font-size: 0.875rem;
   font-weight: 700;
@@ -917,9 +1016,9 @@ textarea {
     border-color 160ms ease,
     box-shadow 160ms ease;
   box-shadow:
-    inset 0 1px 0 rgba(255, 226, 196, 0.34),
-    0 10px 24px rgba(180, 83, 27, 0.30),
-    0 0 16px rgba(205, 102, 44, 0.16);
+    inset 0 1px 0 rgba(255, 224, 194, 0.30),
+    0 10px 24px rgba(194, 70, 18, 0.30),
+    0 0 14px rgba(215, 88, 28, 0.16);
 }
 
 .btn-whop::before {
@@ -930,10 +1029,10 @@ textarea {
   padding: 2px;
   background: linear-gradient(
     95deg,
-    rgba(226, 136, 74, 0.94),
-    rgba(205, 94, 39, 0.94),
-    rgba(219, 116, 57, 0.92),
-    rgba(226, 136, 74, 0.94)
+    rgba(255, 133, 73, 0.94),
+    rgba(241, 94, 29, 0.94),
+    rgba(255, 118, 52, 0.92),
+    rgba(255, 133, 73, 0.94)
   );
   background-size: 260% 100%;
   animation: whopBorderShift 3.8s linear infinite;
@@ -963,9 +1062,9 @@ textarea {
   position: absolute;
   inset: -45%;
   background:
-    radial-gradient(150px 90px at 24% 34%, rgba(223, 149, 94, 0.36), transparent 70%),
-    radial-gradient(180px 120px at 72% 48%, rgba(198, 92, 35, 0.36), transparent 72%);
-  opacity: 0.5;
+    radial-gradient(150px 90px at 24% 34%, rgba(255, 167, 106, 0.34), transparent 70%),
+    radial-gradient(180px 120px at 72% 48%, rgba(224, 95, 32, 0.34), transparent 72%);
+  opacity: 0.48;
   filter: blur(11px);
   pointer-events: none;
   z-index: 0;
@@ -978,13 +1077,13 @@ textarea {
 }
 
 .btn-whop:hover {
-  background: linear-gradient(135deg, rgba(230, 111, 49, 0.96), rgba(196, 85, 30, 0.94));
-  border-color: rgba(236, 152, 97, 0.90);
+  background: linear-gradient(135deg, rgba(255, 106, 38, 0.96), rgba(228, 77, 20, 0.94));
+  border-color: rgba(255, 165, 104, 0.90);
   transform: translateY(-1px);
   box-shadow:
     0 16px 50px rgba(0, 0, 0, 0.42),
-    0 0 24px rgba(217, 113, 51, 0.34),
-    0 0 44px rgba(178, 79, 28, 0.2);
+    0 0 20px rgba(255, 114, 48, 0.32),
+    0 0 40px rgba(196, 70, 18, 0.20);
 }
 
 .btn-whop:hover::before {

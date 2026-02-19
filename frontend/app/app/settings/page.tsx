@@ -495,7 +495,12 @@ export default function SettingsPage() {
       }
       await refreshSubscriptionStatus();
     } catch (e: any) {
-      setActionMsg(e?.detail || e?.message || "Failed to cancel subscription.");
+      const raw = String(e?.detail || e?.message || "").toLowerCase();
+      if (raw.includes("failed to fetch") || raw.includes("networkerror")) {
+        setActionMsg("Could not reach billing service. Please refresh and try again. If it continues, backend may need restart.");
+      } else {
+        setActionMsg(e?.detail || e?.message || "Failed to cancel subscription.");
+      }
     } finally {
       setBillingBusy(false);
     }

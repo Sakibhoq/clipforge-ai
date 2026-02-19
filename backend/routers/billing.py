@@ -273,22 +273,27 @@ def cancel_subscription(
     if not customer_id:
         raise HTTPException(status_code=400, detail="No Stripe customer found")
 
-    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
-    target = None
-    for sub in subs.data:
-        s = str(getattr(sub, "status", "") or "").lower()
-        if s in {"active", "trialing", "past_due", "unpaid"}:
-            target = sub
-            break
+    try:
+        subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+        target = None
+        for sub in subs.data:
+            s = str(getattr(sub, "status", "") or "").lower()
+            if s in {"active", "trialing", "past_due", "unpaid"}:
+                target = sub
+                break
 
-    if not target:
-        return CancelSubscriptionResponse(status="no_active_subscription")
+        if not target:
+            return CancelSubscriptionResponse(status="no_active_subscription")
 
-    if bool(getattr(target, "cancel_at_period_end", False)):
+        if bool(getattr(target, "cancel_at_period_end", False)):
+            return CancelSubscriptionResponse(status="cancel_at_period_end")
+
+        stripe.Subscription.modify(target.id, cancel_at_period_end=True)
         return CancelSubscriptionResponse(status="cancel_at_period_end")
-
-    stripe.Subscription.modify(target.id, cancel_at_period_end=True)
-    return CancelSubscriptionResponse(status="cancel_at_period_end")
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error while canceling subscription: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to cancel subscription")
 
 
 @router.get("/subscription-status", response_model=SubscriptionStatusResponse)
@@ -304,16 +309,21 @@ def subscription_status(
     if not customer_id:
         return SubscriptionStatusResponse(status="no_active_subscription")
 
-    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
-    for sub in subs.data:
-        s = str(getattr(sub, "status", "") or "").lower()
-        if s in {"active", "trialing", "past_due", "unpaid"}:
-            cancel_at_period_end = bool(getattr(sub, "cancel_at_period_end", False))
-            return SubscriptionStatusResponse(
-                status="cancel_at_period_end" if cancel_at_period_end else "active",
-                cancel_at_period_end=cancel_at_period_end,
-                subscription_id=str(getattr(sub, "id", "") or "") or None,
-            )
+    try:
+        subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+        for sub in subs.data:
+            s = str(getattr(sub, "status", "") or "").lower()
+            if s in {"active", "trialing", "past_due", "unpaid"}:
+                cancel_at_period_end = bool(getattr(sub, "cancel_at_period_end", False))
+                return SubscriptionStatusResponse(
+                    status="cancel_at_period_end" if cancel_at_period_end else "active",
+                    cancel_at_period_end=cancel_at_period_end,
+                    subscription_id=str(getattr(sub, "id", "") or "") or None,
+                )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error while checking subscription: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to check subscription")
 
     return SubscriptionStatusResponse(status="no_active_subscription")
 

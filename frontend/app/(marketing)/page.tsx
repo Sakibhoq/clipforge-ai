@@ -369,7 +369,7 @@ export default function Page() {
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <a href="/start-trial" className="btn-aurora btn-aurora-dark-border">
+                  <a href="/start-trial" className="btn-orbito-cta">
                     Start free
                   </a>
                   <a href="#how-it-works" className="btn-ghost">
@@ -543,7 +543,7 @@ export default function Page() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/start-trial" className="btn-aurora btn-aurora-dark-border">
+            <a href="/start-trial" className="btn-orbito-cta">
               Start free
             </a>
             <a href="/pricing" className="btn-ghost">

@@ -496,7 +496,7 @@ export default function Navbar() {
                       type="button"
                       onClick={startFreeTrial}
                       disabled={startingTrial}
-                      className="group relative btn-aurora btn-aurora-dark-border text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="group relative btn-orbito-cta text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
                       <span
@@ -639,7 +639,7 @@ export default function Navbar() {
                       type="button"
                       onClick={startFreeTrial}
                       disabled={startingTrial}
-                      className="group relative col-span-2 btn-aurora btn-aurora-dark-border text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="group relative col-span-2 btn-orbito-cta text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
                       <span

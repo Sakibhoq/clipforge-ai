@@ -732,7 +732,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora btn-aurora-dark-border w-full",
+                    "btn-orbito-cta w-full",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -863,7 +863,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("creator")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora w-full",
+                    "btn-orbito-cta w-full",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -1034,7 +1034,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora btn-aurora-dark-border",
+                    "btn-orbito-cta",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >
@@ -1128,7 +1128,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   onClick={() => startCheckout("free")}
                   disabled={startingCheckout !== null}
                   className={cn(
-                    "btn-aurora btn-aurora-dark-border",
+                    "btn-orbito-cta",
                     startingCheckout ? "opacity-80 cursor-not-allowed" : ""
                   )}
                 >

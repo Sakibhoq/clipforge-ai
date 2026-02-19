@@ -1452,12 +1452,19 @@ function ClipsWorkspace() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="appearance-none rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 pr-9 text-[12px] font-semibold text-white/80 outline-none hover:bg-white/[0.04] transition"
+                className="appearance-none rounded-full border border-white/12 bg-black/60 px-4 py-2 pr-9 text-[12px] font-semibold text-white/90 outline-none hover:bg-black/70 transition"
+                style={{ colorScheme: "dark" }}
                 aria-label="Sort"
               >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="duration">Duration</option>
+                <option value="newest" className="bg-black text-white">
+                  Newest
+                </option>
+                <option value="oldest" className="bg-black text-white">
+                  Oldest
+                </option>
+                <option value="duration" className="bg-black text-white">
+                  Duration
+                </option>
               </select>
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-80">
                 <Icon name="chev" />
