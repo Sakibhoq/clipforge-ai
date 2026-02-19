@@ -158,6 +158,12 @@ class CancelSubscriptionResponse(BaseModel):
     status: str
 
 
+class SubscriptionStatusResponse(BaseModel):
+    status: str
+    cancel_at_period_end: bool = False
+    subscription_id: Optional[str] = None
+
+
 class BillingHistoryInvoice(BaseModel):
     id: str
     number: Optional[str] = None
@@ -267,13 +273,49 @@ def cancel_subscription(
     if not customer_id:
         raise HTTPException(status_code=400, detail="No Stripe customer found")
 
-    subs = stripe.Subscription.list(customer=customer_id, status="active", limit=1)
-    if not subs.data:
+    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+    target = None
+    for sub in subs.data:
+        s = str(getattr(sub, "status", "") or "").lower()
+        if s in {"active", "trialing", "past_due", "unpaid"}:
+            target = sub
+            break
+
+    if not target:
         return CancelSubscriptionResponse(status="no_active_subscription")
 
-    sub = subs.data[0]
-    stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
+    if bool(getattr(target, "cancel_at_period_end", False)):
+        return CancelSubscriptionResponse(status="cancel_at_period_end")
+
+    stripe.Subscription.modify(target.id, cancel_at_period_end=True)
     return CancelSubscriptionResponse(status="cancel_at_period_end")
+
+
+@router.get("/subscription-status", response_model=SubscriptionStatusResponse)
+def subscription_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not stripe.api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+
+    user = _reload_user(db, current_user)
+    customer_id = getattr(user, "stripe_customer_id", None)
+    if not customer_id:
+        return SubscriptionStatusResponse(status="no_active_subscription")
+
+    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+    for sub in subs.data:
+        s = str(getattr(sub, "status", "") or "").lower()
+        if s in {"active", "trialing", "past_due", "unpaid"}:
+            cancel_at_period_end = bool(getattr(sub, "cancel_at_period_end", False))
+            return SubscriptionStatusResponse(
+                status="cancel_at_period_end" if cancel_at_period_end else "active",
+                cancel_at_period_end=cancel_at_period_end,
+                subscription_id=str(getattr(sub, "id", "") or "") or None,
+            )
+
+    return SubscriptionStatusResponse(status="no_active_subscription")
 
 
 @router.get("/history", response_model=BillingHistoryResponse)

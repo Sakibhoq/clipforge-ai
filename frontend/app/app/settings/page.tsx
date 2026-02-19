@@ -353,6 +353,10 @@ type MeResponse = {
   credits: number;
 };
 
+type SubscriptionStatusResponse = {
+  status: string;
+};
+
 export default function SettingsPage() {
   const router = useRouter();
 
@@ -371,6 +375,9 @@ export default function SettingsPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(true);
   const [billingBusy, setBillingBusy] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<
+    "loading" | "active" | "cancel_at_period_end" | "no_active_subscription" | "unknown"
+  >("loading");
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
@@ -379,6 +386,25 @@ export default function SettingsPage() {
   const plan = me?.plan ?? "—";
   const credits = typeof me?.credits === "number" ? String(me.credits) : "—";
   const status = meLoading ? "Loading…" : me ? "Active" : "—";
+  const subscriptionCanceled =
+    subscriptionStatus === "cancel_at_period_end" || subscriptionStatus === "no_active_subscription";
+
+  function mapSubscriptionStatus(raw: string | null | undefined) {
+    const v = String(raw || "").toLowerCase().trim();
+    if (v === "active") return "active" as const;
+    if (v === "cancel_at_period_end") return "cancel_at_period_end" as const;
+    if (v === "no_active_subscription") return "no_active_subscription" as const;
+    return "unknown" as const;
+  }
+
+  async function refreshSubscriptionStatus() {
+    try {
+      const res = await apiFetch<SubscriptionStatusResponse>("/billing/subscription-status", { method: "GET" });
+      setSubscriptionStatus(mapSubscriptionStatus(res?.status));
+    } catch {
+      setSubscriptionStatus("unknown");
+    }
+  }
 
   useEffect(() => {
     // hydrate /auth/me (optional; if fails we stay UI-only)
@@ -401,6 +427,11 @@ export default function SettingsPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void refreshSubscriptionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -448,12 +479,21 @@ export default function SettingsPage() {
   }
 
   async function cancelSubscription() {
-    if (billingBusy) return;
+    if (billingBusy || subscriptionCanceled) return;
     setBillingBusy(true);
     setActionMsg(null);
     try {
       const res = (await apiFetch<{ status: string }>("/billing/cancel", { method: "POST" })) as any;
-      setActionMsg(res?.status ? `Subscription: ${res.status}` : "Subscription update requested.");
+      const nextStatus = mapSubscriptionStatus(res?.status);
+      if (nextStatus !== "unknown") setSubscriptionStatus(nextStatus);
+      if (nextStatus === "cancel_at_period_end") {
+        setActionMsg("Subscription canceled. Access stays active until period end.");
+      } else if (nextStatus === "no_active_subscription") {
+        setActionMsg("No active subscription found.");
+      } else {
+        setActionMsg("Subscription update requested.");
+      }
+      await refreshSubscriptionStatus();
     } catch (e: any) {
       setActionMsg(e?.detail || e?.message || "Failed to cancel subscription.");
     } finally {
@@ -669,15 +709,19 @@ export default function SettingsPage() {
         <div className="rounded-3xl border border-white/10 bg-black/20 px-5">
           <Row
             label="Cancel subscription"
-            hint="Stops future renewals at the end of your current billing period."
+            hint={
+              subscriptionCanceled
+                ? "Subscription already canceled. Access stays active until period end."
+                : "Stops future renewals at the end of your current billing period."
+            }
             right={
               <button
                 type="button"
                 onClick={cancelSubscription}
-                disabled={billingBusy}
+                disabled={billingBusy || subscriptionCanceled}
                 className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-60"
               >
-                {billingBusy ? "Canceling…" : "Cancel"}
+                {billingBusy ? "Canceling…" : subscriptionCanceled ? "Canceled" : "Cancel"}
               </button>
             }
           />
