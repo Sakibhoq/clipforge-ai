@@ -280,7 +280,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile nav */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/10 bg-black/70 backdrop-blur">
+          <div className="md:hidden border-t border-white/15 bg-[#04070fe8] shadow-[0_20px_55px_rgba(0,0,0,0.65)] backdrop-blur-xl">
             <div
               className={cx(
                 "mx-auto max-w-6xl px-6 py-4 grid gap-2",
