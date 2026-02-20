@@ -4,6 +4,7 @@
 import React, { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -189,9 +190,17 @@ function ResetPasswordPageInner() {
 
     setSubmitting(true);
     try {
-      // UI-only for now (backend later)
-      await new Promise((r) => setTimeout(r, 420));
+      await apiFetch("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password: pw }),
+      });
       setDone(true);
+    } catch (e: any) {
+      const msg =
+        (typeof e?.detail === "string" && e.detail) ||
+        (typeof e?.message === "string" && e.message) ||
+        "Could not reset password. Request a new link and try again.";
+      setErr(msg);
     } finally {
       setSubmitting(false);
     }
@@ -326,7 +335,7 @@ function ResetPasswordPageInner() {
                 </div>
 
                 <div className="mt-4 text-[12px] text-white/45">
-                  Backend reset tokens + email sending will be wired after auth is finalized.
+                  Password updated successfully. You can log in now.
                 </div>
               </>
             ) : (
@@ -410,7 +419,7 @@ function ResetPasswordPageInner() {
 
                   <div className="mt-3 h-px w-full bg-white/10" />
                   <div className="mt-3 text-[12px] text-white/50">
-                    We’ll wire validation + reset tokens on the backend next.
+                    Reset links expire for security. Request a new link if needed.
                   </div>
                 </div>
 

@@ -4,6 +4,7 @@ import html
 import os
 import smtplib
 from email.message import EmailMessage
+from urllib.parse import urlsplit
 
 
 def _env_bool(key: str, default: bool) -> bool:
@@ -29,14 +30,28 @@ def _support_email() -> str:
 
 
 def _frontend_base_url() -> str:
-    return (os.getenv("FRONTEND_BASE_URL") or "https://orbito.cc").strip().rstrip("/")
+    for raw in (
+        os.getenv("FRONTEND_BASE_URL"),
+        os.getenv("FRONTEND_ORIGIN"),
+    ):
+        val = (raw or "").strip().strip("'").strip('"')
+        if not val:
+            continue
+        val = val.split(",")[0].strip()
+        if "://" not in val and "/" not in val and "." in val:
+            val = f"https://{val}"
+        parsed = urlsplit(val)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            path = (parsed.path or "").rstrip("/")
+            return f"{parsed.scheme}://{parsed.netloc}{path}"
+    return "https://app.orbito.cc"
 
 
 def _email_logo_url() -> str:
     explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
     if explicit:
         return explicit
-    return f"{_frontend_base_url()}/orbito-mark.svg"
+    return f"{_frontend_base_url()}/orbito-mark.png"
 
 
 def _default_no_reply_email() -> str:
@@ -185,6 +200,85 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
     return send_email(
         to_email=to_email,
         subject="Welcome to Orbito",
+        text_body=body,
+        html_body=html_body,
+        reply_to=_reply_to_email(),
+    )
+
+
+def send_password_reset_email(*, to_email: str, token: str, name: str | None = None) -> bool:
+    if not _automations_enabled() or not _env_bool("EMAIL_SEND_PASSWORD_RESET", True):
+        return False
+    if not token:
+        return False
+
+    first = (name or "").strip().split(" ")[0] or "there"
+    support = _support_email()
+    base = _frontend_base_url()
+    reset_url = f"{base}/reset-password?token={token}"
+    logo_url = _email_logo_url()
+
+    body = "\n".join(
+        [
+            f"Hi {first},",
+            "",
+            "We received a request to reset your Orbito password.",
+            f"Reset your password: {reset_url}",
+            "",
+            f"This link expires in {int((os.getenv('PASSWORD_RESET_TOKEN_TTL_MINUTES') or '60').strip() or '60')} minutes.",
+            "",
+            "If you did not request this, you can ignore this email.",
+            f"For help, contact {support}.",
+        ]
+    )
+
+    esc_first = html.escape(first)
+    esc_support = html.escape(support)
+    esc_reset = html.escape(reset_url, quote=True)
+    esc_logo_url = html.escape(logo_url, quote=True)
+
+    html_body = f"""
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f7fb;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;text-align:center;">
+                <img src="{esc_logo_url}" alt="Orbito" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Reset your password</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
+                Hi {esc_first},<br /><br />
+                We received a request to reset your Orbito password.
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:20px 24px 16px 24px;">
+                <a href="{esc_reset}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Reset password</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
+                If you did not request this, you can ignore this email.<br />
+                For help, contact <a href="mailto:{html.escape(support, quote=True)}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+""".strip()
+
+    return send_email(
+        to_email=to_email,
+        subject="Reset your Orbito password",
         text_body=body,
         html_body=html_body,
         reply_to=_reply_to_email(),

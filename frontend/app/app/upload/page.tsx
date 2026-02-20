@@ -24,9 +24,9 @@ import { emitMeSync } from "@/lib/me-sync";
    - Paste link -> open in new tab -> user downloads MP4 -> upload via normal flow
    - No server-side YouTube fetch (avoids bot-wall + silent failures)
 
-   POLISH (Option A):
-   - Remove misleading “we download it” language
-   - Dropzone highlight when YouTube step becomes ready
+   POLISH:
+   - Clear direct-import first guidance
+   - Simple manual fallback (open video, download externally, upload on left)
    - YouTube trust + preview + disclaimer (shows credits)
 ========================================================= */
 
@@ -859,7 +859,7 @@ function UploadWorkspace() {
   // YouTube (user-assisted)
   const [url, setUrl] = useState("");
   const urlOk = useMemo(() => isValidYoutubeUrl(url), [url]);
-  const [ytStep, setYtStep] = useState<"idle" | "opened" | "ready">("idle");
+  const [ytStep, setYtStep] = useState<"idle" | "opened">("idle");
 
   const [ytPreview, setYtPreview] = useState<YouTubePreviewResponse | null>(null);
   const [ytPreviewLoading, setYtPreviewLoading] = useState(false);
@@ -2331,7 +2331,7 @@ function UploadWorkspace() {
                   ytStep === "idle" ? "border-white/10" : "border-white/14"
                 )}
               >
-                {ytStep === "idle" ? "Step 1/3" : ytStep === "opened" ? "Step 2/3" : "Step 3/3"}
+                {ytStep === "idle" ? "Step 1/2" : "Step 2/2"}
               </div>
             </div>
 
@@ -2429,33 +2429,18 @@ function UploadWorkspace() {
                     const u = normalizeYoutubeUrl(url);
                     window.open(u, "_blank", "noopener,noreferrer");
                     setYtStep("opened");
+                    pulseDropzone();
                   }}
-                  disabled={!urlOk || ytStep === "ready"}
+                  disabled={!urlOk}
                   className={cx(
                     "btn-solid-dark px-4 py-2 text-[12px]",
-                    (!urlOk || ytStep === "ready") && "opacity-50 cursor-not-allowed"
+                    !urlOk && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   Open video
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!urlOk) return;
-                    setYtStep("ready");
-                    pulseDropzone();
-                  }}
-                  disabled={!urlOk || ytStep !== "opened"}
-                  className={cx(
-                    "btn-ghost px-4 py-2 text-[12px]",
-                    (!urlOk || ytStep !== "opened") && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  I downloaded it
-                </button>
-
-                <div className="text-[12px] text-white/55">Use manual buttons only if direct import fails.</div>
+                <div className="text-[12px] text-white/55">Use Open video only if direct import fails.</div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
@@ -2466,11 +2451,11 @@ function UploadWorkspace() {
                   <div>3) Wait while clips process.</div>
                 </div>
                 <div className="mt-3 text-white/45">
-                  If direct import is blocked: click <span className="text-white/75">Open video</span>, download the MP4, click <span className="text-white/75">I downloaded it</span>, then upload on the left.
+                  If direct import is blocked: click <span className="text-white/75">Open video</span>, download the MP4, then upload it on the left panel.
                 </div>
               </div>
 
-              {ytStep === "ready" ? (
+              {ytStep === "opened" ? (
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                   <div className="text-sm font-semibold text-white/90">Manual upload ready</div>
                   <div className="mt-1 text-sm text-white/65">

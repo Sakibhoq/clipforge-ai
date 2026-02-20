@@ -3,6 +3,7 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -68,6 +69,8 @@ function Icon({
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const okEmail = useMemo(() => isValidEmail(email), [email]);
 
@@ -85,9 +88,25 @@ export default function ForgotPasswordPage() {
     }, 220);
   }
 
-  function submit() {
-    // UI-only for now (backend + email later)
-    setSubmitted(true);
+  async function submit() {
+    if (!okEmail || sending) return;
+    setErr(null);
+    setSending(true);
+    try {
+      await apiFetch("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      setSubmitted(true);
+    } catch (e: any) {
+      const msg =
+        (typeof e?.detail === "string" && e.detail) ||
+        (typeof e?.message === "string" && e.message) ||
+        "Could not send reset email right now. Please try again.";
+      setErr(msg);
+    } finally {
+      setSending(false);
+    }
   }
 
   const rootStyle: React.CSSProperties = {
@@ -168,10 +187,13 @@ export default function ForgotPasswordPage() {
                   <button
                     type="button"
                     onClick={submit}
-                    disabled={!okEmail}
-                    className={cx("btn-solid-dark w-full py-3 text-sm", !okEmail && "opacity-50 cursor-not-allowed")}
+                    disabled={!okEmail || sending}
+                    className={cx(
+                      "btn-solid-dark w-full py-3 text-sm",
+                      (!okEmail || sending) && "opacity-50 cursor-not-allowed"
+                    )}
                   >
-                    Send reset link
+                    {sending ? "Sending…" : "Send reset link"}
                   </button>
 
                   <Link href="/login" className="btn-ghost w-full py-3 text-sm text-center">
@@ -179,9 +201,7 @@ export default function ForgotPasswordPage() {
                   </Link>
                 </div>
 
-                <div className="mt-4 text-[12px] text-white/45">
-                  Email sending + reset tokens will be wired when backend auth is finished.
-                </div>
+                {err ? <div className="mt-4 text-[12px] text-rose-200/75">{err}</div> : null}
               </>
             ) : (
               <>

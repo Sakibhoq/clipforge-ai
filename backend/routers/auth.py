@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from pydantic import BaseModel, EmailStr
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
@@ -14,7 +15,7 @@ from email_validator import EmailNotValidError, validate_email
 from core.database import SessionLocal
 from models.user import User
 from core.config import APP_ENV, settings
-from services.mailer import send_welcome_email
+from services.mailer import send_password_reset_email, send_welcome_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,6 +24,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 COOKIE_NAME = "cf_token"
 TOKEN_TTL_DAYS = 7
 PASSWORD_MIN_LENGTH = 8
+PASSWORD_RESET_TOKEN_TTL_MINUTES = max(
+    5,
+    int((os.getenv("PASSWORD_RESET_TOKEN_TTL_MINUTES") or "60").strip() or "60"),
+)
 
 LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
 
@@ -106,6 +111,15 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
 # =========================
 # JWT
 # =========================
@@ -130,6 +144,33 @@ def decode_token(token: str) -> str:
         raise HTTPException(status_code=401, detail="Token expired")
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def create_password_reset_token(email: str) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": email,
+        "iat": now,
+        "exp": now + timedelta(minutes=PASSWORD_RESET_TOKEN_TTL_MINUTES),
+        "purpose": "password_reset",
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+
+def decode_password_reset_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Reset link expired")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+
+    if payload.get("purpose") != "password_reset":
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+    email = str(payload.get("sub") or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid reset token")
+    return email
 
 
 # =========================
@@ -438,6 +479,58 @@ def change_password(
     current_user.hashed_password = pwd_context.hash(new_password)
     db.commit()
 
+    return {"ok": True}
+
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Always return ok to avoid account enumeration.
+    """
+    email = str(data.email).strip()
+    if not email:
+        return {"ok": True}
+
+    user = (
+        db.query(User)
+        .filter(func.lower(User.email) == email.lower())
+        .first()
+    )
+    if user and getattr(user, "is_active", True):
+        try:
+            token = create_password_reset_token(user.email)
+            send_password_reset_email(
+                to_email=user.email,
+                token=token,
+                name=getattr(user, "name", None),
+            )
+        except Exception as exc:
+            print(f"[auth] forgot-password email skipped: {type(exc).__name__}")
+    return {"ok": True}
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    token = (data.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing reset token")
+
+    new_password = (data.new_password or "").strip()
+    if not new_password:
+        raise HTTPException(status_code=400, detail="Missing new password")
+    _validate_password_or_400(new_password)
+
+    email = decode_password_reset_token(token)
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        normalized = _normalize_legacy_synthetic_email(email)
+        if normalized != email:
+            user = db.query(User).filter(User.email == normalized).first()
+    if not user or not getattr(user, "is_active", True):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    user.hashed_password = pwd_context.hash(new_password)
+    db.commit()
     return {"ok": True}
 
 
