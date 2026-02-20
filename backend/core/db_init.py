@@ -14,8 +14,9 @@ def init_db() -> None:
     - Adds a small set of missing columns additively to keep older DBs compatible
       with the current ORM models (dev-friendly; not a full migration system).
     """
-    auto = (os.getenv("AUTO_CREATE_DB") or "1").strip().lower()
-    if auto in {"0", "false", "no"}:
+    auto_create = (os.getenv("AUTO_CREATE_DB") or "1").strip().lower() not in {"0", "false", "no"}
+    auto_backfill = (os.getenv("AUTO_BACKFILL_DB") or "1").strip().lower() not in {"0", "false", "no"}
+    if not auto_create and not auto_backfill:
         return
 
     db_url = str(engine.url).lower()
@@ -26,12 +27,14 @@ def init_db() -> None:
         if db_path and db_path != ":memory:":
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
-    # Always ensure missing tables are created (idempotent).
-    try:
-        Base.metadata.create_all(bind=engine)
-    except Exception as e:
-        print(f"[db-init] create_all failed: {e}")
-        return
+    # Ensure missing tables are created (idempotent) when enabled.
+    if auto_create:
+        try:
+            Base.metadata.create_all(bind=engine)
+        except Exception as e:
+            print(f"[db-init] create_all failed: {e}")
+            if not auto_backfill:
+                return
 
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
@@ -86,7 +89,23 @@ def init_db() -> None:
         },
     }
 
+    if not auto_backfill:
+        return
+
     with engine.begin() as conn:
+        # Postgres: use ADD COLUMN IF NOT EXISTS directly.
+        # This is more resilient than inspector-only checks in long-lived prod DBs.
+        if dialect.startswith("postgres"):
+            for table_name, cols in table_backfills.items():
+                if table_name not in tables:
+                    continue
+                for col, sql in cols.items():
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col} {sql}"))
+                    except Exception as e:
+                        print(f"[db-init] failed to add column {table_name}.{col}: {e}")
+            return
+
         # Use a connection-bound inspector to avoid SQLite lock contention.
         conn_inspector = inspect(conn)
         for table_name, cols in table_backfills.items():
