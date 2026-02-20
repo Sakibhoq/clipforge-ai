@@ -560,7 +560,7 @@ export default function Navbar() {
 
           {open && (
             <div
-              className="md:hidden mt-3 rounded-2xl border border-white/10 bg-black/50 p-2 backdrop-blur"
+              className="md:hidden mt-3 rounded-2xl border border-white/15 bg-[#04070fe8] p-2 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl"
               style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
               role="dialog"
               aria-label="Mobile navigation"
