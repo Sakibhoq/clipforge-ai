@@ -282,6 +282,9 @@ def _frontend_base(request: Request) -> str:
             continue
         # Guard against accidental comma-separated env values.
         val = val.split(",")[0].strip()
+        # Accept host-only env values like `app.orbito.cc`.
+        if "://" not in val and "/" not in val and "." in val:
+            val = f"https://{val}"
         parsed = urlsplit(val)
         if parsed.scheme in {"http", "https"} and parsed.netloc:
             path = (parsed.path or "").rstrip("/")
@@ -294,6 +297,11 @@ def _frontend_base(request: Request) -> str:
         or ""
     )
     host = host.split(",")[0].strip()
+    if "://" in host:
+        parsed_host = urlsplit(host)
+        host = parsed_host.netloc or parsed_host.path
+    host = host.split("/")[0].strip()
+    host = host.lstrip(".")
     if host:
         # api.orbito.cc -> app.orbito.cc style fallback
         if host.startswith("api."):
