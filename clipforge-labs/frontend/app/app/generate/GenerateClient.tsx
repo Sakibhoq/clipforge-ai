@@ -99,6 +99,26 @@ function detectAssetType(row: ClipRow): "video" | "image" | "audio" {
   return "video";
 }
 
+function humanizeGenerationError(raw: string | null | undefined): string {
+  const msg = String(raw || "").trim();
+  if (!msg) return "Generation failed. Please try again.";
+  const low = msg.toLowerCase();
+  if (
+    low.includes("signaturedoesnotmatch") ||
+    low.includes("putobject") ||
+    low.includes("nocredentialserror")
+  ) {
+    return "We couldn’t save your generated file to cloud storage. Please retry in 30 seconds.";
+  }
+  if (low.includes("request failed") || low.includes("provider")) {
+    return "Generation provider is temporarily unavailable. Please retry shortly.";
+  }
+  if (low.includes("timeout")) {
+    return "Generation timed out. Retry with a shorter prompt or try again in a minute.";
+  }
+  return msg;
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -114,6 +134,7 @@ export default function GenerateClient() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorTechnical, setErrorTechnical] = useState<string | null>(null);
   const [needsBilling, setNeedsBilling] = useState(false);
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
@@ -238,6 +259,7 @@ export default function GenerateClient() {
   async function onGenerate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorTechnical(null);
     setNeedsBilling(false);
 
     const p = prompt.trim();
@@ -303,7 +325,9 @@ export default function GenerateClient() {
         setNeedsBilling(true);
         setError("You’re out of credits. Add more from Pricing to keep generating.");
       } else {
-        setError(msg);
+        const friendly = humanizeGenerationError(msg);
+        setError(friendly);
+        if (friendly !== msg) setErrorTechnical(msg);
       }
     } finally {
       setSubmitting(false);
@@ -329,11 +353,16 @@ export default function GenerateClient() {
             <div>
               <div className="text-xs text-white/55">• Generate</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/90">
-                Create <span className="grad-text">video, image, or voiceover</span>
+                Build <span className="grad-text">production-ready AI assets</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Generate AI assets with one credit system. Keep outputs ready for editing and publishing.
+                Generate video, image, and voiceover from one workflow. Every output is saved for editing and publishing.
               </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
+                <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-white/75">Unified credit system</span>
+                <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-white/75">Relax + Fast modes</span>
+                <span className="rounded-full border border-white/15 bg-black/45 px-3 py-1 text-white/75">Ready for editor & posting</span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -380,7 +409,7 @@ export default function GenerateClient() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs text-white/55">• Generation controls</div>
-                    <div className="mt-1 text-sm font-semibold text-white/90">Prompt, tune, generate</div>
+                    <div className="mt-1 text-sm font-semibold text-white/90">Prompt, configure, render</div>
                   </div>
                   <div className="rounded-full border border-white/12 bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/75">
                     Plan: {String(currentPlan || "free").toUpperCase()}
@@ -540,12 +569,21 @@ export default function GenerateClient() {
                   </Link>
                 </div>
                 <div className="text-[11px] text-white/52">
-                  Cost guide: Relax mode is lower-cost and slower • Fast mode is priority and costs more • Image 4 credits • Voiceover starts at 1 credit / 250 chars.
+                  Cost guide: Relax is lower-cost and slower • Fast is priority and higher cost • Image is 4 credits • Voiceover starts at 1 credit per 250 characters.
                 </div>
 
                 {error ? (
                   <div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-[12px] text-rose-100">
-                    <div>{error}</div>
+                    <div className="font-semibold text-rose-50">Generation issue</div>
+                    <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
+                    {errorTechnical ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
+                        <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-rose-300/20 bg-black/20 p-2 text-[11px] text-rose-50/85">
+                          {errorTechnical}
+                        </pre>
+                      </details>
+                    ) : null}
                     {needsBilling ? (
                       <div className="mt-2">
                         <Link href="/pricing" className="text-rose-50/90 underline decoration-rose-200/25 underline-offset-4">
@@ -558,7 +596,16 @@ export default function GenerateClient() {
 
                 {activeJob?.status === "failed" && activeJob?.error ? (
                   <div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-[12px] text-rose-100">
-                    {String(activeJob.error)}
+                    <div className="font-semibold text-rose-50">Latest job failed</div>
+                    <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">
+                      {humanizeGenerationError(String(activeJob.error))}
+                    </div>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
+                      <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-rose-300/20 bg-black/20 p-2 text-[11px] text-rose-50/85">
+                        {String(activeJob.error)}
+                      </pre>
+                    </details>
                   </div>
                 ) : null}
 
@@ -634,12 +681,10 @@ export default function GenerateClient() {
           <div className="lg:col-span-7">
             <div className="surface rounded-3xl p-6">
               <div className="text-xs text-white/55">• Output</div>
-
-              {activeUploadId ? (
-                <div className="mt-3 text-[12px] text-white/60">
-                  Upload ID: <span className="text-white/80">{activeUploadId}</span>
-                </div>
-              ) : null}
+              <div className="mt-1 text-sm font-semibold text-white/90">Generated assets</div>
+              <div className="mt-1 text-[12px] text-white/55">
+                Latest results appear here as soon as rendering is complete.
+              </div>
 
               {clips.length ? (
                 <div className="mt-5 grid gap-6">
@@ -678,8 +723,8 @@ export default function GenerateClient() {
               ) : (
                 <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-[13px] text-white/60">
                   {activeJob?.status === "running" || activeJob?.status === "queued"
-                    ? "Generating your asset…"
-                    : "Your generated video, image, and voiceover assets will appear here."}
+                    ? "Rendering in progress. This panel updates automatically."
+                    : "No assets yet. Generate your first video, image, or voiceover from the left panel."}
                 </div>
               )}
             </div>

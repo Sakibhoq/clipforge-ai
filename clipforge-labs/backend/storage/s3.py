@@ -24,32 +24,30 @@ class S3Storage(Storage):
         Mostly for dev/internal use.
         In production, uploads usually happen via presigned URLs.
         """
-        extra_args = {}
+        # Keep this as a direct put_object for best GCS S3 compatibility.
+        kwargs = {
+            "Bucket": self.bucket,
+            "Key": key,
+            "Body": fileobj,
+        }
         if content_type:
-            extra_args["ContentType"] = content_type
-
-        self.s3.upload_fileobj(
-            fileobj,
-            self.bucket,
-            key,
-            ExtraArgs=extra_args or None,
-        )
+            kwargs["ContentType"] = content_type
+        self.s3.put_object(**kwargs)
         return key
 
     def upload(self, path: str, key: str, content_type: Optional[str] = None):
         """
         Upload a file from disk (used by worker for clips).
         """
-        extra_args = {}
+        kwargs = {
+            "Bucket": self.bucket,
+            "Key": key,
+        }
         if content_type:
-            extra_args["ContentType"] = content_type
-
-        self.s3.upload_file(
-            path,
-            self.bucket,
-            key,
-            ExtraArgs=extra_args or None,
-        )
+            kwargs["ContentType"] = content_type
+        with open(path, "rb") as f:
+            kwargs["Body"] = f
+            self.s3.put_object(**kwargs)
 
     # ------------------------------------------------------------------
     # Reads
