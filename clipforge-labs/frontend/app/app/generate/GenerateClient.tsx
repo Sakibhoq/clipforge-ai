@@ -406,7 +406,7 @@ export default function GenerateClient() {
         </section>
 
         <section className="mt-8 grid gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-6">
             <div className="surface rounded-3xl border border-white/10 p-6">
               <div className="text-xs text-white/55">• Controls</div>
               <div className="mt-1 text-base font-semibold text-white/90">Prompt and rendering settings</div>
@@ -451,73 +451,95 @@ export default function GenerateClient() {
                 </div>
 
                 {mode !== "voiceover" ? (
-                  <div className={cx("grid gap-3", mode === "video" ? "sm:grid-cols-2" : "grid-cols-1")}>
-                    <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Aspect ratio</label>
-                      <select
-                        value={aspectRatio}
-                        onChange={(e) => setAspectRatio(e.target.value)}
-                        className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                      >
-                        <option value="9:16">9:16 (Shorts/Reels)</option>
-                        <option value="16:9">16:9 (YouTube)</option>
-                        <option value="1:1">1:1 (Square)</option>
-                      </select>
-                    </div>
+                  mode === "video" ? (
+                    <div className="grid gap-3">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                          <select
+                            value={aspectRatio}
+                            onChange={(e) => setAspectRatio(e.target.value)}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          >
+                            <option value="9:16">9:16 (Shorts/Reels)</option>
+                            <option value="16:9">16:9 (YouTube)</option>
+                            <option value="1:1">1:1 (Square)</option>
+                          </select>
+                        </div>
 
-                    {mode === "video" ? (
-                      <div className="grid gap-3">
                         <div className="grid gap-2">
                           <label className="text-xs font-medium text-white/70">Duration</label>
                           <select
                             value={duration}
                             onChange={(e) => setDuration(Number(e.target.value))}
-                            className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                           >
                             <option value={4}>Short clip</option>
                             <option value={6}>Standard clip</option>
                             <option value={8}>Extended clip</option>
                           </select>
                         </div>
-                        <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Generation mode</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setVideoSpeed("relax")}
-                              className={cx(
-                                "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                                videoSpeed === "relax"
-                                  ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                                  : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
-                              )}
-                            >
-                              Relax
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (fastEligible) setVideoSpeed("fast");
-                              }}
-                              disabled={!fastEligible}
-                              className={cx(
-                                "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                                videoSpeed === "fast"
-                                  ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
-                                  : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
-                                !fastEligible && "cursor-not-allowed opacity-55"
-                              )}
-                              title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
-                            >
-                              Fast
-                            </button>
-                          </div>
-                        </div>
                       </div>
-                    ) : null}
-                  </div>
+
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-white/70">Generation mode</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setVideoSpeed("relax")}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                              videoSpeed === "relax"
+                                ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                            )}
+                          >
+                            Relax
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (fastEligible) setVideoSpeed("fast");
+                            }}
+                            disabled={!fastEligible}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                              videoSpeed === "fast"
+                                ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
+                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
+                              !fastEligible && "cursor-not-allowed opacity-55"
+                            )}
+                            title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
+                          >
+                            Fast
+                          </button>
+                        </div>
+                        {!fastEligible ? (
+                          <div className="text-[11px] text-white/50">
+                            Fast lane unlocks on Creator.{" "}
+                            <Link href="/pricing" className="underline decoration-white/20 underline-offset-4">
+                              Upgrade plan
+                            </Link>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                      <select
+                        value={aspectRatio}
+                        onChange={(e) => setAspectRatio(e.target.value)}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      >
+                        <option value="9:16">9:16 (Shorts/Reels)</option>
+                        <option value="16:9">16:9 (YouTube)</option>
+                        <option value="1:1">1:1 (Square)</option>
+                      </select>
+                    </div>
+                  )
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 xl:grid-cols-2">
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Voice</label>
                       <input
@@ -542,11 +564,11 @@ export default function GenerateClient() {
                 )}
 
                 <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
                     </div>
-                    <Link href="/pricing" className="rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10">
+                    <Link href="/pricing" className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10">
                       Buy more credits
                     </Link>
                   </div>
@@ -644,7 +666,7 @@ export default function GenerateClient() {
             ) : null}
           </div>
 
-          <div className="lg:col-span-7">
+          <div className="lg:col-span-6">
             <div className="surface rounded-3xl border border-white/10 p-6">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
