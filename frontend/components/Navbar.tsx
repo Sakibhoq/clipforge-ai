@@ -622,30 +622,32 @@ export default function Navbar() {
                 </div>
 
                 {!authed ? (
-                  <div className="mt-2 grid grid-cols-2 gap-2 p-2">
-                    <IconButton href="/login" label="Login" title="Login" onNavigate={() => setOpen(false)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        <path
-                          d="M12 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </IconButton>
+                  <div className="mt-2 p-2">
+                    <div className="flex items-center justify-center gap-2">
+                      <IconButton href="/login" label="Login" title="Login" onNavigate={() => setOpen(false)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                          <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          <path
+                            d="M12 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </IconButton>
 
-                    <IconButton href="/register" label="Sign up" title="Sign up" onNavigate={() => setOpen(false)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    </IconButton>
+                      <IconButton href="/register" label="Sign up" title="Sign up" onNavigate={() => setOpen(false)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </IconButton>
+                    </div>
 
                     <button
                       type="button"
                       onClick={startFreeTrial}
                       disabled={startingTrial}
-                      className="group relative col-span-2 btn-orbito-cta text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="group relative mt-2 w-full btn-orbito-cta text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
                       <span
