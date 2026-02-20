@@ -335,20 +335,71 @@ def send_contact_autoreply(
 
     first = (name or "").strip().split(" ")[0] or "there"
     support = _support_email()
+    app_url = _frontend_base_url()
+    logo_url = _email_logo_url()
+    contact_url = f"{app_url}/contact"
     body = "\n".join(
         [
             f"Hi {first},",
             "",
+            "Thank you for contacting Orbito.",
             "We received your message and our team will review it shortly.",
-            f"Subject: {subject}",
+            f"Subject: {subject.strip() if subject else 'General inquiry'}",
             "",
             "This is an automated message from an unmonitored inbox. Please do not reply to this email.",
-            f"If needed, send a new message to {support}.",
+            f"If you need additional help, contact {support}.",
         ]
     )
+    esc_first = html.escape(first)
+    esc_subject = html.escape((subject or "").strip() or "General inquiry")
+    esc_support = html.escape(support)
+    esc_contact_url = html.escape(contact_url, quote=True)
+    esc_logo_url = html.escape(logo_url, quote=True)
+    esc_support_mailto = html.escape(support, quote=True)
+
+    html_body = f"""
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f7fb;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;text-align:center;">
+                <img src="{esc_logo_url}" alt="Orbito" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">We received your message</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
+                Hi {esc_first},<br /><br />
+                Thanks for contacting Orbito. Our team has received your message and will review it shortly.<br /><br />
+                <span style="color:#9fb0c7;">Subject:</span> {esc_subject}
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:20px 24px 16px 24px;">
+                <a href="{esc_contact_url}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Contact Page</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
+                This is an automated message from an unmonitored inbox. Please do not reply to this email.<br />
+                For support, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+""".strip()
     return send_email(
         to_email=to_email,
         subject="We received your message",
         text_body=body,
+        html_body=html_body,
         reply_to=_reply_to_email(),
     )
