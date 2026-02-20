@@ -16,7 +16,12 @@ docker compose up --build
 Generate a video:
 - Open the app and go to **Generate**
 - Enter a prompt
-- The worker creates a placeholder MP4 (Google video generation API wiring is stubbed and can be enabled later)
+- By default, the worker creates placeholder assets.
+- To enable real provider generation:
+  - Set `LABS_GENERATION_PROVIDER=google`
+  - Configure `GOOGLE_VIDEO_API_URL` and/or `GOOGLE_IMAGE_API_URL`
+  - Set `GOOGLE_API_KEY` (or bearer token headers)
+  - For voiceovers, set `GOOGLE_API_KEY` and keep `GOOGLE_TTS_API_URL`
 
 ## Production (EC2)
 
@@ -30,4 +35,3 @@ docker compose -f docker-compose.prod.yml up -d --build
 Reverse proxy:
 - `clipforge.us` -> `127.0.0.1:3100`
 - `api.clipforge.us` -> `127.0.0.1:8100`
-

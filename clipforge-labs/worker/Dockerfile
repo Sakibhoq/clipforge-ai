@@ -20,6 +20,7 @@ RUN pip install --upgrade pip && \
       python-dotenv \
       sqlalchemy \
       psycopg2-binary \
-      boto3
+      boto3 \
+      requests
 
 CMD ["python", "worker.py"]

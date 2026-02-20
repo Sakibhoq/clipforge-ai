@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
@@ -8,6 +9,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from typing import Any
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -34,6 +36,13 @@ def _env_int(name: str, default: int, *, min_value: int = 0, max_value: int = 3_
         return max(min_value, min(max_value, int(raw)))
     except Exception:
         return default
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = _env(name, "")
+    if not raw:
+        return default
+    return raw.lower() in {"1", "true", "yes", "on"}
 
 
 def _db_url() -> str:
@@ -78,6 +87,192 @@ def _upload_file(path: str, key: str, *, content_type: str) -> None:
     dest = os.path.join(base, key)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     shutil.copyfile(path, dest)
+
+
+def _extension_for_content_type(content_type: str, default_ext: str) -> str:
+    ct = (content_type or "").split(";")[0].strip().lower()
+    mapping = {
+        "video/mp4": ".mp4",
+        "video/webm": ".webm",
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/webp": ".webp",
+        "audio/mpeg": ".mp3",
+        "audio/mp3": ".mp3",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+    }
+    return mapping.get(ct, default_ext)
+
+
+def _labs_generation_provider() -> str:
+    return _env("LABS_GENERATION_PROVIDER", "stub").strip().lower()
+
+
+def _provider_strict_mode() -> bool:
+    return _env_bool("LABS_GENERATION_STRICT", False)
+
+
+def _provider_timeout_seconds() -> int:
+    return _env_int("GOOGLE_API_TIMEOUT_SECONDS", 120, min_value=5, max_value=600)
+
+
+def _model_prefers_google(model: str | None) -> bool:
+    model_name = (model or "").strip().lower()
+    if model_name:
+        return model_name == "google"
+    return _labs_generation_provider() == "google"
+
+
+def _resolve_provider_url(raw_url: str) -> str:
+    url = (raw_url or "").strip()
+    if not url:
+        return ""
+    api_key = _env("GOOGLE_API_KEY", "")
+    if "{API_KEY}" in url:
+        if not api_key:
+            raise RuntimeError("GOOGLE_API_KEY is required for provider URL with {API_KEY} placeholder")
+        url = url.replace("{API_KEY}", api_key)
+    elif api_key and _env_bool("GOOGLE_APPEND_API_KEY", False) and "key=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}key={api_key}"
+    return url
+
+
+def _provider_headers() -> dict[str, str]:
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    bearer = _env("GOOGLE_API_BEARER_TOKEN", "")
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    x_api_key = _env("GOOGLE_X_API_KEY", "")
+    if x_api_key:
+        headers["x-api-key"] = x_api_key
+    return headers
+
+
+def _decode_base64_payload(value: str) -> bytes:
+    raw = "".join((value or "").split())
+    if not raw:
+        raise RuntimeError("empty base64 payload")
+    # Normalize padding for APIs that omit trailing '='.
+    pad = (-len(raw)) % 4
+    if pad:
+        raw = raw + ("=" * pad)
+    try:
+        return base64.b64decode(raw, validate=False)
+    except Exception:
+        try:
+            return base64.urlsafe_b64decode(raw)
+        except Exception as exc:
+            raise RuntimeError(f"invalid base64 payload: {type(exc).__name__}") from exc
+
+
+def _http_post_json(url: str, payload: dict[str, Any]) -> tuple[int, str, dict[str, Any] | None, bytes]:
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+
+    resp = requests.post(
+        url,
+        json=payload,
+        headers=_provider_headers(),
+        timeout=_provider_timeout_seconds(),
+    )
+    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+    raw_bytes = resp.content or b""
+    data: dict[str, Any] | None = None
+    try:
+        data = resp.json()
+    except Exception:
+        data = None
+    return resp.status_code, content_type, data, raw_bytes
+
+
+def _http_get_bytes(url: str) -> tuple[bytes, str]:
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+
+    resp = requests.get(url, timeout=_provider_timeout_seconds())
+    if int(resp.status_code) >= 400:
+        raise RuntimeError(f"remote media download failed: {resp.status_code}")
+    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+    return resp.content or b"", content_type
+
+
+def _extract_remote_result(data: dict[str, Any] | None) -> dict[str, Any]:
+    """
+    Supported response shapes:
+      - {"data_base64":"...", "content_type":"video/mp4", "duration_seconds":6, "title":"..."}
+      - {"url":"https://.../asset.mp4", ...}
+      - {"predictions":[{"bytesBase64Encoded":"..."}], ...}
+    """
+    result: dict[str, Any] = {
+        "bytes": None,
+        "url": None,
+        "content_type": None,
+        "duration_seconds": None,
+        "title": None,
+    }
+    if not isinstance(data, dict):
+        return result
+
+    def _read_str(key: str) -> str | None:
+        val = data.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        return None
+
+    result["content_type"] = _read_str("content_type") or _read_str("mime_type") or _read_str("mimeType")
+    result["title"] = _read_str("title") or _read_str("name")
+
+    for key in ("duration_seconds", "duration", "seconds"):
+        val = data.get(key)
+        if isinstance(val, (int, float)):
+            result["duration_seconds"] = float(val)
+            break
+
+    b64_val = (
+        _read_str("data_base64")
+        or _read_str("base64")
+        or _read_str("audioContent")
+        or _read_str("bytesBase64Encoded")
+    )
+    if b64_val:
+        result["bytes"] = _decode_base64_payload(b64_val)
+        return result
+
+    predictions = data.get("predictions")
+    if isinstance(predictions, list) and predictions:
+        first = predictions[0] if isinstance(predictions[0], dict) else {}
+        if isinstance(first, dict):
+            b64_pred = first.get("bytesBase64Encoded")
+            if isinstance(b64_pred, str) and b64_pred.strip():
+                result["bytes"] = _decode_base64_payload(b64_pred.strip())
+                result["content_type"] = (
+                    result["content_type"]
+                    or (first.get("mimeType") if isinstance(first.get("mimeType"), str) else None)
+                )
+                return result
+            maybe_url = first.get("url") or first.get("uri")
+            if isinstance(maybe_url, str) and maybe_url.strip():
+                result["url"] = maybe_url.strip()
+                return result
+
+    url_val = _read_str("url") or _read_str("uri") or _read_str("download_url") or _read_str("media_url")
+    if url_val:
+        result["url"] = url_val
+        return result
+
+    nested = data.get("result") or data.get("output") or data.get("data")
+    if isinstance(nested, dict):
+        nested_result = _extract_remote_result(nested)
+        for k, v in nested_result.items():
+            if v is not None:
+                result[k] = v
+    return result
 
 
 def _clip_dimensions(aspect_ratio: str) -> tuple[int, int]:
@@ -284,6 +479,124 @@ def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: st
             pass
 
 
+def _write_bytes(path: str, data: bytes) -> None:
+    with open(path, "wb") as f:
+        f.write(data)
+
+
+def _file_has_data(path: str) -> bool:
+    try:
+        return os.path.getsize(path) > 0
+    except Exception:
+        return False
+
+
+def _voice_language_code(voice_name: str) -> str:
+    raw = (voice_name or "").replace("_", "-").strip()
+    if not raw:
+        return _env("GOOGLE_TTS_LANGUAGE_CODE", "en-US")
+    parts = raw.split("-")
+    if len(parts) >= 2 and parts[0] and parts[1]:
+        return f"{parts[0].lower()}-{parts[1].upper()}"
+    return _env("GOOGLE_TTS_LANGUAGE_CODE", "en-US")
+
+
+def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
+    endpoint = _resolve_provider_url(
+        _env("GOOGLE_TTS_API_URL", "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}")
+    )
+    if not endpoint:
+        raise RuntimeError("GOOGLE_TTS_API_URL is not configured")
+
+    safe_script = (script or "").strip()[:6000]
+    if not safe_script:
+        safe_script = "Untitled voiceover."
+
+    language_code = _voice_language_code(voice_name)
+    speaking_rate = max(0.5, min(2.0, float(speed_wpm or 165) / 165.0))
+
+    payload: dict[str, Any] = {
+        "input": {"text": safe_script},
+        "voice": {"languageCode": language_code},
+        "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate},
+    }
+
+    explicit_voice = (voice_name or "").strip()
+    # Preserve explicit Google voice names like "en-US-Chirp3-HD-Aoede".
+    if explicit_voice and explicit_voice.lower() not in {"en-us", "en_us"}:
+        payload["voice"]["name"] = explicit_voice
+
+    status, content_type, data, raw_bytes = _http_post_json(endpoint, payload)
+    if status >= 400:
+        detail = ""
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                detail = str(err.get("message") or "")
+            elif err:
+                detail = str(err)
+        raise RuntimeError(f"google tts failed: {status} {detail}".strip())
+
+    if isinstance(data, dict):
+        audio_b64 = data.get("audioContent")
+        if isinstance(audio_b64, str) and audio_b64.strip():
+            _write_bytes(out_path, _decode_base64_payload(audio_b64.strip()))
+            return
+
+    # Some gateways may return direct MP3 bytes.
+    if content_type.startswith("audio/") and raw_bytes:
+        _write_bytes(out_path, raw_bytes)
+        return
+
+    raise RuntimeError("google tts response missing audio payload")
+
+
+def _call_google_generation_endpoint(
+    *,
+    endpoint_env: str,
+    payload: dict[str, Any],
+) -> tuple[bytes, str, float | None, str | None]:
+    endpoint = _resolve_provider_url(_env(endpoint_env, ""))
+    if not endpoint:
+        raise RuntimeError(f"{endpoint_env} is not configured")
+
+    status, content_type, data, raw_bytes = _http_post_json(endpoint, payload)
+    if status >= 400:
+        detail = ""
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                detail = str(err.get("message") or "")
+            elif err:
+                detail = str(err)
+        raise RuntimeError(f"{endpoint_env} request failed: {status} {detail}".strip())
+
+    parsed = _extract_remote_result(data)
+    media_bytes = parsed.get("bytes")
+    media_url = parsed.get("url")
+    media_type = (
+        (parsed.get("content_type") if isinstance(parsed.get("content_type"), str) else None)
+        or content_type
+        or "application/octet-stream"
+    )
+
+    if not media_bytes and isinstance(media_url, str) and media_url.strip():
+        media_bytes, downloaded_type = _http_get_bytes(media_url.strip())
+        if downloaded_type:
+            media_type = downloaded_type
+
+    if not media_bytes and raw_bytes and not content_type.startswith("application/json"):
+        media_bytes = raw_bytes
+
+    if not media_bytes:
+        raise RuntimeError(f"{endpoint_env} response missing media payload")
+
+    duration = parsed.get("duration_seconds")
+    final_duration = float(duration) if isinstance(duration, (int, float)) else None
+    title = parsed.get("title") if isinstance(parsed.get("title"), str) else None
+    return media_bytes, media_type, final_duration, title
+
+
 def _next_generate_job(db) -> dict | None:
     row = db.execute(
         text(
@@ -424,16 +737,48 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     prompt = str(job.get("prompt") or "").strip()
     aspect_ratio = str(job.get("aspect_ratio") or "9:16").strip()
     duration = int(job.get("duration_seconds") or 6)
+    negative_prompt = str(job.get("negative_prompt") or "").strip()
+    model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
+    use_google_provider = _model_prefers_google(model)
+    strict_provider = _provider_strict_mode()
 
     if kind == JOB_KIND_IMAGE:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-image-{job_id}-", suffix=".png")
         os.close(fd)
         try:
-            _run_ffmpeg_text_image(prompt=prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
-            key = f"assets/images/{job_id}-{uuid.uuid4().hex}.png"
-            _upload_file(out_path, key, content_type="image/png")
-            return key, "image/png", 0.0, _title_from_prompt(prompt) or f"Image {job_id}"
+            content_type = "image/png"
+            provider_title: str | None = None
+
+            if use_google_provider:
+                try:
+                    media_bytes, remote_type, _, remote_title = _call_google_generation_endpoint(
+                        endpoint_env="GOOGLE_IMAGE_API_URL",
+                        payload={
+                            "prompt": prompt,
+                            "negative_prompt": negative_prompt or None,
+                            "aspect_ratio": aspect_ratio,
+                            "model": model or "google",
+                            "settings": settings,
+                            "kind": JOB_KIND_IMAGE,
+                        },
+                    )
+                    _write_bytes(out_path, media_bytes)
+                    if (remote_type or "").startswith("image/"):
+                        content_type = remote_type
+                    provider_title = remote_title
+                except Exception as exc:
+                    if strict_provider:
+                        raise
+                    print(f"[worker] image provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+
+            if not _file_has_data(out_path):
+                _run_ffmpeg_text_image(prompt=prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
+
+            ext = _extension_for_content_type(content_type, ".png")
+            key = f"assets/images/{job_id}-{uuid.uuid4().hex}{ext}"
+            _upload_file(out_path, key, content_type=content_type)
+            return key, content_type, 0.0, provider_title or _title_from_prompt(prompt) or f"Image {job_id}"
         finally:
             try:
                 os.unlink(out_path)
@@ -446,12 +791,30 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         try:
             voice_name = str(settings.get("voice_name") or "en-us")
             speed = int(settings.get("speed_wpm") or 165)
-            _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
+
+            if use_google_provider:
+                try:
+                    _run_google_tts_voiceover(
+                        script=prompt or "Untitled voiceover",
+                        voice_name=voice_name,
+                        speed_wpm=speed,
+                        out_path=out_path,
+                    )
+                except Exception as exc:
+                    if strict_provider:
+                        raise
+                    print(f"[worker] voiceover provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+
+            if not _file_has_data(out_path):
+                _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
+
             dur = _probe_audio_duration(out_path)
-            key = f"assets/voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
-            _upload_file(out_path, key, content_type="audio/mpeg")
+            content_type = "audio/mpeg"
+            ext = _extension_for_content_type(content_type, ".mp3")
+            key = f"assets/voiceovers/{job_id}-{uuid.uuid4().hex}{ext}"
+            _upload_file(out_path, key, content_type=content_type)
             final_duration = dur if dur > 0 else max(2.0, min(90.0, len(prompt) / 12.0))
-            return key, "audio/mpeg", final_duration, _title_from_prompt(prompt) or f"Voiceover {job_id}"
+            return key, content_type, final_duration, _title_from_prompt(prompt) or f"Voiceover {job_id}"
         finally:
             try:
                 os.unlink(out_path)
@@ -463,19 +826,52 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     os.close(fd)
     try:
         generation_speed = str(settings.get("generation_speed") or "relax").strip().lower()
-        prep_delay = _video_mode_prep_delay_seconds(generation_speed)
-        if prep_delay > 0:
-            time.sleep(prep_delay)
+        content_type = "video/mp4"
+        provider_duration: float | None = None
+        provider_title: str | None = None
 
-        _run_ffmpeg_text_video(
-            prompt=prompt or "Untitled",
-            duration=duration,
-            aspect_ratio=aspect_ratio,
-            out_path=out_path,
-        )
-        key = f"clips/generated/{job_id}-{uuid.uuid4().hex}.mp4"
-        _upload_file(out_path, key, content_type="video/mp4")
-        return key, "video/mp4", float(max(2, duration)), _title_from_prompt(prompt)
+        if use_google_provider:
+            try:
+                media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
+                    endpoint_env="GOOGLE_VIDEO_API_URL",
+                    payload={
+                        "prompt": prompt,
+                        "negative_prompt": negative_prompt or None,
+                        "aspect_ratio": aspect_ratio,
+                        "duration_seconds": duration,
+                        "generation_speed": generation_speed,
+                        "model": model or "google",
+                        "settings": settings,
+                        "kind": JOB_KIND_VIDEO,
+                    },
+                )
+                _write_bytes(out_path, media_bytes)
+                if (remote_type or "").startswith("video/"):
+                    content_type = remote_type
+                if isinstance(remote_duration, (int, float)) and float(remote_duration) > 0:
+                    provider_duration = float(remote_duration)
+                provider_title = remote_title
+            except Exception as exc:
+                if strict_provider:
+                    raise
+                print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+
+        if not _file_has_data(out_path):
+            prep_delay = _video_mode_prep_delay_seconds(generation_speed)
+            if prep_delay > 0:
+                time.sleep(prep_delay)
+            _run_ffmpeg_text_video(
+                prompt=prompt or "Untitled",
+                duration=duration,
+                aspect_ratio=aspect_ratio,
+                out_path=out_path,
+            )
+
+        ext = _extension_for_content_type(content_type, ".mp4")
+        key = f"clips/generated/{job_id}-{uuid.uuid4().hex}{ext}"
+        _upload_file(out_path, key, content_type=content_type)
+        final_duration = provider_duration if provider_duration and provider_duration > 0 else float(max(2, duration))
+        return key, content_type, final_duration, provider_title or _title_from_prompt(prompt)
     finally:
         try:
             os.unlink(out_path)

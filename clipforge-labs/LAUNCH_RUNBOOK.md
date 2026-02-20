@@ -100,6 +100,10 @@ Use `.env.prod.example` as template and set real values for:
   - `LABS_IMAGE_CREDITS=4`
   - `LABS_VOICE_CHARS_PER_CREDIT=250`
   - `LABS_VOICE_MIN_CREDITS=1`
+  - `LABS_GENERATION_PROVIDER=google` (or `stub` for placeholder mode)
+  - `GOOGLE_API_KEY`
+  - `GOOGLE_VIDEO_API_URL` / `GOOGLE_IMAGE_API_URL` (if using a Google/Vertex gateway)
+  - `GOOGLE_TTS_API_URL` (defaults to Google Cloud Text-to-Speech)
 
 ## 6) Deploy application
 
