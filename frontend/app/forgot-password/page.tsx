@@ -118,7 +118,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
       {/* PAGE-LEVEL AURORA (mobile-safe) */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
         <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
           <div className="aurora" />
@@ -167,7 +167,7 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onFocus={(e) => onFieldFocus(e.currentTarget)}
-                      placeholder="you@domain.com"
+                      placeholder="Email"
                       inputMode="email"
                       autoComplete="email"
                       className={cx(
