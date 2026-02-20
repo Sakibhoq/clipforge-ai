@@ -7,7 +7,7 @@ import re
 import secrets
 import time
 from typing import Dict, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import jwt
 import requests
@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -256,6 +257,49 @@ def _redirect_uri(request: Request, provider: str) -> str:
     if PUBLIC_API_BASE:
         return f"{PUBLIC_API_BASE.rstrip('/')}/auth/oauth/{provider}/callback"
     return str(request.url_for("oauth_callback", provider=provider))
+
+
+def _request_scheme(request: Request) -> str:
+    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    if xf_proto in {"http", "https"}:
+        return xf_proto
+    if request.url.scheme in {"http", "https"}:
+        return request.url.scheme
+    return "https"
+
+
+def _frontend_base(request: Request) -> str:
+    """
+    Resolve a safe frontend base URL for OAuth callback redirects.
+    Prevent callback 500s when FRONTEND_BASE_URL is malformed.
+    """
+    for raw in (
+        os.getenv("FRONTEND_BASE_URL"),
+        os.getenv("FRONTEND_ORIGIN"),
+    ):
+        val = (raw or "").strip().strip("'").strip('"')
+        if not val:
+            continue
+        # Guard against accidental comma-separated env values.
+        val = val.split(",")[0].strip()
+        parsed = urlsplit(val)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            path = (parsed.path or "").rstrip("/")
+            return f"{parsed.scheme}://{parsed.netloc}{path}"
+
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+        or ""
+    )
+    host = host.split(",")[0].strip()
+    if host:
+        # api.orbito.cc -> app.orbito.cc style fallback
+        if host.startswith("api."):
+            host = f"app.{host[len('api.'):]}"
+        return f"{_request_scheme(request)}://{host}"
+    return "http://localhost:3000"
 
 
 def _base64url(b: bytes) -> str:
@@ -621,9 +665,16 @@ def oauth_callback(
             credits=0,
         )
         db.add(user)
-        db.commit()
+        try:
+            db.commit()
+            created_user = True
+        except IntegrityError:
+            # Rare race: two callbacks for same account land at once.
+            db.rollback()
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                raise HTTPException(status_code=500, detail="Failed to complete social login")
         db.refresh(user)
-        created_user = True
     elif name and not getattr(user, "name", None):
         user.name = name
         db.commit()
@@ -639,10 +690,10 @@ def oauth_callback(
     # Issue session cookie
     token = create_token(user.email)
     next_path = _safe_next_path(ctx.get("next"))
-    base = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").rstrip("/")
+    base = _frontend_base(request).rstrip("/")
     redirect_to = f"{base}{next_path}"
 
-    response = RedirectResponse(url=redirect_to)
+    response = RedirectResponse(url=redirect_to, status_code=303)
     set_auth_cookie(response, request, token)
     _clear_oauth_ctx_cookie(response, request)
     return response

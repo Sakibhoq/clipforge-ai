@@ -26,20 +26,6 @@ import { SocialBrandRow } from "@/components/SocialBrand";
    - Expected response: { url: "https://checkout.stripe.com/..." }
 ========================================================= */
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-      <path
-        d="M20 7L10.2 16.8 4.8 11.4"
-        stroke="rgba(255,255,255,0.92)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function BoltIcon() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
@@ -188,12 +174,13 @@ function StrikePrice({
 
 function BenefitRow({ text }: { text: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="check mt-0.5">
-        <CheckIcon />
-      </div>
-      <div>{text}</div>
-    </div>
+    <li className="relative pl-4 text-sm leading-relaxed text-white/78">
+      <span
+        aria-hidden="true"
+        className="absolute left-0 top-[0.6rem] h-1.5 w-1.5 rounded-full bg-white/55"
+      />
+      {text}
+    </li>
   );
 }
 
@@ -219,9 +206,9 @@ function Disclosure({
       </button>
 
       <div className={cn("benefits mt-3", open && "open")}>
-        <div className="space-y-2 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+        <ul className="space-y-2.5 rounded-2xl border border-white/10 bg-black/30 p-4">
           {children}
-        </div>
+        </ul>
       </div>
     </div>
   );
@@ -620,12 +607,12 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
   const trialBenefits = useMemo(
     () => [
-      "Upload long-form once",
-      "Generate shorts with structure + pacing",
-      "Social access: 0 channels",
-      "Editor locked on Free Trial",
-      "Max 20 downloads (1 credit per download)",
-      "Support via email",
+      "Upload once and generate polished shorts",
+      "Clean pacing and caption-ready structure",
+      "Social publishing channels: 0",
+      "Editor tools locked on Free Trial",
+      "Up to 20 downloads total (1 credit per download)",
+      "Email support",
     ],
     []
   );
@@ -633,11 +620,11 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const starterBenefits = useMemo(
     () => [
       "Everything in Free Trial",
-      "More credits for cadence",
-      "Editor access enabled",
-      "Social access: up to 2 channels",
+      "Higher monthly credit allowance",
+      "Editor access unlocked",
+      "Social publishing channels: up to 2",
       "Up to 50 downloads per month",
-      "Templates + calm defaults",
+      "Production-ready templates",
       "Email support",
     ],
     []
@@ -646,12 +633,12 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const creatorBenefits = useMemo(
     () => [
       "Everything in Starter",
-      "Higher retention clip generation",
+      "Higher quality and retention-focused output",
       "Full editor access",
-      "Social access: all channels",
+      "Social publishing channels: full access",
       "Unlimited downloads included",
-      "Captions + pacing presets",
-      "Batch exports + templates",
+      "Advanced caption and pacing presets",
+      "Batch exports and reusable templates",
       "Priority queue throughput",
       mode === "yearly"
         ? "Yearly credits delivered upfront"
@@ -663,11 +650,11 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const studioBenefits = useMemo(
     () => [
       "Everything in Creator",
-      "Custom credit bundles",
-      "Team workspaces + permissions",
-      "Shared presets + brand templates",
-      "Export rules + QA workflows",
-      "Priority support + onboarding",
+      "Custom credit bundles at team scale",
+      "Team workspaces and role permissions",
+      "Shared presets and brand templates",
+      "Export rules and QA workflows",
+      "Priority support and onboarding",
     ],
     []
   );
