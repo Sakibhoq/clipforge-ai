@@ -2473,7 +2473,7 @@ function UploadWorkspace() {
               ) : null}
 
               <div className="pt-1 text-[12px] text-white/35">
-                Tip: direct import is usually the fastest path.
+                Tip: if direct import is blocked, use a trusted external MP4 downloader, then upload the file on the left.
               </div>
             </div>
           </div>
