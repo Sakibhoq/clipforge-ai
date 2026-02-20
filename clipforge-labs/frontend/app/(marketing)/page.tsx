@@ -414,7 +414,7 @@ export default function Page() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="grid gap-1">
               <div>
-                © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}
+                © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}. All Rights Reserved.
               </div>
               <div className="text-[11px] text-white/45">
                 Sister site of{" "}

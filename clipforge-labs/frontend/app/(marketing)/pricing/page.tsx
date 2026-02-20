@@ -26,20 +26,6 @@ import { SocialBrandRow } from "@/components/SocialBrand";
    - Expected response: { url: "https://checkout.stripe.com/..." }
 ========================================================= */
 
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
-      <path
-        d="M20 7L10.2 16.8 4.8 11.4"
-        stroke="rgba(255,255,255,0.92)"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function BoltIcon() {
   return (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none">
@@ -192,14 +178,13 @@ function StrikePrice({
   );
 }
 
-function BenefitRow({ text }: { text: string }) {
+function BenefitList({ items }: { items: string[] }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="check mt-0.5">
-        <CheckIcon />
-      </div>
-      <div>{text}</div>
-    </div>
+    <ul className="list-disc space-y-2 pl-5 text-sm text-white/78 marker:text-white/40">
+      {items.map((text) => (
+        <li key={text}>{text}</li>
+      ))}
+    </ul>
   );
 }
 
@@ -748,9 +733,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                 onToggle={() => toggleBenefits("trial")}
                 title="See benefits"
               >
-                {trialBenefits.map((t) => (
-                  <BenefitRow key={t} text={t} />
-                ))}
+                <BenefitList items={trialBenefits} />
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/40">
@@ -799,9 +782,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                 onToggle={() => toggleBenefits("starter")}
                 title="See benefits"
               >
-                {starterBenefits.map((t) => (
-                  <BenefitRow key={t} text={t} />
-                ))}
+                <BenefitList items={starterBenefits} />
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/40">
@@ -881,9 +862,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                 onToggle={() => toggleBenefits("creator")}
                 title="See benefits"
               >
-                {creatorBenefits.map((t) => (
-                  <BenefitRow key={t} text={t} />
-                ))}
+                <BenefitList items={creatorBenefits} />
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/45">
@@ -925,9 +904,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                 onToggle={() => toggleBenefits("studio")}
                 title="See benefits"
               >
-                {studioBenefits.map((t) => (
-                  <BenefitRow key={t} text={t} />
-                ))}
+                <BenefitList items={studioBenefits} />
               </Disclosure>
 
               <div className="mt-6 text-xs text-white/45">
@@ -1175,7 +1152,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="grid gap-1">
               <div>
-                © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}
+                © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}. All Rights Reserved.
               </div>
               <div className="text-[11px] text-white/40">
                 Sister site of{" "}

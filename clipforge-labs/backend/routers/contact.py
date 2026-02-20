@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import smtplib
 import time
+from email.utils import formataddr
 from collections import defaultdict, deque
 from email.message import EmailMessage
 from threading import Lock
@@ -80,6 +81,8 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
     support_to = (os.getenv("CONTACT_TO_EMAIL") or "support@orbito.cc").strip()
     from_email = (
         (os.getenv("CONTACT_FROM_EMAIL") or "").strip()
+        or (os.getenv("EMAIL_FROM_EMAIL") or "").strip()
+        or "no-reply@orbito.cc"
         or smtp_username
         or support_to
     )
@@ -95,14 +98,14 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
     clean_message = payload.message.strip()
 
     msg = EmailMessage()
-    msg["Subject"] = f"[Orbito Contact] {clean_subject[:120]}"
-    msg["From"] = from_email
+    msg["Subject"] = f"[Clipforge Contact] {clean_subject[:120]}"
+    msg["From"] = formataddr(("Clipforge Contact", from_email))
     msg["To"] = support_to
     msg["Reply-To"] = clean_email
     msg.set_content(
         "\n".join(
             [
-                "New message from orbito.cc contact form",
+                "New message from clipforge.us contact form",
                 "",
                 f"Name: {clean_name}",
                 f"Email: {clean_email}",

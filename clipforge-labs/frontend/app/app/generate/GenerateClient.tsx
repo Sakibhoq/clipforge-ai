@@ -367,19 +367,38 @@ export default function GenerateClient() {
 
         <section className="mt-8 grid gap-8 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <div className="surface rounded-3xl p-6">
-              <div className="text-xs text-white/55">• Mode</div>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="surface relative overflow-hidden rounded-[30px] p-6 md:p-7">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-10 opacity-35 blur-3xl"
+                style={{
+                  background:
+                    "radial-gradient(220px 160px at 18% 16%, rgba(255,183,3,0.16), transparent 72%), radial-gradient(220px 170px at 82% 18%, rgba(58,134,255,0.15), transparent 74%), radial-gradient(240px 180px at 52% 92%, rgba(251,86,7,0.11), transparent 74%)",
+                }}
+              />
+              <div className="relative">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-white/55">• Generation controls</div>
+                    <div className="mt-1 text-sm font-semibold text-white/90">Prompt, tune, generate</div>
+                  </div>
+                  <div className="rounded-full border border-white/12 bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/75">
+                    Plan: {String(currentPlan || "free").toUpperCase()}
+                  </div>
+                </div>
+
+              <div className="mt-4 text-xs text-white/55">• Mode</div>
+              <div className="mt-2 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5">
                 {(["video", "image", "voiceover"] as GenerationMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setMode(m)}
                     className={cx(
-                      "rounded-2xl border px-3 py-2 text-[12px] font-semibold tracking-[0.02em] transition",
+                      "rounded-xl border px-3 py-2 text-[12px] font-semibold tracking-[0.02em] transition",
                       mode === m
-                        ? "border-white/20 bg-white/12 text-white/90"
-                        : "border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.06]"
+                        ? "border-white/20 bg-white/[0.14] text-white/95 shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+                        : "border-white/10 bg-black/35 text-white/65 hover:bg-white/[0.07]"
                     )}
                   >
                     {m === "voiceover" ? "Voiceover" : m[0].toUpperCase() + m.slice(1)}
@@ -388,6 +407,9 @@ export default function GenerateClient() {
               </div>
 
               <div className="mt-5 text-xs text-white/55">• Prompt</div>
+              <div className="mt-1 text-[12px] text-white/50">
+                Write a direct visual brief with subject, movement, and style.
+              </div>
               <form onSubmit={onGenerate} className="mt-3 grid gap-4">
                 <textarea
                   value={prompt}
@@ -400,7 +422,7 @@ export default function GenerateClient() {
                         ? "Example: A clean product photo of a black sneaker on a reflective studio floor with soft cinematic lighting."
                         : "Example: A cinematic drone shot over a coastal city at sunrise, soft fog, warm light."
                   }
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[14px] text-white/90 outline-none placeholder:text-white/35 focus:border-white/20 focus:bg-white/[0.06]"
+                  className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-[14px] text-white/90 outline-none placeholder:text-white/40 focus:border-white/22 focus:bg-black/60"
                 />
 
                 {mode !== "voiceover" ? (
@@ -606,6 +628,7 @@ export default function GenerateClient() {
                 </div>
               </div>
             ) : null}
+          </div>
           </div>
 
           <div className="lg:col-span-7">

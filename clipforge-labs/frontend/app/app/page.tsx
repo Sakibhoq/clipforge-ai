@@ -164,9 +164,6 @@ export default function AppConsolePage() {
               <Link href="/app/clips" className="btn-solid-dark text-[12px] px-4 py-2">
                 My clips
               </Link>
-              <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
-                Studio
-              </Link>
             </div>
           </div>
         </section>
@@ -227,9 +224,6 @@ export default function AppConsolePage() {
                 </Link>
                 <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
                   Buy more credits
-                </Link>
-                <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
-                  Studio
                 </Link>
                 <Link href="/app/clips" className="btn-solid-dark text-[12px] px-4 py-2">
                   My clips

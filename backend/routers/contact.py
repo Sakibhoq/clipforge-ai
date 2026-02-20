@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import smtplib
 import time
+from email.utils import formataddr
 from collections import defaultdict, deque
 from email.message import EmailMessage
 from threading import Lock
@@ -96,7 +97,7 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
 
     msg = EmailMessage()
     msg["Subject"] = f"[Orbito Contact] {clean_subject[:120]}"
-    msg["From"] = from_email
+    msg["From"] = formataddr(("Orbito Contact", from_email))
     msg["To"] = support_to
     msg["Reply-To"] = clean_email
     msg.set_content(

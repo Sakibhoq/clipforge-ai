@@ -398,7 +398,7 @@ def send_contact_autoreply(
 """.strip()
     return send_email(
         to_email=to_email,
-        subject="We received your message",
+        subject="Orbito — We received your message",
         text_body=body,
         html_body=html_body,
         reply_to=_reply_to_email(),

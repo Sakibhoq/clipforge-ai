@@ -440,8 +440,8 @@ function SendMessageModal({
 
             <div className="mt-4 text-xs text-white/45">
               Prefer email?{" "}
-              <a className="text-white/70 hover:text-white" href="mailto:support@clipforge.us">
-                support@clipforge.us
+              <a className="text-white/70 hover:text-white" href="mailto:support@orbito.cc">
+                support@orbito.cc
               </a>
               .
             </div>
@@ -578,7 +578,7 @@ export default function ContactPage() {
 
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
                       <div className="text-xs text-white/45">Support</div>
-                      <div className="mt-1 text-sm font-semibold text-white/85">support@clipforge.us</div>
+                      <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
                       <div className="mt-2 text-xs text-white/45">
                         Billing? include the email on your account.
                       </div>
@@ -591,7 +591,7 @@ export default function ContactPage() {
 
                       <a
                         className="btn-ghost"
-                        href="mailto:support@clipforge.us?subject=Studio%20%2F%20Enterprise%20inquiry"
+                        href="mailto:support@orbito.cc?subject=Studio%20%2F%20Enterprise%20inquiry"
                       >
                         Studio / enterprise
                       </a>
@@ -616,7 +616,7 @@ export default function ContactPage() {
               <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="grid gap-1">
                   <div>
-                    © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}
+                    © {new Date().getFullYear()} • {BRAND.product} by {BRAND.company}. All Rights Reserved.
                   </div>
                   <div className="text-[11px] text-white/40">
                     Sister site of{" "}

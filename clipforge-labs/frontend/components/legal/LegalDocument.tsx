@@ -11,7 +11,7 @@ type Section = {
 };
 
 const LAST_UPDATED = "February 10, 2026";
-const CONTACT_EMAIL = "support@clipforge.us";
+const CONTACT_EMAIL = "support@orbito.cc";
 
 const PRIVACY_SECTIONS: Section[] = [
   {

@@ -24,7 +24,7 @@ def _smtp_config() -> dict:
 
 
 def _support_email() -> str:
-    return (os.getenv("CONTACT_TO_EMAIL") or "support@clipforge.us").strip()
+    return (os.getenv("CONTACT_TO_EMAIL") or "support@orbito.cc").strip()
 
 
 def _default_no_reply_email() -> str:
@@ -32,10 +32,7 @@ def _default_no_reply_email() -> str:
     if explicit:
         return explicit
 
-    support = _support_email()
-    if "@" in support:
-        return f"no-reply@{support.split('@', 1)[1]}"
-    return "no-reply@clipforge.us"
+    return "no-reply@orbito.cc"
 
 
 def _from_header() -> str:
@@ -185,7 +182,7 @@ def send_contact_autoreply(
     )
     return send_email(
         to_email=to_email,
-        subject="We received your message",
+        subject="Clipforge Labs — We received your message",
         text_body=body,
         reply_to=_reply_to_email(),
     )
