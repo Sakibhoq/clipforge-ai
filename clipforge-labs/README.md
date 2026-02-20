@@ -35,3 +35,21 @@ docker compose -f docker-compose.prod.yml up -d --build
 Reverse proxy:
 - `clipforge.us` -> `127.0.0.1:3100`
 - `api.clipforge.us` -> `127.0.0.1:8100`
+
+## Object Storage (GCS)
+
+Clipforge Labs supports Google Cloud Storage using the S3-compatible endpoint.
+
+Set in `.env.prod`:
+
+- `STORAGE_BACKEND=s3` (or `gcs`)
+- `S3_BUCKET=<your-bucket>`
+- `AWS_REGION=auto`
+- `S3_ENDPOINT_URL=https://storage.googleapis.com`
+- `S3_ADDRESSING_STYLE=path`
+- `AWS_ACCESS_KEY_ID=<HMAC_ACCESS_KEY>`
+- `AWS_SECRET_ACCESS_KEY=<HMAC_SECRET>`
+
+Notes:
+- Create HMAC keys for your service account from **Cloud Storage -> Settings -> Interoperability**.
+- Add bucket CORS for browser PUT/GET from `https://clipforge.us` and `https://app.clipforge.us`.

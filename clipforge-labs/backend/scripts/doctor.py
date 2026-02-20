@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from core.config import settings
 from core.database import SessionLocal
+from storage.s3_client import uses_object_storage_backend
 
 
 def _print(title: str, ok: bool, detail: str = "") -> None:
@@ -107,13 +108,15 @@ def main() -> int:
     # Storage
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower()
     _print("STORAGE_BACKEND", True, backend)
-    if backend == "s3":
+    if uses_object_storage_backend(backend):
         ok &= _check_env("S3_BUCKET", required=True, redact=False)
-        ok &= _check_env("AWS_REGION", required=True, redact=False)
+        _check_env("AWS_REGION", required=False, redact=False)
+        _check_env("S3_ENDPOINT_URL", required=False, redact=False)
+        _check_env("S3_ADDRESSING_STYLE", required=False, redact=False)
         # Credentials can come from env or mounted ~/.aws
         has_creds = bool(os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"))
         has_file = Path("/root/.aws/credentials").exists()
-        _print("AWS credentials", has_creds or has_file, "env or /root/.aws/credentials")
+        _print("Object storage credentials", has_creds or has_file, "env or /root/.aws/credentials")
     else:
         _check_env("LOCAL_STORAGE_PATH", required=False, redact=False)
 

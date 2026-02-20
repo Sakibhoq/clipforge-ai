@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
 from core.database import SessionLocal
+from storage.s3_client import build_s3_client, uses_object_storage_backend
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -36,7 +37,7 @@ def ready():
     backend = (os.getenv("STORAGE_BACKEND") or "local").strip().lower()
     checks["storage_backend"] = backend
 
-    if backend == "s3":
+    if uses_object_storage_backend(backend):
         bucket = (os.getenv("S3_BUCKET") or "").strip()
         region = (os.getenv("AWS_REGION") or "").strip()
         if not bucket:
@@ -44,9 +45,7 @@ def ready():
             checks["s3_bucket"] = "missing"
         else:
             try:
-                import boto3
-
-                s3 = boto3.client("s3", region_name=region or None)
+                s3 = build_s3_client(region_name=region or None)
                 s3.head_bucket(Bucket=bucket)
                 checks["s3"] = "ok"
             except Exception as e:

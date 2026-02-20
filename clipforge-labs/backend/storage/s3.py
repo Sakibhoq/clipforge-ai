@@ -2,22 +2,18 @@ import os
 import tempfile
 import subprocess
 import json
-import boto3
 from botocore.exceptions import ClientError
 from typing import BinaryIO, Optional, Sequence
 
 from .base import Storage
+from .s3_client import build_s3_client
 
 
 class S3Storage(Storage):
     def __init__(self):
         self.bucket = os.environ["S3_BUCKET"]
         self.region = os.environ.get("AWS_REGION", "us-east-1")
-
-        self.s3 = boto3.client(
-            "s3",
-            region_name=self.region,
-        )
+        self.s3 = build_s3_client(region_name=self.region)
 
     # ------------------------------------------------------------------
     # Uploads

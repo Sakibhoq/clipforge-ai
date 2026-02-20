@@ -49,6 +49,7 @@ Choose one of these before public traffic:
 2. Storage:
    - Create bucket for generated outputs
    - Set lifecycle policy (delete old temp assets)
+   - If using GCS with S3-compatible API, create HMAC keys for service account
 3. API enablement:
    - Vertex AI API (when real generation path is added)
    - IAM Service Account Credentials API (if needed for auth flows)
@@ -88,8 +89,12 @@ Use `.env.prod.example` as template and set real values for:
 - Database:
   - `DATABASE_URL` (managed Postgres recommended)
 - Storage:
-  - `STORAGE_BACKEND=s3`
-  - `S3_BUCKET`, region, credentials/role
+  - `STORAGE_BACKEND=s3` (or `gcs`)
+  - `S3_BUCKET`
+  - `AWS_REGION=auto` (for GCS S3 endpoint)
+  - `S3_ENDPOINT_URL=https://storage.googleapis.com`
+  - `S3_ADDRESSING_STYLE=path`
+  - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (GCS HMAC keys)
 - Billing:
   - Stripe keys + price IDs + webhook secret
 - OAuth:

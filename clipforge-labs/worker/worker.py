@@ -65,21 +65,44 @@ def _storage_backend() -> str:
     return _env("STORAGE_BACKEND", "local").lower()
 
 
+def _uses_object_storage_backend(backend: str | None) -> bool:
+    return (backend or "").strip().lower() in {"s3", "gcs"}
+
+
 def _local_storage_path() -> str:
     # Used when STORAGE_BACKEND=local. In docker compose we mount ./data -> /data.
     return os.path.abspath(_env("LOCAL_STORAGE_PATH", "/data/storage"))
 
 
+def _s3_client():
+    import boto3
+    from botocore.config import Config
+
+    endpoint_url = _env("S3_ENDPOINT_URL", "") or None
+    signature_version = _env("S3_SIGNATURE_VERSION", "s3v4")
+    addressing_style = _env("S3_ADDRESSING_STYLE", "").lower().strip()
+    if not addressing_style and endpoint_url and "storage.googleapis.com" in endpoint_url.lower():
+        addressing_style = "path"
+
+    config_kwargs: dict[str, Any] = {"signature_version": signature_version or "s3v4"}
+    if addressing_style in {"path", "virtual"}:
+        config_kwargs["s3"] = {"addressing_style": addressing_style}
+
+    return boto3.client(
+        "s3",
+        region_name=_env("AWS_REGION", "us-east-1"),
+        endpoint_url=endpoint_url,
+        config=Config(**config_kwargs),
+    )
+
+
 def _upload_file(path: str, key: str, *, content_type: str) -> None:
     backend = _storage_backend()
-    if backend == "s3":
-        import boto3
-
+    if _uses_object_storage_backend(backend):
         bucket = _env("S3_BUCKET", "")
         if not bucket:
-            raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3")
-        region = _env("AWS_REGION", "us-east-1")
-        s3 = boto3.client("s3", region_name=region)
+            raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3/gcs")
+        s3 = _s3_client()
         s3.upload_file(path, bucket, key, ExtraArgs={"ContentType": content_type})
         return
 
