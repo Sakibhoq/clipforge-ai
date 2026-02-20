@@ -17,6 +17,8 @@ class User(Base):
     stripe_customer_id = Column(String, nullable=True)
     last_stripe_event_id = Column(String, nullable=True)
     trial_used = Column(Boolean, default=False, nullable=False)
+    downloads_used = Column(Integer, default=0, nullable=False)
+    downloads_window = Column(String, nullable=True)
 
     # User settings/preferences
     pref_email_reports = Column(Boolean, default=True, nullable=False)

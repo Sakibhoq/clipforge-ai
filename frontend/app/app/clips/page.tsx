@@ -139,10 +139,15 @@ function socialPlanLabel(plan: SocialPlan): string {
   return "Free";
 }
 
+function socialPlanAllowedProviders(plan: SocialPlan): SupportedSocialProvider[] {
+  if (plan === "starter") return ["instagram", "facebook"];
+  if (plan === "creator" || plan === "studio") return [...SUPPORTED_SOCIAL_PROVIDERS];
+  return [];
+}
+
 function socialPlanPlatformLimit(plan: SocialPlan): number | null {
-  if (plan === "free") return 1;
-  if (plan === "starter") return 2;
-  return null;
+  if (plan === "creator" || plan === "studio") return null;
+  return socialPlanAllowedProviders(plan).length;
 }
 
 function shortenErrorText(v: string, max = 240): string {
@@ -244,7 +249,22 @@ function downloadNameFromKey(storageKey: string, fallbackName?: string) {
 async function triggerDownload(url: string, filename: string) {
   const resp = await fetch(url, { credentials: "include" });
   if (!resp.ok) {
-    throw new Error(`Download failed (${resp.status})`);
+    const raw = await resp.text();
+    let detail = `Download failed (${resp.status})`;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        const d = parsed?.detail || parsed?.message || parsed?.error;
+        if (typeof d === "string" && d.trim()) {
+          detail = d.trim();
+        } else if (typeof raw === "string" && raw.trim()) {
+          detail = raw.trim();
+        }
+      } catch {
+        detail = raw.trim() || detail;
+      }
+    }
+    throw { status: resp.status, detail };
   }
 
   const blob = await resp.blob();
@@ -761,10 +781,14 @@ function ClipActions({
   clip,
   onSchedule,
   onEdit,
+  canEdit,
+  onActionError,
 }: {
   clip: ClipDTO;
   onSchedule: () => void;
   onEdit: () => void;
+  canEdit: boolean;
+  onActionError: (msg: string) => void;
 }) {
   const [downloading, setDownloading] = useState(false);
   const title = autoTitle(clip);
@@ -776,9 +800,13 @@ function ClipActions({
       setDownloading(true);
       const dlUrl = `/api/clips/${clip.id}/download?filename=${encodeURIComponent(filename)}`;
       await triggerDownload(dlUrl, filename);
-    } catch {
-      // Last-resort fallback.
-      window.location.assign(clip.url);
+      onActionError("");
+    } catch (e: any) {
+      const msg =
+        (typeof e?.detail === "string" && e.detail.trim()) ||
+        (typeof e?.message === "string" && e.message.trim()) ||
+        "Download failed. Please try again.";
+      onActionError(msg);
     } finally {
       window.setTimeout(() => setDownloading(false), 400);
     }
@@ -803,10 +831,18 @@ function ClipActions({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          if (!canEdit) {
+            onActionError("Editor is available on Starter and above.");
+            return;
+          }
           onEdit();
         }}
-        className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2"
+        className={cx(
+          "btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2",
+          !canEdit && "opacity-70"
+        )}
         aria-label="Edit"
+        title={canEdit ? "Edit" : "Upgrade to Starter to unlock editor"}
       >
         <Icon name="crop" />
         Edit
@@ -939,6 +975,7 @@ function ClipsWorkspace() {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
   const [groups, setGroups] = useState<GroupDTO[]>([]);
@@ -970,6 +1007,17 @@ function ClipsWorkspace() {
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
   const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
+  const editorEnabled = useMemo(() => socialPlan !== "free", [socialPlan]);
+
+  const allowedScheduleProviders = useMemo(
+    () => socialPlanAllowedProviders(socialPlan),
+    [socialPlan]
+  );
+
+  const allowedScheduleSet = useMemo(
+    () => new Set<SupportedSocialProvider>(allowedScheduleProviders),
+    [allowedScheduleProviders]
+  );
 
   // Crop drawer state (backend-wired)
   const [cropClip, setCropClip] = useState<ClipDTO | null>(null);
@@ -985,11 +1033,12 @@ function ClipsWorkspace() {
         .filter((a) => String(a.status || "").toLowerCase() === "connected")
         .map((a) => String(a.provider || "").toLowerCase())
         .filter((p): p is SupportedSocialProvider =>
-          (SUPPORTED_SOCIAL_PROVIDERS as readonly string[]).includes(p)
+          (SUPPORTED_SOCIAL_PROVIDERS as readonly string[]).includes(p) &&
+          allowedScheduleSet.has(p as SupportedSocialProvider)
         )
     );
     return SUPPORTED_SOCIAL_PROVIDERS.filter((p) => connected.has(p));
-  }, [socialAccounts]);
+  }, [socialAccounts, allowedScheduleSet]);
 
   const schedulePlatformLimit = useMemo(() => socialPlanPlatformLimit(socialPlan), [socialPlan]);
   const schedulePlanLabel = useMemo(() => socialPlanLabel(socialPlan), [socialPlan]);
@@ -1095,6 +1144,10 @@ function ClipsWorkspace() {
   }
 
   function openCrop(clip: ClipDTO) {
+    if (!editorEnabled) {
+      setActionError("Editor is available on Starter and above.");
+      return;
+    }
     setCropClip(clip);
     setCropRect(DEFAULT_CROP_RECT);
     const d = Math.max(0.5, safeNum(clip.duration, 0));
@@ -1134,6 +1187,7 @@ function ClipsWorkspace() {
       });
       setCropClip(null);
       setReloadTick((v) => v + 1);
+      setActionError(null);
     } catch (e: any) {
       setCropError(toErrorText(e));
     } finally {
@@ -1143,6 +1197,10 @@ function ClipsWorkspace() {
 
   async function submitSocialPosts(mode: "post_now" | "schedule") {
     if (!scheduleClipId || scheduleBusy) return;
+    if (schedulePlatformLimit === 0) {
+      setScheduleError("Social publishing is locked on Free Trial. Upgrade to Starter or Creator.");
+      return;
+    }
     if (schedulePlatformLimit !== null && scheduleSelectedProviders.length > schedulePlatformLimit) {
       const suffix = schedulePlatformLimit === 1 ? "" : "s";
       setScheduleError(
@@ -1211,6 +1269,7 @@ function ClipsWorkspace() {
       ].filter(Boolean);
 
       setScheduleNotice(summaryParts.length > 0 ? summaryParts.join(" • ") : "Social post created.");
+      setActionError(null);
       setScheduleClipId(null);
     } catch (e: any) {
       setScheduleError(toErrorText(e));
@@ -1278,6 +1337,7 @@ function ClipsWorkspace() {
   function clearAllUiFilters() {
     setQuery("");
     setSort("newest");
+    setActionError(null);
   }
 
   // Expand/collapse groups
@@ -1520,6 +1580,11 @@ function ClipsWorkspace() {
               {err}
             </span>
           ) : null}
+          {actionError ? (
+            <span className="rounded-full border border-rose-300/25 bg-rose-300/10 px-3 py-1 text-rose-100/90">
+              {actionError}
+            </span>
+          ) : null}
           {scheduleNotice ? (
             <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-emerald-100/85">
               {scheduleNotice}
@@ -1676,6 +1741,8 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onSchedule={() => openSchedule(c)}
                                   onEdit={() => openCrop(c)}
+                                  canEdit={editorEnabled}
+                                  onActionError={(msg) => setActionError(msg || null)}
                                 />
                               </div>
                             </div>
@@ -1701,6 +1768,8 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onSchedule={() => openSchedule(c)}
                                   onEdit={() => openCrop(c)}
+                                  canEdit={editorEnabled}
+                                  onActionError={(msg) => setActionError(msg || null)}
                                 />
                               </div>
                             </div>
@@ -1726,6 +1795,8 @@ function ClipsWorkspace() {
                   clip={c}
                   onSchedule={() => openSchedule(c)}
                   onEdit={() => openCrop(c)}
+                  canEdit={editorEnabled}
+                  onActionError={(msg) => setActionError(msg || null)}
                 />
               </div>
             </div>
@@ -1744,6 +1815,8 @@ function ClipsWorkspace() {
                   clip={c}
                   onSchedule={() => openSchedule(c)}
                   onEdit={() => openCrop(c)}
+                  canEdit={editorEnabled}
+                  onActionError={(msg) => setActionError(msg || null)}
                 />
               </div>
             </div>
@@ -2977,7 +3050,9 @@ function ScheduleForm({
         <div className="mt-1 text-[12px] text-white/65">
           {maxPlatforms === null
             ? `${planLabel} plan: publish to all connected platforms.`
-            : `${planLabel} plan: up to ${maxPlatforms} platform${maxPlatforms === 1 ? "" : "s"} per clip.`}{" "}
+            : maxPlatforms === 0
+              ? `${planLabel} plan: social publishing is locked.`
+              : `${planLabel} plan: up to ${maxPlatforms} platform${maxPlatforms === 1 ? "" : "s"} per clip.`}{" "}
           {maxPlatforms !== null ? (
             <Link href="/app/billing" className="text-cyan-200 underline underline-offset-2 hover:text-cyan-100">
               Upgrade
@@ -3028,11 +3103,23 @@ function ScheduleForm({
 
         {!hasConnected ? (
           <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-[12px] text-amber-100/90">
-            No connected platforms yet. Connect at least one account in{" "}
-            <Link href="/app/studio" className="underline underline-offset-2">
-              Studio -&gt; Connections
-            </Link>
-            .
+            {maxPlatforms === 0 ? (
+              <>
+                Social publishing is locked on Free Trial.{" "}
+                <Link href="/app/billing" className="underline underline-offset-2">
+                  Upgrade plan
+                </Link>{" "}
+                to unlock channels.
+              </>
+            ) : (
+              <>
+                No connected platforms yet. Connect at least one account in{" "}
+                <Link href="/app/studio" className="underline underline-offset-2">
+                  Studio -&gt; Connections
+                </Link>
+                .
+              </>
+            )}
           </div>
         ) : null}
 
@@ -3076,7 +3163,7 @@ function ScheduleForm({
           })}
         </div>
 
-        {disconnectedProviders.length > 0 ? (
+        {disconnectedProviders.length > 0 && maxPlatforms !== 0 ? (
           <div className="mt-3 text-[12px] text-white/50">
             Not connected: {disconnectedProviders.map((p) => socialLabel(p)).join(", ")}
           </div>

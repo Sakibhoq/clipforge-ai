@@ -570,21 +570,12 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const starterMonthlyPrice = 10.0;
   const creatorMonthlyPrice = 20.0;
 
-  const studioMonthlyExample = 99.0;
-
   const yearlyDiscount = 0.25;
   const months = 12;
 
   const creatorMonthlyWithPack = creatorMonthlyPrice * pack;
   const creatorYearlyMonthlyEq = creatorMonthlyWithPack * (1 - yearlyDiscount);
   const creatorYearlyTotal = Math.round(creatorYearlyMonthlyEq * months);
-
-  const studioMonthlyWithPackExample = studioMonthlyExample * pack;
-  const studioYearlyMonthlyEqExample =
-    studioMonthlyWithPackExample * (1 - yearlyDiscount);
-  const studioYearlyTotalExample = Math.round(
-    studioYearlyMonthlyEqExample * months
-  );
 
   const footerLinks = useMemo(
     () => [
@@ -602,19 +593,22 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
       trial: [
         `${trialCredits} credits included`,
         "Full pipeline access",
-        "Credit-based usage",
+        "Social access: 0 channels",
+        "Downloads: up to 20 (1 credit each)",
       ],
       starter: [
         `${starterMonthlyCredits} credits / month`,
         "Simple monthly billing",
-        "Presets & repeatable formats",
+        "Social access: 2 channels",
+        "Downloads: up to 50 / month",
       ],
       creator: [
         mode === "yearly"
           ? `${creatorCredits} credits / year (upfront)`
           : `${creatorCredits} credits / month`,
         "Priority processing",
-        "Presets + repeatable formats",
+        "Social access: full channels",
+        "Unlimited downloads included",
       ],
       studio: [
         "High-volume credits",
@@ -628,7 +622,9 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     () => [
       "Upload long-form once",
       "Generate shorts with structure + pacing",
-      "Exports ready for posting",
+      "Social access: 0 channels",
+      "Editor locked on Free Trial",
+      "Max 20 downloads (1 credit per download)",
       "Support via email",
     ],
     []
@@ -638,6 +634,9 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     () => [
       "Everything in Free Trial",
       "More credits for cadence",
+      "Editor access enabled",
+      "Social access: up to 2 channels",
+      "Up to 50 downloads per month",
       "Templates + calm defaults",
       "Email support",
     ],
@@ -648,6 +647,9 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     () => [
       "Everything in Starter",
       "Higher retention clip generation",
+      "Full editor access",
+      "Social access: all channels",
+      "Unlimited downloads included",
       "Captions + pacing presets",
       "Batch exports + templates",
       "Priority queue throughput",
@@ -928,14 +930,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               </Disclosure>
 
               <div className="mt-4 text-xs text-white/40">
-                Internal reference:{" "}
-                <span className="text-white/65">
-                  {mode === "yearly"
-                    ? `$${formatMoney(
-                        studioYearlyMonthlyEqExample
-                      )}/mo eq • billed yearly ($${studioYearlyTotalExample})`
-                    : `$${formatMoney(studioMonthlyWithPackExample)}/mo eq`}
-                </span>
+                Built for teams with custom onboarding and managed rollout.
               </div>
             </div>
           </div>
@@ -997,6 +992,33 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                     starter="Standard+"
                     creator="Priority"
                     studio="Priority+"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Social access"
+                    trial="0 channels"
+                    starter="2 channels"
+                    creator="Full access"
+                    studio="Custom"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Editor access"
+                    trial="Locked"
+                    starter="Enabled"
+                    creator="Full"
+                    studio="Full + team workflows"
+                  />
+                  <Divider />
+
+                  <ComparisonRow
+                    label="Download policy"
+                    trial="20 max • 1 credit each"
+                    starter="50 / month"
+                    creator="Unlimited"
+                    studio="Unlimited + controls"
                   />
                   <Divider />
 

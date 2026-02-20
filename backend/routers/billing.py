@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Generator, Optional
 
 import stripe
@@ -140,6 +141,13 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     return 0
 
 
+def _reset_download_meter(user: User) -> None:
+    if hasattr(user, "downloads_used"):
+        user.downloads_used = 0
+    if hasattr(user, "downloads_window"):
+        user.downloads_window = datetime.now(timezone.utc).strftime("%Y-%m")
+
+
 # ------------------------------------------------------------------
 # Schemas
 # ------------------------------------------------------------------
@@ -214,6 +222,7 @@ def create_checkout_session(
         user.credits = (user.credits or 0) + _credits_for_plan("free", interval, 1)
         user.trial_used = True
         user.plan = "free"
+        _reset_download_meter(user)
         db.commit()
 
         base = _frontend_base_url()
@@ -420,6 +429,7 @@ async def stripe_webhook(
 
         # Apply changes atomically
         user.plan = plan
+        _reset_download_meter(user)
 
         if plan == "free":
             user.credits = max(int(user.credits or 0), 60)

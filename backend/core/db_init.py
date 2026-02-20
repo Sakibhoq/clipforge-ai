@@ -59,6 +59,8 @@ def init_db() -> None:
             "stripe_customer_id": f"TEXT",
             "last_stripe_event_id": f"TEXT",
             "trial_used": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
+            "downloads_used": f"INTEGER DEFAULT 0 NOT NULL",
+            "downloads_window": f"TEXT",
             "pref_email_reports": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
             "pref_product_tips": f"BOOLEAN DEFAULT {_bool(False)} NOT NULL",
             "pref_autoplay_previews": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",

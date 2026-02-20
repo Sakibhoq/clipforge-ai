@@ -5,6 +5,7 @@ import re
 import subprocess
 import tempfile
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote
 
@@ -22,6 +23,82 @@ from storage import get_storage
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+
+DOWNLOAD_LIMITS = {
+    "free": 20,
+    "starter": 50,
+    "creator": None,
+    "studio": None,
+}
+
+DOWNLOAD_CREDIT_COST = {
+    "free": 1,
+    "starter": 0,
+    "creator": 0,
+    "studio": 0,
+}
+
+
+def _plan_key(raw_plan: Optional[str]) -> str:
+    p = (raw_plan or "").strip().lower()
+    if p in DOWNLOAD_LIMITS:
+        return p
+    if p in {"free_trial", "trial"}:
+        return "free"
+    return "free"
+
+
+def _download_window_key() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _consume_download_quota(db: Session, *, current_user: User) -> None:
+    user_row = (
+        db.query(User)
+        .filter(User.id == current_user.id)
+        .with_for_update()
+        .first()
+    )
+    if not user_row:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    plan = _plan_key(getattr(user_row, "plan", None))
+    limit = DOWNLOAD_LIMITS.get(plan)
+    cost = int(DOWNLOAD_CREDIT_COST.get(plan, 0) or 0)
+
+    now_window = _download_window_key()
+    current_window = str(getattr(user_row, "downloads_window", "") or "")
+    used = int(getattr(user_row, "downloads_used", 0) or 0)
+
+    if current_window != now_window:
+        current_window = now_window
+        used = 0
+        user_row.downloads_window = now_window
+        user_row.downloads_used = 0
+
+    if limit is not None and used >= int(limit):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Download limit reached ({limit}/{limit}) for your current plan. "
+                "Upgrade to unlock more downloads."
+            ),
+        )
+
+    credits = int(getattr(user_row, "credits", 0) or 0)
+    if cost > 0 and credits < cost:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Not enough credits to download (need {cost}, have {credits}).",
+        )
+
+    if cost > 0:
+        user_row.credits = credits - cost
+
+    if limit is not None:
+        user_row.downloads_used = used + 1
+
+    db.commit()
 
 
 def _sanitize_download_name(name: str) -> str:
@@ -225,6 +302,15 @@ def download_clip(
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to open clip file")
 
+    try:
+        _consume_download_quota(db, current_user=current_user)
+    except Exception:
+        try:
+            body.close()
+        except Exception:
+            pass
+        raise
+
     headers = {
         "Content-Disposition": f'attachment; filename="{safe_name}"; filename*=UTF-8\'\'{quote(safe_name)}'
     }
@@ -247,6 +333,10 @@ def crop_clip(
     )
     if not clip:
         raise HTTPException(status_code=404, detail="Clip not found")
+
+    plan = _plan_key(getattr(current_user, "plan", None))
+    if plan == "free":
+        raise HTTPException(status_code=403, detail="Editor is available on Starter and above.")
 
     if (payload.x + payload.w) > 1.000001 or (payload.y + payload.h) > 1.000001:
         raise HTTPException(status_code=422, detail="Crop rectangle must stay within frame bounds")

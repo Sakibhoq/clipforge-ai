@@ -15,6 +15,26 @@ type SocialAccount = {
   status?: string | null;
 };
 
+type MeResponse = {
+  plan?: string | null;
+};
+
+type StudioPlan = "free" | "starter" | "creator" | "studio";
+
+function normalizeStudioPlan(raw: string | null | undefined): StudioPlan {
+  const plan = String(raw || "").trim().toLowerCase();
+  if (plan === "starter") return "starter";
+  if (plan === "creator") return "creator";
+  if (plan === "studio") return "studio";
+  return "free";
+}
+
+function allowedSocialProvidersForPlan(plan: StudioPlan): SocialProviderKey[] {
+  if (plan === "starter") return ["instagram", "facebook"];
+  if (plan === "creator" || plan === "studio") return SOCIAL_PROVIDERS.map((p) => p.key);
+  return [];
+}
+
 const SOCIAL_PROVIDERS = [
   { key: "youtube", label: "YouTube", hint: "Connect to publish Shorts directly." },
   { key: "tiktok", label: "TikTok", hint: "Connect to publish from Clips." },
@@ -49,6 +69,7 @@ export default function StudioPage() {
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<StudioPlan>("free");
 
   async function refreshSummary() {
     setLoading(true);
@@ -74,6 +95,32 @@ export default function StudioPage() {
   useEffect(() => {
     refreshSummary();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<MeResponse>("/auth/me", { method: "GET" })
+      .then((me) => {
+        if (cancelled) return;
+        setCurrentPlan(normalizeStudioPlan(me?.plan));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCurrentPlan("free");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const allowedProviderSet = useMemo(
+    () => new Set<SocialProviderKey>(allowedSocialProvidersForPlan(currentPlan)),
+    [currentPlan]
+  );
+
+  const socialAccessLabel = useMemo(() => {
+    const count = allowedSocialProvidersForPlan(currentPlan).length;
+    return `${count} channel${count === 1 ? "" : "s"}`;
+  }, [currentPlan]);
 
   const queueSummary = useMemo(() => {
     const queued = queue.filter((item) => item.status === "queued").length;
@@ -111,6 +158,14 @@ export default function StudioPage() {
 
   async function connectSocial(provider: string) {
     if (socialBusy) return;
+    if (!allowedProviderSet.has(provider as SocialProviderKey)) {
+      setSocialMsg(
+        currentPlan === "free"
+          ? "Social connections are locked on Free Trial. Upgrade to Starter or Creator."
+          : "This channel is locked on your current plan. Upgrade to Creator for full social access."
+      );
+      return;
+    }
     setSocialMsg(null);
     setSocialBusy(provider);
     try {
@@ -169,6 +224,7 @@ export default function StudioPage() {
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <StatPill label="Connected" value={`${connectedCount}/${SOCIAL_PROVIDERS.length}`} />
+                <StatPill label="Social access" value={socialAccessLabel} />
                 <StatPill label="YouTube Channels" value={`${channels.length}`} />
                 <StatPill label="Ingest Queue" value={`${queueSummary.total}`} />
               </div>
@@ -209,7 +265,9 @@ export default function StudioPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-white/90">Connections</h2>
-                <p className="mt-1 text-sm text-white/65">Connect each platform once. Disconnect any time.</p>
+                <p className="mt-1 text-sm text-white/65">
+                  Connect each platform once. Free Trial: 0 channels, Starter: 2 channels, Creator+: full access.
+                </p>
               </div>
               <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/65">
                 {connectedCount} connected
@@ -223,6 +281,7 @@ export default function StudioPage() {
                 const connected = String(account?.status || "").toLowerCase() === "connected";
                 const busyConnecting = socialBusy === provider.key;
                 const busyDisconnecting = socialBusy === `disconnect:${provider.key}`;
+                const canConnect = allowedProviderSet.has(provider.key);
 
                 return (
                   <div
@@ -271,11 +330,16 @@ export default function StudioPage() {
                           <button
                             type="button"
                             onClick={() => void connectSocial(provider.key)}
-                            disabled={!!socialBusy}
+                            disabled={!!socialBusy || !canConnect}
                             className="inline-flex items-center rounded-full border px-4 py-2 text-[12px] font-semibold transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
                             style={connectButtonStyle(provider.key)}
+                            title={canConnect ? "Connect" : "Upgrade to unlock this channel"}
                           >
-                            {busyConnecting ? "Connecting..." : "Connect"}
+                            {!canConnect
+                              ? "Upgrade"
+                              : busyConnecting
+                                ? "Connecting..."
+                                : "Connect"}
                           </button>
                         )}
                       </div>
