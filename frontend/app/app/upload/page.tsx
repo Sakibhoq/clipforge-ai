@@ -1864,12 +1864,11 @@ function UploadWorkspace() {
                         >
                           <div className="min-w-0">
                             <div className="truncate text-white/85">
-                              {jobOrdinalById[j.id] ? `My Job #${jobOrdinalById[j.id]}` : `Job ${j.id}`} •{" "}
+                              {jobOrdinalById[j.id] ? `My Job #${jobOrdinalById[j.id]}` : "My Job"} •{" "}
                               {uploadOrdinalById[j.upload_id]
                                 ? `My Upload #${uploadOrdinalById[j.upload_id]}`
-                                : `Upload ${j.upload_id}`}
+                                : "My Upload"}
                             </div>
-                            <div className="text-white/45">ID {j.id} • Upload ID {j.upload_id}</div>
                             <div className="text-white/55">
                               {j.status === "queued" ? "Queued" : "Processing"}
                               {Number.isFinite(j.clips_generated) && Number(j.clips_generated) > 0
@@ -2076,22 +2075,25 @@ function UploadWorkspace() {
                     <div className="mt-3 space-y-1 text-[12px] text-white/45">
                       {uploadId ? (
                         <div>
-                          Upload: <span className="text-white/65">{uploadId}</span>
+                          Upload:{" "}
+                          <span className="text-white/65">
+                            {uploadOrdinalById[uploadId]
+                              ? `My Upload #${uploadOrdinalById[uploadId]}`
+                              : "My Upload"}
+                          </span>
                         </div>
                       ) : null}
                       {jobId ? (
                         <div>
-                          Job: <span className="text-white/65">{jobId}</span>
+                          Job:{" "}
+                          <span className="text-white/65">
+                            {jobOrdinalById[jobId] ? `My Job #${jobOrdinalById[jobId]}` : "My Job"}
+                          </span>
                         </div>
                       ) : null}
                       {jobId ? (
                         <div>
                           Clips generated: <span className="text-white/65">{clipsGenerated}</span>
-                        </div>
-                      ) : null}
-                      {storageKey ? (
-                        <div className="truncate">
-                          Key: <span className="text-white/55">{storageKey}</span>
                         </div>
                       ) : null}
                       {aspectRatio ? (
@@ -2135,12 +2137,20 @@ function UploadWorkspace() {
                     <div className="mt-3 space-y-1 text-[12px] text-white/45">
                       {uploadId ? (
                         <div>
-                          Upload: <span className="text-white/65">{uploadId}</span>
+                          Upload:{" "}
+                          <span className="text-white/65">
+                            {uploadOrdinalById[uploadId]
+                              ? `My Upload #${uploadOrdinalById[uploadId]}`
+                              : "My Upload"}
+                          </span>
                         </div>
                       ) : null}
                       {jobId ? (
                         <div>
-                          Job: <span className="text-white/65">{jobId}</span>
+                          Job:{" "}
+                          <span className="text-white/65">
+                            {jobOrdinalById[jobId] ? `My Job #${jobOrdinalById[jobId]}` : "My Job"}
+                          </span>
                         </div>
                       ) : null}
                     </div>

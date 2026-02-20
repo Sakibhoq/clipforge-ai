@@ -1402,7 +1402,7 @@ function ClipsWorkspace() {
   function uploadLabel(uploadIdValue: number): string {
     const ord = uploadOrdinalById[uploadIdValue];
     if (ord) return `My Upload #${ord}`;
-    return `Upload #${uploadIdValue}`;
+    return "My Upload";
   }
 
   // Visible clips (focused mode)
@@ -1466,9 +1466,7 @@ function ClipsWorkspace() {
                   Showing clips from{" "}
                   <span className="text-white/85 font-semibold">
                     {uploadId && Number.isFinite(uploadId)
-                      ? uploadOrdinalById[uploadId]
-                        ? `${uploadLabel(uploadId)} (ID ${uploadId})`
-                        : `Upload ID ${uploadId}`
+                      ? uploadLabel(uploadId)
                       : "selected upload"}
                   </span>
                   .
@@ -1673,9 +1671,6 @@ function ClipsWorkspace() {
                       <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] font-semibold text-white/75">
                         <Icon name="folder" />
                         {uploadLabel(g.upload.id)}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/45">
-                        ID {g.upload.id}
                       </span>
                       <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/60">
                         {clipCount} clip(s)
