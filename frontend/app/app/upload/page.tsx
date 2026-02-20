@@ -901,17 +901,25 @@ function UploadWorkspace() {
         if (Number.isFinite(at) && Number.isFinite(bt) && at !== bt) return at - bt;
         return (a.id || 0) - (b.id || 0);
       });
+      const ordinalSource = ordered.filter((row) => {
+        const clipsGenerated = Number(row.clips_generated ?? 0);
+        if (Number.isFinite(clipsGenerated) && clipsGenerated > 0) return true;
+        return row.status === "queued" || row.status === "running";
+      });
       const nextJobOrd: Record<number, number> = {};
       const nextUploadOrd: Record<number, number> = {};
       let uploadSeq = 1;
       const seenUploads = new Set<number>();
-      ordered.forEach((row, idx) => {
-        nextJobOrd[row.id] = idx + 1;
+      ordinalSource.forEach((row) => {
         if (!seenUploads.has(row.upload_id)) {
           seenUploads.add(row.upload_id);
           nextUploadOrd[row.upload_id] = uploadSeq;
           uploadSeq += 1;
         }
+      });
+      ordered.forEach((row) => {
+        const ord = nextUploadOrd[row.upload_id];
+        if (ord) nextJobOrd[row.id] = ord;
       });
       setJobOrdinalById(nextJobOrd);
       setUploadOrdinalById(nextUploadOrd);
@@ -1864,10 +1872,8 @@ function UploadWorkspace() {
                         >
                           <div className="min-w-0">
                             <div className="truncate text-white/85">
-                              {jobOrdinalById[j.id] ? `My Job #${jobOrdinalById[j.id]}` : "My Job"} •{" "}
-                              {uploadOrdinalById[j.upload_id]
-                                ? `My Upload #${uploadOrdinalById[j.upload_id]}`
-                                : "My Upload"}
+                              Job {jobOrdinalById[j.id] ?? "—"} • Upload{" "}
+                              {uploadOrdinalById[j.upload_id] ?? "—"}
                             </div>
                             <div className="text-white/55">
                               {j.status === "queued" ? "Queued" : "Processing"}
@@ -2077,9 +2083,7 @@ function UploadWorkspace() {
                         <div>
                           Upload:{" "}
                           <span className="text-white/65">
-                            {uploadOrdinalById[uploadId]
-                              ? `My Upload #${uploadOrdinalById[uploadId]}`
-                              : "My Upload"}
+                            {uploadOrdinalById[uploadId] ?? "—"}
                           </span>
                         </div>
                       ) : null}
@@ -2087,7 +2091,7 @@ function UploadWorkspace() {
                         <div>
                           Job:{" "}
                           <span className="text-white/65">
-                            {jobOrdinalById[jobId] ? `My Job #${jobOrdinalById[jobId]}` : "My Job"}
+                            {jobOrdinalById[jobId] ?? "—"}
                           </span>
                         </div>
                       ) : null}
@@ -2139,9 +2143,7 @@ function UploadWorkspace() {
                         <div>
                           Upload:{" "}
                           <span className="text-white/65">
-                            {uploadOrdinalById[uploadId]
-                              ? `My Upload #${uploadOrdinalById[uploadId]}`
-                              : "My Upload"}
+                            {uploadOrdinalById[uploadId] ?? "—"}
                           </span>
                         </div>
                       ) : null}
@@ -2149,7 +2151,7 @@ function UploadWorkspace() {
                         <div>
                           Job:{" "}
                           <span className="text-white/65">
-                            {jobOrdinalById[jobId] ? `My Job #${jobOrdinalById[jobId]}` : "My Job"}
+                            {jobOrdinalById[jobId] ?? "—"}
                           </span>
                         </div>
                       ) : null}

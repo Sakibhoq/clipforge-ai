@@ -587,7 +587,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
         `${starterMonthlyCredits} credits / month`,
         "Simple monthly billing",
         "Social access: 2 channels",
-        "Downloads: up to 50 / month",
+        "Downloads: up to 50 / month (1 credit each)",
       ],
       creator: [
         mode === "yearly"
@@ -623,7 +623,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
       "Higher monthly credit allowance",
       "Editor access unlocked",
       "Social publishing channels: up to 2",
-      "Up to 50 downloads per month",
+      "Up to 50 downloads per month (1 credit per download)",
       "Production-ready templates",
       "Email support",
     ],
@@ -1003,7 +1003,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   <ComparisonRow
                     label="Download policy"
                     trial="20 max • 1 credit each"
-                    starter="50 / month"
+                    starter="50 / month • 1 credit each"
                     creator="Unlimited"
                     studio="Unlimited + controls"
                   />

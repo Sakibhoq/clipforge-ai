@@ -33,7 +33,7 @@ DOWNLOAD_LIMITS = {
 
 DOWNLOAD_CREDIT_COST = {
     "free": 1,
-    "starter": 0,
+    "starter": 1,
     "creator": 0,
     "studio": 0,
 }

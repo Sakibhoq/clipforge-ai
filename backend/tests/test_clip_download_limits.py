@@ -65,6 +65,22 @@ def test_starter_download_limit_is_50(db):
     assert e.value.status_code == 403
 
 
+def test_starter_download_costs_one_credit_and_counts_toward_limit(db):
+    u = _mk_user(db, plan="starter", credits=5)
+    _consume_download_quota(db, current_user=u)
+
+    db.refresh(u)
+    assert int(u.credits or 0) == 4
+    assert int(u.downloads_used or 0) == 1
+
+
+def test_starter_download_requires_credit(db):
+    u = _mk_user(db, plan="starter", credits=0)
+    with pytest.raises(HTTPException) as e:
+        _consume_download_quota(db, current_user=u)
+    assert e.value.status_code == 402
+
+
 def test_creator_downloads_are_unlimited_and_free(db):
     u = _mk_user(db, plan="creator", credits=7)
     u.downloads_used = 500
