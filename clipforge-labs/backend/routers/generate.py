@@ -23,6 +23,7 @@ JOB_KIND_VIDEO = "generate"
 JOB_KIND_IMAGE = "generate_image"
 JOB_KIND_VOICEOVER = "generate_voiceover"
 GENERATION_JOB_KINDS = (JOB_KIND_VIDEO, JOB_KIND_IMAGE, JOB_KIND_VOICEOVER)
+VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {4, 6, 8}
@@ -48,6 +49,13 @@ PLAN_MAX_VOICE_CHARS = {
     "studio": 6000,
 }
 
+PLAN_ALLOWED_VIDEO_SPEEDS = {
+    "free": {"relax"},
+    "starter": {"relax"},
+    "creator": {"relax", "fast"},
+    "studio": {"relax", "fast"},
+}
+
 
 def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int = 1_000_000) -> int:
     raw = (os.getenv(name) or "").strip()
@@ -64,8 +72,25 @@ def _plan_key(raw_plan: str | None) -> str:
     return p if p in PLAN_MAX_DURATION_SECONDS else "free"
 
 
-def _video_credits_needed(duration_seconds: int) -> int:
-    credits_per_second = _env_int("LABS_CREDITS_PER_SECOND", 1, min_value=1, max_value=100)
+def _video_speed_key(raw_speed: str | None) -> str:
+    speed = (raw_speed or "relax").strip().lower()
+    return speed if speed in VIDEO_GENERATION_SPEEDS else "relax"
+
+
+def _video_credits_per_second(speed: str) -> int:
+    baseline = _env_int("LABS_CREDITS_PER_SECOND", 1, min_value=1, max_value=100)
+    if speed == "fast":
+        return _env_int(
+            "LABS_FAST_CREDITS_PER_SECOND",
+            max(2, baseline * 2),
+            min_value=1,
+            max_value=100,
+        )
+    return _env_int("LABS_RELAX_CREDITS_PER_SECOND", baseline, min_value=1, max_value=100)
+
+
+def _video_credits_needed(duration_seconds: int, speed: str) -> int:
+    credits_per_second = _video_credits_per_second(speed)
     return max(1, int(duration_seconds or 0)) * credits_per_second
 
 
@@ -204,6 +229,7 @@ class GenerateVideoRequest(BaseModel):
     negative_prompt: str | None = Field(default=None, max_length=1200)
     aspect_ratio: str = "9:16"
     duration_seconds: int = Field(default=6, ge=4, le=8)
+    generation_speed: str = Field(default="relax", max_length=16)
     model: str | None = Field(default="google", max_length=64)
     style_preset: str | None = Field(default="social-native", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
@@ -232,6 +258,7 @@ class GenerateResponse(BaseModel):
     credits_reserved: int
     duration_seconds: int | None = None
     text_length: int | None = None
+    generation_speed: str | None = None
 
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -252,9 +279,10 @@ def create_video_generation(
     if duration_seconds not in ALLOWED_DURATIONS:
         raise HTTPException(status_code=422, detail="Duration must be one of: 4, 6, 8 seconds")
 
+    generation_speed = _video_speed_key(payload.generation_speed)
     model = _check_model_supported(payload.model)
     input_image_key = _assert_user_owned_key(current_user.id, payload.input_image_key)
-    credits_needed = _video_credits_needed(duration_seconds)
+    credits_needed = _video_credits_needed(duration_seconds, generation_speed)
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = int(PLAN_MAX_DURATION_SECONDS.get(plan, 4))
@@ -263,9 +291,16 @@ def create_video_generation(
                 status_code=403,
                 detail=f"{plan.capitalize()} plan supports up to {plan_max_duration}s per generation",
             )
+        allowed_speeds = PLAN_ALLOWED_VIDEO_SPEEDS.get(plan, {"relax"})
+        if generation_speed not in allowed_speeds:
+            detail = f"{plan.capitalize()} plan includes Relax mode only."
+            if "fast" in PLAN_ALLOWED_VIDEO_SPEEDS.get("creator", set()):
+                detail += " Upgrade to Creator to use Fast mode."
+            raise HTTPException(status_code=403, detail=detail)
 
     settings_payload = {
         "mode": "video",
+        "generation_speed": generation_speed,
         "style_preset": (payload.style_preset or "social-native"),
         "seed": payload.seed,
         "input_image_key": input_image_key,
@@ -292,6 +327,7 @@ def create_video_generation(
         kind="video",
         credits_reserved=int(credits_needed),
         duration_seconds=int(duration_seconds),
+        generation_speed=generation_speed,
     )
 
 

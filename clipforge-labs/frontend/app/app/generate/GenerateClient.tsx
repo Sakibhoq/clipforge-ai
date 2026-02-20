@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 type GenerationMode = "video" | "image" | "voiceover";
+type VideoSpeedMode = "relax" | "fast";
 type JobKind = "generate" | "generate_image" | "generate_voiceover";
 
 type GenerateResponse = {
@@ -43,7 +44,8 @@ type ClipRow = {
   title?: string | null;
 };
 
-const CREDITS_PER_SECOND = 1;
+const RELAX_CREDITS_PER_SECOND = 1;
+const FAST_CREDITS_PER_SECOND = 2;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
@@ -75,6 +77,14 @@ function modeToJobKind(mode: GenerationMode): JobKind {
   return "generate";
 }
 
+function durationPresetLabel(durationSeconds: number | null | undefined): string {
+  const d = Number(durationSeconds || 0);
+  if (!d || d < 1) return "—";
+  if (d <= 4) return "Short";
+  if (d <= 6) return "Standard";
+  return "Extended";
+}
+
 function extFromStorageKey(key: string): string {
   const m = String(key || "").toLowerCase().match(/(\.[a-z0-9]+)$/);
   return m ? m[1] : "";
@@ -97,8 +107,10 @@ export default function GenerateClient() {
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState(6);
+  const [videoSpeed, setVideoSpeed] = useState<VideoSpeedMode>("relax");
   const [voiceName, setVoiceName] = useState("en-us");
   const [voiceSpeed, setVoiceSpeed] = useState(165);
+  const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,8 +133,14 @@ export default function GenerateClient() {
       const usage = Math.ceil(Math.max(1, textLength) / VOICE_CHARS_PER_CREDIT);
       return Math.max(VOICE_MIN_CREDITS, usage);
     }
-    return Math.max(1, Number(duration || 0)) * CREDITS_PER_SECOND;
-  }, [mode, textLength, duration]);
+    const perSecond = videoSpeed === "fast" ? FAST_CREDITS_PER_SECOND : RELAX_CREDITS_PER_SECOND;
+    return Math.max(1, Number(duration || 0)) * perSecond;
+  }, [mode, textLength, duration, videoSpeed]);
+
+  const fastEligible = useMemo(() => {
+    const plan = String(currentPlan || "").trim().toLowerCase();
+    return plan === "creator" || plan === "studio";
+  }, [currentPlan]);
 
   const canGenerate = useMemo(() => {
     const p = prompt.trim();
@@ -175,6 +193,13 @@ export default function GenerateClient() {
 
   useEffect(() => {
     refreshJobs();
+    apiFetch<{ plan?: string }>("/auth/me", { method: "GET" })
+      .then((me) => {
+        setCurrentPlan(String(me?.plan || "free"));
+      })
+      .catch(() => {
+        setCurrentPlan("free");
+      });
     return () => {
       if (pollTimer.current) window.clearInterval(pollTimer.current);
     };
@@ -248,6 +273,7 @@ export default function GenerateClient() {
           prompt: p,
           aspect_ratio: aspectRatio,
           duration_seconds: duration,
+          generation_speed: videoSpeed,
           model: "google",
         };
       }
@@ -313,6 +339,9 @@ export default function GenerateClient() {
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
                 Buy more credits
+              </Link>
+              <Link href="/app/editor" className="btn-ghost text-[12px] px-4 py-2">
+                Open editor
               </Link>
               {activeJob ? (
                 <div
@@ -389,17 +418,61 @@ export default function GenerateClient() {
                       </select>
                     </div>
                     {mode === "video" ? (
-                      <div className="grid gap-2">
-                        <div className="text-[12px] font-medium text-white/70">Duration</div>
-                        <select
-                          value={duration}
-                          onChange={(e) => setDuration(Number(e.target.value))}
-                          className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-[14px] text-white/85 outline-none hover:bg-black/60 focus:border-white/20 focus:bg-black/60"
-                        >
-                          <option value={4}>4 seconds</option>
-                          <option value={6}>6 seconds</option>
-                          <option value={8}>8 seconds</option>
-                        </select>
+                      <div className="grid gap-3">
+                        <div className="grid gap-2">
+                          <div className="text-[12px] font-medium text-white/70">Duration</div>
+                          <select
+                            value={duration}
+                            onChange={(e) => setDuration(Number(e.target.value))}
+                            className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-[14px] text-white/85 outline-none hover:bg-black/60 focus:border-white/20 focus:bg-black/60"
+                          >
+                            <option value={4}>Short clip</option>
+                            <option value={6}>Standard clip</option>
+                            <option value={8}>Extended clip</option>
+                          </select>
+                        </div>
+                        <div className="grid gap-2">
+                          <div className="text-[12px] font-medium text-white/70">Generation mode</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setVideoSpeed("relax")}
+                              className={cx(
+                                "rounded-xl border px-3 py-2 text-[12px] font-semibold transition",
+                                videoSpeed === "relax"
+                                  ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                                  : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              Relax
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (fastEligible) setVideoSpeed("fast");
+                              }}
+                              disabled={!fastEligible}
+                              className={cx(
+                                "rounded-xl border px-3 py-2 text-[12px] font-semibold transition",
+                                videoSpeed === "fast"
+                                  ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
+                                  : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06]",
+                                !fastEligible && "cursor-not-allowed opacity-50"
+                              )}
+                              title={fastEligible ? "Fast mode" : "Upgrade to Creator for Fast mode"}
+                            >
+                              Fast
+                            </button>
+                          </div>
+                          {!fastEligible ? (
+                            <div className="text-[11px] text-white/50">
+                              Fast mode unlocks on Creator.{" "}
+                              <Link href="/pricing" className="text-white/70 underline decoration-white/20 underline-offset-4">
+                                Upgrade plan
+                              </Link>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -434,13 +507,18 @@ export default function GenerateClient() {
                     {mode === "voiceover" ? (
                       <span className="ml-2 text-white/55">({textLength.toLocaleString()} chars)</span>
                     ) : null}
+                    {mode === "video" ? (
+                      <span className="ml-2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-white/75">
+                        {videoSpeed}
+                      </span>
+                    ) : null}
                   </div>
                   <Link href="/pricing" className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/[0.08]">
                     Buy more credits
                   </Link>
                 </div>
                 <div className="text-[11px] text-white/52">
-                  Cost guide: Video 1 credit/second • Image 4 credits • Voiceover 1 credit/250 characters.
+                  Cost guide: Relax mode is lower-cost and slower • Fast mode is priority and costs more • Image 4 credits • Voiceover starts at 1 credit / 250 chars.
                 </div>
 
                 {error ? (
@@ -521,7 +599,7 @@ export default function GenerateClient() {
                         <span className="chip">{prettyStatus(j.status)}</span>
                       </div>
                       <div className="mt-2 text-[12px] text-white/55">
-                        {kindLabel(j.kind)} • {j.aspect_ratio || "—"} • {j.duration_seconds ?? "—"}s • Upload #{j.upload_id}
+                        {kindLabel(j.kind)} • {j.aspect_ratio || "—"} • {durationPresetLabel(j.duration_seconds)} • Upload #{j.upload_id}
                       </div>
                     </button>
                   ))}

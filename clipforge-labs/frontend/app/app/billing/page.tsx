@@ -28,6 +28,11 @@ function formatMoney(n: number) {
   return fixed.endsWith(".00") ? fixed.slice(0, -3) : fixed;
 }
 
+function formatProjectEstimate(credits: number): string {
+  const safe = Math.max(0, Number(credits || 0));
+  return Math.max(1, Math.floor(safe / 6)).toLocaleString();
+}
+
 type PlanKey = "free_trial" | "starter" | "creator" | "studio";
 type BillingInterval = "monthly" | "yearly";
 
@@ -210,7 +215,7 @@ function PackCard({
   pack: CreditPack;
   onBuy: (key: string) => void;
 }) {
-  const minutes = Math.max(0, Math.floor((pack.credits || 0) / 60));
+  const estimatedProjects = formatProjectEstimate(pack.credits || 0);
 
   return (
     <button
@@ -236,7 +241,7 @@ function PackCard({
           <div>
             <div className="text-sm font-semibold text-white/90">{pack.name}</div>
             <div className="mt-1 text-sm text-white/60">
-              {minutes.toLocaleString()} min output <span className="text-white/35">•</span>{" "}
+              ~{estimatedProjects} standard projects <span className="text-white/35">•</span>{" "}
               {pack.credits.toLocaleString()} credits
             </div>
           </div>
@@ -382,8 +387,7 @@ function CreditsCard({
   onBuy: () => void;
 }) {
   const creditDisplay = credits === null ? "—" : credits.toLocaleString();
-  const minutesDisplay =
-    credits === null ? "—" : Math.max(0, Math.floor(credits / 60)).toLocaleString();
+  const projectDisplay = credits === null ? "—" : formatProjectEstimate(credits);
 
   return (
     <SoftCard className="p-6" glow>
@@ -391,7 +395,7 @@ function CreditsCard({
         <div>
           <div className="text-sm font-semibold text-white/90">Generation credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Clipforge Labs uses a simple rule: 1 credit = 1 second generated.
+            Credits are usage units. Relax mode burns fewer credits, Fast mode burns more for priority output.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -399,10 +403,10 @@ function CreditsCard({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
-          <div className="text-[12px] text-white/55">Approx output</div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{minutesDisplay}</div>
+          <div className="text-[12px] text-white/55">Estimated projects</div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{projectDisplay}</div>
           <div className="mt-1 text-[12px] text-white/45">
-            minutes <span className="text-white/35">•</span> {creditDisplay} credits
+            standard scenes <span className="text-white/35">•</span> {creditDisplay} credits
           </div>
         </div>
 
@@ -433,9 +437,9 @@ function CreditsCard({
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
         <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
-          <div>• 1 credit = 1 second of generation.</div>
+          <div>• Relax mode = lower-cost lane. Fast mode = higher-cost priority lane.</div>
           <div>• Plans add credits each month.</div>
-          <div>• Packs add extra credits on top of Creator.</div>
+          <div>• Top-up packs add extra credits on top of Creator.</div>
         </div>
       </div>
     </SoftCard>
@@ -621,27 +625,27 @@ export default function BillingPage() {
         desc: "Generate your first clips and test the full flow.",
         priceLabel: "$0",
         interval: "monthly",
-        note: "Includes 5 credits (~5 seconds). One-time per account.",
+        note: "Includes 5 generation units. Social posting is locked on Free Trial.",
       },
       {
         key: "starter",
         name: "Starter",
         short: "Simple monthly plan",
-        desc: "For consistent output without overthinking it.",
+        desc: "For consistent output with Relax mode and simple monthly billing.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
-        note: "Includes 40 credits (~40 seconds) each month.",
+        note: "Includes 40 generation units each month. Social posting: Facebook + Instagram.",
       },
       {
         key: "creator",
         name: "Creator",
         short: "Scale credits",
-        desc: "More credits plus priority throughput. Packs apply here.",
+        desc: "More units plus Fast priority mode. Top-up packs apply here.",
         priceLabel: creatorPrice,
         interval,
         recommended: true,
         highlight: true,
-        note: "Includes 120 credits (~2 minutes) each month. Packs scale this plan.",
+        note: "Includes 120 generation units each month. Social posting: all major platforms.",
       },
       {
         key: "studio",
@@ -783,8 +787,8 @@ export default function BillingPage() {
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <StatPill label="Plan" value={currentPlanLabel} />
           <StatPill
-            label="Approx min"
-            value={credits === null ? "—" : Math.max(0, Math.floor(credits / 60)).toLocaleString()}
+            label="Est. projects"
+            value={credits === null ? "—" : formatProjectEstimate(credits)}
           />
           <StatPill label="Status" value="Active" />
         </div>

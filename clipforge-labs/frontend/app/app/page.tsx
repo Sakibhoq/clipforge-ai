@@ -47,9 +47,17 @@ type PromptRecipe = {
   title: string;
   prompt: string;
   aspect_ratio: "9:16" | "16:9" | "1:1";
-  duration_seconds: 6 | 10 | 15 | 20;
+  duration_seconds: 4 | 6 | 8;
   vibe: string;
 };
+
+function durationPresetLabel(durationSeconds: number | null | undefined): string {
+  const d = Number(durationSeconds || 0);
+  if (!d || d < 1) return "—";
+  if (d <= 4) return "Short";
+  if (d <= 6) return "Standard";
+  return "Extended";
+}
 
 export default function AppConsolePage() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -82,7 +90,7 @@ export default function AppConsolePage() {
         prompt:
           "Slow dolly-in on a neon-lit street at night, rain reflections, moody cinematic lighting, soft haze, 35mm look.",
         aspect_ratio: "9:16",
-        duration_seconds: 10,
+        duration_seconds: 6,
         vibe: "Cinematic",
       },
       {
@@ -98,7 +106,7 @@ export default function AppConsolePage() {
         prompt:
           "Drone flyover of a coastal cliff path at golden hour, soft fog, gentle camera motion, warm color grade, people walking.",
         aspect_ratio: "16:9",
-        duration_seconds: 10,
+        duration_seconds: 8,
         vibe: "Travel",
       },
     ],
@@ -193,7 +201,7 @@ export default function AppConsolePage() {
 
                         <div className="absolute left-4 top-4 flex gap-2">
                           <span className="chip">{r.aspect_ratio}</span>
-                          <span className="chip">{r.duration_seconds}s</span>
+                          <span className="chip">{durationPresetLabel(r.duration_seconds)}</span>
                         </div>
                         <div className="absolute right-4 top-4 chip">{r.vibe}</div>
 
@@ -303,7 +311,7 @@ export default function AppConsolePage() {
                         </span>
                       </div>
                       <div className="mt-2 text-[12px] text-white/55">
-                        {j.aspect_ratio || "—"} • {j.duration_seconds || "—"}s • Job #{j.id}
+                        {j.aspect_ratio || "—"} • {durationPresetLabel(j.duration_seconds)} • Job #{j.id}
                       </div>
                     </Link>
                   ))}

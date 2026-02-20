@@ -98,6 +98,9 @@ export default function ClipsPage() {
               <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
                 Generate a new asset
               </Link>
+              <Link href="/app/editor" className="btn-ghost text-[12px] px-4 py-2">
+                Open editor
+              </Link>
               <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
                 Studio
               </Link>

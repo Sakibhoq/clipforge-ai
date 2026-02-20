@@ -26,6 +26,16 @@ def _env(name: str, default: str = "") -> str:
     return v if v else default
 
 
+def _env_int(name: str, default: int, *, min_value: int = 0, max_value: int = 3_600) -> int:
+    raw = _env(name, "")
+    if not raw:
+        return default
+    try:
+        return max(min_value, min(max_value, int(raw)))
+    except Exception:
+        return default
+
+
 def _db_url() -> str:
     v = _env("DATABASE_URL", "")
     if v:
@@ -397,6 +407,13 @@ def _parse_settings(raw: str) -> dict:
         return {}
 
 
+def _video_mode_prep_delay_seconds(speed: str) -> int:
+    # Relax mode intentionally runs on a slower lane to keep cost-efficiency.
+    if (speed or "").strip().lower() == "fast":
+        return _env_int("WORKER_FAST_PREP_DELAY_SECONDS", 0, min_value=0, max_value=120)
+    return _env_int("WORKER_RELAX_PREP_DELAY_SECONDS", 4, min_value=0, max_value=120)
+
+
 def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     """
     Returns:
@@ -445,6 +462,11 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     fd, out_path = tempfile.mkstemp(prefix=f"cflabs-video-{job_id}-", suffix=".mp4")
     os.close(fd)
     try:
+        generation_speed = str(settings.get("generation_speed") or "relax").strip().lower()
+        prep_delay = _video_mode_prep_delay_seconds(generation_speed)
+        if prep_delay > 0:
+            time.sleep(prep_delay)
+
         _run_ffmpeg_text_video(
             prompt=prompt or "Untitled",
             duration=duration,

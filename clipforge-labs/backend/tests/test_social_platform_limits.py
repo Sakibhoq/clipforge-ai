@@ -86,28 +86,41 @@ def _clean(db):
     yield
 
 
-def test_free_plan_allows_only_one_platform_per_clip(db):
+def test_free_plan_cannot_publish_to_social(db):
     u = _mk_user(db, plan="free")
     clip = _mk_clip(db, user_id=u.id)
-    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="youtube")
+
+    with pytest.raises(HTTPException) as e:
+        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
+    assert e.value.status_code == 403
+
+
+def test_starter_plan_allows_facebook_and_instagram_only(db):
+    u = _mk_user(db, plan="starter")
+    clip = _mk_clip(db, user_id=u.id)
+
+    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
+    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="facebook")
+    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="instagram")
+    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="instagram")
+
+    with pytest.raises(HTTPException) as e:
+        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="youtube")
+    assert e.value.status_code == 403
 
     with pytest.raises(HTTPException) as e:
         _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="tiktok")
     assert e.value.status_code == 403
 
-    # Creating the same provider again is allowed.
-    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="youtube")
 
-
-def test_starter_plan_allows_two_platforms_per_clip(db):
+def test_starter_plan_allows_reposting_to_existing_provider(db):
     u = _mk_user(db, plan="starter")
     clip = _mk_clip(db, user_id=u.id)
-    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="youtube")
-    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="tiktok")
+    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="facebook")
+    _mk_post(db, user_id=u.id, clip_id=clip.id, provider="instagram")
 
-    with pytest.raises(HTTPException) as e:
-        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="instagram")
-    assert e.value.status_code == 403
+    # Re-posting to an existing provider for the same clip is allowed.
+    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
 
 
 def test_creator_plan_is_unlimited(db):
@@ -118,4 +131,3 @@ def test_creator_plan_is_unlimited(db):
     _mk_post(db, user_id=u.id, clip_id=clip.id, provider="instagram")
 
     _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
-

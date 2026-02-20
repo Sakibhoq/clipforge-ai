@@ -165,9 +165,9 @@ export default function Page() {
 
             <div className="mt-10 grid gap-3 sm:grid-cols-3">
               <div className="surface-soft p-4">
-                <div className="text-xs text-white/55">Fast iterations</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">Prompt, tweak, reroll</div>
-                <div className="mt-1 text-xs text-white/60">Small changes, big differences.</div>
+                <div className="text-xs text-white/55">Generation lanes</div>
+                <div className="mt-1 text-sm font-semibold text-white/90">Relax + Fast modes</div>
+                <div className="mt-1 text-xs text-white/60">Cost-efficient drafts or priority output.</div>
               </div>
               <div className="surface-soft p-4">
                 <div className="text-xs text-white/55">Aspect presets</div>
@@ -175,9 +175,9 @@ export default function Page() {
                 <div className="mt-1 text-xs text-white/60">Made for the feed.</div>
               </div>
               <div className="surface-soft p-4">
-                <div className="text-xs text-white/55">Export ready</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">Video, image, voice</div>
-                <div className="mt-1 text-xs text-white/60">One credit system, one workflow.</div>
+                <div className="text-xs text-white/55">Editor workflow</div>
+                <div className="mt-1 text-sm font-semibold text-white/90">Review, polish, export</div>
+                <div className="mt-1 text-xs text-white/60">Production-ready assets in one workspace.</div>
               </div>
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 2</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Generate variants</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Generate video, image, or voiceover. Reroll until it feels right.
+                Generate video, image, or voiceover. Use Relax for lower-cost drafts, then Fast for priority output.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="chip">9:16</span>

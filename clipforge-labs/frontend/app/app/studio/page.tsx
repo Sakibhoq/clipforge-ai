@@ -12,6 +12,10 @@ type SocialAccount = {
   status?: string | null;
 };
 
+type MeResponse = {
+  plan?: string | null;
+};
+
 const SOCIAL_PROVIDERS = [
   { key: "youtube", label: "YouTube", hint: "Connect to publish Shorts directly." },
   { key: "tiktok", label: "TikTok", hint: "Connect to publish from Clips." },
@@ -44,6 +48,7 @@ export default function StudioPage() {
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState("free");
 
   async function refreshSummary() {
     setLoading(true);
@@ -60,7 +65,20 @@ export default function StudioPage() {
 
   useEffect(() => {
     refreshSummary();
+    apiFetch<MeResponse>("/auth/me", { method: "GET" })
+      .then((me) => {
+        setCurrentPlan(String(me?.plan || "free").toLowerCase());
+      })
+      .catch(() => {
+        setCurrentPlan("free");
+      });
   }, []);
+
+  const postingAccessLabel = useMemo(() => {
+    if (currentPlan === "starter") return "Posting access: Facebook + Instagram";
+    if (currentPlan === "creator" || currentPlan === "studio") return "Posting access: all platforms";
+    return "Posting access: upgrade required";
+  }, [currentPlan]);
 
   const socialByProvider = useMemo(() => {
     const out: Record<string, SocialAccount | null> = {};
@@ -150,6 +168,7 @@ export default function StudioPage() {
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <StatPill label="Connected" value={`${connectedCount}/${SOCIAL_PROVIDERS.length}`} />
+                <StatPill label="Publishing" value={postingAccessLabel} />
               </div>
             </div>
 
@@ -188,7 +207,9 @@ export default function StudioPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-white/90">Connections</h2>
-                <p className="mt-1 text-sm text-white/65">Connect each platform once. Disconnect any time.</p>
+                <p className="mt-1 text-sm text-white/65">
+                  Connect each platform once. Posting access follows your plan (Free Trial locked, Starter: Facebook + Instagram, Creator+: all).
+                </p>
               </div>
               <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/65">
                 {connectedCount} connected

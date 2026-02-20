@@ -391,6 +391,7 @@ export default function Navbar() {
     () => [
       { href: "/app", label: "Overview" },
       { href: "/app/studio", label: "Studio" },
+      { href: "/app/editor", label: "Editor" },
       { href: "/app/billing", label: "Billing" },
       { href: "/app/settings", label: "Settings" },
     ],

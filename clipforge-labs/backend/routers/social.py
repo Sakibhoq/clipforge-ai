@@ -92,18 +92,18 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-PLAN_PLATFORM_LIMITS: Dict[str, Optional[int]] = {
-    "free": 1,
-    "starter": 2,
-    "creator": None,
-    "studio": None,
-}
-
 PLAN_LABELS: Dict[str, str] = {
     "free": "Free",
     "starter": "Starter",
     "creator": "Creator",
     "studio": "Studio",
+}
+
+PLAN_POSTING_PROVIDER_ALLOWLIST: Dict[str, set[str]] = {
+    "free": set(),
+    "starter": {"facebook", "instagram"},
+    "creator": set(PROVIDERS.keys()),
+    "studio": set(PROVIDERS.keys()),
 }
 
 
@@ -146,15 +146,16 @@ def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
 
 def _normalized_plan_key(raw_plan: Any) -> str:
     plan = str(raw_plan or "").strip().lower()
-    if plan in PLAN_PLATFORM_LIMITS:
+    if plan in PLAN_POSTING_PROVIDER_ALLOWLIST:
         return plan
     if plan in {"free_trial", "trial"}:
         return "free"
     return "free"
 
 
-def _max_platforms_for_plan(raw_plan: Any) -> Optional[int]:
-    return PLAN_PLATFORM_LIMITS[_normalized_plan_key(raw_plan)]
+def _allowed_posting_providers_for_plan(raw_plan: Any) -> set[str]:
+    plan = _normalized_plan_key(raw_plan)
+    return set(PLAN_POSTING_PROVIDER_ALLOWLIST.get(plan, set()))
 
 
 def _plan_label(raw_plan: Any) -> str:
@@ -168,9 +169,28 @@ def _enforce_clip_platform_limit(
     clip_id: int,
     provider: str,
 ) -> None:
-    max_platforms = _max_platforms_for_plan(getattr(user, "plan", None))
-    if max_platforms is None:
-        return
+    plan = _normalized_plan_key(getattr(user, "plan", None))
+    allowed = _allowed_posting_providers_for_plan(plan)
+    provider = str(provider or "").strip().lower()
+
+    if provider not in allowed:
+        if not allowed:
+            raise HTTPException(
+                status_code=403,
+                detail="Free Trial cannot publish to social yet. Upgrade to Starter or Creator to unlock posting.",
+            )
+        if plan == "starter":
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Starter can publish to Facebook and Instagram only. "
+                    "Upgrade to Creator to unlock YouTube and TikTok publishing."
+                ),
+            )
+        raise HTTPException(
+            status_code=403,
+            detail=f"{_plan_label(plan)} plan cannot publish to {provider.capitalize()}.",
+        )
 
     existing_rows = (
         db.query(SocialPost)
@@ -190,10 +210,13 @@ def _enforce_clip_platform_limit(
     if provider in existing:
         return
 
+    max_platforms = len(allowed)
     if len(existing) >= max_platforms:
         suffix = "" if max_platforms == 1 else "s"
-        detail = f"{_plan_label(getattr(user, 'plan', None))} plan allows up to {max_platforms} platform{suffix} per clip."
-        if max_platforms < len(PROVIDERS):
+        detail = f"{_plan_label(plan)} plan allows up to {max_platforms} platform{suffix} per clip."
+        if plan == "starter":
+            detail += " Starter supports Facebook + Instagram only. Upgrade to Creator for full social distribution."
+        elif max_platforms < len(PROVIDERS):
             detail += " Upgrade your plan to publish on more platforms."
         raise HTTPException(status_code=403, detail=detail)
 
