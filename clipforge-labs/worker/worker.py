@@ -99,11 +99,20 @@ def _s3_client():
     if is_gcs_endpoint and resolved_region.lower() in {"auto", "automatic"}:
         resolved_region = "us-east-1"
 
+    try:
+        cfg = Config(**config_kwargs)
+    except TypeError:
+        # Backward compatibility for older botocore builds that do not
+        # support checksum config kwargs.
+        config_kwargs.pop("request_checksum_calculation", None)
+        config_kwargs.pop("response_checksum_validation", None)
+        cfg = Config(**config_kwargs)
+
     return boto3.client(
         "s3",
         region_name=resolved_region,
         endpoint_url=endpoint_url,
-        config=Config(**config_kwargs),
+        config=cfg,
     )
 
 
