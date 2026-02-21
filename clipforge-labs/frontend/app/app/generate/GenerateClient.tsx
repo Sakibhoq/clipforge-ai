@@ -398,8 +398,8 @@ export default function GenerateClient() {
                 ))}
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-12">
-                <div className="grid gap-2 xl:col-span-7">
+              <div className="grid gap-4 xl:grid-cols-1 2xl:grid-cols-12">
+                <div className="grid min-w-0 gap-2 2xl:col-span-7">
                   <label className="text-xs font-medium text-white/70">Prompt</label>
                   <textarea
                     value={prompt}
@@ -419,11 +419,11 @@ export default function GenerateClient() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 xl:col-span-5">
+                <div className="grid min-w-0 gap-4 2xl:col-span-5">
                   {mode !== "voiceover" ? (
                     mode === "video" ? (
                       <div className="grid gap-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 2xl:grid-cols-2">
                           <div className="grid gap-2">
                             <label className="text-xs font-medium text-white/70">Aspect ratio</label>
                             <select
@@ -509,7 +509,7 @@ export default function GenerateClient() {
                       </div>
                     )
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Voice</label>
                         <input
