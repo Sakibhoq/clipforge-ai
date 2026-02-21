@@ -10,6 +10,7 @@ import tempfile
 import time
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -226,6 +227,228 @@ def _decode_base64_payload(value: str) -> bytes:
             return base64.urlsafe_b64decode(raw)
         except Exception as exc:
             raise RuntimeError(f"invalid base64 payload: {type(exc).__name__}") from exc
+
+
+def _http_post_json_custom(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+) -> tuple[int, str, dict[str, Any] | None, bytes]:
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+
+    resp = requests.post(
+        url,
+        json=payload,
+        headers=headers,
+        timeout=_provider_timeout_seconds(),
+    )
+    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+    raw_bytes = resp.content or b""
+    data: dict[str, Any] | None = None
+    try:
+        data = resp.json()
+    except Exception:
+        data = None
+    return resp.status_code, content_type, data, raw_bytes
+
+
+def _google_project_id() -> str:
+    env_project = _env("GOOGLE_VERTEX_PROJECT_ID", "")
+    if env_project:
+        return env_project
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+    md_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+    resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+    if resp.status_code < 400 and (resp.text or "").strip():
+        return resp.text.strip()
+    raise RuntimeError("GOOGLE_VERTEX_PROJECT_ID is required (or run worker on GCE with metadata access)")
+
+
+def _google_access_token() -> str:
+    raw = _env("GOOGLE_API_BEARER_TOKEN", "")
+    if raw:
+        token = raw.replace("Bearer ", "").strip()
+        if token:
+            return token
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+    md_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+    if resp.status_code >= 400:
+        raise RuntimeError("Failed to fetch Google access token from metadata server")
+    data = resp.json() if resp.content else {}
+    token = str((data or {}).get("access_token") or "").strip()
+    if not token:
+        raise RuntimeError("Google metadata token response missing access_token")
+    return token
+
+
+def _google_auth_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {_google_access_token()}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
+
+
+def _find_first_string_by_keys(data: Any, keys: set[str]) -> str | None:
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in keys and isinstance(v, str) and v.strip():
+                return v.strip()
+            nested = _find_first_string_by_keys(v, keys)
+            if nested:
+                return nested
+    elif isinstance(data, list):
+        for item in data:
+            nested = _find_first_string_by_keys(item, keys)
+            if nested:
+                return nested
+    return None
+
+
+def _download_gcs_uri_bytes(gcs_uri: str, *, headers: dict[str, str]) -> bytes:
+    if not gcs_uri.startswith("gs://"):
+        raise RuntimeError(f"Invalid gcs uri: {gcs_uri}")
+    path = gcs_uri[5:]
+    if "/" not in path:
+        raise RuntimeError(f"Invalid gcs uri object path: {gcs_uri}")
+    bucket, object_name = path.split("/", 1)
+    if not bucket or not object_name:
+        raise RuntimeError(f"Invalid gcs uri object path: {gcs_uri}")
+
+    try:
+        import requests
+    except Exception as exc:
+        raise RuntimeError("requests package missing in worker image") from exc
+
+    url = (
+        f"https://storage.googleapis.com/storage/v1/b/{quote(bucket, safe='')}"
+        f"/o/{quote(object_name, safe='')}?alt=media"
+    )
+    resp = requests.get(url, headers=headers, timeout=max(30, _provider_timeout_seconds()))
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Failed to download generated GCS media ({resp.status_code})")
+    data = resp.content or b""
+    if not data:
+        raise RuntimeError("Downloaded generated GCS media is empty")
+    return data
+
+
+def _run_google_vertex_video_generation(
+    *,
+    prompt: str,
+    negative_prompt: str,
+    aspect_ratio: str,
+    duration_seconds: int,
+) -> tuple[bytes, str, float | None, str | None]:
+    project_id = _google_project_id()
+    location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
+    model_id = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    headers = _google_auth_headers()
+
+    endpoint_base = (
+        f"https://{location}-aiplatform.googleapis.com/v1/"
+        f"projects/{project_id}/locations/{location}/publishers/google/models/{model_id}"
+    )
+    start_url = f"{endpoint_base}:predictLongRunning"
+    fetch_url = f"{endpoint_base}:fetchPredictOperation"
+
+    safe_duration = max(5, min(int(duration_seconds or 6), 8))
+    safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9"} else "9:16"
+
+    output_storage_uri = _env("GOOGLE_VIDEO_OUTPUT_GCS_URI", "")
+    if not output_storage_uri:
+        bucket = _env("S3_BUCKET", "")
+        if bucket:
+            output_storage_uri = f"gs://{bucket}/generated/"
+
+    params: dict[str, Any] = {
+        "sampleCount": 1,
+        "durationSeconds": safe_duration,
+        "aspectRatio": safe_ar,
+        "enhancePrompt": _env_bool("GOOGLE_VIDEO_ENHANCE_PROMPT", True),
+    }
+    if negative_prompt:
+        params["negativePrompt"] = negative_prompt[:1200]
+    if output_storage_uri:
+        params["storageUri"] = output_storage_uri
+
+    payload = {
+        "instances": [{"prompt": (prompt or "").strip()[:1200]}],
+        "parameters": params,
+    }
+    status, _, data, _ = _http_post_json_custom(start_url, payload, headers=headers)
+    if status >= 400:
+        detail = ""
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                detail = str(err.get("message") or "")
+            elif err:
+                detail = str(err)
+        raise RuntimeError(f"Vertex Veo start failed: {status} {detail}".strip())
+
+    op_name = _find_first_string_by_keys(data, {"name"})
+    if not op_name:
+        raise RuntimeError("Vertex Veo start response missing operation name")
+
+    timeout_seconds = _env_int("GOOGLE_VIDEO_TIMEOUT_SECONDS", 420, min_value=30, max_value=3600)
+    poll_seconds = _env_int("GOOGLE_VIDEO_POLL_SECONDS", 8, min_value=2, max_value=60)
+    deadline = time.time() + timeout_seconds
+    final_payload: dict[str, Any] | None = None
+
+    while time.time() < deadline:
+        poll_status, _, poll_data, _ = _http_post_json_custom(
+            fetch_url,
+            {"operationName": op_name},
+            headers=headers,
+        )
+        if poll_status >= 400:
+            detail = ""
+            if isinstance(poll_data, dict):
+                err = poll_data.get("error")
+                if isinstance(err, dict):
+                    detail = str(err.get("message") or "")
+                elif err:
+                    detail = str(err)
+            raise RuntimeError(f"Vertex Veo poll failed: {poll_status} {detail}".strip())
+
+        if isinstance(poll_data, dict) and poll_data.get("done") is True:
+            final_payload = poll_data
+            break
+        time.sleep(poll_seconds)
+
+    if not final_payload:
+        raise RuntimeError("Vertex Veo operation timed out")
+
+    op_error = (final_payload or {}).get("error")
+    if isinstance(op_error, dict):
+        msg = str(op_error.get("message") or "").strip()
+        if msg:
+            raise RuntimeError(f"Vertex Veo operation failed: {msg}")
+
+    response_obj = (final_payload or {}).get("response") if isinstance(final_payload, dict) else None
+    result_obj = response_obj if isinstance(response_obj, (dict, list)) else final_payload
+
+    b64_val = _find_first_string_by_keys(result_obj, {"bytesBase64Encoded"})
+    if b64_val:
+        return _decode_base64_payload(b64_val), "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+
+    gcs_uri = _find_first_string_by_keys(result_obj, {"gcsUri"})
+    if gcs_uri:
+        media = _download_gcs_uri_bytes(gcs_uri, headers=headers)
+        return media, "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+
+    raise RuntimeError("Vertex Veo operation completed without video payload")
 
 
 def _http_post_json(url: str, payload: dict[str, Any]) -> tuple[int, str, dict[str, Any] | None, bytes]:
@@ -898,19 +1121,27 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
 
         if use_google_provider:
             try:
-                media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
-                    endpoint_env="GOOGLE_VIDEO_API_URL",
-                    payload={
-                        "prompt": prompt,
-                        "negative_prompt": negative_prompt or None,
-                        "aspect_ratio": aspect_ratio,
-                        "duration_seconds": duration,
-                        "generation_speed": generation_speed,
-                        "model": model or "google",
-                        "settings": settings,
-                        "kind": JOB_KIND_VIDEO,
-                    },
-                )
+                if _env("GOOGLE_VIDEO_API_URL", ""):
+                    media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
+                        endpoint_env="GOOGLE_VIDEO_API_URL",
+                        payload={
+                            "prompt": prompt,
+                            "negative_prompt": negative_prompt or None,
+                            "aspect_ratio": aspect_ratio,
+                            "duration_seconds": duration,
+                            "generation_speed": generation_speed,
+                            "model": model or "google",
+                            "settings": settings,
+                            "kind": JOB_KIND_VIDEO,
+                        },
+                    )
+                else:
+                    media_bytes, remote_type, remote_duration, remote_title = _run_google_vertex_video_generation(
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        aspect_ratio=aspect_ratio,
+                        duration_seconds=duration,
+                    )
                 _write_bytes(out_path, media_bytes)
                 if (remote_type or "").startswith("video/"):
                     content_type = remote_type
