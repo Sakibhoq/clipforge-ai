@@ -24,11 +24,13 @@ class S3Storage(Storage):
         Mostly for dev/internal use.
         In production, uploads usually happen via presigned URLs.
         """
-        # Keep this as a direct put_object for best GCS S3 compatibility.
+        # Use byte payloads (not streaming bodies) for best GCS S3 compatibility.
+        payload = fileobj.read()
         kwargs = {
             "Bucket": self.bucket,
             "Key": key,
-            "Body": fileobj,
+            "Body": payload,
+            "ContentLength": len(payload),
         }
         if content_type:
             kwargs["ContentType"] = content_type
@@ -39,15 +41,18 @@ class S3Storage(Storage):
         """
         Upload a file from disk (used by worker for clips).
         """
+        with open(path, "rb") as f:
+            payload = f.read()
+
         kwargs = {
             "Bucket": self.bucket,
             "Key": key,
+            "Body": payload,
+            "ContentLength": len(payload),
         }
         if content_type:
             kwargs["ContentType"] = content_type
-        with open(path, "rb") as f:
-            kwargs["Body"] = f
-            self.s3.put_object(**kwargs)
+        self.s3.put_object(**kwargs)
 
     # ------------------------------------------------------------------
     # Reads

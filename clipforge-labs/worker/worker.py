@@ -103,10 +103,17 @@ def _upload_file(path: str, key: str, *, content_type: str) -> None:
         if not bucket:
             raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3/gcs")
         s3 = _s3_client()
-        # GCS S3-compatibility can reject TransferManager-style uploads
-        # with signature/checksum mismatch. Use a direct PutObject request.
+        # GCS S3-compatibility is most reliable with a direct PutObject using
+        # a fixed byte payload (non-chunked request body).
         with open(path, "rb") as f:
-            s3.put_object(Bucket=bucket, Key=key, Body=f, ContentType=content_type)
+            payload = f.read()
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=payload,
+            ContentLength=len(payload),
+            ContentType=content_type,
+        )
         return
 
     base = _local_storage_path()

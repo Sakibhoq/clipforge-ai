@@ -509,13 +509,13 @@ export default function GenerateClient() {
                       </div>
                     )
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Voice</label>
                         <input
                           value={voiceName}
                           onChange={(e) => setVoiceName(e.target.value)}
-                          className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                           placeholder="en-us"
                         />
                       </div>
@@ -527,7 +527,7 @@ export default function GenerateClient() {
                           min={80}
                           max={260}
                           onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
-                          className="h-11 rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                         />
                       </div>
                     </div>
