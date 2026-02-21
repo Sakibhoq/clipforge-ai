@@ -19,6 +19,7 @@ from sqlalchemy.orm import sessionmaker
 JOB_KIND_VIDEO = "generate"
 JOB_KIND_IMAGE = "generate_image"
 JOB_KIND_VOICEOVER = "generate_voiceover"
+JOB_KIND_POST = "generate_post"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -750,6 +751,118 @@ def _probe_audio_duration(path: str) -> float:
         return 0.0
 
 
+def _render_image_slideshow_video(
+    *,
+    image_paths: list[str],
+    audio_path: str,
+    aspect_ratio: str,
+    target_duration: float,
+    out_path: str,
+) -> float:
+    if not image_paths:
+        raise RuntimeError("No image frames were generated for slideshow render")
+
+    safe_target = max(6.0, float(target_duration or 0.0))
+    per_scene = max(1.2, safe_target / float(len(image_paths)))
+    fade_in = 0.18
+    fade_out = 0.24
+    w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+
+    scene_paths: list[str] = []
+    fd, list_path = tempfile.mkstemp(prefix="cflabs-post-concat-", suffix=".txt")
+    os.close(fd)
+
+    try:
+        for idx, image_path in enumerate(image_paths):
+            fd_scene, scene_path = tempfile.mkstemp(prefix=f"cflabs-post-scene-{idx}-", suffix=".mp4")
+            os.close(fd_scene)
+            scene_paths.append(scene_path)
+
+            fade_out_start = max(0.0, per_scene - fade_out)
+            vf = (
+                f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+                f"crop={w}:{h},"
+                f"fade=t=in:st=0:d={fade_in:.2f},"
+                f"fade=t=out:st={fade_out_start:.2f}:d={fade_out:.2f},"
+                "format=yuv420p"
+            )
+
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-loop",
+                "1",
+                "-i",
+                image_path,
+                "-t",
+                f"{per_scene:.3f}",
+                "-vf",
+                vf,
+                "-r",
+                "30",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                scene_path,
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg scene render failed").strip()[:500])
+
+        with open(list_path, "w", encoding="utf-8") as f:
+            for scene_path in scene_paths:
+                quoted = scene_path.replace("'", "'\\''")
+                f.write(f"file '{quoted}'\n")
+
+        concat_cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            list_path,
+            "-i",
+            audio_path,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "160k",
+            "-pix_fmt",
+            "yuv420p",
+            "-shortest",
+            "-movflags",
+            "+faststart",
+            out_path,
+        ]
+        proc = subprocess.run(concat_cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg concat render failed").strip()[:500])
+    finally:
+        for scene_path in scene_paths:
+            try:
+                os.unlink(scene_path)
+            except Exception:
+                pass
+        try:
+            os.unlink(list_path)
+        except Exception:
+            pass
+
+    final_duration = _probe_audio_duration(audio_path)
+    if final_duration <= 0:
+        final_duration = safe_target
+    return float(final_duration)
+
+
 def _run_fallback_tone_voiceover(*, script: str, out_path: str) -> None:
     # Fallback when espeak is unavailable: duration scales with text length.
     duration = max(2, min(90, int(math.ceil(max(1, len(script or "")) / 13.0))))
@@ -996,7 +1109,7 @@ def _next_generate_job(db) -> dict | None:
               COALESCE(aspect_ratio, '9:16') AS aspect_ratio,
               COALESCE(caption_style_json, '{}') AS settings_json
             FROM jobs
-            WHERE kind IN ('generate', 'generate_image', 'generate_voiceover')
+            WHERE kind IN ('generate', 'generate_image', 'generate_voiceover', 'generate_post')
               AND status = 'queued'
             ORDER BY id ASC
             LIMIT 1
@@ -1216,6 +1329,127 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                 os.unlink(out_path)
             except Exception:
                 pass
+
+    if kind == JOB_KIND_POST:
+        fd_video, out_path = tempfile.mkstemp(prefix=f"cflabs-post-{job_id}-", suffix=".mp4")
+        fd_audio, audio_path = tempfile.mkstemp(prefix=f"cflabs-post-voice-{job_id}-", suffix=".mp3")
+        os.close(fd_video)
+        os.close(fd_audio)
+        image_paths: list[str] = []
+        try:
+            visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
+            voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
+            voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
+            speed = int(settings.get("speed_wpm") or 165)
+
+            image_count_raw = settings.get("image_count")
+            try:
+                image_count = int(image_count_raw)
+            except Exception:
+                image_count = 12
+            image_count = max(6, min(48, image_count))
+
+            if use_google_provider:
+                try:
+                    _run_google_tts_voiceover(
+                        script=voice_script or "Untitled voiceover",
+                        voice_name=voice_name,
+                        speed_wpm=speed,
+                        out_path=audio_path,
+                    )
+                except Exception as exc:
+                    if strict_provider or not allow_demo_fallback:
+                        raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
+                    print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+
+            if not _file_has_data(audio_path):
+                if use_google_provider and not allow_demo_fallback:
+                    raise RuntimeError("Google post voiceover generation returned no audio payload")
+                _run_voiceover(
+                    script=voice_script or "Untitled voiceover",
+                    voice_name=voice_name,
+                    speed_wpm=speed,
+                    out_path=audio_path,
+                )
+
+            target_duration = max(30.0, float(duration or 60))
+            audio_duration = _probe_audio_duration(audio_path)
+            if audio_duration > target_duration:
+                target_duration = audio_duration
+
+            for idx in range(image_count):
+                fd_img, img_path = tempfile.mkstemp(prefix=f"cflabs-post-img-{job_id}-{idx}-", suffix=".png")
+                os.close(fd_img)
+                image_paths.append(img_path)
+
+                scene_prompt = (
+                    f"{visual_prompt}. Scene {idx + 1} of {image_count},"
+                    " consistent style, composition, and subject continuity."
+                )
+
+                if use_google_provider:
+                    try:
+                        if _env("GOOGLE_IMAGE_API_URL", ""):
+                            media_bytes, _, _, _ = _call_google_generation_endpoint(
+                                endpoint_env="GOOGLE_IMAGE_API_URL",
+                                payload={
+                                    "prompt": scene_prompt,
+                                    "negative_prompt": negative_prompt or None,
+                                    "aspect_ratio": aspect_ratio,
+                                    "model": model or "google",
+                                    "settings": {
+                                        **settings,
+                                        "scene_index": idx + 1,
+                                        "scene_count": image_count,
+                                        "mode": "post",
+                                    },
+                                    "kind": JOB_KIND_POST,
+                                },
+                            )
+                        else:
+                            media_bytes, _, _, _ = _run_google_vertex_image_generation(
+                                prompt=scene_prompt,
+                                negative_prompt=negative_prompt,
+                                aspect_ratio=aspect_ratio,
+                            )
+                        _write_bytes(img_path, media_bytes)
+                    except Exception as exc:
+                        if strict_provider or not allow_demo_fallback:
+                            raise RuntimeError(f"Google post image generation failed: {exc}") from exc
+                        print(
+                            f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{image_count} "
+                            f"err={type(exc).__name__}: {exc}"
+                        )
+
+                if not _file_has_data(img_path):
+                    if use_google_provider and not allow_demo_fallback:
+                        raise RuntimeError("Google post image generation returned no media payload")
+                    _run_ffmpeg_text_image(prompt=scene_prompt, aspect_ratio=aspect_ratio, out_path=img_path)
+
+            final_duration = _render_image_slideshow_video(
+                image_paths=image_paths,
+                audio_path=audio_path,
+                aspect_ratio=aspect_ratio,
+                target_duration=target_duration,
+                out_path=out_path,
+            )
+            key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
+            _upload_file(out_path, key, content_type="video/mp4")
+            return key, "video/mp4", final_duration, _title_from_prompt(visual_prompt) or f"AI Post {job_id}"
+        finally:
+            try:
+                os.unlink(out_path)
+            except Exception:
+                pass
+            try:
+                os.unlink(audio_path)
+            except Exception:
+                pass
+            for img_path in image_paths:
+                try:
+                    os.unlink(img_path)
+                except Exception:
+                    pass
 
     # Default video generation
     fd, out_path = tempfile.mkstemp(prefix=f"cflabs-video-{job_id}-", suffix=".mp4")

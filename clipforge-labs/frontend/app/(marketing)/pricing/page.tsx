@@ -88,8 +88,8 @@ function formatMoney(n: number) {
 
 function formatApproxOutput(credits: number) {
   const safe = Math.max(0, Number(credits || 0));
-  const projects = Math.max(1, Math.floor(safe / 6));
-  return `${projects} standard projects`;
+  const projects = Math.max(1, Math.floor(safe / 15));
+  return `${projects} x 1-min AI posts`;
 }
 
 function cn(...xs: Array<string | false | null | undefined>) {
@@ -278,7 +278,7 @@ function PacksBar({
               Top-up packs <span className="text-white/45">(Creator only)</span>
             </div>
             <div className="text-xs text-white/55">
-              Scale Creator generation units without changing your base plan.
+              Scale Creator credits without changing your base plan.
               Choose 1× to 10×.
             </div>
           </div>
@@ -338,7 +338,7 @@ function TopMetaRow() {
           </>
         }
       />
-      <MiniPill icon={<ShieldIcon />} label={<>Relax + Fast generation modes</>} />
+      <MiniPill icon={<ShieldIcon />} label={<>AI post mode: 1–2 min image + voice</>} />
       <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
     </div>
   );
@@ -547,9 +547,9 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     setOpenBenefits((p) => ({ ...p, [k]: !p[k] }));
   const toggleFaq = (k: string) => setFaqOpen((p) => ({ ...p, [k]: !p[k] }));
 
-  const trialCredits = 5;
-  const starterMonthlyCredits = 40;
-  const creatorMonthlyCredits = 120;
+  const trialCredits = 75;
+  const starterMonthlyCredits = 390;
+  const creatorMonthlyCredits = 990;
   const creatorYearlyCreditsUpfront = creatorMonthlyCredits * 12;
 
   const creatorCredits =
@@ -581,24 +581,24 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const tierBullets = useMemo(() => {
     return {
       trial: [
-        `${trialCredits} generation units included`,
-        "Relax mode generation",
+        `${trialCredits} credits included`,
+        "AI post generation ready",
         "No social posting on free trial",
       ],
       starter: [
-        `${starterMonthlyCredits} generation units / month`,
+        `${starterMonthlyCredits} credits / month`,
         "Simple monthly billing",
         "Publish to Facebook + Instagram",
       ],
       creator: [
         mode === "yearly"
-          ? `${creatorCredits} generation units / year upfront`
-          : `${creatorCredits} generation units / month`,
-        "Relax + Fast generation modes",
+          ? `${creatorCredits} credits / year upfront`
+          : `${creatorCredits} credits / month`,
+        "AI post + Fast video lanes",
         "Publish to all platforms",
       ],
       studio: [
-        "Custom units + seats",
+        "Custom credits + seats",
         "Team roles + workspaces",
         "Production support + SLA options",
       ],
@@ -613,6 +613,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const trialBenefits = useMemo(
     () => [
       "Video, image, and voice generation",
+      "1–2 minute AI post generation",
       "Aspect ratio presets (9:16, 1:1, 16:9)",
       "MP4 downloads + project history",
       "Social posting locked on Free Trial",
@@ -624,7 +625,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const starterBenefits = useMemo(
     () => [
       "Everything in Free Trial",
-      "Higher monthly generation units",
+      "Higher monthly credit allocation",
       "Relax mode for cost-efficient output",
       "Social posting: Facebook + Instagram",
       "Email support",
@@ -635,13 +636,13 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const creatorBenefits = useMemo(
     () => [
       "Everything in Starter",
-      "More units for daily publishing",
+      "More credits for daily publishing",
       "Fast mode for priority generation",
       "Top-up packs for peak weeks",
       "Social posting: YouTube, TikTok, Instagram, Facebook",
       mode === "yearly"
-        ? "Yearly units delivered upfront"
-        : "Monthly units refresh automatically",
+        ? "Yearly credits delivered upfront"
+        : "Monthly credits refresh automatically",
     ],
     [mode]
   );
@@ -649,7 +650,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const studioBenefits = useMemo(
     () => [
       "Everything in Creator",
-      "Custom unit budgets + add-ons",
+      "Custom credit budgets + add-ons",
       "Team workspaces + permissions",
       "Shared presets + brand templates + editor controls",
       "Export rules + QA workflows + approvals",
@@ -683,10 +684,10 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           <div>
             <div className="text-xs text-white/50">• Pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Generation units. <span className="grad-text">Scale your publishing engine.</span>
+              Credits for AI posts. <span className="grad-text">Scale your publishing engine.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free, ship real output, then upgrade for Fast mode, top-up packs, and full social distribution.
+              Main workflow: 1–2 minute image+voice AI posts. Upgrade for higher volume, Fast video lane, and full social distribution.
             </p>
             <div className="mt-3">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -1048,7 +1049,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   Talk to sales
                 </Link>
                 <div className="text-xs text-white/45">
-                  Top-up packs only affect Creator units and pricing.
+                  Top-up packs only affect Creator credits and pricing.
                 </div>
               </div>
             </div>
@@ -1062,32 +1063,31 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               Answers, <span className="grad-text">no fluff</span>
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-white/65">
-              Credits are your usage unit. Relax/Fast modes shape cost and
-              throughput. Top-up packs scale Creator only.
+              Credits are your usage unit. AI post mode is tuned for long-form social clips, with optional premium video lanes.
             </p>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <FAQItem
                 q="How do credits work?"
-                a="Credits are generation units. Relax mode burns fewer units at slower throughput. Fast mode burns more units and gets priority."
+                a="AI post mode (image + voice) uses about 15 credits per minute. Video uses 10 credits/s in Relax and 12 credits/s in Fast."
                 open={!!faqOpen.credits}
                 onToggle={() => toggleFaq("credits")}
               />
               <FAQItem
                 q="What do packs do?"
-                a="Top-up packs scale Creator only: both included units and Creator pricing. Starter stays fixed."
+                a="Top-up packs scale Creator only: both included credits and Creator pricing. Starter stays fixed."
                 open={!!faqOpen.packs}
                 onToggle={() => toggleFaq("packs")}
               />
               <FAQItem
                 q="How does yearly billing work on Creator?"
-                a="Yearly Creator delivers the full year's units upfront (1440 × pack). Monthly refresh is replaced by upfront delivery."
+                a="Yearly Creator delivers the full year's credits upfront (11,880 × pack). Monthly refresh is replaced by upfront delivery."
                 open={!!faqOpen.yearly}
                 onToggle={() => toggleFaq("yearly")}
               />
               <FAQItem
                 q="What do I get on the free trial?"
-                a={`${trialCredits} units to run the workflow end-to-end. Free Trial cannot publish to social until you upgrade.`}
+                a={`${trialCredits} credits to run the workflow end-to-end. Free Trial cannot publish to social until you upgrade.`}
                 open={!!faqOpen.trial}
                 onToggle={() => toggleFaq("trial")}
               />
@@ -1171,8 +1171,8 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
           </div>
 
           <div className="mt-6 text-[11px] text-white/35">
-            Starter is monthly-only. Top-up packs scale Creator units + pricing only.
-            Creator yearly delivers units upfront for the year.
+            Starter is monthly-only. Top-up packs scale Creator credits + pricing only.
+            Creator yearly delivers credits upfront for the year.
           </div>
         </footer>
       </section>

@@ -30,7 +30,8 @@ function formatMoney(n: number) {
 
 function formatProjectEstimate(credits: number): string {
   const safe = Math.max(0, Number(credits || 0));
-  return Math.max(1, Math.floor(safe / 6)).toLocaleString();
+  // 1-minute AI post (image + voice) ~= 15 credits
+  return Math.max(1, Math.floor(safe / 15)).toLocaleString();
 }
 
 type PlanKey = "free_trial" | "starter" | "creator" | "studio";
@@ -241,7 +242,7 @@ function PackCard({
           <div>
             <div className="text-sm font-semibold text-white/90">{pack.name}</div>
             <div className="mt-1 text-sm text-white/60">
-              ~{estimatedProjects} standard projects <span className="text-white/35">•</span>{" "}
+              ~{estimatedProjects} x 1-min AI posts <span className="text-white/35">•</span>{" "}
               {pack.credits.toLocaleString()} credits
             </div>
           </div>
@@ -395,7 +396,7 @@ function CreditsCard({
         <div>
           <div className="text-sm font-semibold text-white/90">Generation credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Credits are usage units. Relax mode burns fewer credits, Fast mode burns more for priority output.
+            Credits are usage units. AI post mode is optimized for 1–2 minute image+voice social videos.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -406,7 +407,7 @@ function CreditsCard({
           <div className="text-[12px] text-white/55">Estimated projects</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{projectDisplay}</div>
           <div className="mt-1 text-[12px] text-white/45">
-            standard scenes <span className="text-white/35">•</span> {creditDisplay} credits
+            1-min AI posts <span className="text-white/35">•</span> {creditDisplay} credits
           </div>
         </div>
 
@@ -437,7 +438,8 @@ function CreditsCard({
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
         <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
-          <div>• Relax mode = lower-cost lane. Fast mode = higher-cost priority lane.</div>
+          <div>• AI post (image + voice) costs about 15 credits per minute.</div>
+          <div>• Video generation costs 10 credits/s (Relax) or 12 credits/s (Fast).</div>
           <div>• Plans add credits each month.</div>
           <div>• Top-up packs add extra credits on top of Creator.</div>
         </div>
@@ -622,30 +624,30 @@ export default function BillingPage() {
         key: "free_trial",
         name: "Free Trial",
         short: "Try the workflow",
-        desc: "Generate your first clips and test the full flow.",
+        desc: "Build your first AI post and test the full flow.",
         priceLabel: "$0",
         interval: "monthly",
-        note: "Includes 5 generation units. Social posting is locked on Free Trial.",
+        note: "Includes 75 credits one-time. Social posting is locked on Free Trial.",
       },
       {
         key: "starter",
         name: "Starter",
         short: "Simple monthly plan",
-        desc: "For consistent output with Relax mode and simple monthly billing.",
+        desc: "For consistent 1–2 minute AI post publishing.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
-        note: "Includes 40 generation units each month. Social posting: Facebook + Instagram.",
+        note: "Includes 390 credits/month. Social posting: Facebook + Instagram.",
       },
       {
         key: "creator",
         name: "Creator",
         short: "Scale credits",
-        desc: "More units plus Fast priority mode. Top-up packs apply here.",
+        desc: "Scale AI post output and unlock the Fast video lane.",
         priceLabel: creatorPrice,
         interval,
         recommended: true,
         highlight: true,
-        note: "Includes 120 generation units each month. Social posting: all major platforms.",
+        note: "Includes 990 credits/month. Social posting: all major platforms.",
       },
       {
         key: "studio",
@@ -660,7 +662,7 @@ export default function BillingPage() {
   }, [interval]);
 
   const creditPacks: CreditPack[] = useMemo(() => {
-    const base = 120;
+    const base = 990;
     return [
       {
         key: "pack_1x",
@@ -668,7 +670,7 @@ export default function BillingPage() {
         packQty: 1,
         credits: base * 1,
         priceLabel: "Scales Creator",
-        valueHint: "Great for steady weekly output.",
+        valueHint: "Great for steady weekly 1–2 minute posting.",
       },
       {
         key: "pack_3x",
@@ -677,7 +679,7 @@ export default function BillingPage() {
         credits: base * 3,
         priceLabel: "Scales Creator",
         popular: true,
-        valueHint: "Most picked. Keeps you moving.",
+        valueHint: "Most picked for daily publishing volume.",
       },
       {
         key: "pack_8x",
@@ -685,7 +687,7 @@ export default function BillingPage() {
         packQty: 8,
         credits: base * 8,
         priceLabel: "Scales Creator",
-        valueHint: "Best for heavy weeks.",
+        valueHint: "Best for heavy teams and campaign bursts.",
       },
     ];
   }, []);

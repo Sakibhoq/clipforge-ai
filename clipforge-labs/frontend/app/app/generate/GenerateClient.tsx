@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-type GenerationMode = "video" | "image" | "voiceover";
+type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
-type JobKind = "generate" | "generate_image" | "generate_voiceover";
+type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 
 type GenerateResponse = {
   upload_id: number;
@@ -31,11 +31,15 @@ type JobRow = {
   created_at?: string;
 };
 
-const RELAX_CREDITS_PER_SECOND = 1;
-const FAST_CREDITS_PER_SECOND = 2;
+const VIDEO_RELAX_CREDITS_PER_SECOND = 10;
+const VIDEO_FAST_CREDITS_PER_SECOND = 12;
+const POST_CREDITS_PER_MINUTE = 15;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
+
+const POST_DURATION_OPTIONS = [60, 120] as const;
+
 const VOICE_OPTIONS = [
   { value: "en-US-Neural2-F", label: "Luna (US • Natural female)" },
   { value: "en-US-Neural2-J", label: "Atlas (US • Natural male)" },
@@ -68,18 +72,21 @@ function statusTone(status: string) {
 
 function kindLabel(kind: string | undefined) {
   const k = String(kind || "").toLowerCase();
+  if (k === "generate_post") return "AI Post";
   if (k === "generate_image") return "Image";
   if (k === "generate_voiceover") return "Voiceover";
   return "Video";
 }
 
 function modeToJobKind(mode: GenerationMode): JobKind {
+  if (mode === "post") return "generate_post";
   if (mode === "image") return "generate_image";
   if (mode === "voiceover") return "generate_voiceover";
   return "generate";
 }
 
 function modeLabel(mode: GenerationMode) {
+  if (mode === "post") return "AI Post";
   if (mode === "voiceover") return "Voiceover";
   return mode[0].toUpperCase() + mode.slice(1);
 }
@@ -94,9 +101,11 @@ function shortPromptLabel(prompt: string | null | undefined, fallbackId: number)
 function durationPresetLabel(durationSeconds: number | null | undefined): string {
   const d = Number(durationSeconds || 0);
   if (!d || d < 1) return "—";
+  if (d >= 120) return "2 min";
+  if (d >= 60) return "1 min";
   if (d <= 4) return "Short";
-  if (d <= 6) return "Standard";
-  return "Extended";
+  if (d <= 8) return "Clip";
+  return `${Math.round(d)}s`;
 }
 
 function humanizeGenerationError(raw: string | null | undefined): string {
@@ -114,7 +123,7 @@ function humanizeGenerationError(raw: string | null | undefined): string {
     return "The generation provider is temporarily unavailable. Try again shortly.";
   }
   if (low.includes("timeout")) {
-    return "This request timed out. Retry with a shorter prompt or try again in a minute.";
+    return "This request timed out. Retry in a minute.";
   }
   return msg;
 }
@@ -123,11 +132,18 @@ export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
 
-  const [mode, setMode] = useState<GenerationMode>("video");
+  const [mode, setMode] = useState<GenerationMode>("post");
+
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState(6);
   const [videoSpeed, setVideoSpeed] = useState<VideoSpeedMode>("relax");
+
+  const [postVisualPrompt, setPostVisualPrompt] = useState("");
+  const [postVoiceScript, setPostVoiceScript] = useState("");
+  const [postDurationSeconds, setPostDurationSeconds] = useState<number>(60);
+  const [postImageCount, setPostImageCount] = useState<number>(12);
+
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
   const [voiceSpeed, setVoiceSpeed] = useState(165);
   const [currentPlan, setCurrentPlan] = useState("free");
@@ -144,16 +160,21 @@ export default function GenerateClient() {
   const hydratedFromQuery = useRef(false);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
+  const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
 
   const estimatedCredits = useMemo(() => {
+    if (mode === "post") {
+      const mins = Math.max(1, Math.ceil(Number(postDurationSeconds || 60) / 60));
+      return mins * POST_CREDITS_PER_MINUTE;
+    }
     if (mode === "image") return IMAGE_CREDITS;
     if (mode === "voiceover") {
       const usage = Math.ceil(Math.max(1, textLength) / VOICE_CHARS_PER_CREDIT);
       return Math.max(VOICE_MIN_CREDITS, usage);
     }
-    const perSecond = videoSpeed === "fast" ? FAST_CREDITS_PER_SECOND : RELAX_CREDITS_PER_SECOND;
+    const perSecond = videoSpeed === "fast" ? VIDEO_FAST_CREDITS_PER_SECOND : VIDEO_RELAX_CREDITS_PER_SECOND;
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, textLength, duration, videoSpeed]);
+  }, [mode, textLength, duration, videoSpeed, postDurationSeconds]);
 
   const fastEligible = useMemo(() => {
     const plan = String(currentPlan || "").trim().toLowerCase();
@@ -161,15 +182,19 @@ export default function GenerateClient() {
   }, [currentPlan]);
 
   const canGenerate = useMemo(() => {
+    if (submitting) return false;
+    if (mode === "post") {
+      return postVisualPrompt.trim().length >= 3 && postVoiceScript.trim().length >= 30;
+    }
     const p = prompt.trim();
-    return p.length >= 3 && p.length <= 6000 && !submitting;
-  }, [prompt, submitting]);
+    return p.length >= 3 && p.length <= 12000;
+  }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
 
   async function refreshJobs() {
     try {
       const rows = (await apiFetch<JobRow[]>("/jobs", { method: "GET" })) || [];
       const gen = rows.filter((r) =>
-        ["generate", "generate_image", "generate_voiceover"].includes(String(r?.kind || ""))
+        ["generate", "generate_image", "generate_voiceover", "generate_post"].includes(String(r?.kind || ""))
       );
       setJobs(gen);
     } catch {
@@ -184,12 +209,7 @@ export default function GenerateClient() {
       try {
         const job = await apiFetch<JobRow>(`/jobs/${jobId}`, { method: "GET" });
         setActiveJob(job);
-        if (job?.status === "done") {
-          if (pollTimer.current) window.clearInterval(pollTimer.current);
-          pollTimer.current = null;
-          await refreshJobs();
-        }
-        if (job?.status === "failed" || job?.status === "canceled") {
+        if (job?.status === "done" || job?.status === "failed" || job?.status === "canceled") {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
           pollTimer.current = null;
           await refreshJobs();
@@ -226,8 +246,11 @@ export default function GenerateClient() {
     const uploadRaw = searchParams?.get("upload");
 
     if (typeof p === "string" && p.trim() && !prompt.trim()) setPrompt(p);
+    if (typeof p === "string" && p.trim() && !postVisualPrompt.trim()) setPostVisualPrompt(p);
     if (typeof ar === "string" && ["9:16", "16:9", "1:1"].includes(ar)) setAspectRatio(ar);
-    if (kindRaw === "image" || kindRaw === "voiceover" || kindRaw === "video") setMode(kindRaw);
+    if (kindRaw === "image" || kindRaw === "voiceover" || kindRaw === "video" || kindRaw === "post") {
+      setMode(kindRaw);
+    }
 
     const d = dRaw ? Number(dRaw) : NaN;
     if (Number.isFinite(d) && [4, 6, 8].includes(d)) setDuration(d);
@@ -247,7 +270,19 @@ export default function GenerateClient() {
     setNeedsBilling(false);
 
     const p = prompt.trim();
-    if (p.length < 3) {
+    const postPrompt = postVisualPrompt.trim();
+    const postScript = postVoiceScript.trim();
+
+    if (mode === "post") {
+      if (postPrompt.length < 3) {
+        setError("Describe the visual story first.");
+        return;
+      }
+      if (postScript.length < 30) {
+        setError("Write at least a short voiceover script (30+ characters).");
+        return;
+      }
+    } else if (p.length < 3) {
       setError(mode === "voiceover" ? "Write voiceover text first." : "Write a prompt first.");
       return;
     }
@@ -257,7 +292,19 @@ export default function GenerateClient() {
       let endpoint = "/labs/generate";
       let body: Record<string, string | number> = {};
 
-      if (mode === "image") {
+      if (mode === "post") {
+        endpoint = "/labs/generate/post";
+        body = {
+          visual_prompt: postPrompt,
+          voice_script: postScript,
+          aspect_ratio: aspectRatio,
+          duration_seconds: postDurationSeconds,
+          image_count: postImageCount,
+          model: "google",
+          voice_name: voiceName,
+          speed_wpm: voiceSpeed,
+        };
+      } else if (mode === "image") {
         endpoint = "/labs/generate/image";
         body = {
           prompt: p,
@@ -335,12 +382,13 @@ export default function GenerateClient() {
           <div className="relative grid gap-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs text-white/55">• Labs Console</div>
+                <div className="text-xs text-white/55">• AI Post Studio</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  <span className="grad-text">Console</span>
+                  <span className="grad-text">1–2 minute post generator</span>
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-white/70">
-                  Create video, image, and voiceover from one place. Run jobs, monitor status, and export assets.
+                  Main workflow: AI image sequence + voiceover to final social-ready MP4. Advanced video/image/voice
+                  modes stay available for power users.
                 </p>
               </div>
 
@@ -348,8 +396,8 @@ export default function GenerateClient() {
                 <Link href="/pricing" className="btn-solid-dark px-4 py-2 text-xs">
                   Buy more credits
                 </Link>
-                <Link href="/app/clips" className="btn-ghost px-4 py-2 text-xs">
-                  My assets
+                <Link href="/app/editor" className="btn-ghost px-4 py-2 text-xs">
+                  Open editor
                 </Link>
                 <span className={cx("rounded-full border px-3 py-1.5 text-xs font-semibold", statusTone(status))}>
                   {statusLabel}
@@ -371,9 +419,9 @@ export default function GenerateClient() {
                 <div className="mt-1 text-sm font-semibold text-white/90">{String(currentPlan || "free").toUpperCase()}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Lane</div>
+                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Target duration</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">
-                  {mode === "video" ? (videoSpeed === "fast" ? "Fast" : "Relax") : "Standard"}
+                  {mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A"}
                 </div>
               </div>
             </div>
@@ -386,16 +434,21 @@ export default function GenerateClient() {
               <div>
                 <div className="text-xs text-white/55">• Controls</div>
                 <div className="mt-1 text-base font-semibold text-white/90">Prompt and rendering settings</div>
-                <div className="mt-1 text-xs text-white/55">Configure once, then generate from a single control panel.</div>
+                <div className="mt-1 text-xs text-white/55">
+                  AI Post is the default workflow for longer social clips.
+                </div>
               </div>
-              <Link href="/app/clips" className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10">
+              <Link
+                href="/app/clips"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
+              >
                 Open clips library
               </Link>
             </div>
 
             <form onSubmit={onGenerate} className="mt-5 grid gap-5">
               <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5">
-                {(["video", "image", "voiceover"] as GenerationMode[]).map((m) => (
+                {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -414,115 +467,188 @@ export default function GenerateClient() {
 
               <div className="grid gap-4 xl:grid-cols-1 2xl:grid-cols-12">
                 <div className="grid min-w-0 gap-2 2xl:col-span-7">
-                  <label className="text-xs font-medium text-white/70">Prompt</label>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={mode === "voiceover" ? 10 : 8}
-                    placeholder={
-                      mode === "voiceover"
-                        ? "Write the exact script you want spoken."
-                        : mode === "image"
-                          ? "Describe subject, angle, lighting, and mood."
-                          : "Describe scene, motion, framing, and style in 1–2 lines."
-                    }
-                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                  />
-                  <div className="text-[11px] text-white/50">
-                    {mode === "voiceover" ? `${textLength.toLocaleString()} characters` : "Use concise prompts for faster, cleaner results."}
-                  </div>
+                  {mode === "post" ? (
+                    <>
+                      <label className="text-xs font-medium text-white/70">Visual direction</label>
+                      <textarea
+                        value={postVisualPrompt}
+                        onChange={(e) => setPostVisualPrompt(e.target.value)}
+                        rows={4}
+                        placeholder="Describe the visual story: style, camera language, mood, and subject continuity."
+                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                      />
+
+                      <label className="mt-2 text-xs font-medium text-white/70">Voiceover script</label>
+                      <textarea
+                        value={postVoiceScript}
+                        onChange={(e) => setPostVoiceScript(e.target.value)}
+                        rows={8}
+                        placeholder="Write the full 1–2 minute narration. Keep sentence flow natural for TTS pacing."
+                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                      />
+                      <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters in script</div>
+                    </>
+                  ) : (
+                    <>
+                      <label className="text-xs font-medium text-white/70">Prompt</label>
+                      <textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        rows={mode === "voiceover" ? 10 : 8}
+                        placeholder={
+                          mode === "voiceover"
+                            ? "Write the exact script you want spoken."
+                            : mode === "image"
+                              ? "Describe subject, angle, lighting, and mood."
+                              : "Describe scene, motion, framing, and style in 1–2 lines."
+                        }
+                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                      />
+                      <div className="text-[11px] text-white/50">
+                        {mode === "voiceover"
+                          ? `${textLength.toLocaleString()} characters`
+                          : "Use concise prompts for faster, cleaner results."}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="grid min-w-0 gap-4 2xl:col-span-5">
-                  {mode !== "voiceover" ? (
-                    mode === "video" ? (
-                      <div className="grid gap-3">
-                        <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 2xl:grid-cols-2">
-                          <div className="grid gap-2">
-                            <label className="text-xs font-medium text-white/70">Aspect ratio</label>
-                            <select
-                              value={aspectRatio}
-                              onChange={(e) => setAspectRatio(e.target.value)}
-                              className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                            >
-                              <option value="9:16">9:16 (Shorts/Reels)</option>
-                              <option value="16:9">16:9 (YouTube)</option>
-                              <option value="1:1">1:1 (Square)</option>
-                            </select>
-                          </div>
+                  {(mode === "post" || mode === "video" || mode === "image") && (
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                      <select
+                        value={aspectRatio}
+                        onChange={(e) => setAspectRatio(e.target.value)}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      >
+                        <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
+                        <option value="16:9">16:9 (YouTube landscape)</option>
+                        <option value="1:1">1:1 (Square)</option>
+                      </select>
+                    </div>
+                  )}
 
-                          <div className="grid gap-2">
-                            <label className="text-xs font-medium text-white/70">Duration</label>
-                            <select
-                              value={duration}
-                              onChange={(e) => setDuration(Number(e.target.value))}
-                              className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                            >
-                              <option value={4}>Short clip</option>
-                              <option value={6}>Standard clip</option>
-                              <option value={8}>Extended clip</option>
-                            </select>
-                          </div>
+                  {mode === "post" ? (
+                    <>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium text-white/70">Post length</label>
+                          <select
+                            value={postDurationSeconds}
+                            onChange={(e) => setPostDurationSeconds(Number(e.target.value || 60))}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          >
+                            {POST_DURATION_OPTIONS.map((v) => (
+                              <option key={v} value={v}>
+                                {v === 60 ? "1 minute" : "2 minutes"}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Generation mode</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setVideoSpeed("relax")}
-                              className={cx(
-                                "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                                videoSpeed === "relax"
-                                  ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                                  : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
-                              )}
-                            >
-                              Relax
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (fastEligible) setVideoSpeed("fast");
-                              }}
-                              disabled={!fastEligible}
-                              className={cx(
-                                "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                                videoSpeed === "fast"
-                                  ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
-                                  : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
-                                !fastEligible && "cursor-not-allowed opacity-55"
-                              )}
-                              title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
-                            >
-                              Fast
-                            </button>
-                          </div>
-                          {!fastEligible ? (
-                            <div className="text-[11px] text-white/50">
-                              Fast lane unlocks on Creator.{" "}
-                              <Link href="/pricing" className="underline decoration-white/20 underline-offset-4">
-                                Upgrade plan
-                              </Link>
-                            </div>
-                          ) : null}
+                          <label className="text-xs font-medium text-white/70">Image count</label>
+                          <input
+                            type="number"
+                            value={postImageCount}
+                            min={10}
+                            max={24}
+                            onChange={(e) => setPostImageCount(Math.max(10, Math.min(24, Number(e.target.value || 12))))}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          />
                         </div>
                       </div>
-                    ) : (
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium text-white/70">Voice</label>
+                          <select
+                            value={voiceName}
+                            onChange={(e) => setVoiceName(e.target.value)}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          >
+                            {VOICE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-xs font-medium text-white/70">Voice speed (WPM)</label>
+                          <input
+                            type="number"
+                            value={voiceSpeed}
+                            min={80}
+                            max={260}
+                            onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
+                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {mode === "video" ? (
+                    <>
                       <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                        <label className="text-xs font-medium text-white/70">Duration</label>
                         <select
-                          value={aspectRatio}
-                          onChange={(e) => setAspectRatio(e.target.value)}
+                          value={duration}
+                          onChange={(e) => setDuration(Number(e.target.value))}
                           className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                         >
-                          <option value="9:16">9:16 (Shorts/Reels)</option>
-                          <option value="16:9">16:9 (YouTube)</option>
-                          <option value="1:1">1:1 (Square)</option>
+                          <option value={4}>4 seconds</option>
+                          <option value={6}>6 seconds</option>
+                          <option value={8}>8 seconds</option>
                         </select>
                       </div>
-                    )
-                  ) : (
+
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-white/70">Generation lane</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setVideoSpeed("relax")}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                              videoSpeed === "relax"
+                                ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                            )}
+                          >
+                            Relax · $1.00/s
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (fastEligible) setVideoSpeed("fast");
+                            }}
+                            disabled={!fastEligible}
+                            className={cx(
+                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                              videoSpeed === "fast"
+                                ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
+                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
+                              !fastEligible && "cursor-not-allowed opacity-55"
+                            )}
+                            title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
+                          >
+                            Fast · $1.20/s
+                          </button>
+                        </div>
+                        {!fastEligible ? (
+                          <div className="text-[11px] text-white/50">
+                            Fast lane unlocks on Creator. <Link href="/pricing" className="underline decoration-white/20 underline-offset-4">Upgrade plan</Link>
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {mode === "voiceover" ? (
                     <div className="grid grid-cols-1 gap-3">
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Voice</label>
@@ -537,9 +663,6 @@ export default function GenerateClient() {
                             </option>
                           ))}
                         </select>
-                        <div className="text-[11px] text-white/50">
-                          Human-like neural voices. Pick the one that best matches your brand tone.
-                        </div>
                       </div>
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Speed (WPM)</label>
@@ -553,19 +676,22 @@ export default function GenerateClient() {
                         />
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
                       </div>
-                      <Link href="/pricing" className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10">
+                      <Link
+                        href="/pricing"
+                        className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10"
+                      >
                         Buy more credits
                       </Link>
                     </div>
                     <div className="mt-2 text-[11px] text-white/55">
-                      Relax is lower cost and slower. Fast is priority. Image is 4 credits. Voiceover starts at 1 credit per 250 chars.
+                      AI post (image + voice): 15 credits/min (~$1.50/min). Video: 10 credits/s Relax (~$1.00/s), 12 credits/s Fast (~$1.20/s).
                     </div>
                   </div>
 

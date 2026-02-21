@@ -227,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
-            {navItem("/app/generate", "Console")}
+            {navItem("/app/generate", "Post Studio")}
             {navItem("/app/clips", "Clips")}
             {navItem("/app/connections", "Connections")}
             {navItem("/app/settings", "Settings")}

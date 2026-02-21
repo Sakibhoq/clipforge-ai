@@ -22,11 +22,13 @@ router = APIRouter(prefix="/labs", tags=["labs"])
 JOB_KIND_VIDEO = "generate"
 JOB_KIND_IMAGE = "generate_image"
 JOB_KIND_VOICEOVER = "generate_voiceover"
-GENERATION_JOB_KINDS = (JOB_KIND_VIDEO, JOB_KIND_IMAGE, JOB_KIND_VOICEOVER)
+JOB_KIND_POST = "generate_post"
+GENERATION_JOB_KINDS = (JOB_KIND_VIDEO, JOB_KIND_IMAGE, JOB_KIND_VOICEOVER, JOB_KIND_POST)
 VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {4, 6, 8}
+ALLOWED_POST_DURATIONS = {60, 120}
 
 PLAN_MAX_DURATION_SECONDS = {
     "free": 4,
@@ -56,6 +58,27 @@ PLAN_ALLOWED_VIDEO_SPEEDS = {
     "studio": {"relax", "fast"},
 }
 
+PLAN_MAX_POST_DURATION_SECONDS = {
+    "free": 60,
+    "starter": 120,
+    "creator": 120,
+    "studio": 120,
+}
+
+PLAN_MAX_POST_IMAGES = {
+    "free": 12,
+    "starter": 24,
+    "creator": 36,
+    "studio": 48,
+}
+
+PLAN_MAX_POST_SCRIPT_CHARS = {
+    "free": 1500,
+    "starter": 5000,
+    "creator": 12000,
+    "studio": 12000,
+}
+
 
 def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int = 1_000_000) -> int:
     raw = (os.getenv(name) or "").strip()
@@ -78,15 +101,20 @@ def _video_speed_key(raw_speed: str | None) -> str:
 
 
 def _video_credits_per_second(speed: str) -> int:
-    baseline = _env_int("LABS_CREDITS_PER_SECOND", 1, min_value=1, max_value=100)
+    # Product economics:
+    # - Video only: about $1.00 / second
+    # - Premium lane (video + audio workflow): about $1.20 / second
+    # Credits are treated as $0.10-equivalent units.
+    baseline = _env_int("LABS_CREDITS_PER_SECOND", 10, min_value=1, max_value=10_000)
     if speed == "fast":
+        fast_default = max(12, int(math.ceil(float(baseline) * 1.2)))
         return _env_int(
             "LABS_FAST_CREDITS_PER_SECOND",
-            max(2, baseline * 2),
+            fast_default,
             min_value=1,
-            max_value=100,
+            max_value=10_000,
         )
-    return _env_int("LABS_RELAX_CREDITS_PER_SECOND", baseline, min_value=1, max_value=100)
+    return _env_int("LABS_RELAX_CREDITS_PER_SECOND", baseline, min_value=1, max_value=10_000)
 
 
 def _video_credits_needed(duration_seconds: int, speed: str) -> int:
@@ -104,6 +132,12 @@ def _voiceover_credits_needed(script: str) -> int:
     length = max(0, len((script or "").strip()))
     usage_credits = int(math.ceil(float(length) / float(chars_per_credit))) if length > 0 else 0
     return max(min_credits, usage_credits)
+
+
+def _post_credits_needed(duration_seconds: int) -> int:
+    per_minute = _env_int("LABS_POST_CREDITS_PER_MINUTE", 15, min_value=1, max_value=10_000)
+    minutes = max(1, int(math.ceil(float(max(1, int(duration_seconds or 0))) / 60.0)))
+    return minutes * per_minute
 
 
 def _check_model_supported(model: str | None) -> str:
@@ -249,6 +283,18 @@ class GenerateVoiceoverRequest(BaseModel):
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
     speed_wpm: int = Field(default=165, ge=80, le=260)
+
+
+class GeneratePostRequest(BaseModel):
+    visual_prompt: str = Field(min_length=3, max_length=1200)
+    voice_script: str = Field(min_length=30, max_length=12000)
+    aspect_ratio: str = "9:16"
+    duration_seconds: int = Field(default=60, ge=60, le=120)
+    image_count: int = Field(default=12, ge=6, le=48)
+    model: str | None = Field(default="google", max_length=64)
+    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
+    speed_wpm: int = Field(default=165, ge=80, le=260)
+    style_preset: str | None = Field(default="social-native", max_length=64)
 
 
 class GenerateResponse(BaseModel):
@@ -426,5 +472,91 @@ def create_voiceover_generation(
         job_id=int(job.id),
         kind="voiceover",
         credits_reserved=int(credits_needed),
+        text_length=text_length,
+    )
+
+
+@router.post("/generate/post", response_model=GenerateResponse)
+def create_post_generation(
+    payload: GeneratePostRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    visual_prompt = (payload.visual_prompt or "").strip()
+    if not visual_prompt:
+        raise HTTPException(status_code=400, detail="visual_prompt is required")
+
+    voice_script = (payload.voice_script or "").strip()
+    if not voice_script:
+        raise HTTPException(status_code=400, detail="voice_script is required")
+
+    ar = (payload.aspect_ratio or "").strip()
+    if ar not in ALLOWED_ASPECT_RATIOS:
+        raise HTTPException(status_code=400, detail="Unsupported aspect ratio")
+
+    duration_seconds = int(payload.duration_seconds or 60)
+    if duration_seconds not in ALLOWED_POST_DURATIONS:
+        raise HTTPException(status_code=422, detail="Duration must be 60 or 120 seconds")
+
+    image_count = max(6, min(48, int(payload.image_count or 12)))
+    model = _check_model_supported(payload.model)
+    text_length = len(voice_script)
+    safe_speed = max(80, min(260, int(payload.speed_wpm or 165)))
+    safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
+    credits_needed = _post_credits_needed(duration_seconds)
+
+    def _plan_guard(plan: str) -> None:
+        plan_max_duration = int(PLAN_MAX_POST_DURATION_SECONDS.get(plan, 60))
+        if duration_seconds > plan_max_duration:
+            raise HTTPException(
+                status_code=403,
+                detail=f"{plan.capitalize()} plan supports up to {plan_max_duration}s AI post generation",
+            )
+
+        plan_max_images = int(PLAN_MAX_POST_IMAGES.get(plan, 12))
+        if image_count > plan_max_images:
+            raise HTTPException(
+                status_code=403,
+                detail=f"{plan.capitalize()} plan supports up to {plan_max_images} images per AI post",
+            )
+
+        max_chars = int(PLAN_MAX_POST_SCRIPT_CHARS.get(plan, 1500))
+        if text_length > max_chars:
+            raise HTTPException(
+                status_code=403,
+                detail=f"{plan.capitalize()} plan supports up to {max_chars} post script characters",
+            )
+
+    settings_payload = {
+        "mode": "post",
+        "visual_prompt": visual_prompt,
+        "voice_script": voice_script,
+        "image_count": image_count,
+        "voice_name": safe_voice,
+        "speed_wpm": safe_speed,
+        "style_preset": (payload.style_preset or "social-native"),
+    }
+
+    upload, job = _create_generation_job(
+        db=db,
+        current_user=current_user,
+        kind=JOB_KIND_POST,
+        prompt=visual_prompt,
+        credits_needed=credits_needed,
+        original_filename="generated-post.mp4",
+        aspect_ratio=ar,
+        duration_seconds=duration_seconds,
+        model=model,
+        negative_prompt=None,
+        settings_payload=settings_payload,
+        plan_guard=_plan_guard,
+    )
+
+    return GenerateResponse(
+        upload_id=int(upload.id),
+        job_id=int(job.id),
+        kind="post",
+        credits_reserved=int(credits_needed),
+        duration_seconds=int(duration_seconds),
         text_length=text_length,
     )

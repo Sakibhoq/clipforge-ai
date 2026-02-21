@@ -56,25 +56,25 @@ export default function Page() {
   const prompts = useMemo<PromptDemo[]>(
     () => [
       {
-        title: "Product launch shot",
-        text: "Slow dolly-in on a matte-black sneaker on a wet street, neon reflections, cinematic lighting, 35mm film look.",
-        duration: "6s",
+        title: "1-minute motivational post",
+        text: "Build a 1-minute vertical story with 12 cinematic frames: sunrise city, close-up hands writing goals, gym silhouettes, progress montage, and a confident end card.",
+        duration: "1 min",
         aspect: "9:16",
-        style: "Cinematic",
+        style: "Image + Voice",
       },
       {
-        title: "Micro travel scene",
-        text: "Golden-hour drone flyover of a coastal cliff path, soft haze, gentle camera shake, warm color grade, people walking.",
-        duration: "8s",
+        title: "2-minute storytelling post",
+        text: "Create a two-minute founder story with 20 clean visual scenes, modern editorial style, subtle motion, and a calm conversational narration.",
+        duration: "2 min",
+        aspect: "9:16",
+        style: "Editorial",
+      },
+      {
+        title: "Educational explainer",
+        text: "Generate a concise explainer with scene-by-scene visuals for each idea, clear hierarchy, high-contrast text moments, and social-safe composition.",
+        duration: "1 min",
         aspect: "16:9",
-        style: "Warm",
-      },
-      {
-        title: "Story opener",
-        text: "Close-up of coffee being poured into a glass, macro detail, natural window light, smooth motion, subtle film grain.",
-        duration: "5s",
-        aspect: "1:1",
-        style: "Clean",
+        style: "Explainer",
       },
     ],
     []
@@ -142,6 +142,7 @@ export default function Page() {
   }, [prompts.length]);
 
   const p = prompts[idx] || prompts[0]!;
+  const heroClip = sampleClips[idx % sampleClips.length] || sampleClips[0]!;
 
   return (
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
@@ -151,17 +152,17 @@ export default function Page() {
           <div className="pt-2">
             <div className="pill">
               <span className="pill-dot" />
-              <span className="text-white/85">AI video generation</span>
-              <span className="text-white/45">Built for short-form</span>
+              <span className="text-white/85">AI post generator</span>
+              <span className="text-white/45">1–2 minute image + voice workflow</span>
             </div>
 
             <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl">
-              Turn a prompt into a <span className="grad-text">scroll-stopping video</span>.
+              Create <span className="grad-text">1–2 minute social clips</span> in one flow.
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-              {BRAND.product} is {BRAND.name}&rsquo;s generation lab: create video, image, and voiceover in one clean flow, then
-              publish to your connected channels.
+              {BRAND.product} is {BRAND.name}&rsquo;s post studio: generate image sequences, add natural voiceover, edit on a
+              timeline, and publish to your channels.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -207,8 +208,8 @@ export default function Page() {
             <div className="relative">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-xs text-white/55">Prompt</div>
-                  <div className="mt-1 text-sm font-semibold text-white/92">{p.title}</div>
+              <div className="text-xs text-white/55">Prompt</div>
+              <div className="mt-1 text-sm font-semibold text-white/92">{p.title}</div>
                 </div>
                 <span className="chip">Preview</span>
               </div>
@@ -238,13 +239,21 @@ export default function Page() {
                   <div className="text-xs text-white/55">MP4 • ready to post</div>
                 </div>
 
-                <div className="mt-3 h-[180px] w-full overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(120deg,rgba(255,183,3,0.20),rgba(251,86,7,0.16),rgba(58,134,255,0.18))]">
-                  <div className="h-full w-full bg-[radial-gradient(520px_220px_at_30%_30%,rgba(255,255,255,0.10),transparent_60%)]" />
+                <div className="mt-3 h-[220px] w-full overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                  <video
+                    src={heroClip.src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Link href="/app/generate" className="btn-solid-dark">
-                    Open generator
+                    Open AI Post Studio
                   </Link>
                   <Link href="/register" className="btn-ghost">
                     Create account
@@ -252,7 +261,7 @@ export default function Page() {
                 </div>
 
                 <div className="mt-3 text-xs text-white/50">
-                  Tip: Keep prompts specific. Mention camera, motion, lighting, and the subject.
+                  Sample preview from the labs gallery. Build your own 1–2 minute post in the generator.
                 </div>
               </div>
             </div>
@@ -279,7 +288,7 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 1</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Write a prompt</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Tell the model what you want to see. Add motion, camera, lighting, and the vibe.
+                Write your visual brief plus a voiceover script. The system generates scene-by-scene images and narration.
               </p>
               <div className="mt-4 font-mono text-xs text-white/55">“handheld, soft haze, warm grade…”</div>
             </div>
@@ -288,12 +297,12 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 2</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Generate variants</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Generate video, image, or voiceover. Use Relax for lower-cost drafts, then Fast for priority output.
+                Generate a full 1–2 minute image+voice post, then tweak with timeline editing before export.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="chip">9:16</span>
-                <span className="chip">6s</span>
-                <span className="chip">Cinematic</span>
+                <span className="chip">1–2 min</span>
+                <span className="chip">AI Post</span>
               </div>
             </div>
 
@@ -301,7 +310,7 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 3</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Download or post</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Save the MP4 and publish. If you connected channels in Studio, you can post from one place.
+                Export your final MP4 and publish. Connected channels let you post from one place.
               </p>
               <div className="mt-4">
                 <SocialBrandRow platforms={["tiktok", "instagram", "youtube", "facebook"]} compact />
