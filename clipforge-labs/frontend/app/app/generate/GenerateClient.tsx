@@ -77,6 +77,13 @@ function modeLabel(mode: GenerationMode) {
   return mode[0].toUpperCase() + mode.slice(1);
 }
 
+function shortPromptLabel(prompt: string | null | undefined, fallbackId: number): string {
+  const value = String(prompt || "").trim();
+  if (!value) return `Job #${fallbackId}`;
+  if (value.length <= 120) return value;
+  return `${value.slice(0, 117).trimEnd()}...`;
+}
+
 function durationPresetLabel(durationSeconds: number | null | undefined): string {
   const d = Number(durationSeconds || 0);
   if (!d || d < 1) return "—";
@@ -380,17 +387,17 @@ export default function GenerateClient() {
             </div>
 
             <form onSubmit={onGenerate} className="mt-5 grid gap-5">
-              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5">
+              <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5">
                 {(["video", "image", "voiceover"] as GenerationMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setMode(m)}
                     className={cx(
-                      "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                      "min-w-[110px] flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
                       mode === m
-                        ? "border-white/25 bg-white/15 text-white"
-                        : "border-white/10 bg-black/30 text-white/65 hover:bg-white/8"
+                        ? "border-white/30 bg-white/18 text-white"
+                        : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
                     )}
                   >
                     {modeLabel(m)}
@@ -620,8 +627,8 @@ export default function GenerateClient() {
                     className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition hover:bg-white/[0.06]"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <div className="truncate pr-3 text-sm font-semibold text-white/85">
-                        {(j.prompt || "").trim() ? String(j.prompt) : `Job #${j.id}`}
+                      <div className="min-w-0 flex-1 truncate pr-3 text-sm font-semibold text-white/85">
+                        {shortPromptLabel(j.prompt, j.id)}
                       </div>
                       <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
                         {prettyStatus(j.status)}
