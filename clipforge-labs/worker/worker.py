@@ -166,6 +166,14 @@ def _provider_strict_mode() -> bool:
     return _env_bool("LABS_GENERATION_STRICT", False)
 
 
+def _allow_demo_fallback() -> bool:
+    """
+    Demo fallback generates placeholder media when provider calls fail.
+    Keep disabled by default for production so users only receive real AI output.
+    """
+    return _env_bool("LABS_ALLOW_DEMO_FALLBACK", False)
+
+
 def _provider_timeout_seconds() -> int:
     return _env_int("GOOGLE_API_TIMEOUT_SECONDS", 120, min_value=5, max_value=600)
 
@@ -795,6 +803,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
     use_google_provider = _model_prefers_google(model)
     strict_provider = _provider_strict_mode()
+    allow_demo_fallback = _allow_demo_fallback()
 
     if kind == JOB_KIND_IMAGE:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-image-{job_id}-", suffix=".png")
@@ -821,11 +830,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         content_type = remote_type
                     provider_title = remote_title
                 except Exception as exc:
-                    if strict_provider:
-                        raise
+                    if strict_provider or not allow_demo_fallback:
+                        raise RuntimeError(f"Google image generation failed: {exc}") from exc
                     print(f"[worker] image provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
+                if use_google_provider and not allow_demo_fallback:
+                    raise RuntimeError("Google image generation returned no media payload")
                 _run_ffmpeg_text_image(prompt=prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
 
             ext = _extension_for_content_type(content_type, ".png")
@@ -854,11 +865,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         out_path=out_path,
                     )
                 except Exception as exc:
-                    if strict_provider:
-                        raise
+                    if strict_provider or not allow_demo_fallback:
+                        raise RuntimeError(f"Google voiceover generation failed: {exc}") from exc
                     print(f"[worker] voiceover provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
+                if use_google_provider and not allow_demo_fallback:
+                    raise RuntimeError("Google voiceover generation returned no audio payload")
                 _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
 
             dur = _probe_audio_duration(out_path)
@@ -905,11 +918,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     provider_duration = float(remote_duration)
                 provider_title = remote_title
             except Exception as exc:
-                if strict_provider:
-                    raise
+                if strict_provider or not allow_demo_fallback:
+                    raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
         if not _file_has_data(out_path):
+            if use_google_provider and not allow_demo_fallback:
+                raise RuntimeError("Google video generation returned no media payload")
             prep_delay = _video_mode_prep_delay_seconds(generation_speed)
             if prep_delay > 0:
                 time.sleep(prep_delay)
