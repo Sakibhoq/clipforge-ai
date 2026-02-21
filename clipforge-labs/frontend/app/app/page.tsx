@@ -137,7 +137,7 @@ export default function AppConsolePage() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
+      <main className="relative mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 sm:pt-12">
         <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-80">
             <div className="aurora" />
@@ -154,14 +154,14 @@ export default function AppConsolePage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
+            <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+              <Link href="/app/generate" className="btn-aurora w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                 Open generator
               </Link>
-              <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
+              <Link href="/pricing" className="btn-solid-dark w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                 Buy more credits
               </Link>
-              <Link href="/app/clips" className="btn-solid-dark text-[12px] px-4 py-2">
+              <Link href="/app/clips" className="btn-solid-dark w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                 My clips
               </Link>
             </div>
@@ -218,14 +218,14 @@ export default function AppConsolePage() {
                 })}
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center gap-2">
-                <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
+              <div className="mt-5 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+                <Link href="/app/generate" className="btn-aurora w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                   Open generator
                 </Link>
-                <Link href="/pricing" className="btn-solid-dark text-[12px] px-4 py-2">
+                <Link href="/pricing" className="btn-solid-dark w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                   Buy more credits
                 </Link>
-                <Link href="/app/clips" className="btn-solid-dark text-[12px] px-4 py-2">
+                <Link href="/app/clips" className="btn-solid-dark w-full justify-center px-4 py-2 text-[12px] sm:w-auto">
                   My clips
                 </Link>
               </div>

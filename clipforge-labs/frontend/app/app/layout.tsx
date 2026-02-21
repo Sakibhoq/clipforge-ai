@@ -181,17 +181,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Top bar */}
-      <div className="sticky top-0 z-50 border-b border-white/10 bg-black/40 backdrop-blur">
+      <div className="sticky top-0 z-50 border-b border-white/10 bg-black/65 backdrop-blur-xl">
         <div
           className={cx(
-            "mx-auto flex max-w-6xl items-center justify-between px-6 py-4",
-            "[padding-top:calc(env(safe-area-inset-top)+1rem)] md:[padding-top:1rem]"
+            "mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4",
+            "[padding-top:calc(env(safe-area-inset-top)+0.75rem)] md:[padding-top:1rem]"
           )}
         >
           {/* Brand */}
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="group inline-flex items-center gap-3 min-w-0">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Link href="/" className="group inline-flex min-w-0 items-center gap-2.5">
+              <span className="relative inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur sm:h-9 sm:w-9">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -211,18 +211,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </span>
 
               {/* Bigger wordmark */}
-              <span className="inline-flex items-center gap-2 min-w-0">
-                <span className="text-[18px] sm:text-[19px] font-semibold tracking-[-0.01em] text-white/95">
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <span className="text-[16px] font-semibold tracking-[-0.01em] text-white/95 sm:text-[19px]">
                   {BRAND.name}
                 </span>
-                <span className="shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em] text-white/70">
+                <span className="hidden shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em] text-white/70 sm:inline-flex">
                   LABS
                 </span>
               </span>
             </Link>
 
-            <span className="text-xs text-white/40">/</span>
-            <span className="text-xs text-white/60">Lab</span>
+            <span className="hidden text-xs text-white/40 md:inline">/</span>
+            <span className="hidden text-xs text-white/60 md:inline">Lab</span>
           </div>
 
           {/* Desktop nav */}
@@ -235,15 +235,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* Right */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden md:block text-right">
               <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
               <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
             </div>
 
             {/* Slightly bigger credits pill */}
-            <div className="rounded-xl border border-white/15 bg-white/[0.06] px-3.5 py-2 text-[13px] text-white/85">
-              <span className="text-white/60">Credits</span>{" "}
+            <div className="rounded-xl border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-xs text-white/85 sm:px-3.5 sm:py-2 sm:text-[13px]">
+              <span className="text-white/60 sm:hidden">Cr</span>
+              <span className="hidden text-white/60 sm:inline">Credits</span>{" "}
               <span className="font-semibold tabular-nums">
                 {loading ? "—" : typeof me?.credits === "number" ? me.credits : "—"}
               </span>
@@ -280,10 +281,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile nav */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/15 bg-[#04070fe8] shadow-[0_20px_55px_rgba(0,0,0,0.65)] backdrop-blur-xl">
+          <div className="md:hidden border-t border-white/15 bg-[#01030aee] shadow-[0_20px_55px_rgba(0,0,0,0.75)] backdrop-blur-xl">
             <div
               className={cx(
-                "mx-auto max-w-6xl px-6 py-4 grid gap-2",
+                "mx-auto grid max-w-6xl gap-2 px-4 py-4",
                 "[padding-bottom:calc(env(safe-area-inset-bottom)+1rem)]"
               )}
             >
@@ -322,7 +323,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Page content (add safe-area bottom padding so body scroll feels right on iOS) */}
-      <main className="relative mx-auto max-w-6xl px-6 py-8 sm:py-10 pb-[max(16px,env(safe-area-inset-bottom))]">
+      <main className="relative mx-auto max-w-6xl px-4 py-8 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
         {children}
       </main>
     </div>
