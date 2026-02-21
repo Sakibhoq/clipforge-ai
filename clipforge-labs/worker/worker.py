@@ -451,6 +451,67 @@ def _run_google_vertex_video_generation(
     raise RuntimeError("Vertex Veo operation completed without video payload")
 
 
+def _run_google_vertex_image_generation(
+    *,
+    prompt: str,
+    negative_prompt: str,
+    aspect_ratio: str,
+) -> tuple[bytes, str, float | None, str | None]:
+    project_id = _google_project_id()
+    location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
+    model_id = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    headers = _google_auth_headers()
+
+    endpoint = (
+        f"https://{location}-aiplatform.googleapis.com/v1/"
+        f"projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:predict"
+    )
+
+    safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "1:1"
+    payload: dict[str, Any] = {
+        "instances": [{"prompt": (prompt or "").strip()[:1200]}],
+        "parameters": {
+            "sampleCount": 1,
+            "aspectRatio": safe_ar,
+        },
+    }
+    if negative_prompt:
+        payload["parameters"]["negativePrompt"] = negative_prompt[:1200]
+
+    status, content_type, data, raw_bytes = _http_post_json_custom(endpoint, payload, headers=headers)
+    if status >= 400:
+        detail = ""
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                detail = str(err.get("message") or "")
+            elif err:
+                detail = str(err)
+        raise RuntimeError(f"Vertex Imagen failed: {status} {detail}".strip())
+
+    parsed = _extract_remote_result(data)
+    media_bytes = parsed.get("bytes")
+    media_url = parsed.get("url")
+    media_type = (
+        (parsed.get("content_type") if isinstance(parsed.get("content_type"), str) else None)
+        or content_type
+        or "image/png"
+    )
+
+    if not media_bytes and isinstance(media_url, str) and media_url.strip():
+        media_bytes, downloaded_type = _http_get_bytes(media_url.strip())
+        if downloaded_type:
+            media_type = downloaded_type
+
+    if not media_bytes and raw_bytes and not content_type.startswith("application/json"):
+        media_bytes = raw_bytes
+
+    if not media_bytes:
+        raise RuntimeError("Vertex Imagen response missing image payload")
+
+    return media_bytes, media_type, None, _title_from_prompt(prompt)
+
+
 def _http_post_json(url: str, payload: dict[str, Any]) -> tuple[int, str, dict[str, Any] | None, bytes]:
     try:
         import requests
@@ -786,11 +847,7 @@ def _voice_language_code(voice_name: str) -> str:
 
 
 def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
-    endpoint = _resolve_provider_url(
-        _env("GOOGLE_TTS_API_URL", "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}")
-    )
-    if not endpoint:
-        raise RuntimeError("GOOGLE_TTS_API_URL is not configured")
+    raw_endpoint = _env("GOOGLE_TTS_API_URL", "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}")
 
     safe_script = (script or "").strip()[:6000]
     if not safe_script:
@@ -810,7 +867,29 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
     if explicit_voice and explicit_voice.lower() not in {"en-us", "en_us"}:
         payload["voice"]["name"] = explicit_voice
 
-    status, content_type, data, raw_bytes = _http_post_json(endpoint, payload)
+    endpoint = raw_endpoint
+    use_google_auth = False
+    if "{API_KEY}" in endpoint:
+        if _env("GOOGLE_API_KEY", ""):
+            endpoint = _resolve_provider_url(endpoint)
+        else:
+            # Fallback to service-account token auth when no API key is configured.
+            endpoint = endpoint.replace("?key={API_KEY}", "").replace("&key={API_KEY}", "").replace("key={API_KEY}", "")
+            endpoint = endpoint.rstrip("?&")
+            use_google_auth = True
+
+    if not endpoint:
+        endpoint = "https://texttospeech.googleapis.com/v1/text:synthesize"
+        use_google_auth = True
+
+    if use_google_auth:
+        status, content_type, data, raw_bytes = _http_post_json_custom(
+            endpoint,
+            payload,
+            headers=_google_auth_headers(),
+        )
+    else:
+        status, content_type, data, raw_bytes = _http_post_json(endpoint, payload)
     if status >= 400:
         detail = ""
         if isinstance(data, dict):
@@ -1037,17 +1116,24 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
 
             if use_google_provider:
                 try:
-                    media_bytes, remote_type, _, remote_title = _call_google_generation_endpoint(
-                        endpoint_env="GOOGLE_IMAGE_API_URL",
-                        payload={
-                            "prompt": prompt,
-                            "negative_prompt": negative_prompt or None,
-                            "aspect_ratio": aspect_ratio,
-                            "model": model or "google",
-                            "settings": settings,
-                            "kind": JOB_KIND_IMAGE,
-                        },
-                    )
+                    if _env("GOOGLE_IMAGE_API_URL", ""):
+                        media_bytes, remote_type, _, remote_title = _call_google_generation_endpoint(
+                            endpoint_env="GOOGLE_IMAGE_API_URL",
+                            payload={
+                                "prompt": prompt,
+                                "negative_prompt": negative_prompt or None,
+                                "aspect_ratio": aspect_ratio,
+                                "model": model or "google",
+                                "settings": settings,
+                                "kind": JOB_KIND_IMAGE,
+                            },
+                        )
+                    else:
+                        media_bytes, remote_type, _, remote_title = _run_google_vertex_image_generation(
+                            prompt=prompt,
+                            negative_prompt=negative_prompt,
+                            aspect_ratio=aspect_ratio,
+                        )
                     _write_bytes(out_path, media_bytes)
                     if (remote_type or "").startswith("image/"):
                         content_type = remote_type
