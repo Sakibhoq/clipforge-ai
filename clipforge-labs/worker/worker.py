@@ -80,6 +80,7 @@ def _s3_client():
 
     endpoint_url = _env("S3_ENDPOINT_URL", "") or None
     signature_version = _env("S3_SIGNATURE_VERSION", "s3v4")
+    is_gcs_endpoint = "storage.googleapis.com" in (endpoint_url or "").lower()
     addressing_style = _env("S3_ADDRESSING_STYLE", "").lower().strip()
     if not addressing_style and endpoint_url and "storage.googleapis.com" in endpoint_url.lower():
         addressing_style = "path"
@@ -87,10 +88,20 @@ def _s3_client():
     config_kwargs: dict[str, Any] = {"signature_version": signature_version or "s3v4"}
     if addressing_style in {"path", "virtual"}:
         config_kwargs["s3"] = {"addressing_style": addressing_style}
+    if is_gcs_endpoint:
+        s3_cfg = dict(config_kwargs.get("s3") or {})
+        s3_cfg["payload_signing_enabled"] = False
+        config_kwargs["s3"] = s3_cfg
+        config_kwargs["request_checksum_calculation"] = "when_required"
+        config_kwargs["response_checksum_validation"] = "when_required"
+
+    resolved_region = _env("AWS_REGION", "us-east-1")
+    if is_gcs_endpoint and resolved_region.lower() in {"auto", "automatic"}:
+        resolved_region = "us-east-1"
 
     return boto3.client(
         "s3",
-        region_name=_env("AWS_REGION", "us-east-1"),
+        region_name=resolved_region,
         endpoint_url=endpoint_url,
         config=Config(**config_kwargs),
     )
