@@ -247,7 +247,7 @@ class GenerateImageRequest(BaseModel):
 class GenerateVoiceoverRequest(BaseModel):
     script: str = Field(min_length=3, max_length=6000)
     model: str | None = Field(default="google", max_length=64)
-    voice_name: str | None = Field(default="en-us", max_length=64)
+    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
     speed_wpm: int = Field(default=165, ge=80, le=260)
 
 
@@ -390,7 +390,7 @@ def create_voiceover_generation(
     credits_needed = _voiceover_credits_needed(script)
     text_length = len(script)
     safe_speed = max(80, min(260, int(payload.speed_wpm or 165)))
-    safe_voice = (payload.voice_name or "en-us").strip()[:64] or "en-us"
+    safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
 
     def _plan_guard(plan: str) -> None:
         max_chars = int(PLAN_MAX_VOICE_CHARS.get(plan, 300))

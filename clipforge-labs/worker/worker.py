@@ -786,7 +786,9 @@ def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: st
     fd, wav_path = tempfile.mkstemp(prefix="cflabs-voice-", suffix=".wav")
     os.close(fd)
     try:
-        voice = (voice_name or "en-us").strip()[:64] or "en-us"
+        raw_voice = (voice_name or "en-us").strip()[:64] or "en-us"
+        # espeak does not support Google Neural2 voice ids, so normalize when needed.
+        voice = "en-us" if "neural" in raw_voice.lower() else raw_voice
         speed = max(80, min(260, int(speed_wpm or 165)))
         tts = [
             espeak_bin,
@@ -853,7 +855,16 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
     if not safe_script:
         safe_script = "Untitled voiceover."
 
-    language_code = _voice_language_code(voice_name)
+    default_voice_name = (_env("GOOGLE_TTS_DEFAULT_VOICE", "en-US-Neural2-F") or "").strip() or "en-US-Neural2-F"
+    fallback_voice_name = (_env("GOOGLE_TTS_FALLBACK_VOICE", default_voice_name) or "").strip() or default_voice_name
+    explicit_voice = (voice_name or "").strip()
+    selected_voice_name = (
+        explicit_voice
+        if explicit_voice and explicit_voice.lower() not in {"en-us", "en_us", "default", "auto"}
+        else default_voice_name
+    )
+
+    language_code = _voice_language_code(selected_voice_name)
     speaking_rate = max(0.5, min(2.0, float(speed_wpm or 165) / 165.0))
 
     payload: dict[str, Any] = {
@@ -861,11 +872,8 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
         "voice": {"languageCode": language_code},
         "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate},
     }
-
-    explicit_voice = (voice_name or "").strip()
-    # Preserve explicit Google voice names like "en-US-Chirp3-HD-Aoede".
-    if explicit_voice and explicit_voice.lower() not in {"en-us", "en_us"}:
-        payload["voice"]["name"] = explicit_voice
+    if selected_voice_name:
+        payload["voice"]["name"] = selected_voice_name
 
     endpoint = raw_endpoint
     use_google_auth = False
@@ -882,14 +890,27 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
         endpoint = "https://texttospeech.googleapis.com/v1/text:synthesize"
         use_google_auth = True
 
-    if use_google_auth:
-        status, content_type, data, raw_bytes = _http_post_json_custom(
-            endpoint,
-            payload,
-            headers=_google_auth_headers(),
-        )
-    else:
-        status, content_type, data, raw_bytes = _http_post_json(endpoint, payload)
+    def call_tts(req_payload: dict[str, Any]) -> tuple[int, str, Any, bytes]:
+        if use_google_auth:
+            return _http_post_json_custom(
+                endpoint,
+                req_payload,
+                headers=_google_auth_headers(),
+            )
+        return _http_post_json(endpoint, req_payload)
+
+    status, content_type, data, raw_bytes = call_tts(payload)
+    if status >= 400 and selected_voice_name != fallback_voice_name:
+        retry_payload: dict[str, Any] = {
+            "input": {"text": safe_script},
+            "voice": {
+                "languageCode": _voice_language_code(fallback_voice_name),
+                "name": fallback_voice_name,
+            },
+            "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate},
+        }
+        status, content_type, data, raw_bytes = call_tts(retry_payload)
+
     if status >= 400:
         detail = ""
         if isinstance(data, dict):
@@ -1162,7 +1183,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-voice-{job_id}-", suffix=".mp3")
         os.close(fd)
         try:
-            voice_name = str(settings.get("voice_name") or "en-us")
+            voice_name = str(settings.get("voice_name") or "en-US-Neural2-F")
             speed = int(settings.get("speed_wpm") or 165)
 
             if use_google_provider:

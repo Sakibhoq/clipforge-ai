@@ -36,6 +36,13 @@ const FAST_CREDITS_PER_SECOND = 2;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
+const VOICE_OPTIONS = [
+  { value: "en-US-Neural2-F", label: "Luna (US • Natural female)" },
+  { value: "en-US-Neural2-J", label: "Atlas (US • Natural male)" },
+  { value: "en-US-Neural2-C", label: "Nova (US • Balanced female)" },
+  { value: "en-GB-Neural2-A", label: "Aria (UK • Natural female)" },
+  { value: "en-AU-Neural2-A", label: "Kai (AU • Natural male)" },
+] as const;
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -121,7 +128,7 @@ export default function GenerateClient() {
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState(6);
   const [videoSpeed, setVideoSpeed] = useState<VideoSpeedMode>("relax");
-  const [voiceName, setVoiceName] = useState("en-us");
+  const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
   const [voiceSpeed, setVoiceSpeed] = useState(165);
   const [currentPlan, setCurrentPlan] = useState("free");
 
@@ -519,12 +526,20 @@ export default function GenerateClient() {
                     <div className="grid grid-cols-1 gap-3">
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Voice</label>
-                        <input
+                        <select
                           value={voiceName}
                           onChange={(e) => setVoiceName(e.target.value)}
                           className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                          placeholder="en-us"
-                        />
+                        >
+                          {VOICE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="text-[11px] text-white/50">
+                          Human-like neural voices. Pick the one that best matches your brand tone.
+                        </div>
                       </div>
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Speed (WPM)</label>

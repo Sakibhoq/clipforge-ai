@@ -41,6 +41,15 @@ type PromptDemo = {
   style: string;
 };
 
+type SampleClip = {
+  title: string;
+  text: string;
+  duration: string;
+  aspect: string;
+  style: string;
+  src: string;
+};
+
 export default function Page() {
   const revealRef = useReveal();
 
@@ -71,7 +80,7 @@ export default function Page() {
     []
   );
 
-  const sampleClips = useMemo<PromptDemo[]>(
+  const sampleClips = useMemo<SampleClip[]>(
     () => [
       {
         title: "Coffee pour macro",
@@ -79,6 +88,7 @@ export default function Page() {
         duration: "6s",
         aspect: "9:16",
         style: "Warm",
+        src: "/previews/labs-preview-1.mp4",
       },
       {
         title: "Neon street b-roll",
@@ -86,6 +96,7 @@ export default function Page() {
         duration: "8s",
         aspect: "9:16",
         style: "Cinematic",
+        src: "/previews/labs-preview-2.mp4",
       },
       {
         title: "Minimal product spin",
@@ -93,6 +104,7 @@ export default function Page() {
         duration: "6s",
         aspect: "1:1",
         style: "Clean",
+        src: "/previews/labs-preview-3.mp4",
       },
       {
         title: "Golden-hour travel",
@@ -100,6 +112,7 @@ export default function Page() {
         duration: "10s",
         aspect: "16:9",
         style: "Warm",
+        src: "/previews/labs-preview-4.mp4",
       },
       {
         title: "Food steam loop",
@@ -107,6 +120,7 @@ export default function Page() {
         duration: "6s",
         aspect: "9:16",
         style: "Cozy",
+        src: "/previews/labs-preview-1.mp4",
       },
       {
         title: "Tech teaser",
@@ -114,6 +128,7 @@ export default function Page() {
         duration: "6s",
         aspect: "16:9",
         style: "Futuristic",
+        src: "/previews/labs-preview-2.mp4",
       },
     ],
     []
@@ -306,19 +321,25 @@ export default function Page() {
                   key={ex.title}
                   className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] transition hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.03]"
                 >
-                  <div className="relative h-[160px] border-b border-white/10 bg-[linear-gradient(120deg,rgba(255,183,3,0.22),rgba(251,86,7,0.14),rgba(58,134,255,0.18))]">
-                    <div className="absolute inset-0 bg-[radial-gradient(900px_260px_at_22%_22%,rgba(255,255,255,0.10),transparent_60%)]" />
+                  <div className="relative h-[190px] overflow-hidden border-b border-white/10 bg-black/30">
+                    <video
+                      src={ex.src}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.00),rgba(0,0,0,0.35))]" />
 
                     <div className="absolute left-4 top-4 flex gap-2">
                       <span className="chip">{ex.aspect}</span>
                       <span className="chip">{ex.duration}</span>
                     </div>
                     <div className="absolute right-4 top-4 chip">{ex.style}</div>
-
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="rounded-full border border-white/15 bg-black/40 px-4 py-2 text-[12px] font-semibold text-white/80">
-                        Sample clip
-                      </div>
+                    <div className="absolute bottom-3 left-4 rounded-full border border-white/20 bg-black/40 px-3 py-1 text-[11px] text-white/85">
+                      Generated preview
                     </div>
                   </div>
 
