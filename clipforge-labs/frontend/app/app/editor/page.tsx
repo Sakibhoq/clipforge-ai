@@ -168,8 +168,8 @@ export default function EditorPage() {
               <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2">
                 Clips
               </Link>
-              <Link href="/app/generate" className="btn-ghost text-[12px] px-4 py-2">
-                Generate
+              <Link href="/app" className="btn-ghost text-[12px] px-4 py-2">
+                Console
               </Link>
               <button
                 type="button"

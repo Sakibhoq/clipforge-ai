@@ -23,8 +23,8 @@ export default function UploadPage() {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Link href="/app/generate" className="btn-aurora">
-              Go to Generate
+            <Link href="/app" className="btn-aurora">
+              Go to Console
             </Link>
             <Link href="/app/clips" className="btn-ghost">
               View My Clips
@@ -37,7 +37,7 @@ export default function UploadPage() {
               <div>1. Generate short videos from a prompt</div>
               <div>2. Pick aspect ratio and duration</div>
               <div>3. Download MP4 outputs</div>
-              <div>4. Publish to connected channels in Studio</div>
+              <div>4. Publish to connected channels in Connections</div>
             </div>
           </div>
         </div>

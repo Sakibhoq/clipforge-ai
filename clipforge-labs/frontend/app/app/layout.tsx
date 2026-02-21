@@ -227,10 +227,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
-            {navItem("/app", "Console")}
-            {navItem("/app/generate", "Generate")}
+            {navItem("/app/generate", "Console")}
             {navItem("/app/clips", "Clips")}
-            {navItem("/app/studio", "Studio")}
+            {navItem("/app/connections", "Connections")}
             {navItem("/app/settings", "Settings")}
           </nav>
 
@@ -293,10 +292,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
               </div>
 
-              {navItem("/app", "Console", true)}
-              {navItem("/app/generate", "Generate", true)}
+              {navItem("/app/generate", "Console", true)}
               {navItem("/app/clips", "Clips", true)}
-              {navItem("/app/studio", "Studio", true)}
+              {navItem("/app/connections", "Connections", true)}
               {navItem("/app/settings", "Settings", true)}
 
               <div className="mt-3 h-px bg-white/10" />

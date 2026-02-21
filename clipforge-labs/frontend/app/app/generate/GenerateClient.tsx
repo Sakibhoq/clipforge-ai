@@ -323,10 +323,10 @@ export default function GenerateClient() {
               <div>
                 <div className="text-xs text-white/55">• Labs Console</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Generate <span className="grad-text">video, image, and voiceover</span>
+                  <span className="grad-text">Console</span>
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-white/70">
-                  One prompt workflow for production-ready assets. Create, review, and download from one screen.
+                  Create video, image, and voiceover from one place. Run jobs, monitor status, and export assets.
                 </p>
               </div>
 

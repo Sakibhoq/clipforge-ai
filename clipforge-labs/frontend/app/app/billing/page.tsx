@@ -427,8 +427,8 @@ function CreditsCard({
         <button type="button" onClick={onBuy} className="btn-solid-dark text-[12px] px-4 py-2 w-full sm:w-auto">
           Buy credits
         </button>
-        <Link href="/app/generate" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
-          Open generator
+        <Link href="/app" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
+          Open console
         </Link>
 
         <div className="sm:ml-auto text-[12px] text-white/55">Tip: packs apply to Creator only.</div>
@@ -764,8 +764,8 @@ export default function BillingPage() {
             <Link href="/app/settings" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
               Settings
             </Link>
-            <Link href="/app/generate" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
-              Open generator
+            <Link href="/app" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
+              Open console
             </Link>
           </div>
         </div>

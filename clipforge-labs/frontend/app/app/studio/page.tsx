@@ -155,9 +155,9 @@ export default function StudioPage() {
 
           <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-xs text-white/55">• Studio</div>
+              <div className="text-xs text-white/55">• Connections</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92">
-                Social <span className="grad-text">Studio</span>
+                Social <span className="grad-text">Connections</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
                 Connect your social accounts, manage status, and publish clips from one place.
@@ -173,8 +173,8 @@ export default function StudioPage() {
             </div>
 
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-              <Link href="/app/generate" className="btn-ghost text-center text-[12px] px-4 py-2">
-                Open generator
+              <Link href="/app" className="btn-ghost text-center text-[12px] px-4 py-2">
+                Open console
               </Link>
               <Link href="/app/clips" className="btn-solid-dark text-center text-[12px] px-4 py-2">
                 Open clips
@@ -299,7 +299,7 @@ export default function StudioPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
               <div className="text-xs text-white/50">Step 2</div>
               <div className="mt-1 text-sm font-semibold text-white/85">Create clips</div>
-              <p className="mt-1 text-xs text-white/60">Generate in Generate and review outputs in Clips.</p>
+              <p className="mt-1 text-xs text-white/60">Generate in Console and review outputs in Clips.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
               <div className="text-xs text-white/50">Step 3</div>

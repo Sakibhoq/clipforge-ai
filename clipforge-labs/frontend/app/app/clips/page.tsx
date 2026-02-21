@@ -95,14 +95,14 @@ export default function ClipsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/app/generate" className="btn-aurora text-[12px] px-4 py-2">
-                Generate a new asset
+              <Link href="/app" className="btn-aurora text-[12px] px-4 py-2">
+                Open console
               </Link>
               <Link href="/app/editor" className="btn-ghost text-[12px] px-4 py-2">
                 Open editor
               </Link>
-              <Link href="/app/studio" className="btn-ghost text-[12px] px-4 py-2">
-                Studio
+              <Link href="/app/connections" className="btn-ghost text-[12px] px-4 py-2">
+                Connections
               </Link>
               <button
                 type="button"
@@ -200,7 +200,7 @@ export default function ClipsPage() {
             </div>
           ) : (
             <div className="surface-soft rounded-3xl p-7 text-sm text-white/60">
-              {loading ? "Loading assets…" : "No assets yet. Generate your first one from the Generator."}
+              {loading ? "Loading assets…" : "No assets yet. Generate your first one from Console."}
             </div>
           )}
         </section>
