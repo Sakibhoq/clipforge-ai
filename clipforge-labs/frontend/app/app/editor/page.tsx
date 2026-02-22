@@ -516,13 +516,13 @@ export default function EditorPage() {
 
   function buildTrackRow(track: TrackKey, label: string, items: TimelineItem[]) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
+      <div className="rounded-2xl border border-white/12 bg-[#090d16] p-3">
         <div className="mb-2 flex items-center justify-between gap-3">
           <div className="text-[12px] font-semibold tracking-[0.05em] text-white/78">{label}</div>
           <div className="text-[11px] text-white/45">{items.length} item{items.length === 1 ? "" : "s"}</div>
         </div>
 
-        <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-black/55">
+        <div className="relative h-24 overflow-hidden rounded-xl border border-white/12 bg-[#050810]">
           <div className="pointer-events-none absolute inset-0">
             {timelineTicks.map((tick) => (
               <div
@@ -645,16 +645,7 @@ export default function EditorPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1600px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-10 opacity-45 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(240px 160px at 16% 28%, rgba(255,183,3,0.22), transparent 70%), radial-gradient(300px 220px at 80% 34%, rgba(58,134,255,0.18), transparent 72%), radial-gradient(260px 180px at 58% 92%, rgba(251,86,7,0.14), transparent 72%)",
-            }}
-          />
-
+        <section className="surface relative overflow-hidden rounded-3xl border border-white/12 bg-[#070b15]/95 p-6 md:p-8">
           <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs text-white/55">• Post Editor</div>
@@ -685,7 +676,7 @@ export default function EditorPage() {
           </div>
         </section>
 
-        <section className="mt-6 surface rounded-3xl p-4 sm:p-5 xl:p-6">
+        <section className="mt-6 surface rounded-3xl border border-white/12 bg-[#070b15]/95 p-4 sm:p-5 xl:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs text-white/55">
               • Editor Console • Frame {project.frame} • Timeline {formatSeconds(timelineDuration)}
@@ -695,9 +686,9 @@ export default function EditorPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid items-start gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+          <div className="mt-4 grid items-start gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="grid min-w-0 gap-4">
-            <div className="surface-soft rounded-3xl p-5">
+            <div className="surface-soft relative isolate rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
               <div className="text-xs text-white/55">• Project Setup</div>
               <div className="mt-3 grid gap-3">
                 <div className="grid gap-2">
@@ -783,7 +774,7 @@ export default function EditorPage() {
               </div>
             </div>
 
-            <div className="surface-soft rounded-3xl p-5">
+            <div className="surface-soft relative isolate rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
               <div className="text-xs text-white/55">• Asset Library</div>
 
               <div className="mt-3 grid gap-3">
@@ -921,7 +912,7 @@ export default function EditorPage() {
               </div>
             </div>
 
-            <div className="surface-soft rounded-3xl p-5">
+            <div className="surface-soft relative isolate rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
               <div className="text-xs text-white/55">• Versions</div>
               {versions.length ? (
                 <div className="mt-3 grid max-h-44 gap-2 overflow-auto pr-1">
@@ -945,10 +936,11 @@ export default function EditorPage() {
             </div>
           </aside>
 
+          <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_320px]">
           <section className="grid min-w-0 gap-4">
-            <div className="surface rounded-3xl p-4 sm:p-5">
+            <div className="surface relative isolate rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5">
               <div className="text-xs text-white/55">• Preview Stage</div>
-              <div className="mt-3 rounded-3xl border border-white/10 bg-black/45 p-3 sm:p-4">
+              <div className="mt-3 rounded-3xl border border-white/12 bg-[#06090f] p-3 sm:p-4">
                 <div
                   className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
                   style={{
@@ -1019,7 +1011,7 @@ export default function EditorPage() {
               </div>
             </div>
 
-            <div className="surface rounded-3xl p-4 sm:p-5">
+            <div className="surface relative isolate rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
                 <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
@@ -1027,7 +1019,7 @@ export default function EditorPage() {
                 </div>
               </div>
               <div className="mt-3 overflow-x-auto pb-1">
-                <div className="grid min-w-[700px] gap-3">
+                <div className="grid min-w-[640px] gap-3">
                   {buildTrackRow("visual", "Visual Track (Video + Image)", project.visual)}
                   {buildTrackRow("voiceover", "Voiceover Track", project.voiceover)}
                   {buildTrackRow("music", "Music Track", project.music)}
@@ -1037,8 +1029,8 @@ export default function EditorPage() {
             </div>
           </section>
 
-          <aside className="grid min-w-0 gap-4 xl:col-span-2 2xl:col-span-1">
-            <div className="surface-soft rounded-3xl p-5">
+          <aside className="grid min-w-0 gap-4 2xl:sticky 2xl:top-24 2xl:self-start">
+            <div className="surface-soft relative isolate rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
                 <div className="mt-3 grid gap-3">
@@ -1182,7 +1174,7 @@ export default function EditorPage() {
               )}
             </div>
 
-            <div className="surface-soft rounded-3xl p-5">
+            <div className="surface-soft relative isolate rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
               <div className="text-xs text-white/55">• Audio Mix</div>
               <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-1 flex items-center justify-between text-[12px] text-white/70">
@@ -1237,6 +1229,7 @@ export default function EditorPage() {
               </div>
             </div>
           </aside>
+          </div>
           </div>
         </section>
 
