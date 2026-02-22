@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
+import { getSiteUrl } from "@/lib/seo";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 // bump when you want browsers to re-fetch the favicon (they can be aggressively cached)
@@ -18,9 +19,15 @@ const fontMono = JetBrains_Mono({
   variable: "--font-mono",
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
   title: BRAND.metaTitle,
   description: BRAND.metaDescription,
+  metadataBase: siteUrl,
+  alternates: {
+    canonical: "/",
+  },
 
   // App Router: since you have app/icon.tsx, you don't need to manually point to /icon here.
   // Keeping it explicit is fine, but we keep it minimal and correct.

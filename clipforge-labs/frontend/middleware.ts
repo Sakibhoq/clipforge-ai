@@ -16,6 +16,10 @@ const PROTECTED_PREFIXES = [
 
 const AUTH_PAGES = ["/login", "/register"];
 
+function hostWithoutPort(host: string) {
+  return host.split(":")[0]?.toLowerCase() || host.toLowerCase();
+}
+
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
@@ -53,9 +57,13 @@ function applySecurityHeaders(
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
+  const hostHeader = req.headers.get("host") || req.nextUrl.host || "";
+  const host = hostWithoutPort(hostHeader);
   const xfProto = (req.headers.get("x-forwarded-proto") || "")
     .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const canonicalHost = (process.env.CANONICAL_HOST || process.env.NEXT_PUBLIC_CANONICAL_HOST || "")
     .trim()
     .toLowerCase();
   const isHttps = req.nextUrl.protocol === "https:" || xfProto === "https";
@@ -83,6 +91,18 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
     return applySecurityHeaders(NextResponse.redirect(url), {
+      production: isProduction,
+      https: true,
+    });
+  }
+
+  // Optional: force one canonical host in production (e.g. CANONICAL_HOST=orbito.cc).
+  // Keeps crawl/index signals on a single host and avoids duplicate-host indexing churn.
+  if (isProduction && !isCodespaces && !isLocal && canonicalHost && host !== canonicalHost) {
+    const url = req.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = canonicalHost;
+    return applySecurityHeaders(NextResponse.redirect(url, 308), {
       production: isProduction,
       https: true,
     });
