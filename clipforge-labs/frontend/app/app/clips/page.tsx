@@ -452,12 +452,12 @@ export default function ClipsPage() {
         </section>
 
         {filtered.length ? (
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filtered.map((c) => {
               const assetType = detectAssetType(c);
               return (
                 <article key={c.id} className="surface-soft overflow-hidden rounded-3xl border border-white/10">
-                  <div className="relative h-[220px] border-b border-white/10 bg-black/55">
+                  <div className="relative h-[176px] border-b border-white/10 bg-black/55 sm:h-[190px]">
                     <div className="absolute left-3 top-3 z-10 flex gap-2">
                       <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", typeTone(assetType))}>
                         {assetType.toUpperCase()}
@@ -470,8 +470,8 @@ export default function ClipsPage() {
                     {assetType === "image" ? (
                       <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
                     ) : assetType === "audio" ? (
-                      <div className="flex h-full flex-col justify-center px-4 py-3">
-                        <div className="mb-3 rounded-2xl border border-white/10 bg-[linear-gradient(120deg,rgba(255,183,3,0.18),rgba(58,134,255,0.16),rgba(251,86,7,0.14))] p-4">
+                      <div className="flex h-full flex-col justify-center px-3 py-3">
+                        <div className="mb-3 rounded-2xl border border-white/10 bg-[linear-gradient(120deg,rgba(255,183,3,0.18),rgba(58,134,255,0.16),rgba(251,86,7,0.14))] p-3">
                           <div className="text-sm font-semibold text-white/92">Audio Preview</div>
                           <div className="mt-1 text-[12px] text-white/65">Play to review voiceover or music output.</div>
                         </div>
@@ -496,7 +496,7 @@ export default function ClipsPage() {
                       Storage: {clip(c.storage_key || "", 44)}
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className={cx("mt-4 grid gap-2", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
                       <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[12px]">
                         Download
                       </a>
@@ -509,7 +509,7 @@ export default function ClipsPage() {
                         Open
                       </a>
                       {assetType === "video" ? (
-                        <button type="button" onClick={() => openSchedule(c)} className="btn-ghost col-span-2 px-3 py-2 text-[12px]">
+                        <button type="button" onClick={() => openSchedule(c)} className="btn-ghost px-3 py-2 text-[12px]">
                           Schedule / Post
                         </button>
                       ) : null}

@@ -110,6 +110,12 @@ function aspectValue(frame: FrameRatio) {
   return "9 / 16";
 }
 
+function previewMaxWidth(frame: FrameRatio): number {
+  if (frame === "9:16") return 360;
+  if (frame === "1:1") return 620;
+  return 860;
+}
+
 function newItemId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -689,7 +695,7 @@ export default function EditorPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          <div className="mt-4 grid items-start gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
           <aside className="grid min-w-0 gap-4">
             <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Project Setup</div>
@@ -944,8 +950,11 @@ export default function EditorPage() {
               <div className="text-xs text-white/55">• Preview Stage</div>
               <div className="mt-3 rounded-3xl border border-white/10 bg-black/45 p-3 sm:p-4">
                 <div
-                  className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border border-white/10 bg-black"
-                  style={{ aspectRatio: aspectValue(project.frame) }}
+                  className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
+                  style={{
+                    aspectRatio: aspectValue(project.frame),
+                    maxWidth: `${previewMaxWidth(project.frame)}px`,
+                  }}
                 >
                   {previewVisual?.type === "image" && previewVisual.url ? (
                     <img src={previewVisual.url} alt={previewVisual.title} className="h-full w-full object-cover" />
@@ -1018,7 +1027,7 @@ export default function EditorPage() {
                 </div>
               </div>
               <div className="mt-3 overflow-x-auto pb-1">
-                <div className="grid min-w-[820px] gap-3">
+                <div className="grid min-w-[700px] gap-3">
                   {buildTrackRow("visual", "Visual Track (Video + Image)", project.visual)}
                   {buildTrackRow("voiceover", "Voiceover Track", project.voiceover)}
                   {buildTrackRow("music", "Music Track", project.music)}
@@ -1028,7 +1037,7 @@ export default function EditorPage() {
             </div>
           </section>
 
-          <aside className="grid min-w-0 gap-4">
+          <aside className="grid min-w-0 gap-4 xl:col-span-2 2xl:col-span-1">
             <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
