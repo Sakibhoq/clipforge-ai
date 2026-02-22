@@ -389,7 +389,7 @@ export default function Navbar() {
 
   const appLinks = useMemo(
     () => [
-      { href: "/app", label: "Console" },
+      { href: "/app", label: "Generator" },
       { href: "/app/connections", label: "Connections" },
       { href: "/app/editor", label: "Editor" },
       { href: "/app/billing", label: "Billing" },

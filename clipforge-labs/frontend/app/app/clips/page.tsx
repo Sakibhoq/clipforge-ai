@@ -456,7 +456,7 @@ export default function ClipsPage() {
             </div>
           ) : (
             <div className="surface-soft rounded-3xl p-7 text-sm text-white/60">
-              {loading ? "Loading assets..." : "No assets yet. Generate your first one from Console."}
+              {loading ? "Loading assets..." : "No assets yet. Generate your first one from Generator."}
             </div>
           )}
         </section>

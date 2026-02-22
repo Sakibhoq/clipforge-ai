@@ -24,7 +24,7 @@ export default function UploadPage() {
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link href="/app" className="btn-aurora">
-              Go to Console
+              Go to Generator
             </Link>
             <Link href="/app/clips" className="btn-ghost">
               View My Clips

@@ -152,17 +152,17 @@ export default function Page() {
           <div className="pt-2">
             <div className="pill">
               <span className="pill-dot" />
-              <span className="text-white/85">AI post generator</span>
-              <span className="text-white/45">1–2 minute image + voice workflow</span>
+              <span className="text-white/85">AI video generation</span>
+              <span className="text-white/45">Built for short-form</span>
             </div>
 
             <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl">
-              Create <span className="grad-text">1–2 minute social clips</span> in one flow.
+              Turn a prompt into a <span className="grad-text">scroll-stopping video</span>.
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-              {BRAND.product} is {BRAND.name}&rsquo;s post studio: generate image sequences, add natural voiceover, edit on a
-              timeline, and publish to your channels.
+              {BRAND.product} is {BRAND.name}&rsquo;s generation lab: create video, image, and voiceover in one clean flow, then
+              publish to your connected channels.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -253,7 +253,7 @@ export default function Page() {
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Link href="/app/generate" className="btn-solid-dark">
-                    Open AI Post Studio
+                    Open Generator
                   </Link>
                   <Link href="/register" className="btn-ghost">
                     Create account
@@ -366,20 +366,30 @@ export default function Page() {
         <section className="mt-14">
           <div
             data-reveal
-            className="reveal relative overflow-hidden rounded-3xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]"
+            className="reveal relative overflow-hidden rounded-3xl border border-emerald-200/35 bg-[linear-gradient(120deg,rgba(53,242,166,0.34),rgba(70,215,255,0.28),rgba(5,14,24,0.62))] p-[1px] shadow-[0_0_0_1px_rgba(70,215,255,0.24),0_0_90px_rgba(53,242,166,0.22)]"
           >
             <div
               aria-hidden="true"
-              className="absolute -inset-10 opacity-70 blur-2xl"
+              className="absolute -inset-14 opacity-95 blur-3xl"
               style={{
                 background:
-                  "conic-gradient(from 120deg, rgba(53,242,166,0.18), rgba(70,215,255,0.20), rgba(155,140,255,0.20), rgba(53,242,166,0.18))",
+                  "conic-gradient(from 125deg, rgba(53,242,166,0.34), rgba(70,215,255,0.36), rgba(53,242,166,0.30), rgba(70,215,255,0.32), rgba(53,242,166,0.34))",
               }}
             />
-            <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-80"
+              style={{
+                background:
+                  "radial-gradient(560px 260px at 18% 8%, rgba(53,242,166,0.26), transparent 66%), radial-gradient(620px 320px at 88% 14%, rgba(70,215,255,0.24), transparent 70%)",
+              }}
+            />
+            <div className="relative rounded-[22px] border border-white/10 bg-[linear-gradient(145deg,rgba(2,16,24,0.92),rgba(1,10,18,0.90))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_26px_90px_rgba(53,242,166,0.18)] md:p-7">
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">{BRAND.orbitoName}</span>
-                <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
+                <span className="rounded-full border border-emerald-200/35 bg-emerald-300/10 px-3 py-1 text-emerald-100/95">
+                  {BRAND.orbitoName}
+                </span>
+                <span className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-cyan-100/90">
                   {BRAND.orbitoUrl.replace(/^https?:\/\//, "")} • AI clipping
                 </span>
               </div>
@@ -397,7 +407,10 @@ export default function Page() {
                   { t: "Smart reframing", d: "Keep the subject centered for 9:16, 1:1, and 16:9." },
                   { t: "Captions + pipeline", d: "Generate, review, and publish clips across your channels." },
                 ].map((x) => (
-                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
+                  <div
+                    key={x.t}
+                    className="relative overflow-hidden rounded-2xl border border-emerald-200/18 bg-[linear-gradient(145deg,rgba(53,242,166,0.14),rgba(70,215,255,0.08),rgba(255,255,255,0.03))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]"
+                  >
                     <div className="text-sm font-semibold">{x.t}</div>
                     <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
                   </div>

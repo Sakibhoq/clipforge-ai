@@ -9,7 +9,7 @@ export default function GeneratePage() {
     <Suspense
       fallback={
         <div className="mx-auto max-w-6xl px-6 pb-20 pt-10 text-sm text-white/65">
-          Loading console…
+          Loading generator…
         </div>
       }
     >

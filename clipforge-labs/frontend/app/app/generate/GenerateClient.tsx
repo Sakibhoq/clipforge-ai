@@ -19,6 +19,12 @@ type GenerateResponse = {
   text_length?: number | null;
 };
 
+type VoicePreviewResponse = {
+  voice_name: string;
+  content_type: string;
+  audio_base64: string;
+};
+
 type JobRow = {
   id: number;
   upload_id: number;
@@ -155,9 +161,13 @@ export default function GenerateClient() {
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const [voicePreviewPlayingKey, setVoicePreviewPlayingKey] = useState<string | null>(null);
+  const [voicePreviewSrcByKey, setVoicePreviewSrcByKey] = useState<Record<string, string>>({});
 
   const pollTimer = useRef<number | null>(null);
   const hydratedFromQuery = useRef(false);
+  const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
@@ -189,6 +199,92 @@ export default function GenerateClient() {
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 12000;
   }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
+
+  function voicePreviewKey(targetVoice: string, targetSpeed: number) {
+    return `${targetVoice}::${targetSpeed}`;
+  }
+
+  async function playVoicePreview(targetVoice: string) {
+    const key = voicePreviewKey(targetVoice, voiceSpeed);
+    setVoicePreviewError(null);
+
+    try {
+      let src = voicePreviewSrcByKey[key];
+      if (!src) {
+        const payload = await apiFetch<VoicePreviewResponse>("/labs/voice-preview", {
+          method: "POST",
+          body: {
+            voice_name: targetVoice,
+            speed_wpm: voiceSpeed,
+          },
+        });
+        src = `data:${payload.content_type || "audio/mpeg"};base64,${payload.audio_base64 || ""}`;
+        setVoicePreviewSrcByKey((prev) => ({ ...prev, [key]: src! }));
+      }
+
+      const audio = voicePreviewAudioRef.current;
+      if (!audio) return;
+
+      audio.pause();
+      audio.src = src;
+      audio.currentTime = 0;
+      setVoicePreviewPlayingKey(key);
+      await audio.play();
+    } catch (err: any) {
+      setVoicePreviewPlayingKey(null);
+      setVoicePreviewError(String(err?.detail || err?.message || "Could not load voice preview."));
+    }
+  }
+
+  function renderVoiceSelector() {
+    return (
+      <div className="grid gap-2">
+        <label className="text-xs font-medium text-white/70">Voice</label>
+        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-2">
+          {VOICE_OPTIONS.map((opt) => {
+            const isSelected = voiceName === opt.value;
+            const key = voicePreviewKey(opt.value, voiceSpeed);
+            const isPlaying = voicePreviewPlayingKey === key;
+
+            return (
+              <div key={opt.value} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => setVoiceName(opt.value)}
+                  className={cx(
+                    "w-full flex-1 rounded-xl border px-3 py-2 text-left text-[11px] leading-snug transition sm:text-[12px]",
+                    isSelected
+                      ? "border-white/30 bg-white/14 text-white"
+                      : "border-white/10 bg-black/40 text-white/78 hover:bg-white/8"
+                  )}
+                >
+                  {opt.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => playVoicePreview(opt.value)}
+                  className={cx(
+                    "w-full min-w-[84px] rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition sm:w-auto",
+                    isPlaying
+                      ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100"
+                      : "border-white/12 bg-white/[0.06] text-white/82 hover:bg-white/[0.12]"
+                  )}
+                >
+                  {isPlaying ? "Playing…" : "Preview"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {voicePreviewError ? (
+          <div className="text-[11px] text-rose-200/90">{voicePreviewError}</div>
+        ) : (
+          <div className="text-[11px] text-white/52">Click Preview to hear each voice before generating.</div>
+        )}
+      </div>
+    );
+  }
 
   async function refreshJobs() {
     try {
@@ -230,6 +326,10 @@ export default function GenerateClient() {
       .catch(() => setCurrentPlan("free"));
     return () => {
       if (pollTimer.current) window.clearInterval(pollTimer.current);
+      if (voicePreviewAudioRef.current) {
+        voicePreviewAudioRef.current.pause();
+        voicePreviewAudioRef.current.removeAttribute("src");
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -364,7 +464,7 @@ export default function GenerateClient() {
   }
 
   const status = activeJob?.status || "";
-  const statusLabel = activeJob ? prettyStatus(activeJob.status) : "Idle";
+  const statusLabel = activeJob ? prettyStatus(activeJob.status) : "";
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -382,30 +482,32 @@ export default function GenerateClient() {
           <div className="relative grid gap-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs text-white/55">• AI Post Studio</div>
+                <div className="text-xs text-white/55">• Generator</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  <span className="grad-text">1–2 minute post generator</span>
+                  <span className="grad-text">Generator</span>
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-white/70">
-                  Main workflow: AI image sequence + voiceover to final social-ready MP4. Advanced video/image/voice
-                  modes stay available for power users.
+                  Create 1-2 minute AI posts with image + voice, or generate standalone video, image, and voiceover
+                  assets from one place.
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Link href="/pricing" className="btn-solid-dark px-4 py-2 text-xs">
+              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+                <Link href="/pricing" className="btn-solid-dark flex-1 px-4 py-2 text-center text-xs sm:flex-none">
                   Buy more credits
                 </Link>
-                <Link href="/app/editor" className="btn-ghost px-4 py-2 text-xs">
+                <Link href="/app/editor" className="btn-ghost flex-1 px-4 py-2 text-center text-xs sm:flex-none">
                   Open editor
                 </Link>
-                <span className={cx("rounded-full border px-3 py-1.5 text-xs font-semibold", statusTone(status))}>
-                  {statusLabel}
-                </span>
+                {activeJob ? (
+                  <span className={cx("rounded-full border px-3 py-1.5 text-xs font-semibold", statusTone(status))}>
+                    {statusLabel}
+                  </span>
+                ) : null}
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Mode</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">{modeLabel(mode)}</div>
@@ -435,26 +537,26 @@ export default function GenerateClient() {
                 <div className="text-xs text-white/55">• Controls</div>
                 <div className="mt-1 text-base font-semibold text-white/90">Prompt and rendering settings</div>
                 <div className="mt-1 text-xs text-white/55">
-                  AI Post is the default workflow for longer social clips.
+                  Generator defaults to AI Post for longer clips, with video, image, and voiceover modes available.
                 </div>
               </div>
               <Link
                 href="/app/clips"
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/75 hover:bg-white/10 sm:w-auto sm:text-left"
               >
                 Open clips library
               </Link>
             </div>
 
             <form onSubmit={onGenerate} className="mt-5 grid gap-5">
-              <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
                 {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setMode(m)}
                     className={cx(
-                      "min-w-[110px] flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition",
+                      "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
                       mode === m
                         ? "border-white/30 bg-white/18 text-white"
                         : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
@@ -561,20 +663,7 @@ export default function GenerateClient() {
                       </div>
 
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Voice</label>
-                          <select
-                            value={voiceName}
-                            onChange={(e) => setVoiceName(e.target.value)}
-                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                          >
-                            {VOICE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {renderVoiceSelector()}
 
                         <div className="grid gap-2">
                           <label className="text-xs font-medium text-white/70">Voice speed (WPM)</label>
@@ -619,7 +708,7 @@ export default function GenerateClient() {
                                 : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
                             )}
                           >
-                            Relax · $1.00/s
+                            Relax · {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s
                           </button>
                           <button
                             type="button"
@@ -636,7 +725,7 @@ export default function GenerateClient() {
                             )}
                             title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
                           >
-                            Fast · $1.20/s
+                            Fast · {VIDEO_FAST_CREDITS_PER_SECOND} credits/s
                           </button>
                         </div>
                         {!fastEligible ? (
@@ -650,20 +739,7 @@ export default function GenerateClient() {
 
                   {mode === "voiceover" ? (
                     <div className="grid grid-cols-1 gap-3">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Voice</label>
-                        <select
-                          value={voiceName}
-                          onChange={(e) => setVoiceName(e.target.value)}
-                          className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                        >
-                          {VOICE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {renderVoiceSelector()}
                       <div className="grid gap-2">
                         <label className="text-xs font-medium text-white/70">Speed (WPM)</label>
                         <input
@@ -691,7 +767,8 @@ export default function GenerateClient() {
                       </Link>
                     </div>
                     <div className="mt-2 text-[11px] text-white/55">
-                      AI post (image + voice): 15 credits/min (~$1.50/min). Video: 10 credits/s Relax (~$1.00/s), 12 credits/s Fast (~$1.20/s).
+                      AI post (image + voice): {POST_CREDITS_PER_MINUTE} credits/min. Video:{" "}
+                      {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s Relax, {VIDEO_FAST_CREDITS_PER_SECOND} credits/s Fast.
                     </div>
                   </div>
 
@@ -788,6 +865,13 @@ export default function GenerateClient() {
             )}
           </div>
         </section>
+        <audio
+          ref={voicePreviewAudioRef}
+          onEnded={() => setVoicePreviewPlayingKey(null)}
+          onPause={() => setVoicePreviewPlayingKey((prev) => (prev ? null : prev))}
+          className="hidden"
+          preload="none"
+        />
       </main>
     </div>
   );

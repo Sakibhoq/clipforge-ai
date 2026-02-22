@@ -70,12 +70,12 @@ def test_starter_plan_relax_mode_charges_relax_rate(db):
     )
 
     res = create_video_generation(payload=payload, db=db, current_user=current_user)
-    assert res.credits_reserved == 6
+    assert res.credits_reserved == 60
     assert res.generation_speed == "relax"
 
     user_row = db.query(User).filter(User.id == user_id).first()
     assert user_row is not None
-    assert int(user_row.credits or 0) == 94
+    assert int(user_row.credits or 0) == 40
 
 
 def test_creator_plan_fast_mode_charges_fast_rate(db):
@@ -90,9 +90,9 @@ def test_creator_plan_fast_mode_charges_fast_rate(db):
     )
 
     res = create_video_generation(payload=payload, db=db, current_user=current_user)
-    assert res.credits_reserved == 12
+    assert res.credits_reserved == 72
     assert res.generation_speed == "fast"
 
     user_row = db.query(User).filter(User.id == user_id).first()
     assert user_row is not None
-    assert int(user_row.credits or 0) == 88
+    assert int(user_row.credits or 0) == 28

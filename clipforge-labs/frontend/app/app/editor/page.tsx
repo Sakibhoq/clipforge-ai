@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
@@ -39,6 +39,7 @@ type ProjectState = {
   name: string;
   frame: FrameRatio;
   targetDuration: number;
+  musicBedLevel: number;
   visual: TimelineItem[];
   voiceover: TimelineItem[];
   music: TimelineItem[];
@@ -50,6 +51,14 @@ type SavedVersion = {
   label: string;
   createdAt: string;
   project: ProjectState;
+};
+
+type LocalMusicAsset = {
+  id: string;
+  name: string;
+  url: string;
+  duration: number;
+  size: number;
 };
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v1";
@@ -65,6 +74,10 @@ function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+}
+
 function extFromStorageKey(key: string): string {
   const m = String(key || "").toLowerCase().match(/(\.[a-z0-9]+)$/);
   return m ? m[1] : "";
@@ -75,7 +88,7 @@ function detectAssetType(row: ClipRow): AssetType {
   if (t === "image" || t === "audio" || t === "video") return t;
   const ext = extFromStorageKey(row.storage_key || "");
   if ([".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)) return "image";
-  if ([".mp3", ".wav", ".m4a", ".ogg"].includes(ext)) return "audio";
+  if ([".mp3", ".wav", ".m4a", ".ogg", ".aac", ".flac"].includes(ext)) return "audio";
   return "video";
 }
 
@@ -85,6 +98,10 @@ function formatSeconds(n: number) {
   const ss = Math.floor(s % 60);
   const ms = Math.floor((s % 1) * 10);
   return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.${ms}`;
+}
+
+function formatPercent(n: number) {
+  return `${Math.round(clamp01(n) * 100)}%`;
 }
 
 function aspectValue(frame: FrameRatio) {
@@ -106,6 +123,7 @@ function buildDefaultProject(): ProjectState {
     name: "Untitled AI Post",
     frame: "9:16",
     targetDuration: 60,
+    musicBedLevel: 0.35,
     visual: [],
     voiceover: [],
     music: [],
@@ -113,11 +131,59 @@ function buildDefaultProject(): ProjectState {
   };
 }
 
+function formatBytes(n: number): string {
+  const v = Math.max(0, Number(n || 0));
+  if (v < 1024) return `${v} B`;
+  if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
+  return `${(v / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function sanitizeForPersistence(state: ProjectState): ProjectState {
+  const copy = cloneProject(state);
+  copy.music = copy.music.filter((item) => !String(item.url || "").startsWith("blob:"));
+  return copy;
+}
+
+function normalizeLoadedProject(raw: any): ProjectState {
+  const base = buildDefaultProject();
+
+  const safeArray = (value: unknown) => (Array.isArray(value) ? (value as TimelineItem[]) : []);
+
+  return {
+    ...base,
+    ...raw,
+    name: String(raw?.name || base.name),
+    frame: ["9:16", "1:1", "16:9"].includes(raw?.frame) ? raw.frame : base.frame,
+    targetDuration: [60, 120].includes(Number(raw?.targetDuration)) ? Number(raw?.targetDuration) : base.targetDuration,
+    musicBedLevel: clamp01(Number(raw?.musicBedLevel ?? base.musicBedLevel)),
+    visual: safeArray(raw?.visual),
+    voiceover: safeArray(raw?.voiceover),
+    music: safeArray(raw?.music),
+    captions: safeArray(raw?.captions),
+  };
+}
+
 function laneColor(track: TrackKey) {
-  if (track === "visual") return "bg-cyan-400/20 border-cyan-300/30 text-cyan-100";
-  if (track === "voiceover") return "bg-emerald-400/20 border-emerald-300/30 text-emerald-100";
-  if (track === "music") return "bg-amber-400/20 border-amber-300/30 text-amber-100";
-  return "bg-fuchsia-400/20 border-fuchsia-300/30 text-fuchsia-100";
+  if (track === "visual") return "bg-cyan-400/20 border-cyan-300/35 text-cyan-100";
+  if (track === "voiceover") return "bg-emerald-400/20 border-emerald-300/35 text-emerald-100";
+  if (track === "music") return "bg-amber-400/20 border-amber-300/35 text-amber-100";
+  return "bg-fuchsia-400/20 border-fuchsia-300/35 text-fuchsia-100";
+}
+
+function readAudioDuration(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const el = document.createElement("audio");
+    el.preload = "metadata";
+    el.onloadedmetadata = () => resolve(Number(el.duration) || 0);
+    el.onerror = () => resolve(0);
+    el.src = url;
+  });
+}
+
+function timelineTickStep(duration: number) {
+  if (duration <= 45) return 5;
+  if (duration <= 120) return 10;
+  return 15;
 }
 
 export default function EditorPage() {
@@ -131,9 +197,13 @@ export default function EditorPage() {
   const [versions, setVersions] = useState<SavedVersion[]>([]);
   const [selected, setSelected] = useState<{ track: TrackKey; itemId: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [localMusicAssets, setLocalMusicAssets] = useState<LocalMusicAsset[]>([]);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const localMusicInputRef = useRef<HTMLInputElement | null>(null);
+  const localMusicObjectUrlsRef = useRef<string[]>([]);
 
   const videos = useMemo(() => clips.filter((c) => detectAssetType(c) === "video"), [clips]);
   const images = useMemo(() => clips.filter((c) => detectAssetType(c) === "image"), [clips]);
@@ -165,19 +235,38 @@ export default function EditorPage() {
   }, [selected, project]);
 
   const previewVisual = useMemo(() => {
-    if (selectedItem && (selectedItem.type === "video" || selectedItem.type === "image")) return selectedItem;
+    if (selected && selectedItem && selected.track === "visual" && (selectedItem.type === "video" || selectedItem.type === "image")) {
+      return selectedItem;
+    }
     return project.visual[0] || null;
-  }, [selectedItem, project.visual]);
+  }, [selected, selectedItem, project.visual]);
 
-  const previewAudio = useMemo(() => {
-    if (selectedItem && selectedItem.type === "audio") return selectedItem;
-    return project.voiceover[0] || project.music[0] || null;
-  }, [selectedItem, project.voiceover, project.music]);
+  const previewAudioRow = useMemo(() => {
+    if (selected && selectedItem && (selected.track === "voiceover" || selected.track === "music") && selectedItem.type === "audio") {
+      return { track: selected.track, item: selectedItem };
+    }
+    if (project.voiceover[0]) return { track: "voiceover" as const, item: project.voiceover[0] };
+    if (project.music[0]) return { track: "music" as const, item: project.music[0] };
+    return null;
+  }, [selected, selectedItem, project.voiceover, project.music]);
 
   const timelineDuration = useMemo(() => {
     const maxTrackEnd = allTimelineItems.reduce((max, row) => Math.max(max, row.item.start + row.item.duration), 0);
     return Math.max(project.targetDuration, Math.ceil(maxTrackEnd));
   }, [allTimelineItems, project.targetDuration]);
+
+  const tickStep = useMemo(() => timelineTickStep(timelineDuration), [timelineDuration]);
+  const timelineTicks = useMemo(() => {
+    const max = Math.ceil(timelineDuration / tickStep) * tickStep;
+    const out: Array<{ seconds: number; leftPct: number }> = [];
+    for (let sec = 0; sec <= max; sec += tickStep) {
+      out.push({
+        seconds: sec,
+        leftPct: max === 0 ? 0 : (sec / max) * 100,
+      });
+    }
+    return out;
+  }, [timelineDuration, tickStep]);
 
   const exportRecipe = useMemo(() => {
     return {
@@ -186,6 +275,7 @@ export default function EditorPage() {
       frame: project.frame,
       target_duration_seconds: project.targetDuration,
       timeline_duration_seconds: timelineDuration,
+      music_bed_level: Number(project.musicBedLevel.toFixed(2)),
       safe_area: {
         enabled: showSafeArea,
         top: profile.safeTop,
@@ -194,7 +284,10 @@ export default function EditorPage() {
       tracks: {
         visual: project.visual,
         voiceover: project.voiceover,
-        music: project.music,
+        music: project.music.map((item) => ({
+          ...item,
+          effective_volume: Number((item.volume * project.musicBedLevel).toFixed(2)),
+        })),
         captions: project.captions,
       },
     };
@@ -207,11 +300,14 @@ export default function EditorPage() {
     }));
   }
 
+  function nextTrackStart(items: TimelineItem[]) {
+    return items.reduce((max, item) => Math.max(max, item.start + item.duration), 0);
+  }
+
   function addClipToTrack(track: TrackKey, clip: ClipRow) {
     const type = detectAssetType(clip);
     const current = project[track];
-    const nextStart = current.reduce((max, item) => Math.max(max, item.start + item.duration), 0);
-    const itemDuration = Math.max(1, Number(clip.duration || (type === "image" ? 5 : 4)));
+    const itemDuration = Math.max(1, Number(clip.duration || (type === "image" ? 6 : 4)));
 
     const item: TimelineItem = {
       id: newItemId(),
@@ -219,11 +315,11 @@ export default function EditorPage() {
       type,
       title: clip.title || `${type.toUpperCase()} #${clip.id}`,
       url: clip.url,
-      start: nextStart,
+      start: nextTrackStart(current),
       duration: itemDuration,
       trimStart: 0,
       trimEnd: itemDuration,
-      volume: track === "music" ? 0.25 : 1,
+      volume: track === "music" ? 0.6 : 1,
       motion: type === "image" ? "kenburns" : "none",
     };
 
@@ -231,14 +327,85 @@ export default function EditorPage() {
     setSelected({ track, itemId: item.id });
   }
 
+  function addLocalMusicToTrack(asset: LocalMusicAsset) {
+    const current = project.music;
+    const fallbackDuration = Math.max(8, Number(project.targetDuration) || 60);
+
+    const item: TimelineItem = {
+      id: newItemId(),
+      type: "audio",
+      title: `${asset.name} (Uploaded)`,
+      url: asset.url,
+      start: nextTrackStart(current),
+      duration: Math.max(1, Number(asset.duration || fallbackDuration)),
+      trimStart: 0,
+      trimEnd: Math.max(1, Number(asset.duration || fallbackDuration)),
+      volume: 0.6,
+      motion: "none",
+    };
+
+    setTrackItems("music", (items) => [...items, item]);
+    setSelected({ track: "music", itemId: item.id });
+  }
+
+  async function handleLocalMusicUpload(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setError(null);
+    setUploadingMusic(true);
+
+    try {
+      const built = await Promise.all(
+        files.map(async (file): Promise<LocalMusicAsset | null> => {
+          if (!file.type.startsWith("audio/")) return null;
+          const url = URL.createObjectURL(file);
+          localMusicObjectUrlsRef.current.push(url);
+          const duration = await readAudioDuration(url);
+          return {
+            id: newItemId(),
+            name: file.name,
+            url,
+            duration,
+            size: file.size,
+          };
+        })
+      );
+
+      const next = built.filter((asset): asset is LocalMusicAsset => Boolean(asset));
+      if (!next.length) {
+        setError("Only audio files are supported for music upload.");
+      } else {
+        setLocalMusicAssets((prev) => [...next, ...prev].slice(0, 24));
+      }
+    } finally {
+      setUploadingMusic(false);
+      if (localMusicInputRef.current) localMusicInputRef.current.value = "";
+    }
+  }
+
+  function removeLocalMusicAsset(assetId: string) {
+    const found = localMusicAssets.find((asset) => asset.id === assetId);
+    if (!found) return;
+
+    const inUse = project.music.some((item) => item.url === found.url);
+    if (inUse) {
+      setError("Remove the clip from the music track before deleting this uploaded file.");
+      return;
+    }
+
+    URL.revokeObjectURL(found.url);
+    localMusicObjectUrlsRef.current = localMusicObjectUrlsRef.current.filter((u) => u !== found.url);
+    setLocalMusicAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+  }
+
   function addCaptionBlock() {
     const current = project.captions;
-    const nextStart = current.reduce((max, item) => Math.max(max, item.start + item.duration), 0);
     const item: TimelineItem = {
       id: newItemId(),
       type: "caption",
       title: "Caption block",
-      start: nextStart,
+      start: nextTrackStart(current),
       duration: 4,
       trimStart: 0,
       trimEnd: 4,
@@ -258,17 +425,23 @@ export default function EditorPage() {
 
   function updateSelected(patch: Partial<TimelineItem>) {
     if (!selected) return;
+
     setTrackItems(selected.track, (items) =>
       items.map((item) => {
         if (item.id !== selected.itemId) return item;
+
         const next = { ...item, ...patch };
-        const clampedDuration = Math.max(0.2, Number(next.duration || 0));
+        const safeDuration = Math.max(0.2, Number(next.duration || 0.2));
+        const safeTrimStart = Math.max(0, Math.min(Number(next.trimStart || 0), safeDuration));
+        const safeTrimEnd = Math.max(safeTrimStart, Math.min(Number(next.trimEnd || safeDuration), safeDuration));
+
         return {
           ...next,
-          duration: clampedDuration,
-          trimEnd: Math.max(Number(next.trimStart || 0), Number(next.trimEnd || clampedDuration)),
           start: Math.max(0, Number(next.start || 0)),
-          volume: Math.max(0, Math.min(1, Number(next.volume ?? 1))),
+          duration: safeDuration,
+          trimStart: safeTrimStart,
+          trimEnd: safeTrimEnd,
+          volume: clamp01(Number(next.volume ?? 1)),
         };
       })
     );
@@ -303,13 +476,13 @@ export default function EditorPage() {
       createdAt: new Date().toISOString(),
       project: cloneProject(project),
     };
-    setVersions((prev) => [next, ...prev].slice(0, 8));
+    setVersions((prev) => [next, ...prev].slice(0, 10));
   }
 
   function restoreVersion(id: string) {
     const found = versions.find((v) => v.id === id);
     if (!found) return;
-    setProject(cloneProject(found.project));
+    setProject(normalizeLoadedProject(cloneProject(found.project)));
     setSelected(null);
   }
 
@@ -337,33 +510,46 @@ export default function EditorPage() {
 
   function buildTrackRow(track: TrackKey, label: string, items: TimelineItem[]) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
+      <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold tracking-[0.08em] text-white/60">{label}</div>
+          <div className="text-[12px] font-semibold tracking-[0.05em] text-white/78">{label}</div>
           <div className="text-[11px] text-white/45">{items.length} item{items.length === 1 ? "" : "s"}</div>
         </div>
 
-        <div className="relative h-16 overflow-hidden rounded-xl border border-white/10 bg-black/40">
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+        <div className="relative h-20 overflow-hidden rounded-xl border border-white/10 bg-black/50">
+          <div className="pointer-events-none absolute inset-0">
+            {timelineTicks.map((tick) => (
+              <div
+                key={`${track}-${tick.seconds}`}
+                className="absolute bottom-0 top-0"
+                style={{ left: `${tick.leftPct}%` }}
+              >
+                <div className="h-full border-l border-white/10" />
+                <div className="absolute -top-[1px] left-1 text-[10px] text-white/40">{formatSeconds(tick.seconds)}</div>
+              </div>
+            ))}
+          </div>
+
           {items.map((item) => {
             const left = (item.start / timelineDuration) * 100;
-            const width = Math.max(2, (item.duration / timelineDuration) * 100);
+            const width = Math.max(2.6, (item.duration / timelineDuration) * 100);
             const active = selected?.track === track && selected?.itemId === item.id;
+
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setSelected({ track, itemId: item.id })}
                 className={cx(
-                  "absolute top-2 h-12 min-w-[36px] rounded-lg border px-2 text-left text-[11px] transition",
+                  "absolute top-7 h-11 min-w-[46px] rounded-lg border px-2 text-left text-[11px] transition",
                   laneColor(track),
-                  active && "ring-2 ring-white/50"
+                  active && "ring-2 ring-white/55"
                 )}
                 style={{ left: `${left}%`, width: `${width}%` }}
                 title={`${item.title} • ${formatSeconds(item.start)} - ${formatSeconds(item.start + item.duration)}`}
               >
                 <div className="truncate font-semibold">{item.title}</div>
-                <div className="truncate text-[10px] opacity-80">{formatSeconds(item.duration)}</div>
+                <div className="truncate text-[10px] opacity-85">{formatSeconds(item.duration)}</div>
               </button>
             );
           })}
@@ -396,7 +582,7 @@ export default function EditorPage() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object") {
-          setProject({ ...buildDefaultProject(), ...parsed });
+          setProject(normalizeLoadedProject(parsed));
         }
       }
 
@@ -404,7 +590,7 @@ export default function EditorPage() {
       if (versionsRaw) {
         const parsed = JSON.parse(versionsRaw);
         if (Array.isArray(parsed)) {
-          setVersions(parsed.slice(0, 8));
+          setVersions(parsed.slice(0, 10));
         }
       }
     } catch {
@@ -414,7 +600,7 @@ export default function EditorPage() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(project));
+      window.localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(sanitizeForPersistence(project)));
     } catch {
       // ignore
     }
@@ -428,43 +614,65 @@ export default function EditorPage() {
     }
   }, [versions]);
 
+  useEffect(() => {
+    if (!selected) return;
+    const exists = project[selected.track].some((item) => item.id === selected.itemId);
+    if (!exists) setSelected(null);
+  }, [project, selected]);
+
+  useEffect(() => {
+    if (!previewAudioRow || !audioRef.current) return;
+    const mix = previewAudioRow.track === "music" ? project.musicBedLevel : 1;
+    audioRef.current.volume = clamp01(previewAudioRow.item.volume * mix);
+  }, [previewAudioRow, project.musicBedLevel]);
+
+  useEffect(() => {
+    return () => {
+      localMusicObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      localMusicObjectUrlsRef.current = [];
+    };
+  }, []);
+
+  const selectedEffectiveVolume =
+    selected && selected.track === "music" && selectedItem ? clamp01(selectedItem.volume * project.musicBedLevel) : null;
+
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1320px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+      <main className="relative mx-auto max-w-[1440px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
         <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-12 opacity-45 blur-3xl"
+            className="pointer-events-none absolute -inset-10 opacity-45 blur-3xl"
             style={{
               background:
-                "radial-gradient(240px 160px at 16% 28%, rgba(255,183,3,0.22), transparent 70%), radial-gradient(280px 200px at 80% 34%, rgba(58,134,255,0.18), transparent 72%), radial-gradient(260px 180px at 58% 90%, rgba(251,86,7,0.14), transparent 72%)",
+                "radial-gradient(240px 160px at 16% 28%, rgba(255,183,3,0.22), transparent 70%), radial-gradient(300px 220px at 80% 34%, rgba(58,134,255,0.18), transparent 72%), radial-gradient(260px 180px at 58% 92%, rgba(251,86,7,0.14), transparent 72%)",
             }}
           />
 
           <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="text-xs text-white/55">• Post Editor</div>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92">
-                Production <span className="grad-text">timeline studio</span>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">
+                Professional <span className="grad-text">clip timeline studio</span>
               </h1>
-              <p className="mt-2 max-w-3xl text-sm text-white/65">
-                Professional editing surface with layered tracks, autosave, version snapshots, and export presets for
-                social-safe publishing.
+              <p className="mt-2 max-w-3xl text-sm text-white/68">
+                Build 1-2 minute AI posts with image scenes, voiceover, captions, and music mix controls tuned for
+                social-safe export.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/app/generate" className="btn-ghost text-[12px] px-4 py-2">
-                Generate
+              <Link href="/app/generate" className="btn-ghost px-4 py-2 text-[12px]">
+                Generate Assets
               </Link>
-              <Link href="/app/clips" className="btn-ghost text-[12px] px-4 py-2">
-                Clips
+              <Link href="/app/clips" className="btn-ghost px-4 py-2 text-[12px]">
+                Open Library
               </Link>
               <button
                 type="button"
                 onClick={loadClips}
                 disabled={loading}
-                className={cx("btn-solid-dark text-[12px] px-4 py-2", loading && "opacity-60 cursor-not-allowed")}
+                className={cx("btn-solid-dark px-4 py-2 text-[12px]", loading && "cursor-not-allowed opacity-60")}
               >
                 {loading ? "Refreshing…" : "Refresh assets"}
               </button>
@@ -472,17 +680,17 @@ export default function EditorPage() {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-12">
-          <aside className="xl:col-span-3 grid gap-4">
+        <section className="mt-7 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
+          <aside className="grid gap-4">
             <div className="surface-soft rounded-3xl p-5">
-              <div className="text-xs text-white/55">• Project</div>
+              <div className="text-xs text-white/55">• Project Setup</div>
               <div className="mt-3 grid gap-3">
                 <div className="grid gap-2">
-                  <label className="text-[12px] text-white/65">Name</label>
+                  <label className="text-[12px] text-white/65">Project name</label>
                   <input
                     value={project.name}
                     onChange={(e) => setProject((prev) => ({ ...prev, name: e.target.value }))}
-                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                   />
                 </div>
 
@@ -491,7 +699,7 @@ export default function EditorPage() {
                   <select
                     value={profileId}
                     onChange={(e) => setProfileId(e.target.value)}
-                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                   >
                     {EXPORT_PROFILES.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -506,29 +714,54 @@ export default function EditorPage() {
                   <select
                     value={project.targetDuration}
                     onChange={(e) => setProject((prev) => ({ ...prev, targetDuration: Number(e.target.value || 60) }))}
-                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                    className="h-11 rounded-2xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                   >
                     <option value={60}>1 minute</option>
                     <option value={120}>2 minutes</option>
                   </select>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/65">
-                  Frame: <span className="font-semibold text-white/90">{project.frame}</span>
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-3 text-[12px] text-white/68">
+                  Frame: <span className="font-semibold text-white/92">{project.frame}</span>
                   <br />
-                  Safe area: <span className="font-semibold text-white/90">{showSafeArea ? "Visible" : "Hidden"}</span>
+                  Timeline: <span className="font-semibold text-white/92">{formatSeconds(timelineDuration)}</span>
                   <br />
-                  Timeline: <span className="font-semibold text-white/90">{formatSeconds(timelineDuration)}</span>
+                  Safe area: <span className="font-semibold text-white/92">{showSafeArea ? "Visible" : "Hidden"}</span>
+                </div>
+
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-3">
+                  <div className="mb-1 flex items-center justify-between text-[12px] text-white/70">
+                    <span>Background music mix</span>
+                    <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={project.musicBedLevel}
+                    onChange={(e) =>
+                      setProject((prev) => ({
+                        ...prev,
+                        musicBedLevel: clamp01(Number(e.target.value || prev.musicBedLevel)),
+                      }))
+                    }
+                    className="w-full accent-white"
+                  />
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                  <button type="button" onClick={() => setShowSafeArea((v) => !v)} className="btn-ghost text-[12px] px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSafeArea((v) => !v)}
+                    className="btn-ghost px-3 py-2 text-[12px]"
+                  >
                     {showSafeArea ? "Hide safe area" : "Show safe area"}
                   </button>
-                  <button type="button" onClick={copyRecipe} className="btn-ghost text-[12px] px-3 py-2">
+                  <button type="button" onClick={copyRecipe} className="btn-ghost px-3 py-2 text-[12px]">
                     {copied ? "Copied" : "Copy export JSON"}
                   </button>
-                  <button type="button" onClick={saveVersion} className="btn-solid-dark text-[12px] px-3 py-2">
+                  <button type="button" onClick={saveVersion} className="btn-solid-dark px-3 py-2 text-[12px]">
                     Save version
                   </button>
                 </div>
@@ -536,9 +769,147 @@ export default function EditorPage() {
             </div>
 
             <div className="surface-soft rounded-3xl p-5">
+              <div className="text-xs text-white/55">• Asset Library</div>
+
+              <div className="mt-3 grid gap-3">
+                <div>
+                  <div className="mb-2 text-[12px] font-semibold text-white/80">Videos ({videos.length})</div>
+                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                    {videos.map((clip) => (
+                      <button
+                        key={clip.id}
+                        type="button"
+                        onClick={() => addClipToTrack("visual", clip)}
+                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/83 hover:bg-white/[0.07]"
+                      >
+                        <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
+                        <div className="text-white/52">{formatSeconds(clip.duration || 0)}</div>
+                      </button>
+                    ))}
+                    {!videos.length ? (
+                      <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2 text-[12px] text-white/52">
+                        No video assets yet.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[12px] font-semibold text-white/80">Images ({images.length})</div>
+                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                    {images.map((clip) => (
+                      <button
+                        key={clip.id}
+                        type="button"
+                        onClick={() => addClipToTrack("visual", clip)}
+                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/83 hover:bg-white/[0.07]"
+                      >
+                        <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
+                        <div className="text-white/52">Adds as motion scene</div>
+                      </button>
+                    ))}
+                    {!images.length ? (
+                      <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2 text-[12px] text-white/52">
+                        No image assets yet.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[12px] font-semibold text-white/80">Voiceover & Audio ({audios.length})</div>
+                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                    {audios.map((clip) => (
+                      <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2">
+                        <div className="truncate px-1 text-[11px] font-semibold text-white/84">{clip.title || `Audio #${clip.id}`}</div>
+                        <div className="mt-1 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => addClipToTrack("voiceover", clip)}
+                            className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/82 hover:bg-white/[0.08]"
+                          >
+                            To Voice
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addClipToTrack("music", clip)}
+                            className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/82 hover:bg-white/[0.08]"
+                          >
+                            To Music
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {!audios.length ? (
+                      <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2 text-[12px] text-white/52">
+                        No audio assets yet.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-3">
+                  <div className="mb-2 text-[12px] font-semibold text-white/82">Upload your own music</div>
+                  <div className="flex gap-2">
+                    <input
+                      ref={localMusicInputRef}
+                      type="file"
+                      accept="audio/*"
+                      multiple
+                      onChange={handleLocalMusicUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => localMusicInputRef.current?.click()}
+                      disabled={uploadingMusic}
+                      className={cx("btn-ghost px-3 py-2 text-[12px]", uploadingMusic && "cursor-not-allowed opacity-60")}
+                    >
+                      {uploadingMusic ? "Uploading…" : "Upload music"}
+                    </button>
+                    <button type="button" onClick={addCaptionBlock} className="btn-ghost px-3 py-2 text-[12px]">
+                      Add caption
+                    </button>
+                  </div>
+
+                  {localMusicAssets.length ? (
+                    <div className="mt-3 grid max-h-40 gap-2 overflow-auto pr-1">
+                      {localMusicAssets.map((asset) => (
+                        <div key={asset.id} className="rounded-xl border border-white/10 bg-black/40 px-3 py-2">
+                          <div className="truncate text-[12px] font-semibold text-white/88">{asset.name}</div>
+                          <div className="text-[11px] text-white/52">
+                            {formatSeconds(asset.duration)} • {formatBytes(asset.size)}
+                          </div>
+                          <div className="mt-1.5 grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => addLocalMusicToTrack(asset)}
+                              className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1.5 text-[11px] text-white/86 hover:bg-white/[0.1]"
+                            >
+                              Add to Music
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeLocalMusicAsset(asset.id)}
+                              className="rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 text-[11px] text-white/70 hover:bg-white/[0.08]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[11px] text-white/50">MP3, WAV, M4A, OGG and more are supported.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Versions</div>
               {versions.length ? (
-                <div className="mt-3 grid gap-2">
+                <div className="mt-3 grid max-h-44 gap-2 overflow-auto pr-1">
                   {versions.map((v) => (
                     <button
                       key={v.id}
@@ -546,7 +917,7 @@ export default function EditorPage() {
                       onClick={() => restoreVersion(v.id)}
                       className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/[0.06]"
                     >
-                      <div className="font-semibold text-white/90">{v.label}</div>
+                      <div className="truncate font-semibold text-white/92">{v.label}</div>
                       <div className="text-white/55">{new Date(v.createdAt).toLocaleString()}</div>
                     </button>
                   ))}
@@ -559,11 +930,14 @@ export default function EditorPage() {
             </div>
           </aside>
 
-          <section className="xl:col-span-6 grid gap-4">
+          <section className="grid gap-4">
             <div className="surface rounded-3xl p-5">
               <div className="text-xs text-white/55">• Preview</div>
               <div className="mt-3 rounded-3xl border border-white/10 bg-black/35 p-3">
-                <div className="relative mx-auto w-full max-w-[560px] overflow-hidden rounded-2xl border border-white/10 bg-black" style={{ aspectRatio: aspectValue(project.frame) }}>
+                <div
+                  className="relative mx-auto w-full max-w-[620px] overflow-hidden rounded-2xl border border-white/10 bg-black"
+                  style={{ aspectRatio: aspectValue(project.frame) }}
+                >
                   {previewVisual?.type === "image" && previewVisual.url ? (
                     <img src={previewVisual.url} alt={previewVisual.title} className="h-full w-full object-cover" />
                   ) : previewVisual?.url ? (
@@ -576,38 +950,64 @@ export default function EditorPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-white/55">Add visual assets to start previewing.</div>
+                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-white/55">
+                      Add image or video assets to the visual track to start previewing.
+                    </div>
                   )}
 
                   {showSafeArea ? (
                     <>
-                      <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/30" style={{ height: `${profile.safeTop * 100}%` }} />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/30" style={{ height: `${profile.safeBottom * 100}%` }} />
+                      <div
+                        className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35"
+                        style={{ height: `${profile.safeTop * 100}%` }}
+                      />
+                      <div
+                        className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35"
+                        style={{ height: `${profile.safeBottom * 100}%` }}
+                      />
                     </>
                   ) : null}
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/65">
-                    Visual: <span className="text-white/90">{previewVisual?.title || "None"}</span>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                    Visual
                     <br />
-                    Type: <span className="text-white/90">{previewVisual?.type || "N/A"}</span>
+                    <span className="font-semibold text-white/92">{previewVisual?.title || "None"}</span>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/65">
-                    Audio: <span className="text-white/90">{previewAudio?.title || "None"}</span>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                    Audio
                     <br />
-                    Duration: <span className="text-white/90">{formatSeconds(previewAudio?.duration || 0)}</span>
+                    <span className="font-semibold text-white/92">{previewAudioRow?.item.title || "None"}</span>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                    Music bed
+                    <br />
+                    <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
                   </div>
                 </div>
 
-                {previewAudio?.url ? (
-                  <audio ref={audioRef} src={previewAudio.url} controls className="mt-3 w-full" preload="metadata" />
+                {previewAudioRow?.item.url ? (
+                  <div className="mt-3">
+                    <div className="mb-1 text-[11px] text-white/58">
+                      {previewAudioRow.track === "music" ? "Music preview" : "Voiceover preview"} • effective level{" "}
+                      {previewAudioRow.track === "music"
+                        ? formatPercent(previewAudioRow.item.volume * project.musicBedLevel)
+                        : formatPercent(previewAudioRow.item.volume)}
+                    </div>
+                    <audio ref={audioRef} src={previewAudioRow.item.url} controls className="w-full" preload="metadata" />
+                  </div>
                 ) : null}
               </div>
             </div>
 
             <div className="surface rounded-3xl p-5">
-              <div className="text-xs text-white/55">• Timeline</div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-white/55">• Timeline</div>
+                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
+                  Total length {formatSeconds(timelineDuration)}
+                </div>
+              </div>
               <div className="mt-3 grid gap-3">
                 {buildTrackRow("visual", "Visual Track (Video + Image)", project.visual)}
                 {buildTrackRow("voiceover", "Voiceover Track", project.voiceover)}
@@ -617,81 +1017,13 @@ export default function EditorPage() {
             </div>
           </section>
 
-          <aside className="xl:col-span-3 grid gap-4">
-            <div className="surface-soft rounded-3xl p-5">
-              <div className="text-xs text-white/55">• Asset Library</div>
-
-              <div className="mt-3 grid gap-3">
-                <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/75">Videos ({videos.length})</div>
-                  <div className="grid gap-2 max-h-44 overflow-auto pr-1">
-                    {videos.map((clip) => (
-                      <button
-                        key={clip.id}
-                        type="button"
-                        onClick={() => addClipToTrack("visual", clip)}
-                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/[0.06]"
-                      >
-                        <div className="truncate font-semibold text-white/90">{clip.title || `Video #${clip.id}`}</div>
-                        <div className="text-white/50">{formatSeconds(clip.duration || 0)}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/75">Images ({images.length})</div>
-                  <div className="grid gap-2 max-h-44 overflow-auto pr-1">
-                    {images.map((clip) => (
-                      <button
-                        key={clip.id}
-                        type="button"
-                        onClick={() => addClipToTrack("visual", clip)}
-                        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/[0.06]"
-                      >
-                        <div className="truncate font-semibold text-white/90">{clip.title || `Image #${clip.id}`}</div>
-                        <div className="text-white/50">Adds as motion scene</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/75">Audio ({audios.length})</div>
-                  <div className="grid gap-2 max-h-44 overflow-auto pr-1">
-                    {audios.map((clip) => (
-                      <div key={clip.id} className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => addClipToTrack("voiceover", clip)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-[11px] text-white/80 hover:bg-white/[0.06]"
-                        >
-                          Voice
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => addClipToTrack("music", clip)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-[11px] text-white/80 hover:bg-white/[0.06]"
-                        >
-                          Music
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <button type="button" onClick={addCaptionBlock} className="btn-ghost text-[12px] px-3 py-2">
-                  Add caption block
-                </button>
-              </div>
-            </div>
-
+          <aside className="grid gap-4">
             <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
                 <div className="mt-3 grid gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/70">
-                    <div className="font-semibold text-white/90">{selectedItem.title}</div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/70">
+                    <div className="truncate font-semibold text-white/92">{selectedItem.title}</div>
                     <div className="text-white/55">Track: {selected.track}</div>
                   </div>
 
@@ -700,7 +1032,7 @@ export default function EditorPage() {
                     <input
                       value={selectedItem.title}
                       onChange={(e) => updateSelected({ title: e.target.value })}
-                      className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                     />
                   </div>
 
@@ -713,7 +1045,7 @@ export default function EditorPage() {
                         min={0}
                         value={selectedItem.start}
                         onChange={(e) => updateSelected({ start: Number(e.target.value || 0) })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                       />
                     </div>
                     <div className="grid gap-2">
@@ -724,7 +1056,7 @@ export default function EditorPage() {
                         min={0.2}
                         value={selectedItem.duration}
                         onChange={(e) => updateSelected({ duration: Number(e.target.value || 1) })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                       />
                     </div>
                   </div>
@@ -739,7 +1071,7 @@ export default function EditorPage() {
                           min={0}
                           value={selectedItem.trimStart}
                           onChange={(e) => updateSelected({ trimStart: Number(e.target.value || 0) })}
-                          className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                         />
                       </div>
                       <div className="grid gap-2">
@@ -750,15 +1082,18 @@ export default function EditorPage() {
                           min={0}
                           value={selectedItem.trimEnd}
                           onChange={(e) => updateSelected({ trimEnd: Number(e.target.value || 0) })}
-                          className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                          className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                         />
                       </div>
                     </div>
                   ) : null}
 
                   {(selectedItem.type === "audio" || selected.track === "music") ? (
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Volume</label>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="mb-2 flex items-center justify-between text-[12px] text-white/70">
+                        <span>Clip volume</span>
+                        <span className="font-semibold text-white/92">{formatPercent(selectedItem.volume)}</span>
+                      </div>
                       <input
                         type="range"
                         min={0}
@@ -768,6 +1103,12 @@ export default function EditorPage() {
                         onChange={(e) => updateSelected({ volume: Number(e.target.value || 1) })}
                         className="w-full accent-white"
                       />
+
+                      {selected.track === "music" ? (
+                        <div className="mt-2 text-[11px] text-white/58">
+                          Effective after bed mix: {selectedEffectiveVolume !== null ? formatPercent(selectedEffectiveVolume) : "0%"}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -777,7 +1118,7 @@ export default function EditorPage() {
                       <select
                         value={selectedItem.motion}
                         onChange={(e) => updateSelected({ motion: e.target.value as "none" | "kenburns" })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                       >
                         <option value="kenburns">Ken Burns</option>
                         <option value="none">None</option>
@@ -792,29 +1133,88 @@ export default function EditorPage() {
                         rows={4}
                         value={selectedItem.text || ""}
                         onChange={(e) => updateSelected({ text: e.target.value })}
-                        className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white/92 outline-none focus:border-white/25"
                       />
                     </div>
                   ) : null}
 
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <button type="button" onClick={duplicateSelected} className="btn-ghost text-[12px] px-3 py-2">
+                    <button type="button" onClick={duplicateSelected} className="btn-ghost px-3 py-2 text-[12px]">
                       Duplicate
                     </button>
-                    <button type="button" onClick={removeSelected} className="btn-ghost text-[12px] px-3 py-2">
+                    <button type="button" onClick={removeSelected} className="btn-ghost px-3 py-2 text-[12px]">
                       Remove
                     </button>
                   </div>
 
-                  <button type="button" onClick={createQuickCropFromSelection} className="btn-solid-dark text-[12px] px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={createQuickCropFromSelection}
+                    className="btn-solid-dark px-3 py-2 text-[12px]"
+                  >
                     Quick render trimmed video
                   </button>
                 </div>
               ) : (
                 <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                  Select any timeline item to inspect and edit timing, trims, motion, captions, and levels.
+                  Select an item in the timeline to edit timing, trims, caption text, and levels.
                 </div>
               )}
+            </div>
+
+            <div className="surface-soft rounded-3xl p-5">
+              <div className="text-xs text-white/55">• Audio Mix</div>
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="mb-1 flex items-center justify-between text-[12px] text-white/70">
+                  <span>Background music level</span>
+                  <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={project.musicBedLevel}
+                  onChange={(e) =>
+                    setProject((prev) => ({
+                      ...prev,
+                      musicBedLevel: clamp01(Number(e.target.value || prev.musicBedLevel)),
+                    }))
+                  }
+                  className="w-full accent-white"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProject((prev) => ({ ...prev, musicBedLevel: 0.25 }))}
+                    className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/78 hover:bg-white/[0.08]"
+                  >
+                    Low
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProject((prev) => ({ ...prev, musicBedLevel: 0.4 }))}
+                    className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/78 hover:bg-white/[0.08]"
+                  >
+                    Medium
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProject((prev) => ({ ...prev, musicBedLevel: 0.6 }))}
+                    className="rounded-full border border-white/10 bg-black/40 px-2.5 py-1 text-[11px] text-white/78 hover:bg-white/[0.08]"
+                  >
+                    Loud
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/65">
+                Voiceover items: <span className="font-semibold text-white/92">{project.voiceover.length}</span>
+                <br />
+                Music items: <span className="font-semibold text-white/92">{project.music.length}</span>
+                <br />
+                Captions: <span className="font-semibold text-white/92">{project.captions.length}</span>
+              </div>
             </div>
           </aside>
         </section>

@@ -299,7 +299,7 @@ export default function StudioPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
               <div className="text-xs text-white/50">Step 2</div>
               <div className="mt-1 text-sm font-semibold text-white/85">Create clips</div>
-              <p className="mt-1 text-xs text-white/60">Generate in Console and review outputs in Clips.</p>
+              <p className="mt-1 text-xs text-white/60">Generate in Generator and review outputs in Clips.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
               <div className="text-xs text-white/50">Step 3</div>

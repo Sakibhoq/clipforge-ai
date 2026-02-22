@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import math
 import os
@@ -8,6 +9,7 @@ from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+import requests
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -138,6 +140,98 @@ def _post_credits_needed(duration_seconds: int) -> int:
     per_minute = _env_int("LABS_POST_CREDITS_PER_MINUTE", 15, min_value=1, max_value=10_000)
     minutes = max(1, int(math.ceil(float(max(1, int(duration_seconds or 0))) / 60.0)))
     return minutes * per_minute
+
+
+def _voice_language_code(voice_name: str) -> str:
+    raw = (voice_name or "").replace("_", "-").strip()
+    if not raw:
+        return (os.getenv("GOOGLE_TTS_LANGUAGE_CODE") or "en-US").strip() or "en-US"
+    parts = raw.split("-")
+    if len(parts) >= 2 and parts[0] and parts[1]:
+        return f"{parts[0].lower()}-{parts[1].upper()}"
+    return (os.getenv("GOOGLE_TTS_LANGUAGE_CODE") or "en-US").strip() or "en-US"
+
+
+def _resolve_google_tts_endpoint() -> str:
+    raw = (
+        os.getenv("GOOGLE_TTS_API_URL")
+        or "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}"
+    ).strip()
+
+    if "{API_KEY}" in raw:
+        key = (os.getenv("GOOGLE_API_KEY") or "").strip()
+        if not key:
+            raise HTTPException(
+                status_code=503,
+                detail="Voice preview unavailable: GOOGLE_API_KEY is not configured.",
+            )
+        return raw.replace("{API_KEY}", key)
+
+    if not raw:
+        raise HTTPException(status_code=503, detail="Voice preview unavailable.")
+    return raw
+
+
+def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> tuple[str, bytes]:
+    endpoint = _resolve_google_tts_endpoint()
+    safe_speed = max(80, min(260, int(speed_wpm or 165)))
+    speaking_rate = max(0.5, min(2.0, float(safe_speed) / 165.0))
+
+    default_voice_name = (os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
+    selected_voice = (voice_name or "").strip()[:64] or default_voice_name
+    if selected_voice.lower() in {"auto", "default", "en-us", "en_us"}:
+        selected_voice = default_voice_name
+
+    payload = {
+        "input": {"text": (text or "").strip()[:240] or "This is a quick voice preview."},
+        "voice": {
+            "languageCode": _voice_language_code(selected_voice),
+            "name": selected_voice,
+        },
+        "audioConfig": {
+            "audioEncoding": "MP3",
+            "speakingRate": speaking_rate,
+        },
+    }
+
+    try:
+        resp = requests.post(endpoint, json=payload, timeout=20)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Voice preview provider request failed.")
+
+    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+
+    if resp.status_code >= 400:
+        detail = ""
+        try:
+            data = resp.json()
+            err = data.get("error") if isinstance(data, dict) else None
+            if isinstance(err, dict):
+                detail = str(err.get("message") or "")
+            elif err:
+                detail = str(err)
+        except Exception:
+            detail = resp.text[:200]
+        raise HTTPException(status_code=502, detail=f"Voice preview failed ({resp.status_code}). {detail}".strip())
+
+    if content_type.startswith("audio/") and resp.content:
+        return content_type, resp.content
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Voice preview response could not be parsed.")
+
+    audio_b64 = data.get("audioContent") if isinstance(data, dict) else None
+    if not isinstance(audio_b64, str) or not audio_b64.strip():
+        raise HTTPException(status_code=502, detail="Voice preview response had no audio content.")
+
+    try:
+        audio_bytes = base64.b64decode(audio_b64.strip())
+    except Exception:
+        raise HTTPException(status_code=502, detail="Voice preview payload was invalid.")
+
+    return "audio/mpeg", audio_bytes
 
 
 def _check_model_supported(model: str | None) -> str:
@@ -305,6 +399,40 @@ class GenerateResponse(BaseModel):
     duration_seconds: int | None = None
     text_length: int | None = None
     generation_speed: str | None = None
+
+
+class VoicePreviewRequest(BaseModel):
+    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
+    speed_wpm: int = Field(default=165, ge=80, le=260)
+    text: str | None = Field(default=None, max_length=240)
+
+
+class VoicePreviewResponse(BaseModel):
+    voice_name: str
+    content_type: str
+    audio_base64: str
+
+
+@router.post("/voice-preview", response_model=VoicePreviewResponse)
+def voice_preview(
+    payload: VoicePreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    # Auth is required to avoid anonymous abuse of the preview endpoint.
+    _ = current_user.id
+
+    selected_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
+    sample_text = (payload.text or "").strip()[:240] or "This is a quick voice preview for your next post."
+    content_type, audio_bytes = _synthesize_voice_preview(
+        voice_name=selected_voice,
+        speed_wpm=int(payload.speed_wpm or 165),
+        text=sample_text,
+    )
+    return VoicePreviewResponse(
+        voice_name=selected_voice,
+        content_type=content_type,
+        audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
+    )
 
 
 @router.post("/generate", response_model=GenerateResponse)
