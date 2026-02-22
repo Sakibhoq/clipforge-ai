@@ -516,7 +516,7 @@ export default function EditorPage() {
           <div className="text-[11px] text-white/45">{items.length} item{items.length === 1 ? "" : "s"}</div>
         </div>
 
-        <div className="relative h-20 overflow-hidden rounded-xl border border-white/10 bg-black/50">
+        <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-black/55">
           <div className="pointer-events-none absolute inset-0">
             {timelineTicks.map((tick) => (
               <div
@@ -525,7 +525,7 @@ export default function EditorPage() {
                 style={{ left: `${tick.leftPct}%` }}
               >
                 <div className="h-full border-l border-white/10" />
-                <div className="absolute -top-[1px] left-1 text-[10px] text-white/40">{formatSeconds(tick.seconds)}</div>
+                <div className="absolute left-1 top-1 text-[10px] text-white/40">{formatSeconds(tick.seconds)}</div>
               </div>
             ))}
           </div>
@@ -541,7 +541,7 @@ export default function EditorPage() {
                 type="button"
                 onClick={() => setSelected({ track, itemId: item.id })}
                 className={cx(
-                  "absolute top-7 h-11 min-w-[46px] rounded-lg border px-2 text-left text-[11px] transition",
+                  "absolute top-8 h-12 min-w-[52px] rounded-lg border px-2 text-left text-[11px] transition",
                   laneColor(track),
                   active && "ring-2 ring-white/55"
                 )}
@@ -638,7 +638,7 @@ export default function EditorPage() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1440px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+      <main className="relative mx-auto max-w-[1600px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
         <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div
             aria-hidden="true"
@@ -653,11 +653,10 @@ export default function EditorPage() {
             <div>
               <div className="text-xs text-white/55">• Post Editor</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95">
-                Professional <span className="grad-text">clip timeline studio</span>
+                Professional <span className="grad-text">timeline workspace</span>
               </h1>
               <p className="mt-2 max-w-3xl text-sm text-white/68">
-                Build 1-2 minute AI posts with image scenes, voiceover, captions, and music mix controls tuned for
-                social-safe export.
+                Scene-first editor for 1-2 minute posts with layered tracks, music mix control, and social-safe framing.
               </p>
             </div>
 
@@ -680,8 +679,18 @@ export default function EditorPage() {
           </div>
         </section>
 
-        <section className="mt-7 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
-          <aside className="grid gap-4">
+        <section className="mt-6 surface rounded-3xl p-4 sm:p-5 xl:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-white/55">
+              • Editor Console • Frame {project.frame} • Timeline {formatSeconds(timelineDuration)}
+            </div>
+            <div className="text-xs text-white/55">
+              Music bed {formatPercent(project.musicBedLevel)} • {showSafeArea ? "Safe area on" : "Safe area off"}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          <aside className="grid min-w-0 gap-4">
             <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Project Setup</div>
               <div className="mt-3 grid gap-3">
@@ -850,7 +859,7 @@ export default function EditorPage() {
 
                 <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-3">
                   <div className="mb-2 text-[12px] font-semibold text-white/82">Upload your own music</div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <input
                       ref={localMusicInputRef}
                       type="file"
@@ -863,11 +872,11 @@ export default function EditorPage() {
                       type="button"
                       onClick={() => localMusicInputRef.current?.click()}
                       disabled={uploadingMusic}
-                      className={cx("btn-ghost px-3 py-2 text-[12px]", uploadingMusic && "cursor-not-allowed opacity-60")}
+                      className={cx("btn-ghost w-full px-3 py-2 text-[12px] sm:w-auto", uploadingMusic && "cursor-not-allowed opacity-60")}
                     >
                       {uploadingMusic ? "Uploading…" : "Upload music"}
                     </button>
-                    <button type="button" onClick={addCaptionBlock} className="btn-ghost px-3 py-2 text-[12px]">
+                    <button type="button" onClick={addCaptionBlock} className="btn-ghost w-full px-3 py-2 text-[12px] sm:w-auto">
                       Add caption
                     </button>
                   </div>
@@ -930,12 +939,12 @@ export default function EditorPage() {
             </div>
           </aside>
 
-          <section className="grid gap-4">
-            <div className="surface rounded-3xl p-5">
-              <div className="text-xs text-white/55">• Preview</div>
-              <div className="mt-3 rounded-3xl border border-white/10 bg-black/35 p-3">
+          <section className="grid min-w-0 gap-4">
+            <div className="surface rounded-3xl p-4 sm:p-5">
+              <div className="text-xs text-white/55">• Preview Stage</div>
+              <div className="mt-3 rounded-3xl border border-white/10 bg-black/45 p-3 sm:p-4">
                 <div
-                  className="relative mx-auto w-full max-w-[620px] overflow-hidden rounded-2xl border border-white/10 bg-black"
+                  className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded-2xl border border-white/10 bg-black"
                   style={{ aspectRatio: aspectValue(project.frame) }}
                 >
                   {previewVisual?.type === "image" && previewVisual.url ? (
@@ -1001,23 +1010,25 @@ export default function EditorPage() {
               </div>
             </div>
 
-            <div className="surface rounded-3xl p-5">
+            <div className="surface rounded-3xl p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
                 <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
                   Total length {formatSeconds(timelineDuration)}
                 </div>
               </div>
-              <div className="mt-3 grid gap-3">
-                {buildTrackRow("visual", "Visual Track (Video + Image)", project.visual)}
-                {buildTrackRow("voiceover", "Voiceover Track", project.voiceover)}
-                {buildTrackRow("music", "Music Track", project.music)}
-                {buildTrackRow("captions", "Captions Track", project.captions)}
+              <div className="mt-3 overflow-x-auto pb-1">
+                <div className="grid min-w-[820px] gap-3">
+                  {buildTrackRow("visual", "Visual Track (Video + Image)", project.visual)}
+                  {buildTrackRow("voiceover", "Voiceover Track", project.voiceover)}
+                  {buildTrackRow("music", "Music Track", project.music)}
+                  {buildTrackRow("captions", "Captions Track", project.captions)}
+                </div>
               </div>
             </div>
           </section>
 
-          <aside className="grid gap-4">
+          <aside className="grid min-w-0 gap-4">
             <div className="surface-soft rounded-3xl p-5">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
@@ -1036,7 +1047,7 @@ export default function EditorPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div className="grid gap-2">
                       <label className="text-[12px] text-white/65">Start</label>
                       <input
@@ -1062,7 +1073,7 @@ export default function EditorPage() {
                   </div>
 
                   {selectedItem.type === "video" ? (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <div className="grid gap-2">
                         <label className="text-[12px] text-white/65">Trim start</label>
                         <input
@@ -1217,6 +1228,7 @@ export default function EditorPage() {
               </div>
             </div>
           </aside>
+          </div>
         </section>
 
         {error ? (

@@ -237,44 +237,47 @@ export default function GenerateClient() {
   }
 
   function renderVoiceSelector() {
+    const activePreviewKey = voicePreviewKey(voiceName, voiceSpeed);
+    const previewLoading = voicePreviewPlayingKey === activePreviewKey;
+
     return (
       <div className="grid gap-2">
         <label className="text-xs font-medium text-white/70">Voice</label>
-        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-2">
-          {VOICE_OPTIONS.map((opt) => {
-            const isSelected = voiceName === opt.value;
-            const key = voicePreviewKey(opt.value, voiceSpeed);
-            const isPlaying = voicePreviewPlayingKey === key;
-
-            return (
-              <div key={opt.value} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => setVoiceName(opt.value)}
-                  className={cx(
-                    "w-full flex-1 rounded-xl border px-3 py-2 text-left text-[11px] leading-snug transition sm:text-[12px]",
-                    isSelected
-                      ? "border-white/30 bg-white/14 text-white"
-                      : "border-white/10 bg-black/40 text-white/78 hover:bg-white/8"
-                  )}
-                >
+        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={voiceName}
+              onChange={(e) => {
+                setVoiceName(e.target.value);
+                setVoicePreviewError(null);
+              }}
+              className="h-10 w-full rounded-xl border border-white/10 bg-black/55 px-3 text-[12px] text-white/90 outline-none focus:border-white/25"
+            >
+              {VOICE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
                   {opt.label}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => playVoicePreview(opt.value)}
-                  className={cx(
-                    "w-full min-w-[84px] rounded-xl border px-2.5 py-2 text-[11px] font-semibold transition sm:w-auto",
-                    isPlaying
-                      ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100"
-                      : "border-white/12 bg-white/[0.06] text-white/82 hover:bg-white/[0.12]"
-                  )}
-                >
-                  {isPlaying ? "Playing…" : "Preview"}
-                </button>
-              </div>
-            );
-          })}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => playVoicePreview(voiceName)}
+              className={cx(
+                "h-10 rounded-xl border px-3 text-[11px] font-semibold transition sm:min-w-[92px]",
+                previewLoading
+                  ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100"
+                  : "border-white/12 bg-white/[0.06] text-white/82 hover:bg-white/[0.12]"
+              )}
+            >
+              {previewLoading ? "Playing…" : "Preview"}
+            </button>
+          </div>
+          <div className="text-[11px] text-white/55">
+            Current voice:{" "}
+            <span className="font-semibold text-white/88">
+              {VOICE_OPTIONS.find((opt) => opt.value === voiceName)?.label || voiceName}
+            </span>
+          </div>
         </div>
 
         {voicePreviewError ? (
@@ -468,356 +471,364 @@ export default function GenerateClient() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1200px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8">
+      <main className="relative mx-auto max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
+        <section className="surface relative overflow-hidden rounded-3xl border border-white/10 p-5 sm:p-7">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -inset-16 opacity-50 blur-3xl"
             style={{
               background:
-                "radial-gradient(300px 180px at 14% 30%, rgba(255,183,3,0.20), transparent 72%), radial-gradient(320px 200px at 88% 35%, rgba(58,134,255,0.18), transparent 74%), radial-gradient(300px 180px at 55% 96%, rgba(251,86,7,0.12), transparent 76%)",
+                "radial-gradient(340px 220px at 12% 18%, rgba(255,183,3,0.24), transparent 72%), radial-gradient(360px 220px at 88% 18%, rgba(58,134,255,0.2), transparent 74%), radial-gradient(340px 220px at 56% 98%, rgba(251,86,7,0.16), transparent 76%)",
             }}
           />
 
-          <div className="relative grid gap-6">
+          <div className="relative grid gap-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs text-white/55">• Generator</div>
+                <div className="text-xs text-white/55">• Generator Console</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  <span className="grad-text">Generator</span>
+                  <span className="grad-text">Build Social-Ready AI Posts Faster</span>
                 </h1>
-                <p className="mt-2 max-w-2xl text-sm text-white/70">
-                  Create 1-2 minute AI posts with image + voice, or generate standalone video, image, and voiceover
-                  assets from one place.
+                <p className="mt-2 max-w-3xl text-sm text-white/70 sm:text-[15px]">
+                  Prompt once, generate assets, and move straight into timeline editing. Optimized for mobile and
+                  desktop workflows.
                 </p>
               </div>
 
-              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
-                <Link href="/pricing" className="btn-solid-dark flex-1 px-4 py-2 text-center text-xs sm:flex-none">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
+                <Link href="/pricing" className="btn-solid-dark col-span-1 px-4 py-2 text-center text-xs">
                   Buy more credits
                 </Link>
-                <Link href="/app/editor" className="btn-ghost flex-1 px-4 py-2 text-center text-xs sm:flex-none">
+                <Link href="/app/editor" className="btn-ghost col-span-1 px-4 py-2 text-center text-xs">
                   Open editor
                 </Link>
                 {activeJob ? (
-                  <span className={cx("rounded-full border px-3 py-1.5 text-xs font-semibold", statusTone(status))}>
+                  <span
+                    className={cx(
+                      "col-span-2 rounded-full border px-3 py-1.5 text-center text-xs font-semibold sm:col-auto",
+                      statusTone(status)
+                    )}
+                  >
                     {statusLabel}
                   </span>
                 ) : null}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Mode</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">{modeLabel(mode)}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Estimated cost</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">{estimatedCredits} credits</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Current plan</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">{String(currentPlan || "free").toUpperCase()}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Target duration</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">
-                  {mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A"}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: "Mode", value: modeLabel(mode) },
+                { label: "Estimated Cost", value: `${estimatedCredits} credits` },
+                { label: "Plan", value: String(currentPlan || "free").toUpperCase() },
+                {
+                  label: "Target",
+                  value: mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A",
+                },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{item.label}</div>
+                  <div className="mt-1 text-sm font-semibold text-white/90">{item.value}</div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6">
+        <form onSubmit={onGenerate} className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
           <div className="surface rounded-3xl border border-white/10 p-5 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="text-xs text-white/55">• Controls</div>
-                <div className="mt-1 text-base font-semibold text-white/90">Prompt and rendering settings</div>
-                <div className="mt-1 text-xs text-white/55">
-                  Generator defaults to AI Post for longer clips, with video, image, and voiceover modes available.
+                <div className="text-xs text-white/55">• Prompt Builder</div>
+                <div className="mt-1 text-base font-semibold text-white/90">Create with one clean workflow</div>
+                <div className="mt-1 text-xs text-white/55 sm:text-[13px]">
+                  Start with AI Post for 1-2 minute output, or switch lanes for dedicated video/image/voice jobs.
                 </div>
               </div>
               <Link
                 href="/app/clips"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/75 hover:bg-white/10 sm:w-auto sm:text-left"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/75 hover:bg-white/10 sm:w-auto"
               >
                 Open clips library
               </Link>
             </div>
 
-            <form onSubmit={onGenerate} className="mt-5 grid gap-5">
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
-                {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    className={cx(
-                      "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
-                      mode === m
-                        ? "border-white/30 bg-white/18 text-white"
-                        : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
-                    )}
-                  >
-                    {modeLabel(m)}
-                  </button>
-                ))}
+            <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
+              {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={cx(
+                    "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
+                    mode === m
+                      ? "border-white/30 bg-white/18 text-white"
+                      : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
+                  )}
+                >
+                  {modeLabel(m)}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {mode === "post" ? (
+                <>
+                  <label className="text-xs font-medium text-white/70">Visual direction</label>
+                  <textarea
+                    value={postVisualPrompt}
+                    onChange={(e) => setPostVisualPrompt(e.target.value)}
+                    rows={4}
+                    placeholder="Describe the visual story, framing, motion language, and visual style."
+                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                  />
+
+                  <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
+                  <textarea
+                    value={postVoiceScript}
+                    onChange={(e) => setPostVoiceScript(e.target.value)}
+                    rows={9}
+                    placeholder="Write the narration for your full 1-2 minute post."
+                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                  />
+                  <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
+                </>
+              ) : (
+                <>
+                  <label className="text-xs font-medium text-white/70">Prompt</label>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={mode === "voiceover" ? 10 : 8}
+                    placeholder={
+                      mode === "voiceover"
+                        ? "Write the exact script you want spoken."
+                        : mode === "image"
+                          ? "Describe subject, angle, lighting, and mood."
+                          : "Describe scene, motion, framing, and style in 1-2 lines."
+                    }
+                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
+                  />
+                  <div className="text-[11px] text-white/50">
+                    {mode === "voiceover"
+                      ? `${textLength.toLocaleString()} characters`
+                      : "Short, direct prompts generate cleaner output."}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {error ? (
+              <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
+                <div className="font-semibold text-rose-50">Generation issue</div>
+                <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
+                {errorTechnical ? (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
+                    <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-rose-300/20 bg-black/20 p-2 text-[11px] text-rose-50/85">
+                      {errorTechnical}
+                    </pre>
+                  </details>
+                ) : null}
+                {needsBilling ? (
+                  <div className="mt-2">
+                    <Link href="/pricing" className="underline decoration-rose-200/30 underline-offset-4">
+                      Open pricing
+                    </Link>
+                  </div>
+                ) : null}
               </div>
+            ) : null}
 
-              <div className="grid gap-4 xl:grid-cols-1 2xl:grid-cols-12">
-                <div className="grid min-w-0 gap-2 2xl:col-span-7">
-                  {mode === "post" ? (
-                    <>
-                      <label className="text-xs font-medium text-white/70">Visual direction</label>
-                      <textarea
-                        value={postVisualPrompt}
-                        onChange={(e) => setPostVisualPrompt(e.target.value)}
-                        rows={4}
-                        placeholder="Describe the visual story: style, camera language, mood, and subject continuity."
-                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                      />
+            {activeJob?.status === "failed" && activeJob?.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
+                <div className="font-semibold text-rose-50">Latest job failed</div>
+                <div className="mt-1 whitespace-pre-wrap break-words">{humanizeGenerationError(String(activeJob.error))}</div>
+              </div>
+            ) : null}
 
-                      <label className="mt-2 text-xs font-medium text-white/70">Voiceover script</label>
-                      <textarea
-                        value={postVoiceScript}
-                        onChange={(e) => setPostVoiceScript(e.target.value)}
-                        rows={8}
-                        placeholder="Write the full 1–2 minute narration. Keep sentence flow natural for TTS pacing."
-                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                      />
-                      <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters in script</div>
-                    </>
-                  ) : (
-                    <>
-                      <label className="text-xs font-medium text-white/70">Prompt</label>
-                      <textarea
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        rows={mode === "voiceover" ? 10 : 8}
-                        placeholder={
-                          mode === "voiceover"
-                            ? "Write the exact script you want spoken."
-                            : mode === "image"
-                              ? "Describe subject, angle, lighting, and mood."
-                              : "Describe scene, motion, framing, and style in 1–2 lines."
-                        }
-                        className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                      />
-                      <div className="text-[11px] text-white/50">
-                        {mode === "voiceover"
-                          ? `${textLength.toLocaleString()} characters`
-                          : "Use concise prompts for faster, cleaner results."}
-                      </div>
-                    </>
-                  )}
-                </div>
+            <button
+              type="submit"
+              disabled={!canGenerate}
+              className={cx(
+                "mt-5 h-12 w-full rounded-2xl border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                canGenerate
+                  ? "border-white/12 bg-white/12 text-white hover:bg-white/18"
+                  : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+              )}
+            >
+              {submitting ? "Starting generation..." : `Generate ${modeLabel(mode)}`}
+            </button>
+          </div>
 
-                <div className="grid min-w-0 gap-4 2xl:col-span-5">
-                  {(mode === "post" || mode === "video" || mode === "image") && (
-                    <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Aspect ratio</label>
-                      <select
-                        value={aspectRatio}
-                        onChange={(e) => setAspectRatio(e.target.value)}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                      >
-                        <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
-                        <option value="16:9">16:9 (YouTube landscape)</option>
-                        <option value="1:1">1:1 (Square)</option>
-                      </select>
-                    </div>
-                  )}
+          <aside className="grid gap-4">
+            <div className="surface-soft rounded-3xl border border-white/10 p-5">
+              <div className="text-xs text-white/55">• Output Settings</div>
+              <div className="mt-3 grid gap-3">
+                {(mode === "post" || mode === "video" || mode === "image") && (
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                    <select
+                      value={aspectRatio}
+                      onChange={(e) => setAspectRatio(e.target.value)}
+                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                    >
+                      <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
+                      <option value="16:9">16:9 (YouTube landscape)</option>
+                      <option value="1:1">1:1 (Square)</option>
+                    </select>
+                  </div>
+                )}
 
-                  {mode === "post" ? (
-                    <>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Post length</label>
-                          <select
-                            value={postDurationSeconds}
-                            onChange={(e) => setPostDurationSeconds(Number(e.target.value || 60))}
-                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                          >
-                            {POST_DURATION_OPTIONS.map((v) => (
-                              <option key={v} value={v}>
-                                {v === 60 ? "1 minute" : "2 minutes"}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Image count</label>
-                          <input
-                            type="number"
-                            value={postImageCount}
-                            min={10}
-                            max={24}
-                            onChange={(e) => setPostImageCount(Math.max(10, Math.min(24, Number(e.target.value || 12))))}
-                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {renderVoiceSelector()}
-
-                        <div className="grid gap-2">
-                          <label className="text-xs font-medium text-white/70">Voice speed (WPM)</label>
-                          <input
-                            type="number"
-                            value={voiceSpeed}
-                            min={80}
-                            max={260}
-                            onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
-                            className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-
-                  {mode === "video" ? (
-                    <>
+                {mode === "post" ? (
+                  <>
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Duration</label>
+                        <label className="text-xs font-medium text-white/70">Post length</label>
                         <select
-                          value={duration}
-                          onChange={(e) => setDuration(Number(e.target.value))}
+                          value={postDurationSeconds}
+                          onChange={(e) => setPostDurationSeconds(Number(e.target.value || 60))}
                           className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                         >
-                          <option value={4}>4 seconds</option>
-                          <option value={6}>6 seconds</option>
-                          <option value={8}>8 seconds</option>
+                          {POST_DURATION_OPTIONS.map((v) => (
+                            <option key={v} value={v}>
+                              {v === 60 ? "1 minute" : "2 minutes"}
+                            </option>
+                          ))}
                         </select>
                       </div>
-
                       <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Generation lane</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setVideoSpeed("relax")}
-                            className={cx(
-                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                              videoSpeed === "relax"
-                                ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
-                            )}
-                          >
-                            Relax · {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (fastEligible) setVideoSpeed("fast");
-                            }}
-                            disabled={!fastEligible}
-                            className={cx(
-                              "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                              videoSpeed === "fast"
-                                ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
-                                : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
-                              !fastEligible && "cursor-not-allowed opacity-55"
-                            )}
-                            title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
-                          >
-                            Fast · {VIDEO_FAST_CREDITS_PER_SECOND} credits/s
-                          </button>
-                        </div>
-                        {!fastEligible ? (
-                          <div className="text-[11px] text-white/50">
-                            Fast lane unlocks on Creator. <Link href="/pricing" className="underline decoration-white/20 underline-offset-4">Upgrade plan</Link>
-                          </div>
-                        ) : null}
-                      </div>
-                    </>
-                  ) : null}
-
-                  {mode === "voiceover" ? (
-                    <div className="grid grid-cols-1 gap-3">
-                      {renderVoiceSelector()}
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Speed (WPM)</label>
+                        <label className="text-xs font-medium text-white/70">Image count</label>
                         <input
                           type="number"
-                          value={voiceSpeed}
-                          min={80}
-                          max={260}
-                          onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
+                          value={postImageCount}
+                          min={10}
+                          max={24}
+                          onChange={(e) => setPostImageCount(Math.max(10, Math.min(24, Number(e.target.value || 12))))}
                           className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                         />
                       </div>
                     </div>
-                  ) : null}
+                    {renderVoiceSelector()}
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Voice speed (WPM)</label>
+                      <input
+                        type="number"
+                        value={voiceSpeed}
+                        min={80}
+                        max={260}
+                        onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      />
+                    </div>
+                  </>
+                ) : null}
 
-                  <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
-                      </div>
-                      <Link
-                        href="/pricing"
-                        className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10"
+                {mode === "video" ? (
+                  <>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Duration</label>
+                      <select
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                       >
-                        Buy more credits
-                      </Link>
+                        <option value={4}>4 seconds</option>
+                        <option value={6}>6 seconds</option>
+                        <option value={8}>8 seconds</option>
+                      </select>
                     </div>
-                    <div className="mt-2 text-[11px] text-white/55">
-                      AI post (image + voice): {POST_CREDITS_PER_MINUTE} credits/min. Video:{" "}
-                      {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s Relax, {VIDEO_FAST_CREDITS_PER_SECOND} credits/s Fast.
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Generation lane</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setVideoSpeed("relax")}
+                          className={cx(
+                            "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                            videoSpeed === "relax"
+                              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                              : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                          )}
+                        >
+                          Relax
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (fastEligible) setVideoSpeed("fast");
+                          }}
+                          disabled={!fastEligible}
+                          className={cx(
+                            "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                            videoSpeed === "fast"
+                              ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
+                              : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
+                            !fastEligible && "cursor-not-allowed opacity-55"
+                          )}
+                          title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
+                        >
+                          Fast
+                        </button>
+                      </div>
                     </div>
+                  </>
+                ) : null}
+
+                {mode === "voiceover" ? (
+                  <>
+                    {renderVoiceSelector()}
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Speed (WPM)</label>
+                      <input
+                        type="number"
+                        value={voiceSpeed}
+                        min={80}
+                        max={260}
+                        onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
+                    </div>
+                    <Link
+                      href="/pricing"
+                      className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10"
+                    >
+                      Buy more credits
+                    </Link>
                   </div>
-
-                  {error ? (
-                    <div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
-                      <div className="font-semibold text-rose-50">Generation issue</div>
-                      <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
-                      {errorTechnical ? (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
-                          <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-rose-300/20 bg-black/20 p-2 text-[11px] text-rose-50/85">
-                            {errorTechnical}
-                          </pre>
-                        </details>
-                      ) : null}
-                      {needsBilling ? (
-                        <div className="mt-2">
-                          <Link href="/pricing" className="underline decoration-rose-200/30 underline-offset-4">
-                            Open pricing
-                          </Link>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {activeJob?.status === "failed" && activeJob?.error ? (
-                    <div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
-                      <div className="font-semibold text-rose-50">Latest job failed</div>
-                      <div className="mt-1 whitespace-pre-wrap break-words">{humanizeGenerationError(String(activeJob.error))}</div>
-                    </div>
-                  ) : null}
+                  <div className="mt-2 text-[11px] text-white/55">
+                    AI post (image + voice): {POST_CREDITS_PER_MINUTE} credits/min. Video:{" "}
+                    {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s Relax, {VIDEO_FAST_CREDITS_PER_SECOND} credits/s Fast.
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <button
-                type="submit"
-                disabled={!canGenerate}
-                className={cx(
-                  "h-12 w-full rounded-2xl border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
-                  canGenerate
-                    ? "border-white/12 bg-white/12 text-white hover:bg-white/18"
-                    : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                )}
-              >
-                {submitting ? "Starting generation…" : `Generate ${modeLabel(mode)}`}
-              </button>
-            </form>
-          </div>
+            <div className="surface-soft rounded-3xl border border-white/10 p-5">
+              <div className="text-xs text-white/55">• Quick Actions</div>
+              <div className="mt-3 grid gap-2">
+                <Link href="/app/editor" className="btn-ghost px-3 py-2 text-[12px]">
+                  Open timeline editor
+                </Link>
+                <Link href="/app/clips" className="btn-ghost px-3 py-2 text-[12px]">
+                  Review generated assets
+                </Link>
+                <Link href="/app/connections" className="btn-ghost px-3 py-2 text-[12px]">
+                  Manage social connections
+                </Link>
+              </div>
+            </div>
+          </aside>
+        </form>
 
+        <section className="mt-6">
           <div className="surface-soft rounded-3xl border border-white/10 p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
