@@ -455,71 +455,95 @@ export default function ClipsPage() {
           <section className="mt-6 grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filtered.map((c) => {
               const assetType = detectAssetType(c);
-              return (
-                <article key={c.id} className="surface-soft flex h-full flex-col overflow-hidden rounded-3xl border border-white/12 bg-[#0a0e18]/95">
-                  <div className="relative h-[176px] border-b border-white/12 bg-[#03050c] sm:h-[196px]">
-                    <div className="absolute left-3 top-3 z-10 flex gap-2">
-                      <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", typeTone(assetType))}>
-                        {assetType.toUpperCase()}
-                      </span>
-                      <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] text-white/80">
-                        {durationChip(c, assetType)}
-                      </span>
-                    </div>
+              if (assetType === "audio") {
+                return (
+                  <article
+                    key={c.id}
+                    className="surface-soft relative flex h-full min-h-[360px] flex-col overflow-hidden rounded-3xl border border-[#8f8cff38] bg-[#090f1d]/95 shadow-[0_20px_52px_rgba(0,0,0,0.45)]"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 opacity-65"
+                      style={{
+                        background:
+                          "radial-gradient(280px 160px at 18% 10%, rgba(155,140,255,0.24), transparent 72%), radial-gradient(280px 160px at 85% 20%, rgba(70,215,255,0.2), transparent 75%), radial-gradient(260px 160px at 56% 100%, rgba(53,242,166,0.14), transparent 78%)",
+                      }}
+                    />
 
-                    {assetType === "image" ? (
-                      <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
-                    ) : assetType === "audio" ? (
-                      <div className="flex h-full flex-col justify-center gap-2 px-3 py-3">
-                        <div className="rounded-2xl border border-white/10 bg-[linear-gradient(120deg,rgba(255,183,3,0.16),rgba(58,134,255,0.14),rgba(251,86,7,0.12))] p-3">
-                          <div className="text-sm font-semibold text-white/92">Audio Preview</div>
-                          <div className="mt-1 text-[12px] text-white/65">Play to review voiceover or music output.</div>
-                        </div>
+                    <div className="relative flex h-full flex-col p-4">
+                      <div className="flex items-center gap-2">
+                        <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone(assetType))}>
+                          AUDIO
+                        </span>
+                        <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[10px] text-white/80">
+                          {durationChip(c, assetType)}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 text-sm font-semibold text-white/94">Audio Preview</div>
+                      <div className="mt-1 text-[12px] text-white/65">{clip(c.title || `Audio #${c.id}`, 48)}</div>
+
+                      <div className="mt-3 rounded-2xl border border-white/12 bg-black/40 p-3">
                         <audio src={c.url} controls preload="metadata" className="w-full" />
                       </div>
+
+                      <div className="mt-auto pt-4">
+                        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
+                          <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[12px]">
+                            Download
+                          </a>
+                          <a href={c.url} target="_blank" rel="noreferrer noopener" className="btn-orbito px-3 py-2 text-center text-[12px]">
+                            Open
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+
+              return (
+                <article
+                  key={c.id}
+                  className="group surface-soft relative h-[360px] overflow-hidden rounded-3xl border border-[#8f8cff38] bg-[#090f1d]/95 shadow-[0_20px_52px_rgba(0,0,0,0.45)] sm:h-[392px]"
+                >
+                  <div className="absolute inset-0">
+                    {assetType === "image" ? (
+                      <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
                     ) : (
                       <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />
                     )}
                   </div>
 
-                  <div className="flex flex-1 flex-col p-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[14px] font-semibold text-white/92">{c.title || `Asset #${c.id}`}</div>
-                      {c.hook ? (
-                        <div className="mt-1 text-[12px] leading-relaxed text-white/60">{clip(c.hook, 125)}</div>
-                      ) : (
-                        <div className="mt-1 text-[12px] text-white/50">Upload #{c.upload_id}</div>
-                      )}
-                    </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/20 to-black/5" />
 
-                    <div className="mt-3 text-[11px] text-white/50">
-                      Storage: {clip(c.storage_key || "", 44)}
-                    </div>
+                  <div className="absolute left-3 top-3 z-10 flex gap-2">
+                    <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone(assetType))}>
+                      {assetType.toUpperCase()}
+                    </span>
+                    <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[10px] text-white/80">
+                      {durationChip(c, assetType)}
+                    </span>
+                  </div>
 
-                    <div className={cx("mt-auto grid gap-2 rounded-2xl border border-white/10 bg-black/30 p-2", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
-                      <a
-                        href={`/api/clips/${c.id}/download`}
-                        className="btn-solid-dark px-3 py-2 text-center text-[12px]"
-                      >
-                        Download
-                      </a>
-                      <a
-                        href={c.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="btn-orbito px-3 py-2 text-center text-[12px]"
-                      >
-                        Open
-                      </a>
-                      {assetType === "video" ? (
-                        <button
-                          type="button"
-                          onClick={() => openSchedule(c)}
-                          className="btn-orbito px-3 py-2 text-[12px]"
-                        >
-                          Schedule / Post
-                        </button>
-                      ) : null}
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-3">
+                    <div className="rounded-2xl border border-white/12 bg-black/44 p-3 backdrop-blur-sm">
+                      <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
+                      <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 64) : `Upload #${c.upload_id}`}</div>
+
+                      <div className={cx("mt-3 grid gap-2", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
+                        <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[11px]">
+                          Download
+                        </a>
+                        <a href={c.url} target="_blank" rel="noreferrer noopener" className="btn-orbito px-3 py-2 text-center text-[11px]">
+                          Open
+                        </a>
+                        {assetType === "video" ? (
+                          <button type="button" onClick={() => openSchedule(c)} className="btn-orbito px-3 py-2 text-[11px]">
+                            Schedule
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </article>

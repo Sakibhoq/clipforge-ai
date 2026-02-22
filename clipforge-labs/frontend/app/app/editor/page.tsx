@@ -707,22 +707,28 @@ export default function EditorPage() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1780px] px-2 pb-10 pt-4 sm:px-4 sm:pt-6">
-        <section className="surface-inset relative overflow-hidden rounded-[28px] border border-white/15 bg-[#050811]">
+      <main className="relative mx-auto flex min-h-[calc(100dvh-92px)] w-full max-w-[1660px] items-start justify-center px-2 pb-10 pt-4 sm:px-4 sm:pt-6 xl:items-center">
+        <section className="surface-inset relative w-full max-w-[1500px] overflow-hidden rounded-[28px] border border-[#8f8cff38] bg-[#050811] shadow-[0_40px_140px_rgba(0,0,0,0.62),0_0_46px_rgba(70,215,255,0.14)]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-55"
             style={{
               background:
-                "radial-gradient(340px 180px at 8% 4%, rgba(255,183,3,0.16), transparent 78%), radial-gradient(420px 220px at 88% 4%, rgba(58,134,255,0.16), transparent 80%), radial-gradient(360px 200px at 52% 96%, rgba(251,86,7,0.10), transparent 84%)",
+                "radial-gradient(360px 200px at 8% 4%, rgba(155,140,255,0.2), transparent 80%), radial-gradient(420px 220px at 88% 6%, rgba(70,215,255,0.18), transparent 82%), radial-gradient(360px 200px at 52% 96%, rgba(53,242,166,0.12), transparent 84%)",
             }}
           />
 
           <div className="relative grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-            <header className="border-b border-white/10 bg-black/35 px-4 py-3 sm:px-6">
+            <header className="border-b border-white/10 bg-black/40 px-4 py-3 sm:px-6">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-300/80" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-200/80" />
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-300/80" />
+                <span className="ml-2 text-[11px] text-white/50">Orbito style editor modal</span>
+              </div>
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <div className="text-[11px] text-white/58">• Full Page Editor</div>
+                  <div className="text-[11px] text-white/58">• Popup Card Editor</div>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-white/94 sm:text-2xl">
                     Post <span className="grad-text">Editing Console</span>
                   </h1>
@@ -761,7 +767,7 @@ export default function EditorPage() {
               </div>
             </header>
 
-            <div className="grid min-h-0 gap-3 p-3 sm:p-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_330px]">
+            <div className="grid min-h-0 gap-3 p-3 sm:p-4 xl:grid-cols-[290px_minmax(0,1fr)] 2xl:grid-cols-[290px_minmax(0,1fr)_320px]">
               <aside className="grid gap-3">
                 <div className="surface-soft rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
                   <div className="text-xs text-white/55">• Project Setup</div>
