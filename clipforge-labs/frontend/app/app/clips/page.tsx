@@ -478,7 +478,7 @@ export default function ClipsPage() {
                         <audio src={c.url} controls preload="metadata" className="w-full" />
                       </div>
                     ) : (
-                      <video src={c.url} controls playsInline preload="metadata" className="h-full w-full object-cover" />
+                      <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />
                     )}
                   </div>
 
@@ -496,10 +496,10 @@ export default function ClipsPage() {
                       Storage: {clip(c.storage_key || "", 44)}
                     </div>
 
-                    <div className={cx("mt-auto grid gap-2 pt-4", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
+                    <div className={cx("mt-auto grid gap-2 rounded-2xl border border-white/10 bg-black/30 p-2", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
                       <a
                         href={`/api/clips/${c.id}/download`}
-                        className="rounded-xl border border-white/14 bg-[#0d1322] px-3 py-2 text-center text-[12px] font-semibold text-white/88 transition hover:border-[#8f8cff7a] hover:bg-[#121a30]"
+                        className="btn-solid-dark px-3 py-2 text-center text-[12px]"
                       >
                         Download
                       </a>
@@ -507,7 +507,7 @@ export default function ClipsPage() {
                         href={c.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="rounded-xl border border-[#8f8cff61] bg-[linear-gradient(135deg,rgba(155,140,255,0.22),rgba(70,215,255,0.12),rgba(53,242,166,0.14))] px-3 py-2 text-center text-[12px] font-semibold text-white transition hover:border-[#46d7ffa3] hover:brightness-110"
+                        className="btn-orbito px-3 py-2 text-center text-[12px]"
                       >
                         Open
                       </a>
@@ -515,7 +515,7 @@ export default function ClipsPage() {
                         <button
                           type="button"
                           onClick={() => openSchedule(c)}
-                          className="rounded-xl border border-[#46d7ff78] bg-[linear-gradient(135deg,rgba(70,215,255,0.2),rgba(155,140,255,0.16),rgba(53,242,166,0.12))] px-3 py-2 text-[12px] font-semibold text-white transition hover:border-[#35f2a6a8] hover:brightness-110"
+                          className="btn-orbito px-3 py-2 text-[12px]"
                         >
                           Schedule / Post
                         </button>

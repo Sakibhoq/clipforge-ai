@@ -205,6 +205,9 @@ export default function EditorPage() {
   const [copied, setCopied] = useState(false);
   const [localMusicAssets, setLocalMusicAssets] = useState<LocalMusicAsset[]>([]);
   const [uploadingMusic, setUploadingMusic] = useState(false);
+  const [previewAudioPlaying, setPreviewAudioPlaying] = useState(false);
+  const [previewAudioProgress, setPreviewAudioProgress] = useState(0);
+  const [previewAudioDuration, setPreviewAudioDuration] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -514,6 +517,18 @@ export default function EditorPage() {
       .catch((err: any) => setError(err?.detail || "Could not render quick crop."));
   }
 
+  function togglePreviewAudio() {
+    const el = audioRef.current;
+    if (!el || !previewAudioRow?.item.url) return;
+    if (el.paused) {
+      el.play().catch(() => {
+        setPreviewAudioPlaying(false);
+      });
+      return;
+    }
+    el.pause();
+  }
+
   function buildTrackRow(track: TrackKey, label: string, items: TimelineItem[]) {
     return (
       <div className="rounded-2xl border border-white/12 bg-[#090d16] p-3">
@@ -633,6 +648,54 @@ export default function EditorPage() {
   }, [previewAudioRow, project.musicBedLevel]);
 
   useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+
+    const sync = () => {
+      const duration = Number(el.duration) || 0;
+      setPreviewAudioDuration(duration);
+      setPreviewAudioProgress(duration > 0 ? Math.max(0, Math.min(1, el.currentTime / duration)) : 0);
+    };
+
+    const onPlay = () => setPreviewAudioPlaying(true);
+    const onPause = () => setPreviewAudioPlaying(false);
+    const onEnded = () => setPreviewAudioPlaying(false);
+    const onLoaded = () => sync();
+    const onTime = () => sync();
+
+    el.addEventListener("play", onPlay);
+    el.addEventListener("pause", onPause);
+    el.addEventListener("ended", onEnded);
+    el.addEventListener("loadedmetadata", onLoaded);
+    el.addEventListener("timeupdate", onTime);
+
+    return () => {
+      el.removeEventListener("play", onPlay);
+      el.removeEventListener("pause", onPause);
+      el.removeEventListener("ended", onEnded);
+      el.removeEventListener("loadedmetadata", onLoaded);
+      el.removeEventListener("timeupdate", onTime);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (!previewAudioRow?.item.url) {
+      el.pause();
+      setPreviewAudioPlaying(false);
+      setPreviewAudioProgress(0);
+      setPreviewAudioDuration(0);
+      return;
+    }
+    el.pause();
+    el.currentTime = 0;
+    setPreviewAudioPlaying(false);
+    setPreviewAudioProgress(0);
+    setPreviewAudioDuration(Number(el.duration) || 0);
+  }, [previewAudioRow?.item.id]);
+
+  useEffect(() => {
     return () => {
       localMusicObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       localMusicObjectUrlsRef.current = [];
@@ -645,7 +708,7 @@ export default function EditorPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1780px] px-2 pb-10 pt-4 sm:px-4 sm:pt-6">
-        <section className="surface-inset relative overflow-hidden rounded-[28px] border border-white/15 bg-[#050811] xl:h-[calc(100dvh-112px)] xl:min-h-[760px]">
+        <section className="surface-inset relative overflow-hidden rounded-[28px] border border-white/15 bg-[#050811]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-55"
@@ -698,8 +761,8 @@ export default function EditorPage() {
               </div>
             </header>
 
-            <div className="grid min-h-0 gap-3 p-3 sm:p-4 xl:grid-cols-[300px_minmax(0,1fr)_330px]">
-              <aside className="grid gap-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+            <div className="grid min-h-0 gap-3 p-3 sm:p-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_330px]">
+              <aside className="grid gap-3">
                 <div className="surface-soft rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
                   <div className="text-xs text-white/55">• Project Setup</div>
                   <div className="mt-3 grid gap-3">
@@ -948,8 +1011,8 @@ export default function EditorPage() {
                 </div>
               </aside>
 
-              <section className="grid min-w-0 gap-3 xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_minmax(260px,34%)]">
-                <div className="surface rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5 xl:min-h-0">
+              <section className="grid min-w-0 gap-3 xl:grid-rows-[minmax(0,1fr)_minmax(260px,34%)]">
+                <div className="surface rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5">
                   <div className="text-xs text-white/55">• Preview Stage</div>
                   <div className="mt-3 rounded-3xl border border-white/12 bg-[#06090f] p-3 sm:p-4">
                     <div
@@ -965,8 +1028,10 @@ export default function EditorPage() {
                         <video
                           ref={videoRef}
                           src={previewVisual.url}
-                          controls
                           playsInline
+                          autoPlay
+                          loop
+                          muted
                           preload="metadata"
                           className="h-full w-full object-cover"
                         />
@@ -1010,7 +1075,7 @@ export default function EditorPage() {
                   </div>
                 </div>
 
-                <div className="surface rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5 xl:min-h-0">
+                <div className="surface rounded-3xl border border-white/12 bg-[#080b14]/95 p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-xs text-white/55">• Timeline</div>
                     <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
@@ -1028,19 +1093,39 @@ export default function EditorPage() {
                 </div>
               </section>
 
-              <aside className="grid gap-3 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+              <aside className="grid gap-3 xl:col-span-2 2xl:col-span-1">
                 <div className="surface-soft rounded-3xl border border-white/12 bg-[#0a0e18]/95 p-5">
                   <div className="text-xs text-white/55">• Inspector</div>
 
                   {previewAudioRow?.item.url ? (
                     <div className="mt-3 rounded-2xl border border-white/10 bg-black/40 p-3">
-                      <div className="mb-1 text-[11px] text-white/58">
+                      <div className="mb-2 text-[11px] text-white/58">
                         {previewAudioRow.track === "music" ? "Music preview" : "Voiceover preview"} • effective level{" "}
                         {previewAudioRow.track === "music"
                           ? formatPercent(previewAudioRow.item.volume * project.musicBedLevel)
                           : formatPercent(previewAudioRow.item.volume)}
                       </div>
-                      <audio ref={audioRef} src={previewAudioRow.item.url} controls className="w-full" preload="metadata" />
+                      <div className="rounded-xl border border-white/10 bg-[#0b1120] p-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 text-[12px] text-white/72">
+                            <span className="block truncate font-semibold text-white/90">{previewAudioRow.item.title}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={togglePreviewAudio}
+                            className="btn-orbito px-3 py-1.5 text-[11px]"
+                          >
+                            {previewAudioPlaying ? "Pause" : "Play"}
+                          </button>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full bg-[linear-gradient(90deg,rgba(155,140,255,0.9),rgba(70,215,255,0.9),rgba(53,242,166,0.85))]" style={{ width: `${Math.round(previewAudioProgress * 100)}%` }} />
+                        </div>
+                        <div className="mt-1 text-[10px] text-white/55">
+                          {formatSeconds((previewAudioProgress || 0) * (previewAudioDuration || 0))} / {formatSeconds(previewAudioDuration || 0)}
+                        </div>
+                      </div>
+                      <audio ref={audioRef} src={previewAudioRow.item.url} className="hidden" preload="metadata" />
                     </div>
                   ) : null}
 
