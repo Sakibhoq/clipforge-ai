@@ -137,6 +137,41 @@ function filterLabel(filter: AssetFilter) {
   return "All";
 }
 
+function ActionIconButton({
+  href,
+  onClick,
+  symbol,
+  label,
+  tone = "ghost",
+}: {
+  href?: string;
+  onClick?: () => void;
+  symbol: string;
+  label: string;
+  tone?: "ghost" | "brand";
+}) {
+  const className = cx(
+    "inline-flex h-9 w-9 items-center justify-center rounded-full border text-base font-semibold transition",
+    tone === "brand"
+      ? "border-[#46d7ff7a] bg-[#46d7ff2b] text-white hover:bg-[#46d7ff45]"
+      : "border-white/15 bg-black/35 text-white/90 hover:bg-white/14"
+  );
+
+  if (href) {
+    return (
+      <a href={href} className={className} title={label} aria-label={label}>
+        <span aria-hidden="true">{symbol}</span>
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className} title={label} aria-label={label}>
+      <span aria-hidden="true">{symbol}</span>
+    </button>
+  );
+}
+
 export default function ClipsPage() {
   const [rows, setRows] = useState<ClipRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -341,28 +376,38 @@ export default function ClipsPage() {
     setScheduleWhen(dateTimeLocalValue(d));
   }
 
+  const visualRows = useMemo(
+    () => filtered.filter((row) => detectAssetType(row) !== "audio"),
+    [filtered]
+  );
+
+  const audioRows = useMemo(
+    () => filtered.filter((row) => detectAssetType(row) === "audio"),
+    [filtered]
+  );
+
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1460px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-3xl p-5 sm:p-7">
+      <main className="relative mx-auto max-w-[1520px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
+        <section className="surface relative overflow-hidden rounded-[30px] border border-[#8f8cff3d] p-5 sm:p-7">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-16 opacity-55 blur-3xl"
+            className="pointer-events-none absolute -inset-16 opacity-60 blur-3xl"
             style={{
               background:
-                "radial-gradient(320px 220px at 14% 20%, rgba(58,134,255,0.22), transparent 72%), radial-gradient(320px 220px at 82% 18%, rgba(255,183,3,0.22), transparent 74%), radial-gradient(320px 220px at 52% 96%, rgba(251,86,7,0.16), transparent 76%)",
+                "radial-gradient(320px 220px at 14% 20%, rgba(155,140,255,0.22), transparent 72%), radial-gradient(360px 220px at 82% 18%, rgba(70,215,255,0.22), transparent 74%), radial-gradient(320px 220px at 52% 96%, rgba(53,242,166,0.14), transparent 76%)",
             }}
           />
 
           <div className="relative grid gap-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs text-white/55">• Clips Library</div>
+                <div className="text-xs text-white/55">• Asset Command Center</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Manage Your <span className="grad-text">Generated Assets</span>
+                  Clipforge <span className="grad-text">Media Library</span>
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
-                  One workspace for video, image, and audio outputs. Review, download, and publish to connected channels.
+                  Manage published-ready visuals and audio in one workspace designed for fast review and posting.
                 </p>
               </div>
 
@@ -370,7 +415,7 @@ export default function ClipsPage() {
                 <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Generator
                 </Link>
-                <Link href="/app/editor" className="btn-ghost px-4 py-2 text-center text-[12px]">
+                <Link href="/app/editor" className="btn-orbito px-4 py-2 text-center text-[12px]">
                   Open Editor
                 </Link>
                 <Link href="/app/connections" className="btn-ghost col-span-2 px-4 py-2 text-center text-[12px] sm:col-auto">
@@ -381,13 +426,16 @@ export default function ClipsPage() {
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {[
-                { label: "Total", value: counts.total },
-                { label: "Video", value: counts.video },
-                { label: "Image", value: counts.image },
-                { label: "Audio", value: counts.audio },
-                { label: "Connected", value: connectedSocialCount },
+                { label: "Total Assets", value: counts.total },
+                { label: "Video Clips", value: counts.video },
+                { label: "Image Frames", value: counts.image },
+                { label: "Audio Tracks", value: counts.audio },
+                { label: "Connected Channels", value: connectedSocialCount },
               ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-[#8f8cff36] bg-[linear-gradient(140deg,rgba(9,15,29,0.92),rgba(7,11,22,0.86))] px-4 py-3"
+                >
                   <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{item.label}</div>
                   <div className="mt-1 text-lg font-semibold text-white/92">{item.value}</div>
                 </div>
@@ -396,16 +444,16 @@ export default function ClipsPage() {
           </div>
         </section>
 
-        <section className="mt-6 surface-soft rounded-3xl p-4 sm:p-5">
+        <section className="mt-6 rounded-[28px] border border-[#8f8cff2f] bg-[#090f1c]/92 p-4 sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search titles or hooks..."
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/45 px-4 text-sm text-white/90 outline-none placeholder:text-white/45 focus:border-white/25"
+                className="h-11 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/90 outline-none placeholder:text-white/45 focus:border-white/25"
               />
-              <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/72">
+              <div className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-2 text-[12px] text-white/72">
                 {loading ? "Loading..." : `${filtered.length} result${filtered.length === 1 ? "" : "s"}`}
               </div>
             </div>
@@ -419,7 +467,7 @@ export default function ClipsPage() {
                   className={cx(
                     "rounded-full border px-3 py-2 text-[11px] font-semibold transition",
                     assetFilter === filter
-                      ? "border-white/25 bg-white/15 text-white"
+                      ? "border-[#46d7ff6b] bg-[#46d7ff26] text-white"
                       : "border-white/10 bg-black/35 text-white/70 hover:bg-white/10"
                   )}
                 >
@@ -451,110 +499,110 @@ export default function ClipsPage() {
           ) : null}
         </section>
 
-        {filtered.length ? (
-          <section className="mt-6 grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filtered.map((c) => {
-              const assetType = detectAssetType(c);
-              if (assetType === "audio") {
+        {visualRows.length ? (
+          <section className="mt-7">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-white/90">Visual Assets</div>
+              <div className="text-[12px] text-white/60">{visualRows.length} items</div>
+            </div>
+            <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {visualRows.map((c) => {
+                const assetType = detectAssetType(c);
                 return (
                   <article
                     key={c.id}
-                    className="surface-soft relative flex h-full min-h-[360px] flex-col overflow-hidden rounded-3xl border border-[#8f8cff38] bg-[#090f1d]/95 shadow-[0_20px_52px_rgba(0,0,0,0.45)]"
+                    className="group overflow-hidden rounded-[24px] border border-[#8f8cff3d] bg-[#070d1a] shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
                   >
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 opacity-65"
-                      style={{
-                        background:
-                          "radial-gradient(280px 160px at 18% 10%, rgba(155,140,255,0.24), transparent 72%), radial-gradient(280px 160px at 85% 20%, rgba(70,215,255,0.2), transparent 75%), radial-gradient(260px 160px at 56% 100%, rgba(53,242,166,0.14), transparent 78%)",
-                      }}
-                    />
+                    <div className="relative aspect-[9/12] bg-black/50">
+                      {assetType === "image" ? (
+                        <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
+                      ) : (
+                        <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />
+                      )}
 
-                    <div className="relative flex h-full flex-col p-4">
-                      <div className="flex items-center gap-2">
+                      <div className="absolute left-3 top-3 z-10 flex gap-2">
                         <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone(assetType))}>
-                          AUDIO
+                          {assetType.toUpperCase()}
                         </span>
-                        <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[10px] text-white/80">
+                        <span className="rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[10px] text-white/80">
                           {durationChip(c, assetType)}
                         </span>
                       </div>
+                    </div>
 
-                      <div className="mt-3 text-sm font-semibold text-white/94">Audio Preview</div>
-                      <div className="mt-1 text-[12px] text-white/65">{clip(c.title || `Audio #${c.id}`, 48)}</div>
-
-                      <div className="mt-3 rounded-2xl border border-white/12 bg-black/40 p-3">
-                        <audio src={c.url} controls preload="metadata" className="w-full" />
-                      </div>
-
-                      <div className="mt-auto pt-4">
-                        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
-                          <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[12px]">
-                            Download
-                          </a>
-                          <a href={c.url} target="_blank" rel="noreferrer noopener" className="btn-orbito px-3 py-2 text-center text-[12px]">
-                            Open
-                          </a>
-                        </div>
+                    <div className="p-3">
+                      <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
+                      <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
+                        <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
+                        {assetType === "video" ? (
+                          <ActionIconButton onClick={() => openSchedule(c)} symbol="📅" label="Schedule / Post" tone="brand" />
+                        ) : null}
                       </div>
                     </div>
                   </article>
                 );
-              }
+              })}
+            </div>
+          </section>
+        ) : null}
 
-              return (
+        {audioRows.length ? (
+          <section className="mt-7">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="text-sm font-semibold text-white/90">Audio Assets</div>
+              <div className="text-[12px] text-white/60">{audioRows.length} items</div>
+            </div>
+            <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {audioRows.map((c) => (
                 <article
                   key={c.id}
-                  className="group surface-soft relative h-[360px] overflow-hidden rounded-3xl border border-[#8f8cff38] bg-[#090f1d]/95 shadow-[0_20px_52px_rgba(0,0,0,0.45)] sm:h-[392px]"
+                  className="surface-soft relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#8f8cff3d] bg-[#090f1d]/95 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
                 >
-                  <div className="absolute inset-0">
-                    {assetType === "image" ? (
-                      <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
-                    ) : (
-                      <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />
-                    )}
-                  </div>
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 opacity-65"
+                    style={{
+                      background:
+                        "radial-gradient(280px 160px at 18% 10%, rgba(155,140,255,0.24), transparent 72%), radial-gradient(280px 160px at 85% 20%, rgba(70,215,255,0.2), transparent 75%), radial-gradient(260px 160px at 56% 100%, rgba(53,242,166,0.14), transparent 78%)",
+                    }}
+                  />
+                  <div className="relative flex h-full flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone("audio"))}>
+                        AUDIO
+                      </span>
+                      <span className="rounded-full border border-white/15 bg-black/55 px-2.5 py-1 text-[10px] text-white/80">
+                        {durationChip(c, "audio")}
+                      </span>
+                    </div>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/20 to-black/5" />
+                    <div className="mt-3 truncate text-[14px] font-semibold text-white/94">{c.title || `Audio #${c.id}`}</div>
+                    <div className="mt-1 text-[11px] text-white/58">Storage: {clip(c.storage_key || "", 36)}</div>
 
-                  <div className="absolute left-3 top-3 z-10 flex gap-2">
-                    <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone(assetType))}>
-                      {assetType.toUpperCase()}
-                    </span>
-                    <span className="rounded-full border border-white/15 bg-black/45 px-2.5 py-1 text-[10px] text-white/80">
-                      {durationChip(c, assetType)}
-                    </span>
-                  </div>
+                    <div className="mt-3 rounded-2xl border border-white/12 bg-black/35 p-3">
+                      <audio src={c.url} controls preload="metadata" className="w-full" />
+                    </div>
 
-                  <div className="absolute inset-x-0 bottom-0 z-10 p-3">
-                    <div className="rounded-2xl border border-white/12 bg-black/44 p-3 backdrop-blur-sm">
-                      <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
-                      <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 64) : `Upload #${c.upload_id}`}</div>
-
-                      <div className={cx("mt-3 grid gap-2", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
-                        <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[11px]">
-                          Download
-                        </a>
-                        <a href={c.url} target="_blank" rel="noreferrer noopener" className="btn-orbito px-3 py-2 text-center text-[11px]">
-                          Open
-                        </a>
-                        {assetType === "video" ? (
-                          <button type="button" onClick={() => openSchedule(c)} className="btn-orbito px-3 py-2 text-[11px]">
-                            Schedule
-                          </button>
-                        ) : null}
+                    <div className="mt-auto pt-4">
+                      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
+                        <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
+                        <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
                       </div>
                     </div>
                   </div>
                 </article>
-              );
-            })}
+              ))}
+            </div>
           </section>
-        ) : (
+        ) : null}
+
+        {!visualRows.length && !audioRows.length ? (
           <section className="mt-6 surface-soft rounded-3xl p-7 text-sm text-white/60">
             {loading ? "Loading assets..." : "No assets yet. Generate your first one from Generator."}
           </section>
-        )}
+        ) : null}
       </main>
 
       {scheduleClip ? (
