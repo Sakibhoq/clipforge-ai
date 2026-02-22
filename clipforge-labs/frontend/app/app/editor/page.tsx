@@ -514,6 +514,9 @@ export default function EditorPage() {
 
   function renderTrackLane(track: TrackKey) {
     const items = trackItems(track);
+    const total = Math.max(1, timelineDuration);
+    const markerCount = 6;
+
     return (
       <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -521,52 +524,70 @@ export default function EditorPage() {
           <div className="text-[11px] text-white/48">{items.length} items</div>
         </div>
 
-        {items.length ? (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {items.map((item) => {
-              const active = selected?.track === track && selected?.itemId === item.id;
-              const width = Math.max(132, Math.min(280, 120 + Math.round(item.duration * 8)));
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelected({ track, itemId: item.id })}
-                  className={cx(
-                    "shrink-0 rounded-xl border px-3 py-2 text-left transition",
-                    laneTone(track),
-                    active && "ring-2 ring-white/55"
-                  )}
-                  style={{ width }}
-                >
-                  <div className="truncate text-[12px] font-semibold">{item.title}</div>
-                  <div className="mt-1 text-[10px] opacity-85">
-                    {formatSeconds(item.start)} → {formatSeconds(item.start + item.duration)}
-                  </div>
-                </button>
-              );
-            })}
+        <div className="rounded-xl border border-white/10 bg-black/45 p-2">
+          <div className="grid min-w-[700px] grid-cols-7 text-[10px] text-white/45">
+            {Array.from({ length: markerCount + 1 }).map((_, idx) => (
+              <span key={`${track}-tick-${idx}`} className={cx("tabular-nums", idx === markerCount && "text-right")}>
+                {formatSeconds((total / markerCount) * idx)}
+              </span>
+            ))}
           </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2 text-[12px] text-white/50">
-            No items yet.
+
+          <div className="mt-2 overflow-x-auto pb-1">
+            <div className="relative h-[76px] min-w-[700px] rounded-lg border border-white/10 bg-black/55">
+              {items.length ? (
+                items.map((item) => {
+                  const active = selected?.track === track && selected?.itemId === item.id;
+                  const leftPct = Math.max(0, Math.min(98, (item.start / total) * 100));
+                  const rawWidthPct = Math.max(6, (item.duration / total) * 100);
+                  const widthPct = Math.max(4, Math.min(rawWidthPct, 100 - leftPct));
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelected({ track, itemId: item.id })}
+                      className={cx(
+                        "absolute top-1/2 h-12 -translate-y-1/2 rounded-lg border px-2 py-1 text-left transition focus:outline-none",
+                        laneTone(track),
+                        active && "ring-2 ring-white/65"
+                      )}
+                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                    >
+                      <div className="truncate text-[11px] font-semibold">{item.title}</div>
+                      <div className="mt-0.5 text-[10px] opacity-85 tabular-nums">
+                        {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="flex h-full items-center justify-center text-[12px] text-white/45">No items yet.</div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1700px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="relative overflow-x-clip">
+      <main className="relative mx-auto max-w-[1760px] px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
+        <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="text-xs text-white/55">• Clipforge Editor</div>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
               Professional <span className="grad-text">Timeline Workspace</span>
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
-              Full-screen editing console built for final assembly: visual track, voiceover, music bed, and captions.
+              Production console for 1-2 minute AI posts with clean preview, precise timeline edits, and quick export prep.
             </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/62">
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Frame {project.frame}</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Timeline {formatSeconds(timelineDuration)}</span>
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Music bed {formatPercent(project.musicBedLevel)}</span>
+            </div>
           </div>
 
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
@@ -582,9 +603,9 @@ export default function EditorPage() {
           </div>
         </header>
 
-        <section className="mt-5 grid items-start gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
-          <aside className="grid min-w-0 gap-4">
-            <div className="surface-soft rounded-3xl p-5">
+        <section className="mt-6 rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(8,10,16,0.92),rgba(8,10,14,0.84))] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-4">
+          <div className="grid gap-3 xl:grid-cols-[320px_minmax(0,1fr)_330px]">
+            <aside className="min-w-0 rounded-3xl border border-white/10 bg-black/35 p-4 xl:h-[calc(100vh-15.5rem)] xl:overflow-y-auto">
               <div className="text-xs text-white/55">• Project Setup</div>
               <div className="mt-3 grid gap-3">
                 <div className="grid gap-2">
@@ -631,26 +652,26 @@ export default function EditorPage() {
                   Safe area: <span className="font-semibold text-white/92">{showSafeArea ? "Visible" : "Hidden"}</span>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   <button type="button" onClick={() => setShowSafeArea((v) => !v)} className="btn-ghost px-3 py-2 text-[12px]">
                     {showSafeArea ? "Hide safe area" : "Show safe area"}
                   </button>
                   <button type="button" onClick={copyRecipe} className="btn-ghost px-3 py-2 text-[12px]">
                     {copied ? "Copied" : "Copy export JSON"}
                   </button>
-                  <button type="button" onClick={saveVersion} className="btn-solid-dark px-3 py-2 text-[12px]">
+                  <button type="button" onClick={saveVersion} className="btn-solid-dark px-3 py-2 text-[12px] sm:col-span-2">
                     Save version
                   </button>
                 </div>
               </div>
-            </div>
 
-            <div className="surface-soft rounded-3xl p-5">
+              <div className="my-4 h-px bg-white/10" />
+
               <div className="text-xs text-white/55">• Asset Library</div>
               <div className="mt-3 grid gap-3">
                 <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/80">Videos ({videos.length})</div>
-                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                  <div className="mb-2 text-[12px] font-semibold text-white/82">Videos ({videos.length})</div>
+                  <div className="grid max-h-36 gap-2 overflow-auto pr-1">
                     {videos.map((clip) => (
                       <button
                         key={clip.id}
@@ -666,8 +687,8 @@ export default function EditorPage() {
                 </div>
 
                 <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/80">Images ({images.length})</div>
-                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                  <div className="mb-2 text-[12px] font-semibold text-white/82">Images ({images.length})</div>
+                  <div className="grid max-h-32 gap-2 overflow-auto pr-1">
                     {images.map((clip) => (
                       <button
                         key={clip.id}
@@ -683,8 +704,8 @@ export default function EditorPage() {
                 </div>
 
                 <div>
-                  <div className="mb-2 text-[12px] font-semibold text-white/80">Audio ({audios.length})</div>
-                  <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                  <div className="mb-2 text-[12px] font-semibold text-white/82">Audio ({audios.length})</div>
+                  <div className="grid max-h-36 gap-2 overflow-auto pr-1">
                     {audios.map((clip) => (
                       <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2">
                         <div className="truncate px-1 text-[11px] font-semibold text-white/84">{clip.title || `Audio #${clip.id}`}</div>
@@ -726,7 +747,7 @@ export default function EditorPage() {
                       disabled={uploadingMusic}
                       className={cx("btn-ghost w-full px-3 py-2 text-[12px] sm:w-auto", uploadingMusic && "cursor-not-allowed opacity-60")}
                     >
-                      {uploadingMusic ? "Uploading…" : "Upload music"}
+                      {uploadingMusic ? "Uploading..." : "Upload music"}
                     </button>
                     <button type="button" onClick={addCaptionBlock} className="btn-ghost w-full px-3 py-2 text-[12px] sm:w-auto">
                       Add caption
@@ -734,7 +755,7 @@ export default function EditorPage() {
                   </div>
 
                   {localMusicAssets.length ? (
-                    <div className="mt-3 grid max-h-40 gap-2 overflow-auto pr-1">
+                    <div className="mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
                       {localMusicAssets.map((asset) => (
                         <div key={asset.id} className="rounded-xl border border-white/10 bg-black/40 px-3 py-2">
                           <div className="truncate text-[12px] font-semibold text-white/88">{asset.name}</div>
@@ -765,113 +786,93 @@ export default function EditorPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </aside>
 
-            <div className="surface-soft rounded-3xl p-5">
-              <div className="text-xs text-white/55">• Versions</div>
-              {versions.length ? (
-                <div className="mt-3 grid max-h-44 gap-2 overflow-auto pr-1">
-                  {versions.map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => restoreVersion(v.id)}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/[0.06]"
-                    >
-                      <div className="truncate font-semibold text-white/92">{v.label}</div>
-                      <div className="text-white/55">{new Date(v.createdAt).toLocaleString()}</div>
-                    </button>
-                  ))}
+            <section className="grid min-w-0 gap-3 xl:h-[calc(100vh-15.5rem)] xl:grid-rows-[minmax(360px,1.1fr)_minmax(260px,1fr)]">
+              <div className="surface relative overflow-hidden rounded-3xl p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-white/55">• Preview Stage</div>
+                  <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
+                    {profile.label}
+                  </div>
                 </div>
-              ) : (
-                <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                  No saved versions yet.
-                </div>
-              )}
-            </div>
-          </aside>
 
-          <section className="grid min-w-0 gap-4">
-            <div className="surface rounded-3xl p-4 sm:p-5">
-              <div className="text-xs text-white/55">• Preview Stage</div>
-              <div className="mt-3 rounded-3xl border border-white/10 bg-black/45 p-3 sm:p-4">
-                <div
-                  className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
-                  style={{
-                    aspectRatio: aspectValue(project.frame),
-                    maxWidth: `${previewMaxWidth(project.frame)}px`,
-                  }}
-                >
-                  {previewVisual?.type === "image" && previewVisual.url ? (
-                    <img src={previewVisual.url} alt={previewVisual.title} className="h-full w-full object-cover" />
-                  ) : previewVisual?.url ? (
-                    <video src={previewVisual.url} controls playsInline preload="metadata" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-white/55">
-                      Add image or video assets to the visual track to start previewing.
+                <div className="mt-3 rounded-3xl border border-white/10 bg-black/45 p-3 sm:p-4">
+                  <div
+                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
+                    style={{
+                      aspectRatio: aspectValue(project.frame),
+                      maxWidth: `${previewMaxWidth(project.frame)}px`,
+                    }}
+                  >
+                    {previewVisual?.type === "image" && previewVisual.url ? (
+                      <img src={previewVisual.url} alt={previewVisual.title} className="h-full w-full object-cover" />
+                    ) : previewVisual?.url ? (
+                      <video src={previewVisual.url} controls playsInline preload="metadata" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-sm text-white/55">
+                        Add image or video assets to the visual track to start previewing.
+                      </div>
+                    )}
+
+                    {showSafeArea ? (
+                      <>
+                        <div
+                          className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35"
+                          style={{ height: `${profile.safeTop * 100}%` }}
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35"
+                          style={{ height: `${profile.safeBottom * 100}%` }}
+                        />
+                      </>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                      Visual
+                      <br />
+                      <span className="font-semibold text-white/92">{previewVisual?.title || "None"}</span>
                     </div>
-                  )}
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                      Audio
+                      <br />
+                      <span className="font-semibold text-white/92">{previewAudio?.title || "None"}</span>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
+                      Music bed
+                      <br />
+                      <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
+                    </div>
+                  </div>
 
-                  {showSafeArea ? (
-                    <>
-                      <div
-                        className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35"
-                        style={{ height: `${profile.safeTop * 100}%` }}
-                      />
-                      <div
-                        className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35"
-                        style={{ height: `${profile.safeBottom * 100}%` }}
-                      />
-                    </>
+                  {previewAudio?.url ? (
+                    <div className="mt-3">
+                      <div className="mb-1 text-[11px] text-white/58">Audio preview</div>
+                      <audio src={previewAudio.url} controls className="w-full" preload="metadata" />
+                    </div>
                   ) : null}
                 </div>
+              </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
-                    Visual
-                    <br />
-                    <span className="font-semibold text-white/92">{previewVisual?.title || "None"}</span>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
-                    Audio
-                    <br />
-                    <span className="font-semibold text-white/92">{previewAudio?.title || "None"}</span>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3 text-[12px] text-white/66">
-                    Music bed
-                    <br />
-                    <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
+              <div className="surface relative min-h-0 overflow-hidden rounded-3xl p-4 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs text-white/55">• Timeline</div>
+                  <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
+                    Total length {formatSeconds(timelineDuration)}
                   </div>
                 </div>
-
-                {previewAudio?.url ? (
-                  <div className="mt-3">
-                    <div className="mb-1 text-[11px] text-white/58">Audio preview</div>
-                    <audio src={previewAudio.url} controls className="w-full" preload="metadata" />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="surface rounded-3xl p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs text-white/55">• Timeline</div>
-                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
-                  Total length {formatSeconds(timelineDuration)}
+                <div className="mt-3 grid h-full min-h-0 gap-3 overflow-y-auto pr-1">
+                  {renderTrackLane("visual")}
+                  {renderTrackLane("voiceover")}
+                  {renderTrackLane("music")}
+                  {renderTrackLane("captions")}
                 </div>
               </div>
+            </section>
 
-              <div className="mt-3 grid gap-3">
-                {renderTrackLane("visual")}
-                {renderTrackLane("voiceover")}
-                {renderTrackLane("music")}
-                {renderTrackLane("captions")}
-              </div>
-            </div>
-          </section>
-
-          <aside className="grid min-w-0 gap-4 xl:col-span-2 2xl:col-span-1">
-            <div className="surface-soft rounded-3xl p-5">
+            <aside className="min-w-0 rounded-3xl border border-white/10 bg-black/35 p-4 xl:h-[calc(100vh-15.5rem)] xl:overflow-y-auto">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
                 <div className="mt-3 grid gap-3">
@@ -941,6 +942,20 @@ export default function EditorPage() {
                     </div>
                   ) : null}
 
+                  {selectedItem.type === "image" ? (
+                    <div className="grid gap-2">
+                      <label className="text-[12px] text-white/65">Motion</label>
+                      <select
+                        value={selectedItem.motion}
+                        onChange={(e) => updateSelected({ motion: e.target.value as "none" | "kenburns" })}
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                      >
+                        <option value="kenburns">Ken Burns</option>
+                        <option value="none">None</option>
+                      </select>
+                    </div>
+                  ) : null}
+
                   {(selectedItem.type === "audio" || selected.track === "music") ? (
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                       <div className="mb-2 flex items-center justify-between text-[12px] text-white/70">
@@ -956,20 +971,6 @@ export default function EditorPage() {
                         onChange={(e) => updateSelected({ volume: Number(e.target.value || 1) })}
                         className="w-full accent-white"
                       />
-                    </div>
-                  ) : null}
-
-                  {selectedItem.type === "image" ? (
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Motion</label>
-                      <select
-                        value={selectedItem.motion}
-                        onChange={(e) => updateSelected({ motion: e.target.value as "none" | "kenburns" })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                      >
-                        <option value="kenburns">Ken Burns</option>
-                        <option value="none">None</option>
-                      </select>
                     </div>
                   ) : null}
 
@@ -996,12 +997,12 @@ export default function EditorPage() {
                 </div>
               ) : (
                 <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                  Select a timeline item to edit timing, trims, caption text, and levels.
+                  Select any timeline block to edit title, timing, trim, motion, volume, and caption text.
                 </div>
               )}
-            </div>
 
-            <div className="surface-soft rounded-3xl p-5">
+              <div className="my-4 h-px bg-white/10" />
+
               <div className="text-xs text-white/55">• Audio Mix</div>
               <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-1 flex items-center justify-between text-[12px] text-white/70">
@@ -1028,12 +1029,35 @@ export default function EditorPage() {
                 <br />
                 Captions: <span className="font-semibold text-white/92">{project.captions.length}</span>
               </div>
-            </div>
-          </aside>
+
+              <div className="my-4 h-px bg-white/10" />
+
+              <div className="text-xs text-white/55">• Saved Versions</div>
+              {versions.length ? (
+                <div className="mt-3 grid max-h-56 gap-2 overflow-auto pr-1">
+                  {versions.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => restoreVersion(v.id)}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/80 hover:bg-white/[0.06]"
+                    >
+                      <div className="truncate font-semibold text-white/92">{v.label}</div>
+                      <div className="text-white/55">{new Date(v.createdAt).toLocaleString()}</div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                  No saved versions yet.
+                </div>
+              )}
+            </aside>
+          </div>
         </section>
 
         {error ? (
-          <div className="mt-6 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div>
+          <div className="mt-5 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div>
         ) : null}
 
         {loading ? (
