@@ -497,19 +497,26 @@ export default function ClipsPage() {
                     </div>
 
                     <div className={cx("mt-auto grid gap-2 pt-4", assetType === "video" ? "grid-cols-3" : "grid-cols-2")}>
-                      <a href={`/api/clips/${c.id}/download`} className="btn-solid-dark px-3 py-2 text-center text-[12px]">
+                      <a
+                        href={`/api/clips/${c.id}/download`}
+                        className="rounded-xl border border-white/14 bg-[#0d1322] px-3 py-2 text-center text-[12px] font-semibold text-white/88 transition hover:border-[#8f8cff7a] hover:bg-[#121a30]"
+                      >
                         Download
                       </a>
                       <a
                         href={c.url}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="btn-ghost px-3 py-2 text-center text-[12px]"
+                        className="rounded-xl border border-[#8f8cff61] bg-[linear-gradient(135deg,rgba(155,140,255,0.22),rgba(70,215,255,0.12),rgba(53,242,166,0.14))] px-3 py-2 text-center text-[12px] font-semibold text-white transition hover:border-[#46d7ffa3] hover:brightness-110"
                       >
                         Open
                       </a>
                       {assetType === "video" ? (
-                        <button type="button" onClick={() => openSchedule(c)} className="btn-ghost px-3 py-2 text-[12px]">
+                        <button
+                          type="button"
+                          onClick={() => openSchedule(c)}
+                          className="rounded-xl border border-[#46d7ff78] bg-[linear-gradient(135deg,rgba(70,215,255,0.2),rgba(155,140,255,0.16),rgba(53,242,166,0.12))] px-3 py-2 text-[12px] font-semibold text-white transition hover:border-[#35f2a6a8] hover:brightness-110"
+                        >
                           Schedule / Post
                         </button>
                       ) : null}
