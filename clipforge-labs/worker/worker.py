@@ -1217,6 +1217,47 @@ def _parse_settings(raw: str) -> dict:
         return {}
 
 
+def _is_provider_capacity_error(exc: Exception | str | None) -> bool:
+    msg = str(exc or "").strip().lower()
+    if not msg:
+        return False
+    markers = (
+        "quota exceeded",
+        "resourceexhausted",
+        "429",
+        "too many requests",
+        "rate limit",
+        "insufficient quota",
+        "exceeded for",
+    )
+    return any(marker in msg for marker in markers)
+
+
+def _style_hint(style_preset: str | None) -> str:
+    style = (style_preset or "").strip().lower()
+    hints = {
+        "social-native": "platform-native social content, strong hook framing, high clarity",
+        "photo-real": "photorealistic, natural lighting, realistic textures",
+        "cinematic": "cinematic composition, filmic contrast, polished color grade",
+        "cartoon": "cartoon illustration style, stylized outlines, vibrant shading",
+        "anime": "anime aesthetic, expressive line art, cel-shaded look",
+        "illustration": "editorial illustration style, clean shapes, soft gradients",
+    }
+    return hints.get(style, "")
+
+
+def _apply_style_preset(prompt: str, style_preset: str | None) -> str:
+    base = (prompt or "").strip()
+    if not base:
+        return base
+    hint = _style_hint(style_preset)
+    if not hint:
+        return base
+    if hint.lower() in base.lower():
+        return base
+    return f"{base}. Visual style: {hint}."
+
+
 def _video_mode_prep_delay_seconds(speed: str) -> int:
     # Relax mode intentionally runs on a slower lane to keep cost-efficiency.
     if (speed or "").strip().lower() == "fast":
@@ -1237,6 +1278,8 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     negative_prompt = str(job.get("negative_prompt") or "").strip()
     model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
+    style_preset = str(settings.get("style_preset") or "").strip().lower()
+    styled_prompt = _apply_style_preset(prompt, style_preset)
     use_google_provider = _model_prefers_google(model)
     strict_provider = _provider_strict_mode()
     allow_demo_fallback = _allow_demo_fallback()
@@ -1247,6 +1290,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         try:
             content_type = "image/png"
             provider_title: str | None = None
+            provider_capacity_error = False
 
             if use_google_provider:
                 try:
@@ -1254,7 +1298,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         media_bytes, remote_type, _, remote_title = _call_google_generation_endpoint(
                             endpoint_env="GOOGLE_IMAGE_API_URL",
                             payload={
-                                "prompt": prompt,
+                                "prompt": styled_prompt,
                                 "negative_prompt": negative_prompt or None,
                                 "aspect_ratio": aspect_ratio,
                                 "model": model or "google",
@@ -1264,7 +1308,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         )
                     else:
                         media_bytes, remote_type, _, remote_title = _run_google_vertex_image_generation(
-                            prompt=prompt,
+                            prompt=styled_prompt,
                             negative_prompt=negative_prompt,
                             aspect_ratio=aspect_ratio,
                         )
@@ -1273,19 +1317,20 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         content_type = remote_type
                     provider_title = remote_title
                 except Exception as exc:
-                    if strict_provider or not allow_demo_fallback:
+                    provider_capacity_error = _is_provider_capacity_error(exc)
+                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
                         raise RuntimeError(f"Google image generation failed: {exc}") from exc
                     print(f"[worker] image provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
                     raise RuntimeError("Google image generation returned no media payload")
-                _run_ffmpeg_text_image(prompt=prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
+                _run_ffmpeg_text_image(prompt=styled_prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
 
             ext = _extension_for_content_type(content_type, ".png")
             key = f"assets/images/{job_id}-{uuid.uuid4().hex}{ext}"
             _upload_file(out_path, key, content_type=content_type)
-            return key, content_type, 0.0, provider_title or _title_from_prompt(prompt) or f"Image {job_id}"
+            return key, content_type, 0.0, provider_title or _title_from_prompt(styled_prompt) or f"Image {job_id}"
         finally:
             try:
                 os.unlink(out_path)
@@ -1298,6 +1343,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         try:
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F")
             speed = int(settings.get("speed_wpm") or 165)
+            provider_capacity_error = False
 
             if use_google_provider:
                 try:
@@ -1308,12 +1354,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         out_path=out_path,
                     )
                 except Exception as exc:
-                    if strict_provider or not allow_demo_fallback:
+                    provider_capacity_error = _is_provider_capacity_error(exc)
+                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
                         raise RuntimeError(f"Google voiceover generation failed: {exc}") from exc
                     print(f"[worker] voiceover provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
                     raise RuntimeError("Google voiceover generation returned no audio payload")
                 _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
 
@@ -1337,10 +1384,12 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         os.close(fd_audio)
         image_paths: list[str] = []
         try:
-            visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
+            raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
+            visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
             voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
+            provider_capacity_error_voice = False
 
             image_count_raw = settings.get("image_count")
             try:
@@ -1358,12 +1407,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         out_path=audio_path,
                     )
                 except Exception as exc:
-                    if strict_provider or not allow_demo_fallback:
+                    provider_capacity_error_voice = _is_provider_capacity_error(exc)
+                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error_voice):
                         raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
                     print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(audio_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_demo_fallback and not provider_capacity_error_voice:
                     raise RuntimeError("Google post voiceover generation returned no audio payload")
                 _run_voiceover(
                     script=voice_script or "Untitled voiceover",
@@ -1386,6 +1436,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     f"{visual_prompt}. Scene {idx + 1} of {image_count},"
                     " consistent style, composition, and subject continuity."
                 )
+                provider_capacity_error_image = False
 
                 if use_google_provider:
                     try:
@@ -1414,7 +1465,8 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                             )
                         _write_bytes(img_path, media_bytes)
                     except Exception as exc:
-                        if strict_provider or not allow_demo_fallback:
+                        provider_capacity_error_image = _is_provider_capacity_error(exc)
+                        if strict_provider or (not allow_demo_fallback and not provider_capacity_error_image):
                             raise RuntimeError(f"Google post image generation failed: {exc}") from exc
                         print(
                             f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{image_count} "
@@ -1422,7 +1474,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         )
 
                 if not _file_has_data(img_path):
-                    if use_google_provider and not allow_demo_fallback:
+                    if use_google_provider and not allow_demo_fallback and not provider_capacity_error_image:
                         raise RuntimeError("Google post image generation returned no media payload")
                     _run_ffmpeg_text_image(prompt=scene_prompt, aspect_ratio=aspect_ratio, out_path=img_path)
 
@@ -1435,7 +1487,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             )
             key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
             _upload_file(out_path, key, content_type="video/mp4")
-            return key, "video/mp4", final_duration, _title_from_prompt(visual_prompt) or f"AI Post {job_id}"
+            return key, "video/mp4", final_duration, _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
         finally:
             try:
                 os.unlink(out_path)
@@ -1459,6 +1511,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         content_type = "video/mp4"
         provider_duration: float | None = None
         provider_title: str | None = None
+        provider_capacity_error = False
 
         if use_google_provider:
             try:
@@ -1466,7 +1519,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
                         endpoint_env="GOOGLE_VIDEO_API_URL",
                         payload={
-                            "prompt": prompt,
+                            "prompt": styled_prompt,
                             "negative_prompt": negative_prompt or None,
                             "aspect_ratio": aspect_ratio,
                             "duration_seconds": duration,
@@ -1478,7 +1531,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     )
                 else:
                     media_bytes, remote_type, remote_duration, remote_title = _run_google_vertex_video_generation(
-                        prompt=prompt,
+                        prompt=styled_prompt,
                         negative_prompt=negative_prompt,
                         aspect_ratio=aspect_ratio,
                         duration_seconds=duration,
@@ -1490,18 +1543,19 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     provider_duration = float(remote_duration)
                 provider_title = remote_title
             except Exception as exc:
-                if strict_provider or not allow_demo_fallback:
+                provider_capacity_error = _is_provider_capacity_error(exc)
+                if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
                     raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
         if not _file_has_data(out_path):
-            if use_google_provider and not allow_demo_fallback:
+            if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
                 raise RuntimeError("Google video generation returned no media payload")
             prep_delay = _video_mode_prep_delay_seconds(generation_speed)
             if prep_delay > 0:
                 time.sleep(prep_delay)
             _run_ffmpeg_text_video(
-                prompt=prompt or "Untitled",
+                prompt=styled_prompt or "Untitled",
                 duration=duration,
                 aspect_ratio=aspect_ratio,
                 out_path=out_path,

@@ -151,23 +151,29 @@ function ActionIconButton({
   tone?: "ghost" | "brand";
 }) {
   const className = cx(
-    "inline-flex h-9 w-9 items-center justify-center rounded-full border text-base font-semibold transition",
+    "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-semibold transition",
     tone === "brand"
-      ? "border-[#46d7ff7a] bg-[#46d7ff2b] text-white hover:bg-[#46d7ff45]"
-      : "border-white/15 bg-black/35 text-white/90 hover:bg-white/14"
+      ? "border-[#fb56077a] bg-[linear-gradient(130deg,rgba(255,183,3,0.2),rgba(251,86,7,0.2),rgba(58,134,255,0.2))] text-white hover:border-[#fb5607a5] hover:bg-[linear-gradient(130deg,rgba(255,183,3,0.28),rgba(251,86,7,0.28),rgba(58,134,255,0.28))]"
+      : "border-white/12 bg-black/35 text-white/88 hover:bg-white/12"
   );
 
   if (href) {
     return (
       <a href={href} className={className} title={label} aria-label={label}>
-        <span aria-hidden="true">{symbol}</span>
+        <span aria-hidden="true" className="text-[13px]">
+          {symbol}
+        </span>
+        <span>{label}</span>
       </a>
     );
   }
 
   return (
     <button type="button" onClick={onClick} className={className} title={label} aria-label={label}>
-      <span aria-hidden="true">{symbol}</span>
+      <span aria-hidden="true" className="text-[13px]">
+        {symbol}
+      </span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -189,6 +195,7 @@ export default function ClipsPage() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   async function loadClips() {
     setLoading(true);
@@ -226,6 +233,15 @@ export default function ClipsPage() {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [editorOpen]);
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
@@ -389,13 +405,13 @@ export default function ClipsPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1520px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-[30px] border border-[#8f8cff3d] p-5 sm:p-7">
+        <section className="surface relative overflow-hidden rounded-[30px] border border-[#fb560740] p-5 sm:p-7">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -inset-16 opacity-60 blur-3xl"
             style={{
               background:
-                "radial-gradient(320px 220px at 14% 20%, rgba(155,140,255,0.22), transparent 72%), radial-gradient(360px 220px at 82% 18%, rgba(70,215,255,0.22), transparent 74%), radial-gradient(320px 220px at 52% 96%, rgba(53,242,166,0.14), transparent 76%)",
+                "radial-gradient(320px 220px at 14% 20%, rgba(255,183,3,0.2), transparent 72%), radial-gradient(360px 220px at 82% 18%, rgba(58,134,255,0.22), transparent 74%), radial-gradient(320px 220px at 52% 96%, rgba(251,86,7,0.2), transparent 76%)",
             }}
           />
 
@@ -415,9 +431,13 @@ export default function ClipsPage() {
                 <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Generator
                 </Link>
-                <Link href="/app/editor" className="btn-orbito px-4 py-2 text-center text-[12px]">
+                <button
+                  type="button"
+                  onClick={() => setEditorOpen(true)}
+                  className="btn-aurora px-4 py-2 text-center text-[12px]"
+                >
                   Open Editor
-                </Link>
+                </button>
                 <Link href="/app/connections" className="btn-ghost col-span-2 px-4 py-2 text-center text-[12px] sm:col-auto">
                   Connections
                 </Link>
@@ -434,7 +454,7 @@ export default function ClipsPage() {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-2xl border border-[#8f8cff36] bg-[linear-gradient(140deg,rgba(9,15,29,0.92),rgba(7,11,22,0.86))] px-4 py-3"
+                  className="rounded-2xl border border-[#fb560738] bg-[linear-gradient(140deg,rgba(9,15,29,0.94),rgba(8,10,18,0.9))] px-4 py-3"
                 >
                   <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{item.label}</div>
                   <div className="mt-1 text-lg font-semibold text-white/92">{item.value}</div>
@@ -444,7 +464,7 @@ export default function ClipsPage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-[28px] border border-[#8f8cff2f] bg-[#090f1c]/92 p-4 sm:p-5">
+        <section className="mt-6 rounded-[28px] border border-[#fb560733] bg-[#090f1c]/92 p-4 sm:p-5">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <input
@@ -467,7 +487,7 @@ export default function ClipsPage() {
                   className={cx(
                     "rounded-full border px-3 py-2 text-[11px] font-semibold transition",
                     assetFilter === filter
-                      ? "border-[#46d7ff6b] bg-[#46d7ff26] text-white"
+                      ? "border-[#fb560782] bg-[linear-gradient(120deg,rgba(255,183,3,0.16),rgba(251,86,7,0.2),rgba(58,134,255,0.18))] text-white"
                       : "border-white/10 bg-black/35 text-white/70 hover:bg-white/10"
                   )}
                 >
@@ -511,7 +531,7 @@ export default function ClipsPage() {
                 return (
                   <article
                     key={c.id}
-                    className="group overflow-hidden rounded-[24px] border border-[#8f8cff3d] bg-[#070d1a] shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+                    className="group overflow-hidden rounded-[24px] border border-[#fb560740] bg-[#070d1a] shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
                   >
                     <div className="relative aspect-[9/12] bg-black/50">
                       {assetType === "image" ? (
@@ -533,7 +553,7 @@ export default function ClipsPage() {
                     <div className="p-3">
                       <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
                       <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
                         <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
                         {assetType === "video" ? (
@@ -558,7 +578,7 @@ export default function ClipsPage() {
               {audioRows.map((c) => (
                 <article
                   key={c.id}
-                  className="surface-soft relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#8f8cff3d] bg-[#090f1d]/95 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
+                  className="surface-soft relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#fb560740] bg-[#090f1d]/95 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
                 >
                   <div
                     aria-hidden="true"
@@ -586,7 +606,7 @@ export default function ClipsPage() {
                     </div>
 
                     <div className="mt-auto pt-4">
-                      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
+                      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
                         <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
                         <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
                       </div>
@@ -604,6 +624,40 @@ export default function ClipsPage() {
           </section>
         ) : null}
       </main>
+
+      {editorOpen ? (
+        <div className="fixed inset-0 z-[85] bg-[#05070f]">
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/60 px-4 py-3 backdrop-blur-sm sm:px-5">
+              <div>
+                <div className="text-[11px] text-white/55">• Full-screen Editor</div>
+                <div className="text-sm font-semibold text-white/92">Clipforge Timeline Console</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/app/editor"
+                  className="rounded-xl border border-white/12 bg-white/[0.05] px-3 py-2 text-[11px] font-semibold text-white/82 hover:bg-white/[0.11]"
+                >
+                  Open standalone
+                </a>
+                <button type="button" onClick={() => setEditorOpen(false)} className="btn-aurora px-3 py-2 text-[11px]">
+                  Close editor
+                </button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 p-2 sm:p-3">
+              <div className="h-full overflow-hidden rounded-2xl border border-white/10 bg-[#050a14]">
+                <iframe
+                  title="Clipforge Editor"
+                  src="/app/editor?embed=1"
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {scheduleClip ? (
         <div className="fixed inset-0 z-[80]">
@@ -663,7 +717,7 @@ export default function ClipsPage() {
                       className={cx(
                         "rounded-xl border px-3 py-3 transition",
                         selected
-                          ? "border-cyan-300/45 bg-cyan-300/12"
+                          ? "border-[#fb560780] bg-[#fb560724]"
                           : connected
                             ? "border-white/15 bg-white/[0.03] hover:border-white/25"
                             : "border-white/10 bg-white/[0.02] opacity-55",
@@ -686,7 +740,7 @@ export default function ClipsPage() {
                             }
                             setScheduleSelectedProviders((prev) => limitSelectedProviders([...prev, provider]));
                           }}
-                          className="h-4 w-4 accent-cyan-400"
+                          className="h-4 w-4 accent-orange-500"
                         />
                         <span className="text-sm text-white/88">{selected ? "Selected" : "Tap to select"}</span>
                       </div>
@@ -703,7 +757,7 @@ export default function ClipsPage() {
                   <span className="text-[11px] text-white/50">{scheduleCaption.trim().length} chars</span>
                 </div>
                 <textarea
-                  className="mt-2 min-h-[120px] w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-cyan-300/50"
+                  className="mt-2 min-h-[120px] w-full resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/90 outline-none focus:border-[#fb560782]"
                   value={scheduleCaption}
                   onChange={(e) => setScheduleCaption(e.target.value)}
                   placeholder="Write a clear caption for this clip"
@@ -714,7 +768,7 @@ export default function ClipsPage() {
                 <label className="text-[12px] text-white/60">Schedule time</label>
                 <input
                   type="datetime-local"
-                  className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white/90 outline-none focus:border-cyan-300/50"
+                  className="mt-2 h-11 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-sm text-white/90 outline-none focus:border-[#fb560782]"
                   value={scheduleWhen}
                   onChange={(e) => setScheduleWhen(e.target.value)}
                 />

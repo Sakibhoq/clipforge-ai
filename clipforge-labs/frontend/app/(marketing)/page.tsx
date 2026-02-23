@@ -52,6 +52,7 @@ type SampleClip = {
 
 export default function Page() {
   const revealRef = useReveal();
+  const [showDevGate, setShowDevGate] = useState(true);
 
   const prompts = useMemo<PromptDemo[]>(
     () => [
@@ -83,52 +84,36 @@ export default function Page() {
   const sampleClips = useMemo<SampleClip[]>(
     () => [
       {
-        title: "Coffee pour macro",
-        text: "Close-up of espresso pouring into a glass, warm window light, shallow depth of field, subtle film grain.",
+        title: "Backyard challenge intro",
+        text: "Vertical social frame with outdoor action and group staging. Fast hook for short-form feeds.",
         duration: "6s",
         aspect: "9:16",
-        style: "Warm",
+        style: "Social",
         src: "/previews/labs-preview-1.mp4",
       },
       {
-        title: "Neon street b-roll",
-        text: "Slow dolly-in on a neon-lit street at night, rain reflections, moody cinematic lighting, soft haze.",
+        title: "Closet walkthrough",
+        text: "Vertical b-roll scene inside a home setup with depth and subject movement.",
         duration: "8s",
         aspect: "9:16",
-        style: "Cinematic",
+        style: "Lifestyle",
         src: "/previews/labs-preview-2.mp4",
       },
       {
-        title: "Minimal product spin",
-        text: "Matte-black sneaker on clean studio backdrop, slow turntable rotation, crisp highlights, premium look.",
+        title: "Interior setup frame",
+        text: "Square crop version for feed-safe framing and center-focused storytelling.",
         duration: "6s",
         aspect: "1:1",
-        style: "Clean",
+        style: "Square",
         src: "/previews/labs-preview-3.mp4",
       },
       {
-        title: "Golden-hour travel",
-        text: "Drone flyover of a coastal cliff path at golden hour, soft fog, gentle camera motion, warm grade.",
+        title: "Kitchen prep scene",
+        text: "Landscape composition for YouTube-style posts and product/demo narratives.",
         duration: "10s",
         aspect: "16:9",
-        style: "Warm",
+        style: "Wide",
         src: "/previews/labs-preview-4.mp4",
-      },
-      {
-        title: "Food steam loop",
-        text: "Close-up of ramen bowl with steam rising, handheld micro-movement, cozy lighting, shallow focus.",
-        duration: "6s",
-        aspect: "9:16",
-        style: "Cozy",
-        src: "/previews/labs-preview-1.mp4",
-      },
-      {
-        title: "Tech teaser",
-        text: "Abstract macro of glowing circuit lines, quick focus pulls, high contrast, sleek sci‑fi vibe.",
-        duration: "6s",
-        aspect: "16:9",
-        style: "Futuristic",
-        src: "/previews/labs-preview-2.mp4",
       },
     ],
     []
@@ -141,11 +126,53 @@ export default function Page() {
     return () => window.clearInterval(t);
   }, [prompts.length]);
 
+  useEffect(() => {
+    try {
+      const seen = window.sessionStorage.getItem("clipforge-dev-gate-v1") === "1";
+      if (seen) setShowDevGate(false);
+    } catch {
+      // Keep visible when storage is unavailable.
+    }
+  }, []);
+
   const p = prompts[idx] || prompts[0]!;
   const heroClip = sampleClips[idx % sampleClips.length] || sampleClips[0]!;
 
   return (
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
+      {showDevGate ? (
+        <div className="fixed inset-0 z-[120]">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+          <div className="relative mx-auto flex min-h-[100svh] max-w-3xl items-center justify-center px-4 py-8 sm:px-6">
+            <div className="w-full rounded-3xl border border-white/14 bg-[linear-gradient(155deg,rgba(9,13,24,0.98),rgba(7,10,18,0.96))] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.55)] sm:p-8">
+              <div className="text-xs text-white/58">• Notice</div>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/96 sm:text-3xl">
+                Clipforge is still in development
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-white/72 sm:text-base">
+                You are viewing the live development build. Some features are still being tuned and may change rapidly.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDevGate(false);
+                    try {
+                      window.sessionStorage.setItem("clipforge-dev-gate-v1", "1");
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="btn-aurora"
+                >
+                  Exit to site
+                </button>
+                <span className="text-xs text-white/52">You can still use all core pages after closing this notice.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">

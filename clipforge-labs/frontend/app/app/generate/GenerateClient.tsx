@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
+type StylePreset = "social-native" | "photo-real" | "cinematic" | "cartoon" | "anime" | "illustration";
 
 type GenerateResponse = {
   upload_id: number;
@@ -45,6 +46,14 @@ const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
 
 const POST_DURATION_OPTIONS = [60, 120] as const;
+const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
+  { value: "social-native", label: "Social native" },
+  { value: "photo-real", label: "Photo-real" },
+  { value: "cinematic", label: "Cinematic" },
+  { value: "cartoon", label: "Cartoon" },
+  { value: "anime", label: "Anime" },
+  { value: "illustration", label: "Illustration" },
+];
 
 const VOICE_OPTIONS = [
   { value: "en-US-Neural2-F", label: "Luna (US • Natural female)" },
@@ -119,6 +128,14 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   if (!msg) return "Generation failed. Please try again.";
   const low = msg.toLowerCase();
   if (
+    low.includes("quota exceeded") ||
+    low.includes("resourceexhausted") ||
+    low.includes("too many requests") ||
+    low.includes("429")
+  ) {
+    return "Generation queue is at provider capacity. Retry in a few minutes or lower image count.";
+  }
+  if (
     low.includes("signaturedoesnotmatch") ||
     low.includes("putobject") ||
     low.includes("nocredentialserror")
@@ -144,6 +161,7 @@ export default function GenerateClient() {
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState(6);
   const [videoSpeed, setVideoSpeed] = useState<VideoSpeedMode>("relax");
+  const [stylePreset, setStylePreset] = useState<StylePreset>("social-native");
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
@@ -406,6 +424,7 @@ export default function GenerateClient() {
           model: "google",
           voice_name: voiceName,
           speed_wpm: voiceSpeed,
+          style_preset: stylePreset,
         };
       } else if (mode === "image") {
         endpoint = "/labs/generate/image";
@@ -413,7 +432,7 @@ export default function GenerateClient() {
           prompt: p,
           aspect_ratio: aspectRatio,
           model: "google",
-          style_preset: "photo-real",
+          style_preset: stylePreset,
         };
       } else if (mode === "voiceover") {
         endpoint = "/labs/generate/voiceover";
@@ -431,6 +450,7 @@ export default function GenerateClient() {
           duration_seconds: duration,
           generation_speed: videoSpeed,
           model: "google",
+          style_preset: stylePreset,
         };
       }
 
@@ -499,7 +519,7 @@ export default function GenerateClient() {
                 <Link href="/pricing" className="btn-solid-dark col-span-1 px-4 py-2 text-center text-xs">
                   Buy more credits
                 </Link>
-                <Link href="/app/editor" className="btn-ghost col-span-1 px-4 py-2 text-center text-xs">
+                <Link href="/app/editor" className="btn-aurora col-span-1 px-4 py-2 text-center text-xs">
                   Open editor
                 </Link>
                 {activeJob ? (
@@ -515,7 +535,7 @@ export default function GenerateClient() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {[
                 { label: "Mode", value: modeLabel(mode) },
                 { label: "Estimated Cost", value: `${estimatedCredits} credits` },
@@ -523,6 +543,13 @@ export default function GenerateClient() {
                 {
                   label: "Target",
                   value: mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A",
+                },
+                {
+                  label: "Style",
+                  value:
+                    mode === "voiceover"
+                      ? "N/A"
+                      : STYLE_PRESET_OPTIONS.find((opt) => opt.value === stylePreset)?.label || stylePreset,
                 },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
@@ -546,7 +573,7 @@ export default function GenerateClient() {
               </div>
               <Link
                 href="/app/clips"
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/75 hover:bg-white/10 sm:w-auto"
+                className="btn-aurora w-full px-3 py-2 text-center text-xs sm:w-auto"
               >
                 Open clips library
               </Link>
@@ -675,6 +702,23 @@ export default function GenerateClient() {
                       <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
                       <option value="16:9">16:9 (YouTube landscape)</option>
                       <option value="1:1">1:1 (Square)</option>
+                    </select>
+                  </div>
+                )}
+
+                {(mode === "post" || mode === "video" || mode === "image") && (
+                  <div className="grid gap-2">
+                    <label className="text-xs font-medium text-white/70">Style preset</label>
+                    <select
+                      value={stylePreset}
+                      onChange={(e) => setStylePreset(e.target.value as StylePreset)}
+                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                    >
+                      {STYLE_PRESET_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -855,15 +899,20 @@ export default function GenerateClient() {
                     }}
                     className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition hover:bg-white/[0.06]"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1 truncate pr-3 text-sm font-semibold text-white/85">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 break-words pr-0 text-sm font-semibold text-white/85 sm:flex-1 sm:pr-3">
                         {shortPromptLabel(j.prompt, j.id)}
                       </div>
-                      <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
+                      <span
+                        className={cx(
+                          "self-start rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:self-auto",
+                          statusTone(j.status)
+                        )}
+                      >
                         {prettyStatus(j.status)}
                       </span>
                     </div>
-                    <div className="mt-2 text-xs text-white/55">
+                    <div className="mt-2 break-words text-xs text-white/55">
                       {kindLabel(j.kind)} • {j.aspect_ratio || "—"} • {durationPresetLabel(j.duration_seconds)} • Upload #{j.upload_id}
                     </div>
                   </button>

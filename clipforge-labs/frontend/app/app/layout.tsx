@@ -47,6 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathnameRaw = usePathname();
   const pathname = normalizePath(pathnameRaw || "/");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isEditorEmbed, setIsEditorEmbed] = useState(false);
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,6 +160,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
+  useEffect(() => {
+    if (!pathname.startsWith("/app/editor")) {
+      setIsEditorEmbed(false);
+      return;
+    }
+    try {
+      const qp = new URLSearchParams(window.location.search);
+      setIsEditorEmbed(qp.get("embed") === "1");
+    } catch {
+      setIsEditorEmbed(false);
+    }
+  }, [pathname]);
+
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "cflabs-1";
 
@@ -181,6 +195,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Top bar */}
+      {!isEditorEmbed ? (
       <div className="sticky top-0 z-50 border-b border-white/10 bg-black/65 backdrop-blur-xl">
         <div
           className={cx(
@@ -321,9 +336,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </div>
+      ) : null}
 
       {/* Page content (add safe-area bottom padding so body scroll feels right on iOS) */}
-      <main className="relative mx-auto max-w-6xl px-4 py-8 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 sm:py-10">
+      <main
+        className={cx(
+          "relative",
+          isEditorEmbed
+            ? "mx-auto max-w-none px-0 py-0 pb-0"
+            : "mx-auto max-w-6xl px-4 py-8 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 sm:py-10"
+        )}
+      >
         {children}
       </main>
     </div>

@@ -193,6 +193,7 @@ function readAudioDuration(url: string): Promise<number> {
 }
 
 export default function EditorPage() {
+  const [isEmbed, setIsEmbed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clips, setClips] = useState<ClipRow[]>([]);
@@ -217,6 +218,15 @@ export default function EditorPage() {
     () => EXPORT_PROFILES.find((p) => p.id === profileId) || EXPORT_PROFILES[0],
     [profileId]
   );
+
+  useEffect(() => {
+    try {
+      const qp = new URLSearchParams(window.location.search);
+      setIsEmbed(qp.get("embed") === "1");
+    } catch {
+      setIsEmbed(false);
+    }
+  }, []);
 
   useEffect(() => {
     setProject((prev) => ({ ...prev, frame: profile.frame }));
@@ -573,16 +583,23 @@ export default function EditorPage() {
 
   return (
     <div className="relative overflow-x-clip">
-      <main className="relative mx-auto max-w-[1760px] px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
+      <main
+        className={cx(
+          "relative mx-auto",
+          isEmbed ? "max-w-none px-2 pb-2 pt-2 sm:px-3 sm:pb-3 sm:pt-3" : "max-w-[1760px] px-4 pb-16 pt-8 sm:px-6 sm:pt-10"
+        )}
+      >
         <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="text-xs text-white/55">• Clipforge Editor</div>
+            <div className="text-xs text-white/55">{isEmbed ? "• Full-screen Editor" : "• Clipforge Editor"}</div>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Professional <span className="grad-text">Timeline Workspace</span>
+              {isEmbed ? "Timeline Workspace" : <>Professional <span className="grad-text">Timeline Workspace</span></>}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
-              Production console for 1-2 minute AI posts with clean preview, precise timeline edits, and quick export prep.
-            </p>
+            {!isEmbed ? (
+              <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
+                Production console for 1-2 minute AI posts with clean preview, precise timeline edits, and quick export prep.
+              </p>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/62">
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Frame {project.frame}</span>
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">Timeline {formatSeconds(timelineDuration)}</span>
@@ -594,7 +611,7 @@ export default function EditorPage() {
             <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
               Open Generator
             </Link>
-            <Link href="/app/clips" className="btn-orbito px-4 py-2 text-center text-[12px]">
+            <Link href="/app/clips" className="btn-aurora px-4 py-2 text-center text-[12px]">
               Open Library
             </Link>
             <Link href="/app/connections" className="btn-ghost col-span-2 px-4 py-2 text-center text-[12px] sm:col-auto">
@@ -603,9 +620,20 @@ export default function EditorPage() {
           </div>
         </header>
 
-        <section className="mt-6 rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(8,10,16,0.92),rgba(8,10,14,0.84))] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-4">
-          <div className="grid gap-3 xl:grid-cols-[320px_minmax(0,1fr)_330px]">
-            <aside className="min-w-0 rounded-3xl border border-white/10 bg-black/35 p-4 xl:h-[calc(100vh-15.5rem)] xl:overflow-y-auto">
+        <section
+          className={cx(
+            "rounded-[30px] border border-white/12 bg-[linear-gradient(180deg,rgba(8,10,16,0.96),rgba(8,10,14,0.94))] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-4",
+            isEmbed ? "mt-3" : "mt-6"
+          )}
+        >
+          <div
+            className={cx(
+              "grid gap-3",
+              "xl:grid-cols-[320px_minmax(0,1fr)_330px]",
+              isEmbed ? "xl:h-[calc(100svh-8.7rem)]" : "xl:h-[calc(100svh-15rem)]"
+            )}
+          >
+            <aside className="min-w-0 rounded-3xl border border-white/10 bg-[#0a111f] p-4 xl:h-full xl:overflow-y-auto">
               <div className="text-xs text-white/55">• Project Setup</div>
               <div className="mt-3 grid gap-3">
                 <div className="grid gap-2">
@@ -788,8 +816,8 @@ export default function EditorPage() {
               </div>
             </aside>
 
-            <section className="grid min-w-0 gap-3 xl:h-[calc(100vh-15.5rem)] xl:grid-rows-[minmax(360px,1.1fr)_minmax(260px,1fr)]">
-              <div className="surface relative overflow-hidden rounded-3xl p-4 sm:p-5">
+            <section className="grid min-w-0 gap-3 xl:h-full xl:grid-rows-[minmax(360px,1.1fr)_minmax(260px,1fr)]">
+              <div className="surface relative overflow-hidden rounded-3xl bg-[#0a111f] p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs text-white/55">• Preview Stage</div>
                   <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
@@ -808,7 +836,15 @@ export default function EditorPage() {
                     {previewVisual?.type === "image" && previewVisual.url ? (
                       <img src={previewVisual.url} alt={previewVisual.title} className="h-full w-full object-cover" />
                     ) : previewVisual?.url ? (
-                      <video src={previewVisual.url} controls playsInline preload="metadata" className="h-full w-full object-cover" />
+                      <video
+                        src={previewVisual.url}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center px-4 text-center text-sm text-white/55">
                         Add image or video assets to the visual track to start previewing.
@@ -850,13 +886,13 @@ export default function EditorPage() {
                   {previewAudio?.url ? (
                     <div className="mt-3">
                       <div className="mb-1 text-[11px] text-white/58">Audio preview</div>
-                      <audio src={previewAudio.url} controls className="w-full" preload="metadata" />
+                      <audio src={previewAudio.url} controls className="w-full max-w-full" preload="metadata" />
                     </div>
                   ) : null}
                 </div>
               </div>
 
-              <div className="surface relative min-h-0 overflow-hidden rounded-3xl p-4 sm:p-5">
+              <div className="surface relative min-h-0 overflow-hidden rounded-3xl bg-[#0a111f] p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs text-white/55">• Timeline</div>
                   <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/68">
@@ -872,7 +908,7 @@ export default function EditorPage() {
               </div>
             </section>
 
-            <aside className="min-w-0 rounded-3xl border border-white/10 bg-black/35 p-4 xl:h-[calc(100vh-15.5rem)] xl:overflow-y-auto">
+            <aside className="min-w-0 rounded-3xl border border-white/10 bg-[#0a111f] p-4 xl:h-full xl:overflow-y-auto">
               <div className="text-xs text-white/55">• Inspector</div>
               {selectedItem && selected ? (
                 <div className="mt-3 grid gap-3">
