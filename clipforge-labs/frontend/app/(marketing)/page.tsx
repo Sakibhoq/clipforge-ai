@@ -184,12 +184,12 @@ export default function Page() {
             </div>
 
             <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl">
-              Turn a prompt into a <span className="grad-text">scroll-stopping video</span>.
+              Turn a prompt into <span className="grad-text">AI clips built to post</span>.
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-              {BRAND.product} is {BRAND.name}&rsquo;s generation lab: create video, image, and voiceover in one clean flow, then
-              publish to your connected channels.
+              {BRAND.product} is {BRAND.name}&rsquo;s AI clip engine: generate image+voice or video+voice clips in one clean flow,
+              then publish to your connected channels.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
