@@ -11,72 +11,73 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         paddingRight: "env(safe-area-inset-right)",
       }}
     >
-      {/* Global marketing background (brighter + animated orbs, never affects layout height, never breaks sticky) */}
+      {/* Global marketing background (darker base + brighter accent glows + faster motion) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[-20] overflow-hidden">
         {/* base */}
         <div className="absolute inset-0 bg-black" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(2,4,11,0.52),rgba(0,0,0,0.82))]" />
 
-        {/* bright top bloom */}
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_680px_at_50%_0%,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1000px_560px_at_12%_18%,rgba(125,211,252,0.10),transparent_62%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1000px_560px_at_88%_22%,rgba(167,139,250,0.10),transparent_62%)]" />
+        {/* top bloom + side accents (keep the page dark while highlights stay vivid) */}
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_680px_at_50%_0%,rgba(255,255,255,0.11),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_12%_18%,rgba(125,211,252,0.14),transparent_64%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_88%_22%,rgba(167,139,250,0.14),transparent_64%)]" />
 
         {/* animated glow orbs */}
         <div className="absolute inset-0">
           {/* left orb */}
           <div
-            className="absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.70]"
+            className="absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.78]"
             style={{
               background:
-                "radial-gradient(circle at 35% 35%, rgba(125,211,252,0.34), rgba(125,211,252,0.10) 38%, transparent 68%)",
+                "radial-gradient(circle at 35% 35%, rgba(125,211,252,0.42), rgba(125,211,252,0.14) 38%, transparent 68%)",
               filter: "blur(22px)",
               mixBlendMode: "screen",
-              animation: "orbFloatA 14s ease-in-out infinite",
+              animation: "orbFloatA 9s ease-in-out infinite",
             }}
           />
           {/* right orb */}
           <div
-            className="absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.62]"
+            className="absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.70]"
             style={{
               background:
-                "radial-gradient(circle at 55% 40%, rgba(167,139,250,0.34), rgba(167,139,250,0.10) 40%, transparent 70%)",
+                "radial-gradient(circle at 55% 40%, rgba(167,139,250,0.42), rgba(167,139,250,0.14) 40%, transparent 70%)",
               filter: "blur(24px)",
               mixBlendMode: "screen",
-              animation: "orbFloatB 16s ease-in-out infinite",
+              animation: "orbFloatB 10.5s ease-in-out infinite",
             }}
           />
           {/* bottom orb */}
           <div
-            className="absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.55] sm:block"
+            className="absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.64] sm:block"
             style={{
               background:
-                "radial-gradient(circle at 45% 45%, rgba(45,212,191,0.26), rgba(45,212,191,0.08) 42%, transparent 72%)",
+                "radial-gradient(circle at 45% 45%, rgba(45,212,191,0.32), rgba(45,212,191,0.11) 42%, transparent 72%)",
               filter: "blur(28px)",
               mixBlendMode: "screen",
-              animation: "orbFloatC 18s ease-in-out infinite",
+              animation: "orbFloatC 12s ease-in-out infinite",
             }}
           />
           {/* micro sparkles */}
           <div
-            className="absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.40]"
+            className="absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.48]"
             style={{
-              background: "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.10), transparent 65%)",
+              background: "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.14), transparent 65%)",
               filter: "blur(18px)",
-              animation: "orbPulse 6s ease-in-out infinite",
+              animation: "orbPulse 4.8s ease-in-out infinite",
             }}
           />
           <div
-            className="absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.35] sm:block"
+            className="absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.42] sm:block"
             style={{
-              background: "radial-gradient(circle at 45% 45%, rgba(255,255,255,0.09), transparent 68%)",
+              background: "radial-gradient(circle at 45% 45%, rgba(255,255,255,0.12), transparent 68%)",
               filter: "blur(20px)",
-              animation: "orbPulse 7.5s ease-in-out infinite",
+              animation: "orbPulse 5.6s ease-in-out infinite",
             }}
           />
         </div>
 
         {/* aurora (existing global class) */}
-        <div className="absolute inset-0 hidden opacity-[0.70] sm:block">
+        <div className="marketing-aurora absolute inset-0 hidden opacity-[0.78] sm:block">
           <div className="aurora" />
         </div>
 
@@ -114,6 +115,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                 0%, 100% { opacity: 0.28; transform: scale(0.98); }
                 50% { opacity: 0.48; transform: scale(1.05); }
               }
+              .marketing-aurora .aurora::before { animation-duration: 7s; }
+              .marketing-aurora .aurora::after { animation-duration: 9.5s; }
             `,
           }}
         />
