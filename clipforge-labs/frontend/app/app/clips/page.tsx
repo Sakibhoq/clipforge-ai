@@ -35,6 +35,7 @@ const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 type SocialPlan = AppPlan;
 type AssetFilter = "all" | "video" | "image" | "audio";
+type ActionIconName = "download" | "play" | "schedule";
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -128,43 +129,59 @@ function filterLabel(filter: AssetFilter) {
   return "All";
 }
 
+function ActionGlyph({ icon }: { icon: ActionIconName }) {
+  if (icon === "download") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 4v10" />
+        <path d="m8 10 4 4 4-4" />
+        <path d="M5 19h14" />
+      </svg>
+    );
+  }
+  if (icon === "schedule") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2.5" />
+        <path d="M8 3v4M16 3v4M3 10h18" />
+        <path d="M12 13v4M10 15h4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+      <path d="M8 6.5c0-1.02 1.1-1.66 1.98-1.13l8.24 4.95a1.31 1.31 0 0 1 0 2.26l-8.24 4.95A1.32 1.32 0 0 1 8 16.39V6.5Z" />
+    </svg>
+  );
+}
+
 function ActionIconButton({
   href,
   onClick,
-  symbol,
+  icon,
   label,
-  tone = "ghost",
 }: {
   href?: string;
   onClick?: () => void;
-  symbol: string;
+  icon: ActionIconName;
   label: string;
-  tone?: "ghost" | "brand";
 }) {
-  const className = cx(
-    "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-semibold transition",
-    tone === "brand"
-      ? "border-[#fb56077a] bg-[linear-gradient(130deg,rgba(255,183,3,0.2),rgba(251,86,7,0.2),rgba(58,134,255,0.2))] text-white hover:border-[#fb5607a5] hover:bg-[linear-gradient(130deg,rgba(255,183,3,0.28),rgba(251,86,7,0.28),rgba(58,134,255,0.28))]"
-      : "border-white/12 bg-black/35 text-white/88 hover:bg-white/12"
-  );
+  const className =
+    "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#fb56076e] bg-[linear-gradient(135deg,rgba(255,183,3,0.15),rgba(251,86,7,0.2),rgba(58,134,255,0.18))] text-white transition hover:border-[#fb5607ad] hover:brightness-110 active:translate-y-px";
 
   if (href) {
     return (
       <a href={href} className={className} title={label} aria-label={label}>
-        <span aria-hidden="true" className="text-[13px]">
-          {symbol}
-        </span>
-        <span>{label}</span>
+        <ActionGlyph icon={icon} />
+        <span className="sr-only">{label}</span>
       </a>
     );
   }
 
   return (
     <button type="button" onClick={onClick} className={className} title={label} aria-label={label}>
-      <span aria-hidden="true" className="text-[13px]">
-        {symbol}
-      </span>
-      <span>{label}</span>
+      <ActionGlyph icon={icon} />
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
@@ -186,7 +203,6 @@ export default function ClipsPage() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   async function loadClips() {
     setLoading(true);
@@ -224,15 +240,6 @@ export default function ClipsPage() {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (!editorOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [editorOpen]);
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
@@ -422,13 +429,9 @@ export default function ClipsPage() {
                 <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Generator
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => setEditorOpen(true)}
-                  className="btn-aurora px-4 py-2 text-center text-[12px]"
-                >
+                <Link href="/app/editor" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Editor
-                </button>
+                </Link>
                 <Link href="/app/connections" className="btn-ghost col-span-2 px-4 py-2 text-center text-[12px] sm:col-auto">
                   Connections
                 </Link>
@@ -545,10 +548,10 @@ export default function ClipsPage() {
                       <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
                       <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
-                        <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
+                        <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
+                        <ActionIconButton href={c.url} icon="play" label="Open preview" />
                         {assetType === "video" ? (
-                          <ActionIconButton onClick={() => openSchedule(c)} symbol="📅" label="Schedule / Post" tone="brand" />
+                          <ActionIconButton onClick={() => openSchedule(c)} icon="schedule" label="Schedule / Post" />
                         ) : null}
                       </div>
                     </div>
@@ -598,8 +601,8 @@ export default function ClipsPage() {
 
                     <div className="mt-auto pt-4">
                       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
-                        <ActionIconButton href={`/api/clips/${c.id}/download`} symbol="⬇️" label="Download" />
-                        <ActionIconButton href={c.url} symbol="🔎" label="Open preview" tone="brand" />
+                        <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
+                        <ActionIconButton href={c.url} icon="play" label="Open preview" />
                       </div>
                     </div>
                   </div>
@@ -615,40 +618,6 @@ export default function ClipsPage() {
           </section>
         ) : null}
       </main>
-
-      {editorOpen ? (
-        <div className="fixed inset-0 z-[85] bg-[#05070f]">
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-black/60 px-4 py-3 backdrop-blur-sm sm:px-5">
-              <div>
-                <div className="text-[11px] text-white/55">• Full-screen Editor</div>
-                <div className="text-sm font-semibold text-white/92">Clipforge Timeline Console</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="/app/editor"
-                  className="rounded-xl border border-white/12 bg-white/[0.05] px-3 py-2 text-[11px] font-semibold text-white/82 hover:bg-white/[0.11]"
-                >
-                  Open standalone
-                </a>
-                <button type="button" onClick={() => setEditorOpen(false)} className="btn-aurora px-3 py-2 text-[11px]">
-                  Close editor
-                </button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 p-2 sm:p-3">
-              <div className="h-full overflow-hidden rounded-2xl border border-white/10 bg-[#050a14]">
-                <iframe
-                  title="Clipforge Editor"
-                  src="/app/editor?embed=1"
-                  className="h-full w-full border-0"
-                  loading="lazy"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {scheduleClip ? (
         <div className="fixed inset-0 z-[80]">
