@@ -8,6 +8,7 @@ type AssetType = "video" | "image" | "audio";
 type TrackKey = "visual" | "voiceover" | "music" | "captions";
 type FrameRatio = "9:16" | "1:1" | "16:9";
 type ToolTab = "media" | "audio" | "text" | "versions" | "project";
+type CropRect = { x: number; y: number; w: number; h: number };
 type TimelineHoverLens = {
   track: TrackKey;
   x: number;
@@ -39,6 +40,7 @@ type TimelineItem = {
   volume: number;
   text?: string;
   motion?: "none" | "kenburns";
+  crop?: CropRect;
 };
 
 type ProjectState = {
@@ -93,6 +95,38 @@ function clamp(value: number, min: number, max: number) {
 
 function clamp01(value: number) {
   return clamp(value, 0, 1);
+}
+
+function normalizeCropRect(rect: CropRect, minSize = 0.02): CropRect {
+  const x = clamp(rect.x, 0, 0.98);
+  const y = clamp(rect.y, 0, 0.98);
+  const maxW = Math.max(minSize, 1 - x);
+  const maxH = Math.max(minSize, 1 - y);
+  const w = clamp(rect.w, minSize, maxW);
+  const h = clamp(rect.h, minSize, maxH);
+  return { x, y, w, h };
+}
+
+function cropMediaStyle(crop?: CropRect): React.CSSProperties {
+  if (!crop) {
+    return {
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+    };
+  }
+
+  const safe = normalizeCropRect(crop, 0.02);
+  return {
+    position: "absolute",
+    width: `${100 / safe.w}%`,
+    height: `${100 / safe.h}%`,
+    left: `${(-safe.x / safe.w) * 100}%`,
+    top: `${(-safe.y / safe.h) * 100}%`,
+    objectFit: "cover",
+  };
 }
 
 function formatSeconds(value: number) {
@@ -325,11 +359,18 @@ export default function EditorPage() {
   const [playing, setPlaying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
+  const [cropEditItemId, setCropEditItemId] = useState<string | null>(null);
+  const [cropDraft, setCropDraft] = useState<CropRect | null>(null);
 
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [localMusicAssets, setLocalMusicAssets] = useState<LocalMusicAsset[]>([]);
   const localMusicInputRef = useRef<HTMLInputElement | null>(null);
   const localMusicObjectUrlsRef = useRef<string[]>([]);
+  const cropDragRef = useRef<{ active: boolean; startX: number; startY: number }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+  });
 
   const profile = useMemo(() => profileForFrame(project.frame), [project.frame]);
 
@@ -354,12 +395,31 @@ export default function EditorPage() {
     return project[selected.track].find((item) => item.id === selected.itemId) || null;
   }, [selected, project]);
 
+  const selectedVisualItem = useMemo(() => {
+    if (!selected || selected.track !== "visual") return null;
+    return project.visual.find((item) => item.id === selected.itemId) || null;
+  }, [selected, project.visual]);
+
   const activeVisual = useMemo(() => {
     const active = project.visual.find(
       (item) => playhead >= item.start && playhead < item.start + item.duration
     );
     return active || project.visual[0] || null;
   }, [project.visual, playhead]);
+
+  const previewVisual = useMemo(() => {
+    if (cropEditItemId && selectedVisualItem) return selectedVisualItem;
+    return activeVisual;
+  }, [cropEditItemId, selectedVisualItem, activeVisual]);
+
+  const previewCrop = useMemo(() => {
+    if (cropEditItemId && selectedVisualItem && previewVisual?.id === selectedVisualItem.id) {
+      return cropDraft || selectedVisualItem.crop;
+    }
+    return previewVisual?.crop;
+  }, [cropEditItemId, selectedVisualItem, previewVisual, cropDraft]);
+
+  const cropModeActive = Boolean(cropEditItemId && selectedVisualItem && previewVisual?.id === selectedVisualItem.id);
 
   const activeCaption = useMemo(() => {
     const active = project.captions.find(
@@ -496,6 +556,71 @@ export default function EditorPage() {
     if (!selected) return;
     setTrackItems(selected.track, (items) => items.filter((item) => item.id !== selected.itemId));
     setSelected(null);
+  }
+
+  function startCropForSelectedVisual() {
+    if (!selectedVisualItem) return;
+    setCropEditItemId(selectedVisualItem.id);
+    setCropDraft(normalizeCropRect(selectedVisualItem.crop || { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }, 0.02));
+    setPlayhead(selectedVisualItem.start);
+  }
+
+  function cancelCropEdit() {
+    setCropEditItemId(null);
+    setCropDraft(null);
+    cropDragRef.current.active = false;
+  }
+
+  function applyCropEdit() {
+    if (!selectedVisualItem || !cropDraft) return;
+    const nextCrop = normalizeCropRect(cropDraft, 0.02);
+    setTrackItems("visual", (items) =>
+      items.map((item) => (item.id === selectedVisualItem.id ? { ...item, crop: nextCrop } : item))
+    );
+    setCropEditItemId(null);
+    setCropDraft(null);
+    cropDragRef.current.active = false;
+  }
+
+  function resetCropEdit() {
+    if (!selectedVisualItem) return;
+    setTrackItems("visual", (items) =>
+      items.map((item) => (item.id === selectedVisualItem.id ? { ...item, crop: undefined } : item))
+    );
+    setCropEditItemId(null);
+    setCropDraft(null);
+    cropDragRef.current.active = false;
+  }
+
+  function cropPointFromEvent(event: React.MouseEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+    const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), 0, 1);
+    return { x, y };
+  }
+
+  function beginCropDrag(event: React.MouseEvent<HTMLDivElement>) {
+    if (!cropModeActive) return;
+    event.preventDefault();
+    const p = cropPointFromEvent(event);
+    cropDragRef.current = { active: true, startX: p.x, startY: p.y };
+    setCropDraft(normalizeCropRect({ x: p.x, y: p.y, w: 0.02, h: 0.02 }, 0.005));
+  }
+
+  function moveCropDrag(event: React.MouseEvent<HTMLDivElement>) {
+    if (!cropModeActive || !cropDragRef.current.active) return;
+    event.preventDefault();
+    const p = cropPointFromEvent(event);
+    const s = cropDragRef.current;
+    const x = Math.min(s.startX, p.x);
+    const y = Math.min(s.startY, p.y);
+    const w = Math.abs(s.startX - p.x);
+    const h = Math.abs(s.startY - p.y);
+    setCropDraft(normalizeCropRect({ x, y, w, h }, 0.01));
+  }
+
+  function endCropDrag() {
+    cropDragRef.current.active = false;
   }
 
   function saveVersion() {
@@ -645,6 +770,15 @@ export default function EditorPage() {
   }, [selected, project]);
 
   useEffect(() => {
+    if (!cropEditItemId) return;
+    if (!selectedVisualItem || selectedVisualItem.id !== cropEditItemId) {
+      setCropEditItemId(null);
+      setCropDraft(null);
+      cropDragRef.current.active = false;
+    }
+  }, [cropEditItemId, selectedVisualItem]);
+
+  useEffect(() => {
     if (toolTab !== "media" && mediaMenuOpen) setMediaMenuOpen(false);
   }, [toolTab, mediaMenuOpen]);
 
@@ -768,7 +902,7 @@ export default function EditorPage() {
                     width: lensSize,
                     height: lensSize,
                     left: clamp(timelineHoverLens.x, lensSize / 2, Math.max(lensSize / 2, timelineHoverLens.laneWidth - lensSize / 2)),
-                    top: clamp(timelineHoverLens.y - lensSize - 12, 6, laneHeight - lensSize - 6),
+                    top: timelineHoverLens.y - lensSize - 12,
                   }}
                 >
                   <div
@@ -1164,19 +1298,46 @@ export default function EditorPage() {
               <div className="border border-white/10 bg-black/45 p-4">
                 <div className="relative h-[500px] overflow-hidden border border-white/10 bg-[#060b16]">
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
-                  {activeVisual?.type === "image" && activeVisual.url ? (
-                    <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
-                  ) : activeVisual?.url ? (
-                    <video src={activeVisual.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
-                      Open sidepanel media button and add video/image assets to the timeline.
-                    </div>
-                  )}
+                  <div className="absolute inset-0 overflow-hidden">
+                    {previewVisual?.type === "image" && previewVisual.url ? (
+                      <img src={previewVisual.url} alt={previewVisual.title} className="absolute" style={cropMediaStyle(previewCrop)} />
+                    ) : previewVisual?.url ? (
+                      <video src={previewVisual.url} muted autoPlay loop playsInline preload="metadata" className="absolute" style={cropMediaStyle(previewCrop)} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
+                        Open sidepanel media button and add video/image assets to the timeline.
+                      </div>
+                    )}
+                  </div>
 
                   {activeCaption?.text ? (
                     <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
                       {activeCaption.text}
+                    </div>
+                  ) : null}
+
+                  {cropModeActive && previewVisual ? (
+                    <div
+                      className="absolute inset-0 z-20 cursor-crosshair"
+                      onMouseDown={beginCropDrag}
+                      onMouseMove={moveCropDrag}
+                      onMouseUp={endCropDrag}
+                      onMouseLeave={endCropDrag}
+                    >
+                      {cropDraft ? (
+                        <div
+                          className="pointer-events-none absolute border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+                          style={{
+                            left: `${cropDraft.x * 100}%`,
+                            top: `${cropDraft.y * 100}%`,
+                            width: `${cropDraft.w * 100}%`,
+                            height: `${cropDraft.h * 100}%`,
+                          }}
+                        />
+                      ) : null}
+                      <div className="pointer-events-none absolute left-3 top-3 bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+                        Drag on preview to crop
+                      </div>
                     </div>
                   ) : null}
 
@@ -1285,6 +1446,27 @@ export default function EditorPage() {
                   <button type="button" onClick={deleteSelected} className="btn-ghost px-3 py-2 text-[12px]">
                     Delete
                   </button>
+                  {selected.track === "visual" ? (
+                    <div className="flex flex-wrap gap-2 lg:col-span-5">
+                      {cropModeActive ? (
+                        <>
+                          <button type="button" onClick={applyCropEdit} className="btn-aurora px-3 py-2 text-[12px]">
+                            Apply Crop
+                          </button>
+                          <button type="button" onClick={cancelCropEdit} className="btn-ghost px-3 py-2 text-[12px]">
+                            Cancel
+                          </button>
+                          <button type="button" onClick={resetCropEdit} className="btn-ghost px-3 py-2 text-[12px]">
+                            Reset Crop
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" onClick={startCropForSelectedVisual} className="btn-ghost px-3 py-2 text-[12px]">
+                          Crop With Mouse
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
                   {selectedItem.type === "caption" ? (
                     <textarea
                       rows={2}
