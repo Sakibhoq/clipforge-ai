@@ -672,7 +672,7 @@ export default function EditorPage() {
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const laneHeight = 52;
+    const laneHeight = 68;
     const lensSize = 120;
     const lensScale = 2.25;
     const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
@@ -721,15 +721,15 @@ export default function EditorPage() {
     }
 
     return (
-      <div className="rounded-2xl border border-white/10 bg-black/40 p-3" key={track}>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="text-xs font-semibold tracking-[0.05em] text-white/80">{trackLabel(track)} Track</div>
-          <div className="text-[11px] text-white/52">{items.length} items</div>
+      <div className="border border-white/10 bg-[#121726] px-3 py-2" key={track}>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <div className="text-[11px] font-semibold tracking-[0.05em] text-white/82">{trackLabel(track)} Track</div>
+          <div className="text-[10px] text-white/52">{items.length} items</div>
         </div>
 
-        <div className="pb-1">
+        <div className="pb-0.5">
           <div className="relative">
-            <div className="grid h-4 grid-cols-12 text-[9px] text-white/45">
+            <div className="grid h-3.5 grid-cols-12 text-[9px] text-white/38">
               {Array.from({ length: 13 }).map((_, index) => (
                 <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}> 
                   {formatSeconds((timelineSeconds / 12) * index)}
@@ -738,7 +738,7 @@ export default function EditorPage() {
             </div>
 
             <div
-              className="relative mt-1.5 overflow-visible rounded-xl border border-white/10 bg-black/55 cursor-none"
+              className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-none"
               style={{ height: laneHeight }}
               onMouseMove={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
@@ -882,9 +882,9 @@ export default function EditorPage() {
           </div>
         </header>
 
-        <section className="rounded-[30px] border border-[#fb560744] bg-[linear-gradient(180deg,rgba(7,10,18,0.96),rgba(5,8,14,0.94))] p-3 shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-          <div className="relative grid gap-3 xl:grid-cols-[58px_minmax(0,1fr)] xl:grid-rows-[minmax(560px,auto)_auto]">
-            <nav className="rounded-2xl border border-white/10 bg-[#060d19] p-2 xl:row-span-2">
+        <section className="overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
+          <div className="relative grid gap-0 xl:grid-cols-[58px_minmax(0,1fr)] xl:grid-rows-[minmax(560px,auto)_auto]">
+            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {(["media", "audio", "text", "versions", "project"] as ToolTab[]).map((tab) => {
                   const active = toolTab === tab;
@@ -910,7 +910,7 @@ export default function EditorPage() {
             </nav>
 
             {toolTab ? (
-              <aside className="pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl border border-white/12 bg-[#07111f]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+              <aside className="pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
                 {toolTab === "project" ? (
@@ -1154,15 +1154,15 @@ export default function EditorPage() {
               </aside>
             ) : null}
 
-            <section className="rounded-2xl border border-white/10 bg-[#081120] p-4 xl:col-start-2">
+            <section className="border-b border-white/10 bg-[#121726] p-4 xl:col-start-2">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Preview Stage</div>
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/72">
+                <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
                   {profile.label}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                <div className="relative h-[500px] overflow-hidden rounded-xl border border-white/10 bg-[#030712]">
+              <div className="border border-white/10 bg-black/45 p-4">
+                <div className="relative h-[500px] overflow-hidden border border-white/10 bg-[#060b16]">
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
                   {activeVisual?.type === "image" && activeVisual.url ? (
                     <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
@@ -1175,7 +1175,7 @@ export default function EditorPage() {
                   )}
 
                   {activeCaption?.text ? (
-                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-xl bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
                       {activeCaption.text}
                     </div>
                   ) : null}
@@ -1217,14 +1217,14 @@ export default function EditorPage() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-[#081120] p-3.5 xl:col-start-2">
+            <section className="bg-[#121726] p-3.5 xl:col-start-2">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
+                  <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
                     Length {formatSeconds(timelineSeconds)}
                   </div>
-                  <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
+                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
                     Music {formatPercent(project.musicBedLevel)}
                     <input
                       type="range"
@@ -1241,7 +1241,7 @@ export default function EditorPage() {
                       className="w-24 accent-white"
                     />
                   </label>
-                  <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
+                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
                     Playhead {formatSeconds(playhead)}
                     <input
                       type="range"
@@ -1257,7 +1257,7 @@ export default function EditorPage() {
               </div>
 
               {selectedItem && selected ? (
-                <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[minmax(0,1fr)_120px_120px_auto_auto]">
+                <div className="mb-3 grid gap-2 border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[minmax(0,1fr)_120px_120px_auto_auto]">
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
@@ -1295,7 +1295,7 @@ export default function EditorPage() {
                   ) : null}
                 </div>
               ) : (
-                <div className="mb-3 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                <div className="mb-3 border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
                   Select a timeline block to edit timing in milliseconds.
                 </div>
               )}
