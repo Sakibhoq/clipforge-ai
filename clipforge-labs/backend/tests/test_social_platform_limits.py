@@ -131,3 +131,19 @@ def test_creator_plan_is_unlimited(db):
     _mk_post(db, user_id=u.id, clip_id=clip.id, provider="instagram")
 
     _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
+
+
+def test_legacy_starter_alias_applies_starter_provider_limits(db):
+    u = _mk_user(db, plan="starter_monthly")
+    clip = _mk_clip(db, user_id=u.id)
+    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
+    _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="instagram")
+    with pytest.raises(HTTPException):
+        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="tiktok")
+
+
+def test_legacy_creator_alias_unlocks_full_provider_access(db):
+    u = _mk_user(db, plan="creator_plus")
+    clip = _mk_clip(db, user_id=u.id)
+    for provider in ("youtube", "tiktok", "instagram", "facebook"):
+        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider=provider)

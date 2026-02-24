@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/SocialBrand";
 type SocialAccount = {
   id: number;
@@ -48,7 +49,7 @@ export default function StudioPage() {
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentPlan, setCurrentPlan] = useState("free");
+  const [currentPlan, setCurrentPlan] = useState<AppPlan>("free");
 
   async function refreshSummary() {
     setLoading(true);
@@ -67,7 +68,7 @@ export default function StudioPage() {
     refreshSummary();
     apiFetch<MeResponse>("/auth/me", { method: "GET" })
       .then((me) => {
-        setCurrentPlan(String(me?.plan || "free").toLowerCase());
+        setCurrentPlan(normalizeAppPlan(me?.plan));
       })
       .catch(() => {
         setCurrentPlan("free");

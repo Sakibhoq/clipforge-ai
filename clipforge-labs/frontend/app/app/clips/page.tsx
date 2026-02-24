@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 
 type ClipRow = {
   id: number;
@@ -32,7 +33,7 @@ type SocialPostDTO = {
 
 const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"] as const;
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
-type SocialPlan = "free" | "starter" | "creator" | "studio";
+type SocialPlan = AppPlan;
 type AssetFilter = "all" | "video" | "image" | "audio";
 
 function cx(...xs: Array<string | false | null | undefined>) {
@@ -66,16 +67,6 @@ function socialLabel(p: string) {
   if (s === "instagram") return "Instagram";
   if (s === "facebook") return "Facebook";
   return p || "Social";
-}
-
-function normalizeSocialPlan(raw: string | undefined | null): SocialPlan {
-  const plan = String(raw || "")
-    .trim()
-    .toLowerCase();
-  if (plan === "starter") return "starter";
-  if (plan === "creator") return "creator";
-  if (plan === "studio") return "studio";
-  return "free";
 }
 
 function socialPlanLabel(plan: SocialPlan): string {
@@ -217,7 +208,7 @@ export default function ClipsPage() {
         apiFetch<{ plan?: string }>("/auth/me", { method: "GET" }),
         apiFetch<SocialAccountDTO[]>("/social/accounts", { method: "GET" }),
       ]);
-      setSocialPlan(normalizeSocialPlan(me?.plan));
+      setSocialPlan(normalizeAppPlan(me?.plan));
       setSocialAccounts(Array.isArray(accounts) ? accounts : []);
     } catch {
       setSocialPlan("free");
