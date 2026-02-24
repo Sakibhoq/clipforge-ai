@@ -1236,11 +1236,13 @@ def _is_provider_capacity_error(exc: Exception | str | None) -> bool:
 def _style_hint(style_preset: str | None) -> str:
     style = (style_preset or "").strip().lower()
     hints = {
+        "real": "photorealistic, natural lighting, realistic textures",
         "social-native": "platform-native social content, strong hook framing, high clarity",
         "photo-real": "photorealistic, natural lighting, realistic textures",
         "cinematic": "cinematic composition, filmic contrast, polished color grade",
         "cartoon": "cartoon illustration style, stylized outlines, vibrant shading",
         "anime": "anime aesthetic, expressive line art, cel-shaded look",
+        "comic": "comic-book style, bold ink outlines, halftone shading, dynamic framing",
         "illustration": "editorial illustration style, clean shapes, soft gradients",
     }
     return hints.get(style, "")

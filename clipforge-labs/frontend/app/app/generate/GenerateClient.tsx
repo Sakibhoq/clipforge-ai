@@ -9,7 +9,7 @@ import { apiFetch } from "@/lib/api";
 type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
-type StylePreset = "social-native" | "photo-real" | "cinematic" | "cartoon" | "anime" | "illustration";
+type StylePreset = "real" | "anime" | "cartoon" | "comic";
 
 type GenerateResponse = {
   upload_id: number;
@@ -47,12 +47,10 @@ const VOICE_MIN_CREDITS = 1;
 
 const POST_DURATION_OPTIONS = [60, 120] as const;
 const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
-  { value: "social-native", label: "Social native" },
-  { value: "photo-real", label: "Photo-real" },
-  { value: "cinematic", label: "Cinematic" },
-  { value: "cartoon", label: "Cartoon" },
+  { value: "real", label: "Real" },
   { value: "anime", label: "Anime" },
-  { value: "illustration", label: "Illustration" },
+  { value: "cartoon", label: "Cartoon" },
+  { value: "comic", label: "Comic" },
 ];
 
 const VOICE_OPTIONS = [
@@ -167,7 +165,7 @@ export default function GenerateClient() {
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [duration, setDuration] = useState(6);
   const [videoSpeed, setVideoSpeed] = useState<VideoSpeedMode>("relax");
-  const [stylePreset, setStylePreset] = useState<StylePreset>("social-native");
+  const [stylePreset, setStylePreset] = useState<StylePreset>("real");
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
@@ -548,7 +546,7 @@ export default function GenerateClient() {
                   value: mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A",
                 },
                 {
-                  label: "Style",
+                  label: "Output Type",
                   value:
                     mode === "voiceover"
                       ? "N/A"
@@ -711,7 +709,7 @@ export default function GenerateClient() {
 
                 {(mode === "post" || mode === "video" || mode === "image") && (
                   <div className="grid gap-2">
-                    <label className="text-xs font-medium text-white/70">Style preset</label>
+                    <label className="text-xs font-medium text-white/70">Output type</label>
                     <select
                       value={stylePreset}
                       onChange={(e) => setStylePreset(e.target.value as StylePreset)}
