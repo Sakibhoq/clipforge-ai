@@ -58,9 +58,15 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
 const VOICE_OPTIONS = [
   { value: "en-US-Neural2-F", label: "Luna (US • Natural female)" },
   { value: "en-US-Neural2-J", label: "Atlas (US • Natural male)" },
+  { value: "en-US-Neural2-D", label: "Ryder (US • Natural male)" },
+  { value: "en-US-Standard-B", label: "Milo (US • Classic male)" },
+  { value: "en-US-Standard-D", label: "Theo (US • Classic male)" },
   { value: "en-US-Neural2-C", label: "Nova (US • Balanced female)" },
   { value: "en-GB-Neural2-A", label: "Aria (UK • Natural female)" },
+  { value: "en-GB-Standard-B", label: "Felix (UK • Classic male)" },
+  { value: "en-GB-Standard-D", label: "Noah (UK • Classic male)" },
   { value: "en-AU-Neural2-A", label: "Kai (AU • Natural male)" },
+  { value: "en-AU-Standard-B", label: "Levi (AU • Classic male)" },
 ] as const;
 
 function cx(...xs: Array<string | false | null | undefined>) {
