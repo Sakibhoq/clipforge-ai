@@ -738,7 +738,7 @@ export default function EditorPage() {
             </div>
 
             <div
-              className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-none"
+              className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-crosshair"
               style={{ height: laneHeight }}
               onMouseMove={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
@@ -763,12 +763,12 @@ export default function EditorPage() {
 
               {lensActive && timelineHoverLens ? (
                 <div
-                  className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+                  className="pointer-events-none absolute z-30 -translate-x-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                   style={{
                     width: lensSize,
                     height: lensSize,
                     left: clamp(timelineHoverLens.x, lensSize / 2, Math.max(lensSize / 2, timelineHoverLens.laneWidth - lensSize / 2)),
-                    top: clamp(timelineHoverLens.y, lensSize / 2, laneHeight - lensSize / 2),
+                    top: clamp(timelineHoverLens.y - lensSize - 12, 6, laneHeight - lensSize - 6),
                   }}
                 >
                   <div
