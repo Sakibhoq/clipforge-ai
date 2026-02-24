@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { normalizeAppPlan } from "@/lib/plans";
 
 /* =========================================================
    Orbito — Billing (UI only)
@@ -528,7 +529,7 @@ export default function BillingPage() {
     apiFetch<MeResponse>("/auth/me", { method: "GET" })
       .then((me) => {
         if (cancelled) return;
-        const plan = (me.plan || "").toLowerCase();
+        const plan = normalizeAppPlan(me.plan);
         const mapped: PlanKey =
           plan === "starter"
             ? "starter"

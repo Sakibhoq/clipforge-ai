@@ -4,6 +4,7 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -120,17 +121,7 @@ function socialLabel(p: string) {
 const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"] as const;
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 
-type SocialPlan = "free" | "starter" | "creator" | "studio";
-
-function normalizeSocialPlan(raw: string | null | undefined): SocialPlan {
-  const plan = String(raw || "")
-    .trim()
-    .toLowerCase();
-  if (plan === "starter") return "starter";
-  if (plan === "creator") return "creator";
-  if (plan === "studio") return "studio";
-  return "free";
-}
+type SocialPlan = AppPlan;
 
 function socialPlanLabel(plan: SocialPlan): string {
   if (plan === "starter") return "Starter";
@@ -1090,7 +1081,7 @@ function ClipsWorkspace() {
     apiFetch<{ plan?: string }>("/auth/me", { method: "GET" })
       .then((me) => {
         if (cancelled) return;
-        setSocialPlan(normalizeSocialPlan(me?.plan));
+        setSocialPlan(normalizeAppPlan(me?.plan));
       })
       .catch(() => {
         if (cancelled) return;

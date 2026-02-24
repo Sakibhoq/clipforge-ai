@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/SocialBrand";
 
 type Channel = { id: number };
@@ -19,15 +20,7 @@ type MeResponse = {
   plan?: string | null;
 };
 
-type StudioPlan = "free" | "starter" | "creator" | "studio";
-
-function normalizeStudioPlan(raw: string | null | undefined): StudioPlan {
-  const plan = String(raw || "").trim().toLowerCase();
-  if (plan === "starter") return "starter";
-  if (plan === "creator") return "creator";
-  if (plan === "studio") return "studio";
-  return "free";
-}
+type StudioPlan = AppPlan;
 
 function allowedSocialProvidersForPlan(plan: StudioPlan): SocialProviderKey[] {
   if (plan === "starter") return ["instagram", "facebook"];
@@ -101,7 +94,7 @@ export default function StudioPage() {
     apiFetch<MeResponse>("/auth/me", { method: "GET" })
       .then((me) => {
         if (cancelled) return;
-        setCurrentPlan(normalizeStudioPlan(me?.plan));
+        setCurrentPlan(normalizeAppPlan(me?.plan));
       })
       .catch(() => {
         if (cancelled) return;

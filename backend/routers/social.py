@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import secrets
 import time
 from datetime import datetime, timezone
@@ -148,8 +149,36 @@ def _normalized_plan_key(raw_plan: Any) -> str:
     plan = str(raw_plan or "").strip().lower()
     if plan in PLAN_POSTING_PROVIDER_ALLOWLIST:
         return plan
-    if plan in {"free_trial", "trial"}:
-        return "free"
+
+    # Normalize legacy / suffixed plan names from older Stripe metadata flows.
+    token = re.sub(r"[^a-z0-9]+", "_", plan).strip("_")
+    if token in PLAN_POSTING_PROVIDER_ALLOWLIST:
+        return token
+
+    aliases = {
+        "free_trial": "free",
+        "trial": "free",
+        "trialing": "free",
+        "starter_monthly": "starter",
+        "starter_yearly": "starter",
+        "creator_plus": "creator",
+        "creator_monthly": "creator",
+        "creator_yearly": "creator",
+        "pro": "creator",
+        "pro_plus": "creator",
+        "studio_monthly": "studio",
+        "studio_yearly": "studio",
+    }
+    if token in aliases:
+        return aliases[token]
+
+    if token.startswith("starter") or "starter" in token:
+        return "starter"
+    if token.startswith("creator") or token.startswith("pro") or "creator" in token:
+        return "creator"
+    if token.startswith("studio") or "studio" in token:
+        return "studio"
+
     return "free"
 
 

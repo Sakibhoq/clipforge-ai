@@ -141,3 +141,18 @@ def test_starter_plan_can_connect_only_two_channels(db):
     with pytest.raises(HTTPException) as e:
         _enforce_connect_provider_access(user=u, provider="youtube")
     assert e.value.status_code == 403
+
+
+def test_legacy_starter_plan_alias_allows_starter_channels(db):
+    u = _mk_user(db, plan="starter_monthly")
+    _enforce_connect_provider_access(user=u, provider="facebook")
+    _enforce_connect_provider_access(user=u, provider="instagram")
+    with pytest.raises(HTTPException) as e:
+        _enforce_connect_provider_access(user=u, provider="youtube")
+    assert e.value.status_code == 403
+
+
+def test_legacy_creator_plan_alias_allows_full_social_access(db):
+    u = _mk_user(db, plan="creator_plus")
+    for provider in ("youtube", "tiktok", "instagram", "facebook"):
+        _enforce_connect_provider_access(user=u, provider=provider)
