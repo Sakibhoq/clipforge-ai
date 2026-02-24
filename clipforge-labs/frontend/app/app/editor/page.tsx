@@ -103,6 +103,14 @@ function formatSeconds(value: number) {
   return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.${ms}`;
 }
 
+function formatSecondsMs(value: number) {
+  const sec = Math.max(0, Number.isFinite(value) ? value : 0);
+  const mm = Math.floor(sec / 60);
+  const ss = Math.floor(sec % 60);
+  const ms = Math.floor((sec % 1) * 1000);
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.${String(ms).padStart(3, "0")}`;
+}
+
 function formatPercent(value: number) {
   return `${Math.round(clamp01(value) * 100)}%`;
 }
@@ -782,7 +790,7 @@ export default function EditorPage() {
                   <div className="pointer-events-none absolute inset-0 border border-white/35" />
                   <div className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-cyan-200/90" />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center text-[10px] font-semibold tabular-nums text-cyan-100">
-                    {formatSeconds((timelineHoverLens.x / timelineWidth) * timelineSeconds)}
+                    {formatSecondsMs((timelineHoverLens.x / timelineWidth) * timelineSeconds)}
                   </div>
                 </div>
               ) : null}
@@ -1275,7 +1283,7 @@ export default function EditorPage() {
                       <input
                         type="number"
                         min={0}
-                        step={0.1}
+                        step={0.01}
                         value={selectedItem.start}
                         onChange={(event) => updateSelected({ start: clamp(Number(event.target.value || 0), 0, 600) })}
                         className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
@@ -1287,7 +1295,7 @@ export default function EditorPage() {
                       <input
                         type="number"
                         min={0.2}
-                        step={0.1}
+                        step={0.01}
                         value={selectedItem.duration}
                         onChange={(event) => updateSelected({ duration: clamp(Number(event.target.value || 1), 0.2, 600) })}
                         className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
@@ -1399,7 +1407,7 @@ export default function EditorPage() {
                     type="range"
                     min={0}
                     max={timelineSeconds}
-                    step={0.1}
+                    step={0.01}
                     value={playhead}
                     onChange={(event) => setPlayhead(clamp(Number(event.target.value || 0), 0, timelineSeconds))}
                     className="w-52 accent-white"
