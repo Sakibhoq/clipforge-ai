@@ -8,6 +8,13 @@ type AssetType = "video" | "image" | "audio";
 type TrackKey = "visual" | "voiceover" | "music" | "captions";
 type FrameRatio = "9:16" | "1:1" | "16:9";
 type ToolTab = "media" | "audio" | "text" | "versions" | "project";
+type TimelineHoverLens = {
+  track: TrackKey;
+  x: number;
+  y: number;
+  timelineWidth: number;
+  laneHeight: number;
+};
 
 type ClipRow = {
   id: number;
@@ -302,12 +309,14 @@ export default function EditorPage() {
   const [clips, setClips] = useState<ClipRow[]>([]);
 
   const [toolTab, setToolTab] = useState<ToolTab>("media");
+  const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const [project, setProject] = useState<ProjectState>(buildDefaultProject());
   const [versions, setVersions] = useState<SavedVersion[]>([]);
   const [selected, setSelected] = useState<{ track: TrackKey; itemId: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
 
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [localMusicAssets, setLocalMusicAssets] = useState<LocalMusicAsset[]>([]);
@@ -628,6 +637,10 @@ export default function EditorPage() {
   }, [selected, project]);
 
   useEffect(() => {
+    if (toolTab !== "media" && mediaMenuOpen) setMediaMenuOpen(false);
+  }, [toolTab, mediaMenuOpen]);
+
+  useEffect(() => {
     if (!playing) return;
     const timer = window.setInterval(() => {
       setPlayhead((prev) => {
@@ -651,9 +664,55 @@ export default function EditorPage() {
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const pxPerSecond = 30;
-    const timelineWidth = Math.max(980, timelineSeconds * pxPerSecond);
+    const pxPerSecond = 22;
+    const timelineWidth = Math.max(780, timelineSeconds * pxPerSecond);
+    const laneHeight = 56;
+    const lensSize = 146;
+    const lensScale = 2.2;
     const playheadLeft = clamp(playhead * pxPerSecond, 0, timelineWidth);
+    const lensActive = Boolean(timelineHoverLens && timelineHoverLens.track === track);
+
+    function renderItem(item: TimelineItem, interactive: boolean) {
+      const left = clamp(item.start * pxPerSecond, 0, timelineWidth - 16);
+      const width = clamp(item.duration * pxPerSecond, 34, timelineWidth - left);
+      const active = selected?.track === track && selected?.itemId === item.id;
+      const className = cx(
+        "absolute top-1/2 h-9 -translate-y-1/2 rounded-md border px-2 py-1 text-left transition",
+        trackTone(track),
+        active && "ring-2 ring-white/70"
+      );
+      const itemBody = (
+        <>
+          <div className="truncate text-[10px] font-semibold">{item.title}</div>
+          <div className="text-[9px] tabular-nums opacity-90">
+            {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
+          </div>
+        </>
+      );
+
+      if (!interactive) {
+        return (
+          <div key={item.id} className={className} style={{ left, width }}>
+            {itemBody}
+          </div>
+        );
+      }
+
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => {
+            setSelected({ track, itemId: item.id });
+            setPlayhead(item.start);
+          }}
+          className={className}
+          style={{ left, width }}
+        >
+          {itemBody}
+        </button>
+      );
+    }
 
     return (
       <div className="rounded-2xl border border-white/10 bg-black/40 p-3" key={track}>
@@ -662,9 +721,9 @@ export default function EditorPage() {
           <div className="text-[11px] text-white/52">{items.length} items</div>
         </div>
 
-        <div className="overflow-x-auto pb-1">
+        <div className="overflow-x-auto overflow-y-visible pb-1">
           <div className="relative" style={{ width: timelineWidth }}>
-            <div className="grid h-5 grid-cols-12 text-[10px] text-white/45">
+            <div className="grid h-4 grid-cols-12 text-[9px] text-white/45">
               {Array.from({ length: 13 }).map((_, index) => (
                 <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}> 
                   {formatSeconds((timelineSeconds / 12) * index)}
@@ -672,43 +731,61 @@ export default function EditorPage() {
               ))}
             </div>
 
-            <div className="relative mt-2 h-16 rounded-xl border border-white/10 bg-black/55">
+            <div
+              className="relative mt-1.5 rounded-xl border border-white/10 bg-black/55"
+              style={{ height: laneHeight }}
+              onMouseMove={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                const x = clamp(event.clientX - rect.left, 0, timelineWidth);
+                const y = clamp(event.clientY - rect.top, 0, laneHeight);
+                setTimelineHoverLens({ track, x, y, timelineWidth, laneHeight });
+              }}
+              onMouseLeave={() => {
+                setTimelineHoverLens((prev) => (prev?.track === track ? null : prev));
+              }}
+            >
               <div
                 className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
                 style={{ left: `${playheadLeft}px` }}
               />
 
               {items.length ? (
-                items.map((item) => {
-                  const left = clamp(item.start * pxPerSecond, 0, timelineWidth - 16);
-                  const width = clamp(item.duration * pxPerSecond, 40, timelineWidth - left);
-                  const active = selected?.track === track && selected?.itemId === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setSelected({ track, itemId: item.id });
-                        setPlayhead(item.start);
-                      }}
-                      className={cx(
-                        "absolute top-1/2 h-11 -translate-y-1/2 rounded-lg border px-2 py-1 text-left transition",
-                        trackTone(track),
-                        active && "ring-2 ring-white/70"
-                      )}
-                      style={{ left, width }}
-                    >
-                      <div className="truncate text-[11px] font-semibold">{item.title}</div>
-                      <div className="text-[10px] tabular-nums opacity-90">
-                        {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
-                      </div>
-                    </button>
-                  );
-                })
+                items.map((item) => renderItem(item, true))
               ) : (
                 <div className="flex h-full items-center justify-center text-[12px] text-white/45">No items yet.</div>
               )}
+
+              {lensActive && timelineHoverLens ? (
+                <div
+                  className="pointer-events-none absolute bottom-[calc(100%+8px)] z-20 overflow-hidden rounded-xl border border-cyan-300/55 bg-[#020914]/95 shadow-[0_24px_45px_rgba(0,0,0,0.55)]"
+                  style={{
+                    width: lensSize,
+                    height: lensSize,
+                    left: clamp(timelineHoverLens.x - lensSize / 2, 8, timelineWidth - lensSize - 8),
+                  }}
+                >
+                  <div
+                    className="absolute left-0 top-0"
+                    style={{
+                      width: timelineHoverLens.timelineWidth,
+                      height: timelineHoverLens.laneHeight,
+                      transformOrigin: "top left",
+                      transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
+                    }}
+                  >
+                    <div
+                      className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90"
+                      style={{ left: `${playheadLeft}px` }}
+                    />
+                    {items.map((item) => renderItem(item, false))}
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 border border-white/35" />
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-cyan-200/90" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center text-[10px] font-semibold tabular-nums text-cyan-100">
+                    {formatSeconds((timelineHoverLens.x / timelineWidth) * timelineSeconds)}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -773,7 +850,7 @@ export default function EditorPage() {
         </header>
 
         <section className="rounded-[30px] border border-[#fb560744] bg-[linear-gradient(180deg,rgba(7,10,18,0.96),rgba(5,8,14,0.94))] p-3 shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-          <div className="grid gap-3 xl:grid-cols-[64px_320px_minmax(0,1fr)_340px] xl:grid-rows-[minmax(420px,1fr)_minmax(300px,auto)] xl:h-[calc(100svh-12rem)]">
+          <div className="grid gap-3 xl:grid-cols-[58px_280px_minmax(0,1.45fr)_250px] xl:grid-rows-[minmax(520px,1fr)_minmax(230px,auto)] xl:h-[calc(100svh-8.5rem)]">
             <nav className="rounded-2xl border border-white/10 bg-[#060d19] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {(["media", "audio", "text", "versions", "project"] as ToolTab[]).map((tab) => {
@@ -865,39 +942,62 @@ export default function EditorPage() {
 
               {toolTab === "media" ? (
                 <div className="grid gap-3">
-                  <div>
-                    <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
-                    <div className="grid max-h-44 gap-2 overflow-auto pr-1">
-                      {videos.map((clip) => (
-                        <button
-                          key={clip.id}
-                          type="button"
-                          onClick={() => addClipToTrack("visual", clip)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
-                        >
-                          <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
-                          <div className="text-white/50">{formatSeconds(clip.duration)}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMediaMenuOpen((prev) => !prev)}
+                    className="inline-flex w-full items-center justify-between rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-[12px] font-semibold text-white/90 transition hover:bg-white/[0.1]"
+                  >
+                    <span>Add Video / Image</span>
+                    <span className={cx("text-white/70 transition", mediaMenuOpen && "rotate-180")}>▾</span>
+                  </button>
 
-                  <div>
-                    <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
-                    <div className="grid max-h-44 gap-2 overflow-auto pr-1">
-                      {images.map((clip) => (
-                        <button
-                          key={clip.id}
-                          type="button"
-                          onClick={() => addClipToTrack("visual", clip)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
-                        >
-                          <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
-                          <div className="text-white/50">Adds motion scene</div>
-                        </button>
-                      ))}
+                  {mediaMenuOpen ? (
+                    <div className="rounded-2xl border border-white/10 bg-black/35 p-2.5">
+                      <div>
+                        <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
+                        <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                          {videos.map((clip) => (
+                            <button
+                              key={clip.id}
+                              type="button"
+                              onClick={() => {
+                                addClipToTrack("visual", clip);
+                                setMediaMenuOpen(false);
+                              }}
+                              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
+                            >
+                              <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
+                              <div className="text-white/50">{formatSeconds(clip.duration)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
+                        <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                          {images.map((clip) => (
+                            <button
+                              key={clip.id}
+                              type="button"
+                              onClick={() => {
+                                addClipToTrack("visual", clip);
+                                setMediaMenuOpen(false);
+                              }}
+                              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
+                            >
+                              <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
+                              <div className="text-white/50">Adds motion scene</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                      Use the button above to open your media picker.
+                    </div>
+                  )}
                 </div>
               ) : null}
 
@@ -1052,35 +1152,46 @@ export default function EditorPage() {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                <div
-                  className="relative mx-auto overflow-hidden rounded-xl border border-white/10 bg-black"
-                  style={{
-                    aspectRatio: aspectValue(project.frame),
-                    maxWidth: stageMaxWidth(project.frame),
-                  }}
-                >
-                  {activeVisual?.type === "image" && activeVisual.url ? (
-                    <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
-                  ) : activeVisual?.url ? (
-                    <video src={activeVisual.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
-                      Add visual assets from Media tab to build your timeline.
-                    </div>
-                  )}
+                <div className="relative h-[430px] overflow-hidden rounded-xl border border-white/10 bg-[#030712]">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
+                  <div className="absolute inset-5 flex items-center justify-center">
+                    <div
+                      className="relative h-full overflow-hidden rounded-xl border border-white/10 bg-black shadow-[0_20px_45px_rgba(0,0,0,0.55)]"
+                      style={{
+                        aspectRatio: aspectValue(project.frame),
+                        width:
+                          project.frame === "9:16"
+                            ? "min(36%, 380px)"
+                            : project.frame === "1:1"
+                              ? "min(58%, 560px)"
+                              : "min(92%, 1040px)",
+                        maxWidth: stageMaxWidth(project.frame),
+                      }}
+                    >
+                      {activeVisual?.type === "image" && activeVisual.url ? (
+                        <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
+                      ) : activeVisual?.url ? (
+                        <video src={activeVisual.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
+                          Add visual assets from Media button to build your timeline.
+                        </div>
+                      )}
 
-                  {activeCaption?.text ? (
-                    <div className="pointer-events-none absolute bottom-[10%] left-1/2 -translate-x-1/2 rounded-xl bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
-                      {activeCaption.text}
-                    </div>
-                  ) : null}
+                      {activeCaption?.text ? (
+                        <div className="pointer-events-none absolute bottom-[10%] left-1/2 -translate-x-1/2 rounded-xl bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                          {activeCaption.text}
+                        </div>
+                      ) : null}
 
-                  {project.safeAreaOn ? (
-                    <>
-                      <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
-                    </>
-                  ) : null}
+                      {project.safeAreaOn ? (
+                        <>
+                          <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -1138,7 +1249,7 @@ export default function EditorPage() {
               </div>
             </section>
 
-            <aside className="rounded-2xl border border-white/10 bg-[#081121] p-4 xl:min-h-0 xl:overflow-y-auto">
+            <aside className="rounded-2xl border border-white/10 bg-[#081121] p-3.5 xl:min-h-0 xl:overflow-y-auto">
               <div className="mb-3 text-xs text-white/55">• Inspector</div>
 
               {selectedItem && selected ? (
@@ -1277,7 +1388,7 @@ export default function EditorPage() {
               </div>
             </aside>
 
-            <section className="rounded-2xl border border-white/10 bg-[#081120] p-4 xl:col-start-2 xl:col-end-5 xl:min-h-0 xl:overflow-hidden">
+            <section className="rounded-2xl border border-white/10 bg-[#081120] p-3.5 xl:col-start-2 xl:col-end-5 xl:min-h-0 xl:overflow-hidden">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
                 <div className="flex items-center gap-2">
@@ -1296,7 +1407,7 @@ export default function EditorPage() {
                 </div>
               </div>
 
-              <div className="grid max-h-[calc(100%-2rem)] gap-3 overflow-y-auto pr-1">
+              <div className="grid max-h-[calc(100%-2rem)] gap-2.5 overflow-y-auto pr-1">
                 {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) =>
                   renderTrackLane(track)
                 )}
