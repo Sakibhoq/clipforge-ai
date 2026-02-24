@@ -31,7 +31,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 OAUTH_CTX_COOKIE = "cf_oauth_ctx"
 OAUTH_CTX_TTL_SECONDS = 10 * 60  # 10 minutes
-PUBLIC_API_BASE = os.getenv("PUBLIC_API_BASE") or os.getenv("API_BASE_URL")
 
 LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
 
@@ -256,9 +255,23 @@ def _safe_next_path(next_path: Optional[str]) -> str:
     return next_path
 
 
+def _api_base(request: Request) -> Optional[str]:
+    raw = (os.getenv("PUBLIC_API_BASE") or os.getenv("API_BASE_URL") or "").strip().strip("'").strip('"')
+    if raw:
+        raw = raw.split(",")[0].strip()
+        if "://" not in raw and "/" not in raw and "." in raw:
+            raw = f"https://{raw}"
+        parsed = urlsplit(raw)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            path = (parsed.path or "").rstrip("/")
+            return f"{parsed.scheme}://{parsed.netloc}{path}"
+    return None
+
+
 def _redirect_uri(request: Request, provider: str) -> str:
-    if PUBLIC_API_BASE:
-        return f"{PUBLIC_API_BASE.rstrip('/')}/auth/oauth/{provider}/callback"
+    api_base = _api_base(request)
+    if api_base:
+        return f"{api_base.rstrip('/')}/auth/oauth/{provider}/callback"
     return str(request.url_for("oauth_callback", provider=provider))
 
 
