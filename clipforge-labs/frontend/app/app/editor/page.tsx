@@ -12,7 +12,7 @@ type TimelineHoverLens = {
   track: TrackKey;
   x: number;
   y: number;
-  timelineWidth: number;
+  laneWidth: number;
   laneHeight: number;
 };
 
@@ -316,7 +316,7 @@ export default function EditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [clips, setClips] = useState<ClipRow[]>([]);
 
-  const [toolTab, setToolTab] = useState<ToolTab>("media");
+  const [toolTab, setToolTab] = useState<ToolTab | null>(null);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const [project, setProject] = useState<ProjectState>(buildDefaultProject());
   const [versions, setVersions] = useState<SavedVersion[]>([]);
@@ -672,17 +672,15 @@ export default function EditorPage() {
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const pxPerSecond = 22;
-    const timelineWidth = Math.max(780, timelineSeconds * pxPerSecond);
-    const laneHeight = 56;
-    const lensSize = 146;
-    const lensScale = 2.2;
-    const playheadLeft = clamp(playhead * pxPerSecond, 0, timelineWidth);
+    const laneHeight = 52;
+    const lensSize = 120;
+    const lensScale = 2.25;
+    const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
     const lensActive = Boolean(timelineHoverLens && timelineHoverLens.track === track);
 
     function renderItem(item: TimelineItem, interactive: boolean) {
-      const left = clamp(item.start * pxPerSecond, 0, timelineWidth - 16);
-      const width = clamp(item.duration * pxPerSecond, 34, timelineWidth - left);
+      const leftPct = clamp((item.start / Math.max(1, timelineSeconds)) * 100, 0, 100);
+      const widthPct = clamp((item.duration / Math.max(1, timelineSeconds)) * 100, 1.1, 100 - leftPct);
       const active = selected?.track === track && selected?.itemId === item.id;
       const className = cx(
         "absolute top-1/2 h-9 -translate-y-1/2 rounded-md border px-2 py-1 text-left transition",
@@ -700,7 +698,7 @@ export default function EditorPage() {
 
       if (!interactive) {
         return (
-          <div key={item.id} className={className} style={{ left, width }}>
+          <div key={item.id} className={className} style={{ left: `${leftPct}%`, width: `${widthPct}%` }}>
             {itemBody}
           </div>
         );
@@ -715,7 +713,7 @@ export default function EditorPage() {
             setPlayhead(item.start);
           }}
           className={className}
-          style={{ left, width }}
+          style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
         >
           {itemBody}
         </button>
@@ -729,8 +727,8 @@ export default function EditorPage() {
           <div className="text-[11px] text-white/52">{items.length} items</div>
         </div>
 
-        <div className="overflow-x-auto overflow-y-visible pb-1">
-          <div className="relative" style={{ width: timelineWidth }}>
+        <div className="pb-1">
+          <div className="relative">
             <div className="grid h-4 grid-cols-12 text-[9px] text-white/45">
               {Array.from({ length: 13 }).map((_, index) => (
                 <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}> 
@@ -740,13 +738,13 @@ export default function EditorPage() {
             </div>
 
             <div
-              className="relative mt-1.5 rounded-xl border border-white/10 bg-black/55"
+              className="relative mt-1.5 overflow-visible rounded-xl border border-white/10 bg-black/55 cursor-none"
               style={{ height: laneHeight }}
               onMouseMove={(event) => {
                 const rect = event.currentTarget.getBoundingClientRect();
-                const x = clamp(event.clientX - rect.left, 0, timelineWidth);
+                const x = clamp(event.clientX - rect.left, 0, rect.width);
                 const y = clamp(event.clientY - rect.top, 0, laneHeight);
-                setTimelineHoverLens({ track, x, y, timelineWidth, laneHeight });
+                setTimelineHoverLens({ track, x, y, laneWidth: rect.width, laneHeight });
               }}
               onMouseLeave={() => {
                 setTimelineHoverLens((prev) => (prev?.track === track ? null : prev));
@@ -754,7 +752,7 @@ export default function EditorPage() {
             >
               <div
                 className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
-                style={{ left: `${playheadLeft}px` }}
+                style={{ left: `${playheadPct}%` }}
               />
 
               {items.length ? (
@@ -765,17 +763,18 @@ export default function EditorPage() {
 
               {lensActive && timelineHoverLens ? (
                 <div
-                  className="pointer-events-none absolute bottom-[calc(100%+8px)] z-20 overflow-hidden rounded-xl border border-cyan-300/55 bg-[#020914]/95 shadow-[0_24px_45px_rgba(0,0,0,0.55)]"
+                  className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                   style={{
                     width: lensSize,
                     height: lensSize,
-                    left: clamp(timelineHoverLens.x - lensSize / 2, 8, timelineWidth - lensSize - 8),
+                    left: clamp(timelineHoverLens.x, lensSize / 2, Math.max(lensSize / 2, timelineHoverLens.laneWidth - lensSize / 2)),
+                    top: clamp(timelineHoverLens.y, lensSize / 2, laneHeight - lensSize / 2),
                   }}
                 >
                   <div
                     className="absolute left-0 top-0"
                     style={{
-                      width: timelineHoverLens.timelineWidth,
+                      width: timelineHoverLens.laneWidth,
                       height: timelineHoverLens.laneHeight,
                       transformOrigin: "top left",
                       transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
@@ -783,24 +782,50 @@ export default function EditorPage() {
                   >
                     <div
                       className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90"
-                      style={{ left: `${playheadLeft}px` }}
+                      style={{ left: `${playheadPct}%` }}
                     />
                     {items.map((item) => renderItem(item, false))}
                   </div>
-                  <div className="pointer-events-none absolute inset-0 border border-white/35" />
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-cyan-200/90" />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-center text-[10px] font-semibold tabular-nums text-cyan-100">
-                    {formatSecondsMs((timelineHoverLens.x / timelineWidth) * timelineSeconds)}
-                  </div>
+                  <div className="pointer-events-none absolute inset-0 rounded-full border border-white/45" />
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/90" />
+                  <div className="pointer-events-none absolute -bottom-2 right-2 h-5 w-1 rotate-[-36deg] rounded-full bg-cyan-200/80" />
                 </div>
               ) : null}
+
+              {lensActive && timelineHoverLens ? (
+                <div
+                  className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100"
+                  style={{
+                    left: clamp(timelineHoverLens.x, 36, Math.max(36, timelineHoverLens.laneWidth - 36)),
+                  }}
+                >
+                  {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
+                </div>
+              ) : null}
+
+              {lensActive ? (
+                <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-cyan-100/80">
+                  Magnifier on
+                </div>
+              ) : null}
+
+              {!lensActive ? (
+                <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-white/40">
+                  Hover to magnify timeline edits
+                </div>
+              ) : null}
+
+              {items.length ? null : (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[12px] text-white/45">
+                  No items yet.
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
     );
   }
-
   if (isDesktop === null) {
     return <div className="mx-auto max-w-5xl px-6 py-12 text-sm text-white/65">Loading editor...</div>;
   }
@@ -858,7 +883,7 @@ export default function EditorPage() {
         </header>
 
         <section className="rounded-[30px] border border-[#fb560744] bg-[linear-gradient(180deg,rgba(7,10,18,0.96),rgba(5,8,14,0.94))] p-3 shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-          <div className="grid gap-3 xl:grid-cols-[58px_280px_minmax(0,1.45fr)_250px] xl:grid-rows-[minmax(520px,1fr)_minmax(230px,auto)] xl:h-[calc(100svh-8.5rem)]">
+          <div className="relative grid gap-3 xl:grid-cols-[58px_minmax(0,1fr)] xl:grid-rows-[minmax(560px,auto)_auto]">
             <nav className="rounded-2xl border border-white/10 bg-[#060d19] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {(["media", "audio", "text", "versions", "project"] as ToolTab[]).map((tab) => {
@@ -867,7 +892,7 @@ export default function EditorPage() {
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setToolTab(tab)}
+                      onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
                         "inline-flex h-11 w-11 items-center justify-center rounded-xl border text-white/78 transition",
                         active
@@ -884,335 +909,292 @@ export default function EditorPage() {
               </div>
             </nav>
 
-            <aside className="rounded-2xl border border-white/10 bg-[#081121] p-4 xl:min-h-0 xl:overflow-y-auto">
-              <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
+            {toolTab ? (
+              <aside className="pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl border border-white/12 bg-[#07111f]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+                <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
-              {toolTab === "project" ? (
-                <div className="grid gap-3">
-                  <div className="grid gap-2">
-                    <label className="text-[12px] text-white/65">Project name</label>
-                    <input
-                      value={project.name}
-                      onChange={(event) => setProject((prev) => ({ ...prev, name: event.target.value }))}
-                      className="h-11 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-[12px] text-white/65">Export profile</label>
-                    <select
-                      value={project.frame}
-                      onChange={(event) => setProject((prev) => ({ ...prev, frame: event.target.value as FrameRatio }))}
-                      className="h-11 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                    >
-                      {EXPORT_PROFILES.map((option) => (
-                        <option key={option.id} value={option.frame}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-[12px] text-white/65">Target duration</label>
-                    <select
-                      value={project.targetDuration}
-                      onChange={(event) =>
-                        setProject((prev) => ({
-                          ...prev,
-                          targetDuration: Number(event.target.value || 60),
-                        }))
-                      }
-                      className="h-11 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                    >
-                      <option value={60}>1 minute</option>
-                      <option value={120}>2 minutes</option>
-                    </select>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/68">
-                    Frame: <span className="font-semibold text-white/92">{project.frame}</span>
-                    <br />
-                    Timeline: <span className="font-semibold text-white/92">{formatSeconds(timelineSeconds)}</span>
-                    <br />
-                    Safe area: <span className="font-semibold text-white/92">{project.safeAreaOn ? "Visible" : "Hidden"}</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setProject((prev) => ({ ...prev, safeAreaOn: !prev.safeAreaOn }))}
-                    className="btn-ghost px-3 py-2 text-[12px]"
-                  >
-                    {project.safeAreaOn ? "Hide Safe Area" : "Show Safe Area"}
-                  </button>
-                </div>
-              ) : null}
-
-              {toolTab === "media" ? (
-                <div className="grid gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setMediaMenuOpen((prev) => !prev)}
-                    className="inline-flex w-full items-center justify-between rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-[12px] font-semibold text-white/90 transition hover:bg-white/[0.1]"
-                  >
-                    <span>Add Video / Image</span>
-                    <span className={cx("text-white/70 transition", mediaMenuOpen && "rotate-180")}>▾</span>
-                  </button>
-
-                  {mediaMenuOpen ? (
-                    <div className="rounded-2xl border border-white/10 bg-black/35 p-2.5">
-                      <div>
-                        <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
-                        <div className="grid max-h-36 gap-2 overflow-auto pr-1">
-                          {videos.map((clip) => (
-                            <button
-                              key={clip.id}
-                              type="button"
-                              onClick={() => {
-                                addClipToTrack("visual", clip);
-                                setMediaMenuOpen(false);
-                              }}
-                              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
-                            >
-                              <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
-                              <div className="text-white/50">{formatSeconds(clip.duration)}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
-                        <div className="grid max-h-36 gap-2 overflow-auto pr-1">
-                          {images.map((clip) => (
-                            <button
-                              key={clip.id}
-                              type="button"
-                              onClick={() => {
-                                addClipToTrack("visual", clip);
-                                setMediaMenuOpen(false);
-                              }}
-                              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
-                            >
-                              <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
-                              <div className="text-white/50">Adds motion scene</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                {toolTab === "project" ? (
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <label className="text-[12px] text-white/65">Project name</label>
+                      <input
+                        value={project.name}
+                        onChange={(event) => setProject((prev) => ({ ...prev, name: event.target.value }))}
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                      />
                     </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                      Use the button above to open your media picker.
+                    <div className="grid gap-2">
+                      <label className="text-[12px] text-white/65">Export profile</label>
+                      <select
+                        value={project.frame}
+                        onChange={(event) => setProject((prev) => ({ ...prev, frame: event.target.value as FrameRatio }))}
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                      >
+                        {EXPORT_PROFILES.map((option) => (
+                          <option key={option.id} value={option.frame}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  )}
-                </div>
-              ) : null}
-
-              {toolTab === "audio" ? (
-                <div className="grid gap-3">
-                  <div>
-                    <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
-                    <div className="grid max-h-44 gap-2 overflow-auto pr-1">
-                      {audios.map((clip) => (
-                        <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                          <div className="truncate text-[11px] font-semibold text-white/88">{clip.title || `Audio #${clip.id}`}</div>
-                          <div className="mt-1 grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => addClipToTrack("voiceover", clip)}
-                              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
-                            >
-                              To Voice
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => addClipToTrack("music", clip)}
-                              className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
-                            >
-                              To Music
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="grid gap-2">
+                      <label className="text-[12px] text-white/65">Target duration</label>
+                      <select
+                        value={project.targetDuration}
+                        onChange={(event) =>
+                          setProject((prev) => ({
+                            ...prev,
+                            targetDuration: Number(event.target.value || 60),
+                          }))
+                        }
+                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                      >
+                        <option value={60}>1 minute</option>
+                        <option value={120}>2 minutes</option>
+                      </select>
                     </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                    <div className="mb-2 text-[12px] font-semibold text-white/85">Upload music</div>
-                    <input
-                      ref={localMusicInputRef}
-                      type="file"
-                      accept="audio/*"
-                      multiple
-                      onChange={uploadLocalMusic}
-                      className="hidden"
-                    />
                     <button
                       type="button"
-                      onClick={() => localMusicInputRef.current?.click()}
-                      disabled={uploadingMusic}
-                      className={cx("btn-ghost w-full px-3 py-2 text-[12px]", uploadingMusic && "cursor-not-allowed opacity-60")}
+                      onClick={() => setProject((prev) => ({ ...prev, safeAreaOn: !prev.safeAreaOn }))}
+                      className="btn-ghost px-3 py-2 text-[12px]"
                     >
-                      {uploadingMusic ? "Uploading..." : "Upload local audio"}
+                      {project.safeAreaOn ? "Hide Safe Area" : "Show Safe Area"}
+                    </button>
+                  </div>
+                ) : null}
+
+                {toolTab === "media" ? (
+                  <div className="grid gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMediaMenuOpen((prev) => !prev)}
+                      className="inline-flex w-full items-center justify-between rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-[12px] font-semibold text-white/90 transition hover:bg-white/[0.1]"
+                    >
+                      <span>Add Video / Image</span>
+                      <span className={cx("text-white/70 transition", mediaMenuOpen && "rotate-180")}>▾</span>
                     </button>
 
-                    {localMusicAssets.length ? (
-                      <div className="mt-3 grid max-h-40 gap-2 overflow-auto pr-1">
-                        {localMusicAssets.map((asset) => (
-                          <div key={asset.id} className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
-                            <div className="truncate text-[11px] font-semibold text-white/90">{asset.name}</div>
-                            <div className="text-[10px] text-white/52">
-                              {formatSeconds(asset.duration)} • {formatBytes(asset.size)}
-                            </div>
+                    {mediaMenuOpen ? (
+                      <div className="rounded-2xl border border-white/10 bg-black/35 p-2.5">
+                        <div>
+                          <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
+                          <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                            {videos.map((clip) => (
+                              <button
+                                key={clip.id}
+                                type="button"
+                                onClick={() => {
+                                  addClipToTrack("visual", clip);
+                                  setMediaMenuOpen(false);
+                                }}
+                                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
+                              >
+                                <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
+                                <div className="text-white/50">{formatSeconds(clip.duration)}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
+                          <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                            {images.map((clip) => (
+                              <button
+                                key={clip.id}
+                                type="button"
+                                onClick={() => {
+                                  addClipToTrack("visual", clip);
+                                  setMediaMenuOpen(false);
+                                }}
+                                className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]"
+                              >
+                                <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
+                                <div className="text-white/50">Adds motion scene</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                        Click to open your media menu.
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {toolTab === "audio" ? (
+                  <div className="grid gap-3">
+                    <div>
+                      <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
+                      <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                        {audios.map((clip) => (
+                          <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                            <div className="truncate text-[11px] font-semibold text-white/88">{clip.title || `Audio #${clip.id}`}</div>
                             <div className="mt-1 grid grid-cols-2 gap-2">
                               <button
                                 type="button"
-                                onClick={() => addUploadedMusic(asset)}
-                                className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1.5 text-[10px] text-white/90"
+                                onClick={() => addClipToTrack("voiceover", clip)}
+                                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
                               >
-                                Add
+                                To Voice
                               </button>
                               <button
                                 type="button"
-                                onClick={() => removeLocalMusic(asset.id)}
-                                className="rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 text-[10px] text-white/76"
+                                onClick={() => addClipToTrack("music", clip)}
+                                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
                               >
-                                Remove
+                                To Music
                               </button>
                             </div>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className="mt-2 text-[11px] text-white/55">MP3, WAV, M4A, AAC, OGG supported.</div>
-                    )}
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="mb-2 text-[12px] font-semibold text-white/85">Upload music</div>
+                      <input
+                        ref={localMusicInputRef}
+                        type="file"
+                        accept="audio/*"
+                        multiple
+                        onChange={uploadLocalMusic}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => localMusicInputRef.current?.click()}
+                        disabled={uploadingMusic}
+                        className={cx("btn-ghost w-full px-3 py-2 text-[12px]", uploadingMusic && "cursor-not-allowed opacity-60")}
+                      >
+                        {uploadingMusic ? "Uploading..." : "Upload local audio"}
+                      </button>
+                      {localMusicAssets.length ? (
+                        <div className="mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
+                          {localMusicAssets.map((asset) => (
+                            <div key={asset.id} className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
+                              <div className="truncate text-[11px] font-semibold text-white/90">{asset.name}</div>
+                              <div className="text-[10px] text-white/52">
+                                {formatSeconds(asset.duration)} • {formatBytes(asset.size)}
+                              </div>
+                              <div className="mt-1 grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => addUploadedMusic(asset)}
+                                  className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1.5 text-[10px] text-white/90"
+                                >
+                                  Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeLocalMusic(asset.id)}
+                                  className="rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 text-[10px] text-white/76"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              {toolTab === "text" ? (
-                <div className="grid gap-3">
-                  <button type="button" onClick={addCaptionBlock} className="btn-aurora px-3 py-2 text-[12px]">
-                    Add Caption Block
-                  </button>
-                  {project.captions.length ? (
-                    <div className="grid max-h-52 gap-2 overflow-auto pr-1">
-                      {sortTrack(project.captions).map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setSelected({ track: "captions", itemId: item.id });
-                            setPlayhead(item.start);
-                          }}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left"
-                        >
-                          <div className="truncate text-[12px] font-semibold text-white/90">{item.title}</div>
-                          <div className="text-[10px] text-white/52">
-                            {formatSeconds(item.start)} • {formatSeconds(item.duration)}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                      No captions on timeline yet.
-                    </div>
-                  )}
-                </div>
-              ) : null}
+                {toolTab === "text" ? (
+                  <div className="grid gap-3">
+                    <button type="button" onClick={addCaptionBlock} className="btn-aurora px-3 py-2 text-[12px]">
+                      Add Caption Block
+                    </button>
+                    {project.captions.length ? (
+                      <div className="grid max-h-44 gap-2 overflow-auto pr-1">
+                        {sortTrack(project.captions).map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setSelected({ track: "captions", itemId: item.id });
+                              setPlayhead(item.start);
+                            }}
+                            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left"
+                          >
+                            <div className="truncate text-[12px] font-semibold text-white/90">{item.title}</div>
+                            <div className="text-[10px] text-white/52">
+                              {formatSeconds(item.start)} • {formatSeconds(item.duration)}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
-              {toolTab === "versions" ? (
-                <div className="grid gap-3">
-                  <button type="button" onClick={saveVersion} className="btn-aurora px-3 py-2 text-[12px]">
-                    Save Snapshot
-                  </button>
-                  {versions.length ? (
-                    <div className="grid max-h-60 gap-2 overflow-auto pr-1">
-                      {versions.map((version) => (
-                        <button
-                          key={version.id}
-                          type="button"
-                          onClick={() => restoreVersion(version.id)}
-                          className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.08]"
-                        >
-                          <div className="truncate text-[12px] font-semibold text-white/92">{version.label}</div>
-                          <div className="text-[10px] text-white/52">{new Date(version.createdAt).toLocaleString()}</div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                      No saved versions yet.
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </aside>
+                {toolTab === "versions" ? (
+                  <div className="grid gap-3">
+                    <button type="button" onClick={saveVersion} className="btn-aurora px-3 py-2 text-[12px]">
+                      Save Snapshot
+                    </button>
+                    {versions.length ? (
+                      <div className="grid max-h-60 gap-2 overflow-auto pr-1">
+                        {versions.map((version) => (
+                          <button
+                            key={version.id}
+                            type="button"
+                            onClick={() => restoreVersion(version.id)}
+                            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.08]"
+                          >
+                            <div className="truncate text-[12px] font-semibold text-white/92">{version.label}</div>
+                            <div className="text-[10px] text-white/52">{new Date(version.createdAt).toLocaleString()}</div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </aside>
+            ) : null}
 
-            <section className="rounded-2xl border border-white/10 bg-[#081120] p-4 xl:min-h-0 xl:overflow-hidden">
+            <section className="rounded-2xl border border-white/10 bg-[#081120] p-4 xl:col-start-2">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Preview Stage</div>
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/72">
                   {profile.label}
                 </div>
               </div>
-
               <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
-                <div className="relative h-[430px] overflow-hidden rounded-xl border border-white/10 bg-[#030712]">
+                <div className="relative h-[500px] overflow-hidden rounded-xl border border-white/10 bg-[#030712]">
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
-                  <div className="absolute inset-5 flex items-center justify-center">
-                    <div
-                      className="relative h-full overflow-hidden rounded-xl border border-white/10 bg-black shadow-[0_20px_45px_rgba(0,0,0,0.55)]"
-                      style={{
-                        aspectRatio: aspectValue(project.frame),
-                        width:
-                          project.frame === "9:16"
-                            ? "min(36%, 380px)"
-                            : project.frame === "1:1"
-                              ? "min(58%, 560px)"
-                              : "min(92%, 1040px)",
-                        maxWidth: stageMaxWidth(project.frame),
-                      }}
-                    >
-                      {activeVisual?.type === "image" && activeVisual.url ? (
-                        <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
-                      ) : activeVisual?.url ? (
-                        <video src={activeVisual.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
-                          Add visual assets from Media button to build your timeline.
-                        </div>
-                      )}
-
-                      {activeCaption?.text ? (
-                        <div className="pointer-events-none absolute bottom-[10%] left-1/2 -translate-x-1/2 rounded-xl bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
-                          {activeCaption.text}
-                        </div>
-                      ) : null}
-
-                      {project.safeAreaOn ? (
-                        <>
-                          <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
-                        </>
-                      ) : null}
+                  {activeVisual?.type === "image" && activeVisual.url ? (
+                    <img src={activeVisual.url} alt={activeVisual.title} className="h-full w-full object-cover" />
+                  ) : activeVisual?.url ? (
+                    <video src={activeVisual.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
+                      Open sidepanel media button and add video/image assets to the timeline.
                     </div>
-                  </div>
+                  )}
+
+                  {activeCaption?.text ? (
+                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-xl bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                      {activeCaption.text}
+                    </div>
+                  ) : null}
+
+                  {project.safeAreaOn ? (
+                    <>
+                      <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
+                    </>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                  <IconButton
-                    label="Back 1 second"
-                    onClick={() => setPlayhead((prev) => clamp(prev - 1, 0, timelineSeconds))}
-                  >
+                  <IconButton label="Back 1 second" onClick={() => setPlayhead((prev) => clamp(prev - 1, 0, timelineSeconds))}>
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M11 6 5 12l6 6" />
                       <path d="M19 6v12" />
                     </svg>
                   </IconButton>
-
                   <IconButton label={playing ? "Pause" : "Play"} onClick={() => setPlaying((prev) => !prev)}>
                     {playing ? (
                       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -1225,197 +1207,100 @@ export default function EditorPage() {
                       </svg>
                     )}
                   </IconButton>
-
-                  <IconButton
-                    label="Forward 1 second"
-                    onClick={() => setPlayhead((prev) => clamp(prev + 1, 0, timelineSeconds))}
-                  >
+                  <IconButton label="Forward 1 second" onClick={() => setPlayhead((prev) => clamp(prev + 1, 0, timelineSeconds))}>
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m13 6 6 6-6 6" />
                       <path d="M5 6v12" />
                     </svg>
                   </IconButton>
                 </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/66">
-                    Playhead
-                    <br />
-                    <span className="font-semibold text-white/92">{formatSeconds(playhead)}</span>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/66">
-                    Active Visual
-                    <br />
-                    <span className="font-semibold text-white/92">{activeVisual?.title || "None"}</span>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/66">
-                    Active Audio
-                    <br />
-                    <span className="font-semibold text-white/92">{activeAudio?.title || "None"}</span>
-                  </div>
-                </div>
               </div>
             </section>
 
-            <aside className="rounded-2xl border border-white/10 bg-[#081121] p-3.5 xl:min-h-0 xl:overflow-y-auto">
-              <div className="mb-3 text-xs text-white/55">• Inspector</div>
-
-              {selectedItem && selected ? (
-                <div className="grid gap-3">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/66">
-                    Track: <span className="font-semibold text-white/92">{trackLabel(selected.track)}</span>
-                    <br />
-                    Type: <span className="font-semibold text-white/92">{selectedItem.type}</span>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-[12px] text-white/65">Title</label>
-                    <input
-                      value={selectedItem.title}
-                      onChange={(event) => updateSelected({ title: event.target.value })}
-                      className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Start</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={selectedItem.start}
-                        onChange={(event) => updateSelected({ start: clamp(Number(event.target.value || 0), 0, 600) })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Duration</label>
-                      <input
-                        type="number"
-                        min={0.2}
-                        step={0.01}
-                        value={selectedItem.duration}
-                        onChange={(event) => updateSelected({ duration: clamp(Number(event.target.value || 1), 0.2, 600) })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                      />
-                    </div>
-                  </div>
-
-                  {(selectedItem.type === "audio" || selected.track === "music") ? (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                      <div className="mb-1 flex items-center justify-between text-[12px] text-white/66">
-                        <span>Clip volume</span>
-                        <span className="font-semibold text-white/92">{formatPercent(selectedItem.volume)}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={selectedItem.volume}
-                        onChange={(event) => updateSelected({ volume: clamp01(Number(event.target.value || 1)) })}
-                        className="w-full accent-white"
-                      />
-                    </div>
-                  ) : null}
-
-                  {selectedItem.type === "image" ? (
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Image motion</label>
-                      <select
-                        value={selectedItem.motion || "kenburns"}
-                        onChange={(event) => updateSelected({ motion: event.target.value as "none" | "kenburns" })}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
-                      >
-                        <option value="kenburns">Ken Burns</option>
-                        <option value="none">None</option>
-                      </select>
-                    </div>
-                  ) : null}
-
-                  {selectedItem.type === "caption" ? (
-                    <div className="grid gap-2">
-                      <label className="text-[12px] text-white/65">Caption text</label>
-                      <textarea
-                        rows={4}
-                        value={selectedItem.text || ""}
-                        onChange={(event) => updateSelected({ text: event.target.value })}
-                        className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white/92 outline-none focus:border-white/25"
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={duplicateSelected} className="btn-ghost px-3 py-2 text-[12px]">
-                      Duplicate
-                    </button>
-                    <button type="button" onClick={deleteSelected} className="btn-ghost px-3 py-2 text-[12px]">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
-                  Select a timeline block to edit timing, labels, volume, and caption text.
-                </div>
-              )}
-
-              <div className="my-4 h-px bg-white/10" />
-
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <div className="mb-1 flex items-center justify-between text-[12px] text-white/66">
-                  <span>Background music mix</span>
-                  <span className="font-semibold text-white/92">{formatPercent(project.musicBedLevel)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={project.musicBedLevel}
-                  onChange={(event) =>
-                    setProject((prev) => ({
-                      ...prev,
-                      musicBedLevel: clamp01(Number(event.target.value || prev.musicBedLevel)),
-                    }))
-                  }
-                  className="w-full accent-white"
-                />
-              </div>
-
-              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/66">
-                Visual: <span className="font-semibold text-white/92">{project.visual.length}</span>
-                <br />
-                Voiceover: <span className="font-semibold text-white/92">{project.voiceover.length}</span>
-                <br />
-                Music: <span className="font-semibold text-white/92">{project.music.length}</span>
-                <br />
-                Captions: <span className="font-semibold text-white/92">{project.captions.length}</span>
-              </div>
-            </aside>
-
-            <section className="rounded-2xl border border-white/10 bg-[#081120] p-3.5 xl:col-start-2 xl:col-end-5 xl:min-h-0 xl:overflow-hidden">
+            <section className="rounded-2xl border border-white/10 bg-[#081120] p-3.5 xl:col-start-2">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
                     Length {formatSeconds(timelineSeconds)}
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={timelineSeconds}
-                    step={0.01}
-                    value={playhead}
-                    onChange={(event) => setPlayhead(clamp(Number(event.target.value || 0), 0, timelineSeconds))}
-                    className="w-52 accent-white"
-                  />
+                  <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
+                    Music {formatPercent(project.musicBedLevel)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={project.musicBedLevel}
+                      onChange={(event) =>
+                        setProject((prev) => ({
+                          ...prev,
+                          musicBedLevel: clamp01(Number(event.target.value || prev.musicBedLevel)),
+                        }))
+                      }
+                      className="w-24 accent-white"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
+                    Playhead {formatSeconds(playhead)}
+                    <input
+                      type="range"
+                      min={0}
+                      max={timelineSeconds}
+                      step={0.01}
+                      value={playhead}
+                      onChange={(event) => setPlayhead(clamp(Number(event.target.value || 0), 0, timelineSeconds))}
+                      className="w-40 accent-white"
+                    />
+                  </label>
                 </div>
               </div>
 
-              <div className="grid max-h-[calc(100%-2rem)] gap-2.5 overflow-y-auto pr-1">
+              {selectedItem && selected ? (
+                <div className="mb-3 grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[minmax(0,1fr)_120px_120px_auto_auto]">
+                  <input
+                    value={selectedItem.title}
+                    onChange={(event) => updateSelected({ title: event.target.value })}
+                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={selectedItem.start}
+                    onChange={(event) => updateSelected({ start: clamp(Number(event.target.value || 0), 0, 600) })}
+                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                  />
+                  <input
+                    type="number"
+                    min={0.2}
+                    step={0.01}
+                    value={selectedItem.duration}
+                    onChange={(event) => updateSelected({ duration: clamp(Number(event.target.value || 1), 0.2, 600) })}
+                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                  />
+                  <button type="button" onClick={duplicateSelected} className="btn-ghost px-3 py-2 text-[12px]">
+                    Duplicate
+                  </button>
+                  <button type="button" onClick={deleteSelected} className="btn-ghost px-3 py-2 text-[12px]">
+                    Delete
+                  </button>
+                  {selectedItem.type === "caption" ? (
+                    <textarea
+                      rows={2}
+                      value={selectedItem.text || ""}
+                      onChange={(event) => updateSelected({ text: event.target.value })}
+                      className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white/92 outline-none focus:border-white/25 lg:col-span-5"
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mb-3 rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                  Select a timeline block to edit timing in milliseconds.
+                </div>
+              )}
+
+              <div className="grid gap-2.5">
                 {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) =>
                   renderTrackLane(track)
                 )}
