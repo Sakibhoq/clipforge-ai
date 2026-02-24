@@ -432,9 +432,6 @@ export default function ClipsPage() {
                 <Link href="/app/editor" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Editor
                 </Link>
-                <Link href="/app/connections" className="btn-ghost col-span-2 px-4 py-2 text-center text-[12px] sm:col-auto">
-                  Connections
-                </Link>
               </div>
             </div>
 

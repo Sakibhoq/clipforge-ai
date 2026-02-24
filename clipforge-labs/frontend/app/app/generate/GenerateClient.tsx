@@ -516,9 +516,6 @@ export default function GenerateClient() {
               </div>
 
               <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-                <Link href="/pricing" className="btn-solid-dark col-span-1 px-4 py-2 text-center text-xs">
-                  Buy more credits
-                </Link>
                 <Link href="/app/editor" className="btn-aurora col-span-1 px-4 py-2 text-center text-xs">
                   Open editor
                 </Link>
@@ -836,16 +833,8 @@ export default function GenerateClient() {
                 ) : null}
 
                 <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
-                    </div>
-                    <Link
-                      href="/pricing"
-                      className="inline-flex w-fit rounded-xl border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/85 hover:bg-white/10"
-                    >
-                      Buy more credits
-                    </Link>
+                  <div>
+                    Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
                   </div>
                   <div className="mt-2 text-[11px] text-white/55">
                     AI post (image + voice): {POST_CREDITS_PER_MINUTE} credits/min. Video:{" "}
@@ -856,25 +845,7 @@ export default function GenerateClient() {
             </div>
 
             <div className="surface-soft rounded-3xl border border-white/10 p-5">
-              <div className="text-xs text-white/55">• Quick Actions</div>
-              <div className="mt-3 grid gap-2">
-                <Link href="/app/editor" className="btn-ghost px-3 py-2 text-[12px]">
-                  Open timeline editor
-                </Link>
-                <Link href="/app/clips" className="btn-ghost px-3 py-2 text-[12px]">
-                  Review generated assets
-                </Link>
-                <Link href="/app/connections" className="btn-ghost px-3 py-2 text-[12px]">
-                  Manage social connections
-                </Link>
-              </div>
-            </div>
-          </aside>
-        </form>
-
-        <section className="mt-6">
-          <div className="surface-soft rounded-3xl border border-white/10 p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs text-white/55">• Queue</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">Recent generation jobs</div>
@@ -890,7 +861,7 @@ export default function GenerateClient() {
 
             {jobs.length ? (
               <div className="mt-4 grid gap-2">
-                {jobs.slice(0, 8).map((j) => (
+                {jobs.slice(0, 3).map((j) => (
                   <button
                     key={j.id}
                     type="button"
@@ -924,7 +895,8 @@ export default function GenerateClient() {
               </div>
             )}
           </div>
-        </section>
+          </aside>
+        </form>
         <audio
           ref={voicePreviewAudioRef}
           onEnded={() => setVoicePreviewPlayingKey(null)}
