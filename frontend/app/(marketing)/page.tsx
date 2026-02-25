@@ -171,9 +171,9 @@ function AmbientFX() {
           60% { opacity: calc(var(--m-o) * 0.55); }
           100% { opacity: 0; transform: translate3d(0, -12px, 0) scale(1.25); }
         }
-        @keyframes heroBorderSlide {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 240% 50%; }
+        @keyframes heroBorderSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
         @keyframes heroBorderHue {
           0% { filter: hue-rotate(0deg); }
@@ -182,42 +182,44 @@ function AmbientFX() {
         .orbito-hero-border {
           position: relative;
           overflow: hidden;
+          isolation: isolate;
           border-radius: var(--r-xl);
-          border: 4px solid transparent;
-          background:
-            linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92)) padding-box,
-            linear-gradient(
-              95deg,
-              rgba(167, 139, 250, 1),
-              rgba(125, 211, 252, 1),
-              rgba(45, 212, 191, 1),
-              rgba(251, 146, 60, 0.95),
-              rgba(167, 139, 250, 1)
-            ) border-box;
-          background-size: 100% 100%, 320% 100%;
-          background-position: 0 0, 0% 50%;
-          animation: heroBorderSlide 1.7s linear infinite, heroBorderHue 8s linear infinite;
-          box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.06),
-            0 0 10px rgba(125, 211, 252, 0.22),
-            0 0 18px rgba(167, 139, 250, 0.16);
-          will-change: background-position, filter;
+          padding: 4px;
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
         }
         .orbito-hero-border::before {
           content: "";
           position: absolute;
-          inset: -8px;
-          border-radius: inherit;
-          background: inherit;
-          filter: blur(14px);
-          opacity: 0.16;
-          animation: inherit;
+          inset: -140%;
+          border-radius: 50%;
+          background: conic-gradient(
+            from 0deg,
+            rgba(167, 139, 250, 1),
+            rgba(125, 211, 252, 1),
+            rgba(45, 212, 191, 1),
+            rgba(251, 146, 60, 0.98),
+            rgba(167, 139, 250, 1)
+          );
+          animation: heroBorderSpin 3s linear infinite, heroBorderHue 8s linear infinite;
           pointer-events: none;
           z-index: 0;
+          will-change: transform, filter;
+        }
+        .orbito-hero-border::after {
+          content: "";
+          position: absolute;
+          inset: 4px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
+          box-shadow:
+            0 0 12px rgba(125, 211, 252, 0.18),
+            0 0 20px rgba(167, 139, 250, 0.14);
+          pointer-events: none;
+          z-index: 1;
         }
         .orbito-hero-border > .orbito-hero-inner {
           position: relative;
-          z-index: 1;
+          z-index: 2;
           border-radius: 20px;
         }
         .orbito-grain {
