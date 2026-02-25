@@ -171,6 +171,63 @@ function AmbientFX() {
           60% { opacity: calc(var(--m-o) * 0.55); }
           100% { opacity: 0; transform: translate3d(0, -12px, 0) scale(1.25); }
         }
+        @keyframes heroBorderSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes heroBorderFlow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .orbito-hero-border {
+          position: relative;
+          overflow: hidden;
+          border-radius: var(--r-xl);
+          padding: 1px;
+        }
+        .orbito-hero-border::before {
+          content: "";
+          position: absolute;
+          inset: -120%;
+          border-radius: 50%;
+          background:
+            conic-gradient(
+              from 120deg,
+              rgba(255, 183, 3, 0.82),
+              rgba(251, 86, 7, 0.80),
+              rgba(58, 134, 255, 0.78),
+              rgba(45, 212, 191, 0.74),
+              rgba(255, 183, 3, 0.82)
+            );
+          filter: blur(10px);
+          opacity: 0.82;
+          animation: heroBorderSpin 10s linear infinite;
+          will-change: transform;
+        }
+        .orbito-hero-border::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background:
+            linear-gradient(
+              120deg,
+              rgba(255, 183, 3, 0.44),
+              rgba(251, 86, 7, 0.40),
+              rgba(58, 134, 255, 0.36),
+              rgba(45, 212, 191, 0.34),
+              rgba(255, 183, 3, 0.44)
+            );
+          background-size: 240% 240%;
+          animation: heroBorderFlow 6.5s ease-in-out infinite;
+          will-change: background-position;
+        }
+        .orbito-hero-border > .orbito-hero-inner {
+          position: relative;
+          z-index: 1;
+          border-radius: 23px;
+        }
         .orbito-grain {
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
           background-size: 180px 180px;
@@ -178,6 +235,8 @@ function AmbientFX() {
         }
         @media (prefers-reduced-motion: reduce) {
           .orbito-anim { animation: none !important; }
+          .orbito-hero-border::before,
+          .orbito-hero-border::after { animation: none !important; }
         }
       `}</style>
 
@@ -345,7 +404,8 @@ export default function Page() {
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="relative">
-          <div data-reveal className="reveal surface relative overflow-hidden p-5 sm:p-6 md:p-10">
+          <div data-reveal className="reveal orbito-hero-border">
+            <div className="orbito-hero-inner surface relative overflow-hidden p-5 sm:p-6 md:p-10">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
               <div className="aurora opacity-80 sm:opacity-90" />
               <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.085),transparent_62%)]" />
@@ -434,6 +494,7 @@ export default function Page() {
                 </div>
               </div>
               {/* /RIGHT PANEL */}
+            </div>
             </div>
           </div>
         </section>
