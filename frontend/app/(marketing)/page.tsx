@@ -175,10 +175,6 @@ function AmbientFX() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-        @keyframes heroBorderHue {
-          0% { filter: hue-rotate(0deg); }
-          100% { filter: hue-rotate(360deg); }
-        }
         .orbito-hero-border {
           position: relative;
           overflow: hidden;
@@ -194,16 +190,17 @@ function AmbientFX() {
           border-radius: 50%;
           background: conic-gradient(
             from 0deg,
-            rgba(167, 139, 250, 1),
-            rgba(125, 211, 252, 1),
+            rgba(37, 99, 235, 1),
+            rgba(56, 189, 248, 1),
             rgba(45, 212, 191, 1),
-            rgba(251, 146, 60, 0.98),
-            rgba(167, 139, 250, 1)
+            rgba(129, 140, 248, 1),
+            rgba(167, 139, 250, 1),
+            rgba(37, 99, 235, 1)
           );
-          animation: heroBorderSpin 3s linear infinite, heroBorderHue 8s linear infinite;
+          animation: heroBorderSpin 3s linear infinite;
           pointer-events: none;
           z-index: 0;
-          will-change: transform, filter;
+          will-change: transform;
         }
         .orbito-hero-border::after {
           content: "";
