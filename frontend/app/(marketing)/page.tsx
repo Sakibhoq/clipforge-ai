@@ -179,14 +179,14 @@ function AmbientFX() {
           position: relative;
           overflow: hidden;
           border-radius: var(--r-xl);
-          padding: 1px;
+          padding: 4px;
         }
         .orbito-hero-border::before {
           content: "";
           position: absolute;
           inset: 0;
           border-radius: inherit;
-          padding: 1px;
+          padding: 4px;
           background:
             linear-gradient(
               95deg,
@@ -195,10 +195,10 @@ function AmbientFX() {
               rgba(45, 212, 191, 0.86),
               rgba(167, 139, 250, 0.90)
             );
-          background-size: 240% 100%;
+          background-size: 320% 100%;
           background-position: 0% 50%;
-          animation: heroBorderSlide 2.8s linear infinite;
-          opacity: 0.92;
+          animation: heroBorderSlide 1.5s linear infinite;
+          opacity: 0.98;
 
           -webkit-mask:
             linear-gradient(#000 0 0) content-box,
@@ -209,8 +209,8 @@ function AmbientFX() {
           pointer-events: none;
           z-index: 2;
           filter:
-            drop-shadow(0 0 8px rgba(125, 211, 252, 0.18))
-            drop-shadow(0 0 14px rgba(167, 139, 250, 0.14));
+            drop-shadow(0 0 10px rgba(125, 211, 252, 0.26))
+            drop-shadow(0 0 18px rgba(167, 139, 250, 0.2));
           will-change: background-position;
         }
         .orbito-hero-border::after {
@@ -225,7 +225,7 @@ function AmbientFX() {
         .orbito-hero-border > .orbito-hero-inner {
           position: relative;
           z-index: 1;
-          border-radius: 23px;
+          border-radius: 20px;
         }
         .orbito-grain {
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
