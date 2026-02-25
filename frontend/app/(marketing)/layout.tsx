@@ -15,21 +15,21 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[-20] overflow-hidden">
         {/* base */}
         <div className="absolute inset-0 bg-black" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(1,3,9,0.74),rgba(0,0,0,0.94))]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,2,8,0.84),rgba(0,0,0,0.97))]" />
 
         {/* top bloom + side accents (keep the page dark while highlights stay vivid) */}
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_680px_at_50%_0%,rgba(255,255,255,0.08),transparent_62%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_12%_18%,rgba(125,211,252,0.23),transparent_62%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_88%_22%,rgba(167,139,250,0.23),transparent_62%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_680px_at_50%_0%,rgba(255,255,255,0.05),transparent_64%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_12%_18%,rgba(56,130,246,0.3),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1100px_600px_at_88%_22%,rgba(129,90,255,0.3),transparent_60%)]" />
 
         {/* animated glow orbs */}
         <div className="absolute inset-0">
           {/* left orb */}
           <div
-            className="absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.92]"
+            className="absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.96]"
             style={{
               background:
-                "radial-gradient(circle at 35% 35%, rgba(125,211,252,0.60), rgba(125,211,252,0.2) 38%, transparent 68%)",
+                "radial-gradient(circle at 35% 35%, rgba(56,130,246,0.72), rgba(56,130,246,0.24) 38%, transparent 68%)",
               filter: "blur(22px)",
               mixBlendMode: "screen",
               animation: "orbFloatA 9s ease-in-out infinite",
@@ -37,10 +37,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* right orb */}
           <div
-            className="absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.86]"
+            className="absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.92]"
             style={{
               background:
-                "radial-gradient(circle at 55% 40%, rgba(167,139,250,0.58), rgba(167,139,250,0.2) 40%, transparent 70%)",
+                "radial-gradient(circle at 55% 40%, rgba(129,90,255,0.68), rgba(129,90,255,0.24) 40%, transparent 70%)",
               filter: "blur(24px)",
               mixBlendMode: "screen",
               animation: "orbFloatB 10.5s ease-in-out infinite",
@@ -48,10 +48,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* bottom orb */}
           <div
-            className="absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.78] sm:block"
+            className="absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.86] sm:block"
             style={{
               background:
-                "radial-gradient(circle at 45% 45%, rgba(45,212,191,0.5), rgba(45,212,191,0.17) 42%, transparent 72%)",
+                "radial-gradient(circle at 45% 45%, rgba(20,184,166,0.62), rgba(20,184,166,0.22) 42%, transparent 72%)",
               filter: "blur(28px)",
               mixBlendMode: "screen",
               animation: "orbFloatC 12s ease-in-out infinite",
@@ -59,17 +59,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* micro sparkles */}
           <div
-            className="absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.62]"
+            className="absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.72]"
             style={{
-              background: "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.22), transparent 65%)",
+              background: "radial-gradient(circle at 40% 40%, rgba(214,238,255,0.34), transparent 65%)",
               filter: "blur(18px)",
               animation: "orbPulse 4.8s ease-in-out infinite",
             }}
           />
           <div
-            className="absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.56] sm:block"
+            className="absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.66] sm:block"
             style={{
-              background: "radial-gradient(circle at 45% 45%, rgba(255,255,255,0.20), transparent 68%)",
+              background: "radial-gradient(circle at 45% 45%, rgba(225,230,255,0.30), transparent 68%)",
               filter: "blur(20px)",
               animation: "orbPulse 5.6s ease-in-out infinite",
             }}
@@ -77,7 +77,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* aurora (existing global class) */}
-        <div className="marketing-aurora absolute inset-0 hidden opacity-[0.9] sm:block">
+        <div className="marketing-aurora absolute inset-0 hidden opacity-[0.96] sm:block">
           <div className="aurora" />
         </div>
 
