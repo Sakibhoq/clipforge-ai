@@ -886,20 +886,11 @@ export default function EditorPage() {
                     />
                     {items.map((item) => renderItem(item, false))}
                   </div>
+                  <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
+                    {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
+                  </div>
                   <div className="pointer-events-none absolute inset-0 rounded-full border border-white/45" />
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/90" />
                   <div className="pointer-events-none absolute -bottom-2 right-2 h-5 w-1 rotate-[-36deg] rounded-full bg-cyan-200/80" />
-                </div>
-              ) : null}
-
-              {lensActive && timelineHoverLens ? (
-                <div
-                  className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100"
-                  style={{
-                    left: clamp(timelineHoverLens.x, 36, Math.max(36, timelineHoverLens.laneWidth - 36)),
-                  }}
-                >
-                  {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
                 </div>
               ) : null}
 
