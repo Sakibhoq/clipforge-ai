@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 type AssetType = "video" | "image" | "audio";
 type TrackKey = "visual" | "voiceover" | "music" | "captions";
 type FrameRatio = "9:16" | "1:1" | "16:9";
-type ToolTab = "media" | "audio" | "text" | "versions" | "project";
+type ToolTab = "media" | "audio" | "text" | "export" | "project";
 type CropRect = { x: number; y: number; w: number; h: number };
 type TimelineHoverLens = {
   track: TrackKey;
@@ -55,13 +55,6 @@ type ProjectState = {
   captions: TimelineItem[];
 };
 
-type SavedVersion = {
-  id: string;
-  label: string;
-  createdAt: string;
-  project: ProjectState;
-};
-
 type LocalMusicAsset = {
   id: string;
   name: string;
@@ -71,7 +64,6 @@ type LocalMusicAsset = {
 };
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
-const VERSION_STORAGE_KEY = "clipforge-editor-versions-v3";
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -260,7 +252,7 @@ function toolLabel(tab: ToolTab) {
   if (tab === "media") return "Media";
   if (tab === "audio") return "Audio";
   if (tab === "text") return "Text";
-  if (tab === "versions") return "Versions";
+  if (tab === "export") return "Export";
   return "Project";
 }
 
@@ -304,12 +296,12 @@ function ToolbarIcon({ tab }: { tab: ToolTab }) {
       </svg>
     );
   }
-  if (tab === "versions") {
+  if (tab === "export") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3 12a9 9 0 1 0 2.6-6.4" />
-        <path d="M3 4v4h4" />
-        <path d="M12 7v5l3 2" />
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M4 20h16" />
       </svg>
     );
   }
@@ -353,11 +345,11 @@ export default function EditorPage() {
   const [toolTab, setToolTab] = useState<ToolTab | null>(null);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
   const [project, setProject] = useState<ProjectState>(buildDefaultProject());
-  const [versions, setVersions] = useState<SavedVersion[]>([]);
   const [selected, setSelected] = useState<{ track: TrackKey; itemId: string } | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [lastExportClipId, setLastExportClipId] = useState<number | null>(null);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
   const [cropEditItemId, setCropEditItemId] = useState<string | null>(null);
   const [cropDraft, setCropDraft] = useState<CropRect | null>(null);
@@ -438,31 +430,6 @@ export default function EditorPage() {
     );
     return music || null;
   }, [project.voiceover, project.music, playhead]);
-
-  const exportPayload = useMemo(
-    () => ({
-      project_name: project.name,
-      profile: profile.label,
-      frame: project.frame,
-      target_duration_seconds: project.targetDuration,
-      timeline_duration_seconds: timelineSeconds,
-      safe_area: {
-        enabled: project.safeAreaOn,
-        top: profile.safeTop,
-        bottom: profile.safeBottom,
-      },
-      tracks: {
-        visual: project.visual,
-        voiceover: project.voiceover,
-        music: project.music.map((item) => ({
-          ...item,
-          effective_volume: Number((item.volume * project.musicBedLevel).toFixed(2)),
-        })),
-        captions: project.captions,
-      },
-    }),
-    [project, profile, timelineSeconds]
-  );
 
   function setTrackItems(track: TrackKey, updater: (items: TimelineItem[]) => TimelineItem[]) {
     setProject((prev) => ({ ...prev, [track]: updater(prev[track]) }));
@@ -623,32 +590,47 @@ export default function EditorPage() {
     cropDragRef.current.active = false;
   }
 
-  function saveVersion() {
-    const next: SavedVersion = {
-      id: newId(),
-      label: `${project.name} • ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-      createdAt: new Date().toISOString(),
-      project: cloneProject(project),
-    };
-    setVersions((prev) => [next, ...prev].slice(0, 20));
+  function exportTargetVisualItem() {
+    if (selected?.track === "visual" && selectedItem) return selectedItem;
+    return activeVisual;
   }
 
-  function restoreVersion(versionId: string) {
-    const found = versions.find((version) => version.id === versionId);
-    if (!found) return;
-    setProject(normalizeLoadedProject(cloneProject(found.project)));
-    setSelected(null);
-    setPlayhead(0);
-    setToolTab("project");
-  }
+  async function exportCurrentVisual({ download }: { download: boolean }) {
+    if (exporting) return;
+    setError(null);
+    setLastExportClipId(null);
 
-  async function copyExportJson() {
+    const target = exportTargetVisualItem();
+    if (!target || target.type !== "video" || !target.clipId) {
+      setError("Select a video block in the visual track to export.");
+      return;
+    }
+
+    const crop = normalizeCropRect(target.crop || { x: 0, y: 0, w: 1, h: 1 }, 0.02);
+    const trimEnd = Math.max(0.35, Number(target.duration || 0.35));
+
+    setExporting(true);
     try {
-      await navigator.clipboard.writeText(JSON.stringify(exportPayload, null, 2));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setError("Could not copy export JSON.");
+      const created = await apiFetch<ClipRow>(`/clips/${target.clipId}/crop`, {
+        method: "POST",
+        body: {
+          x: crop.x,
+          y: crop.y,
+          w: crop.w,
+          h: crop.h,
+          trim_start: 0,
+          trim_end: trimEnd,
+        },
+      });
+      setLastExportClipId(Number(created?.id || 0) || null);
+      await loadAssets();
+      if (download && created?.id) {
+        window.open(`/api/clips/${created.id}/download`, "_blank", "noopener,noreferrer");
+      }
+    } catch (err: any) {
+      setError(err?.detail || err?.message || "Could not export clip.");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -734,14 +716,6 @@ export default function EditorPage() {
       if (rawProject) {
         setProject(normalizeLoadedProject(JSON.parse(rawProject)));
       }
-
-      const rawVersions = window.localStorage.getItem(VERSION_STORAGE_KEY);
-      if (rawVersions) {
-        const parsed = JSON.parse(rawVersions);
-        if (Array.isArray(parsed)) {
-          setVersions(parsed.slice(0, 20));
-        }
-      }
     } catch {
       // ignore malformed local state
     }
@@ -754,14 +728,6 @@ export default function EditorPage() {
       // ignore
     }
   }, [project]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
-    } catch {
-      // ignore
-    }
-  }, [versions]);
 
   useEffect(() => {
     if (!selected) return;
@@ -1011,8 +977,6 @@ export default function EditorPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link href="/app/generate" className="btn-ghost px-4 py-2 text-[12px]">Open Generator</Link>
             <Link href="/app/clips" className="btn-ghost px-4 py-2 text-[12px]">Open Library</Link>
-            <button type="button" onClick={saveVersion} className="btn-aurora px-4 py-2 text-[12px]">Save Version</button>
-            <button type="button" onClick={copyExportJson} className="btn-aurora px-4 py-2 text-[12px]">{copied ? "Copied" : "Copy Export JSON"}</button>
           </div>
         </header>
 
@@ -1020,7 +984,7 @@ export default function EditorPage() {
           <div className="relative grid gap-0 xl:grid-cols-[58px_minmax(0,1fr)] xl:grid-rows-[minmax(560px,auto)_auto]">
             <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
-                {(["media", "audio", "text", "versions", "project"] as ToolTab[]).map((tab) => {
+                {(["media", "audio", "text", "export", "project"] as ToolTab[]).map((tab) => {
                   const active = toolTab === tab;
                   return (
                     <button
@@ -1263,24 +1227,41 @@ export default function EditorPage() {
                   </div>
                 ) : null}
 
-                {toolTab === "versions" ? (
+                {toolTab === "export" ? (
                   <div className="grid gap-3">
-                    <button type="button" onClick={saveVersion} className="btn-aurora px-3 py-2 text-[12px]">
-                      Save Snapshot
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[12px] text-white/72">
+                      Export saves the selected visual video block as a new clip in your library. Use the Clips page to download or post it.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => exportCurrentVisual({ download: false })}
+                      disabled={exporting}
+                      className={cx("btn-aurora px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
+                    >
+                      {exporting ? "Exporting..." : "Save To Clips"}
                     </button>
-                    {versions.length ? (
-                      <div className="grid max-h-60 gap-2 overflow-auto pr-1">
-                        {versions.map((version) => (
-                          <button
-                            key={version.id}
-                            type="button"
-                            onClick={() => restoreVersion(version.id)}
-                            className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.08]"
+                    <button
+                      type="button"
+                      onClick={() => exportCurrentVisual({ download: true })}
+                      disabled={exporting}
+                      className={cx("btn-ghost px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
+                    >
+                      Save + Download
+                    </button>
+                    {lastExportClipId ? (
+                      <div className="rounded-2xl border border-emerald-300/25 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
+                        Clip exported to library (ID #{lastExportClipId}).
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Link href="/app/clips" className="btn-ghost px-3 py-1.5 text-[11px]">
+                            Open Clips
+                          </Link>
+                          <a
+                            href={`/api/clips/${lastExportClipId}/download`}
+                            className="btn-ghost px-3 py-1.5 text-[11px]"
                           >
-                            <div className="truncate text-[12px] font-semibold text-white/92">{version.label}</div>
-                            <div className="text-[10px] text-white/52">{new Date(version.createdAt).toLocaleString()}</div>
-                          </button>
-                        ))}
+                            Download Clip
+                          </a>
+                        </div>
                       </div>
                     ) : null}
                   </div>
