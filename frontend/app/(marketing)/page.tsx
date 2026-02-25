@@ -83,19 +83,19 @@ function AmbientFX() {
   const orbs = useMemo(
     () => [
       // top area
-      { x: "10%", y: "10%", s: 560, blur: 60, a: 0.34, d: 0.0, t: 22, h: 250 },
-      { x: "78%", y: "12%", s: 520, blur: 58, a: 0.32, d: 1.1, t: 24, h: 210 },
-      { x: "55%", y: "2%", s: 420, blur: 52, a: 0.26, d: 2.2, t: 20, h: 165 },
+      { x: "10%", y: "10%", s: 560, blur: 60, a: 0.24, d: 0.0, t: 22, h: 250 },
+      { x: "78%", y: "12%", s: 520, blur: 58, a: 0.22, d: 1.1, t: 24, h: 210 },
+      { x: "55%", y: "2%", s: 420, blur: 52, a: 0.18, d: 2.2, t: 20, h: 165 },
 
       // mid / hero
-      { x: "6%", y: "38%", s: 620, blur: 70, a: 0.26, d: 0.8, t: 28, h: 225 },
-      { x: "86%", y: "42%", s: 680, blur: 74, a: 0.24, d: 1.8, t: 30, h: 290 },
-      { x: "52%", y: "44%", s: 760, blur: 86, a: 0.22, d: 2.7, t: 34, h: 190 },
+      { x: "6%", y: "38%", s: 620, blur: 70, a: 0.2, d: 0.8, t: 28, h: 225 },
+      { x: "86%", y: "42%", s: 680, blur: 74, a: 0.19, d: 1.8, t: 30, h: 290 },
+      { x: "52%", y: "44%", s: 760, blur: 86, a: 0.18, d: 2.7, t: 34, h: 190 },
 
       // lower sections
-      { x: "14%", y: "72%", s: 760, blur: 88, a: 0.20, d: 1.6, t: 36, h: 240 },
-      { x: "86%", y: "78%", s: 860, blur: 96, a: 0.18, d: 3.2, t: 38, h: 205 },
-      { x: "46%", y: "88%", s: 940, blur: 110, a: 0.16, d: 2.4, t: 40, h: 175 },
+      { x: "14%", y: "72%", s: 760, blur: 88, a: 0.16, d: 1.6, t: 36, h: 240 },
+      { x: "86%", y: "78%", s: 860, blur: 96, a: 0.14, d: 3.2, t: 38, h: 205 },
+      { x: "46%", y: "88%", s: 940, blur: 110, a: 0.12, d: 2.4, t: 40, h: 175 },
     ],
     []
   );
@@ -157,8 +157,8 @@ function AmbientFX() {
           100% { filter: blur(var(--orb-blur)) hue-rotate(240deg); }
         }
         @keyframes washFloat {
-          0% { transform: translate3d(-2%, -1%, 0) scale(1.04); opacity: 0.24; }
-          100% { transform: translate3d(2.5%, 1.5%, 0) scale(1.12); opacity: 0.36; }
+          0% { transform: translate3d(-2%, -1%, 0) scale(1.04); opacity: 0.14; }
+          100% { transform: translate3d(2.5%, 1.5%, 0) scale(1.12); opacity: 0.22; }
         }
         @keyframes sweep {
           0% { transform: translate3d(-28vw, -4vh, 0) rotate(-10deg); opacity: 0.06; }
@@ -183,8 +183,9 @@ function AmbientFX() {
           position: relative;
           overflow: hidden;
           border-radius: var(--r-xl);
-          padding: 4px;
+          border: 4px solid transparent;
           background:
+            linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92)) padding-box,
             linear-gradient(
               95deg,
               rgba(167, 139, 250, 1),
@@ -192,13 +193,14 @@ function AmbientFX() {
               rgba(45, 212, 191, 1),
               rgba(251, 146, 60, 0.95),
               rgba(167, 139, 250, 1)
-            );
-          background-size: 320% 100%;
-          animation: heroBorderSlide 1.4s linear infinite, heroBorderHue 6s linear infinite;
+            ) border-box;
+          background-size: 100% 100%, 320% 100%;
+          background-position: 0 0, 0% 50%;
+          animation: heroBorderSlide 1.7s linear infinite, heroBorderHue 8s linear infinite;
           box-shadow:
             0 0 0 1px rgba(255, 255, 255, 0.06),
-            0 0 14px rgba(125, 211, 252, 0.26),
-            0 0 24px rgba(167, 139, 250, 0.18);
+            0 0 10px rgba(125, 211, 252, 0.22),
+            0 0 18px rgba(167, 139, 250, 0.16);
           will-change: background-position, filter;
         }
         .orbito-hero-border::before {
@@ -208,7 +210,7 @@ function AmbientFX() {
           border-radius: inherit;
           background: inherit;
           filter: blur(14px);
-          opacity: 0.24;
+          opacity: 0.16;
           animation: inherit;
           pointer-events: none;
           z-index: 0;
@@ -235,9 +237,9 @@ function AmbientFX() {
           className="orbito-anim absolute -inset-[45%] blur-3xl"
           style={{
             background:
-              "radial-gradient(900px 520px at 18% 18%, rgba(56,130,246,0.66), transparent 64%), radial-gradient(920px 540px at 82% 22%, rgba(129,90,255,0.62), transparent 64%), radial-gradient(980px 580px at 55% 88%, rgba(20,184,166,0.56), transparent 66%)",
+              "radial-gradient(900px 520px at 18% 18%, rgba(56,130,246,0.48), transparent 64%), radial-gradient(920px 540px at 82% 22%, rgba(129,90,255,0.44), transparent 64%), radial-gradient(980px 580px at 55% 88%, rgba(20,184,166,0.38), transparent 66%)",
             mixBlendMode: "screen",
-            opacity: 0.34,
+            opacity: 0.22,
             animation: "washFloat 16s ease-in-out infinite alternate",
             willChange: "transform, opacity",
           }}
@@ -259,11 +261,11 @@ function AmbientFX() {
               // @ts-ignore
               ["--orb-blur" as any]: `${o.blur}px`,
               background: `radial-gradient(circle at 40% 35%,
-                hsla(${o.h}, 96%, 58%, 0.96), transparent 56%),
+                hsla(${o.h}, 96%, 52%, 0.94), transparent 56%),
                 radial-gradient(circle at 70% 55%,
-                hsla(${(o.h + 110) % 360}, 92%, 52%, 0.86), transparent 58%),
+                hsla(${(o.h + 110) % 360}, 92%, 46%, 0.82), transparent 58%),
                 radial-gradient(circle at 45% 70%,
-                hsla(${(o.h + 220) % 360}, 88%, 46%, 0.72), transparent 60%)`,
+                hsla(${(o.h + 220) % 360}, 88%, 40%, 0.66), transparent 60%)`,
               mixBlendMode: "screen",
               filter: `blur(${o.blur}px)`,
               animation: `orbDrift ${o.t}s ease-in-out infinite, orbPulse ${o.t + 10}s ease-in-out infinite, orbHue ${Math.max(
@@ -282,9 +284,9 @@ function AmbientFX() {
           className="orbito-anim absolute left-[-30%] top-[6%] h-[420px] w-[720px] blur-3xl"
           style={{
             background:
-              "radial-gradient(closest-side, rgba(205,228,255,0.66), rgba(56,130,246,0.46), rgba(129,90,255,0.32), transparent 72%)",
+              "radial-gradient(closest-side, rgba(180,210,255,0.48), rgba(56,130,246,0.34), rgba(129,90,255,0.22), transparent 72%)",
             mixBlendMode: "screen",
-            opacity: 0.2,
+            opacity: 0.12,
             animation: "sweep 14s ease-in-out infinite",
             willChange: "transform, opacity",
           }}
@@ -321,10 +323,10 @@ function AmbientFX() {
 
       {/* base background (slightly brighter) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(1050px_650px_at_50%_10%,rgba(255,255,255,0.05),transparent_64%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_12%_18%,rgba(56,130,246,0.14),transparent_58%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_86%_22%,rgba(129,90,255,0.14),transparent_58%)]" />
-        <div className="absolute inset-0 opacity-[0.86] hidden sm:block">
+        <div className="absolute inset-0 bg-[radial-gradient(1050px_650px_at_50%_10%,rgba(255,255,255,0.03),transparent_66%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_12%_18%,rgba(56,130,246,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_86%_22%,rgba(129,90,255,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 opacity-[0.72] hidden sm:block">
           <div className="aurora" />
         </div>
       </div>
@@ -393,11 +395,11 @@ export default function Page() {
         {/* HERO */}
         <section className="relative">
           <div data-reveal className="reveal orbito-hero-border">
-            <div className="orbito-hero-inner surface relative overflow-hidden p-5 sm:p-6 md:p-10">
+            <div className="orbito-hero-inner relative overflow-hidden p-5 sm:p-6 md:p-10">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-              <div className="aurora opacity-80 sm:opacity-90" />
-              <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.085),transparent_62%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.06),transparent_62%)]" />
+              <div className="aurora opacity-38 sm:opacity-48" />
+              <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.05),transparent_64%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
             </div>
 
             <div className="relative grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
