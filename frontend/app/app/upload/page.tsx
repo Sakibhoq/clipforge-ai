@@ -1803,7 +1803,7 @@ function UploadWorkspace() {
       </div>
 
       {/* Upload options */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={cx("grid gap-4", YOUTUBE_INGEST_ENABLED && "md:grid-cols-2")}>
         {/* FILE */}
         <div className="surface-soft relative overflow-hidden p-6">
           <div
@@ -2315,6 +2315,18 @@ function UploadWorkspace() {
 
             <div className="mt-3 text-[12px] text-white/35">
               Uploads use secure storage links from the API.
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-[12px] text-amber-100/85">
+              <div className="font-semibold text-amber-100/95">Need an MP4 from a link?</div>
+              <div className="mt-2 space-y-1 text-amber-100/80">
+                <div>1) Copy the video URL.</div>
+                <div>2) Use a trusted third-party downloader to export MP4.</div>
+                <div>3) Upload that MP4 here and generate clips.</div>
+              </div>
+              <div className="mt-2 text-amber-100/70">
+                Only download content you own or have permission to use, and follow platform terms.
+              </div>
             </div>
           </div>
         </div>
