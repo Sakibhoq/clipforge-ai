@@ -572,14 +572,14 @@ export default function Page() {
               >
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">YouTube ingest</div>
-                  <div className="mt-2 text-sm font-semibold text-white/90">Pull videos from connected channels</div>
+                  <div className="text-xs text-white/50">Cross-platform publishing</div>
+                  <div className="mt-2 text-sm font-semibold text-white/90">Publish the same clip everywhere</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">
-                    Connect YouTube channels and add videos to your ingest queue for clip generation.
+                    Connect channels once, then send approved clips to all selected destinations from one workflow.
                   </div>
                   <div className="mt-4 flex items-center gap-2 text-[11px] text-white/55">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 animate-pulse" />
-                    Queue ready
+                    Studio ready
                   </div>
                 </div>
               </div>

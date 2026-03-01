@@ -17,16 +17,6 @@ from routers import upload_register
 from core.db_init import init_db
 
 # ---------------------------------------------------------
-# Feature flags
-# ---------------------------------------------------------
-ENABLE_YOUTUBE_INGEST = (os.getenv("ENABLE_YOUTUBE_INGEST") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-
-# ---------------------------------------------------------
 # App
 # ---------------------------------------------------------
 app = FastAPI(title="Clipforge API")
@@ -69,14 +59,6 @@ def _shutdown_background_workers() -> None:
     _social_dispatch_stop.set()
     if _social_dispatch_thread is not None and _social_dispatch_thread.is_alive():
         _social_dispatch_thread.join(timeout=2.0)
-
-# ---------------------------------------------------------
-# Optional: YouTube automated ingest (DISABLED by default in prod)
-# ---------------------------------------------------------
-if ENABLE_YOUTUBE_INGEST:
-    from routers.youtube_ingest import router as youtube_router
-
-    app.include_router(youtube_router)
 
 # ---------------------------------------------------------
 # CORS (cookie auth)

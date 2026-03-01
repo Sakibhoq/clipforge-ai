@@ -35,6 +35,8 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+const YOUTUBE_INGEST_ENABLED = false;
+
 type Flow =
   | "idle"
   | "dragging"
@@ -1725,7 +1727,7 @@ function UploadWorkspace() {
   const headerSubtitle = useMemo(() => {
     if (flow === "processing") return "Processing runs in the background. You can leave this page.";
     if (flow === "done") return "Your clips are ready. Open Clips to review and export.";
-    return "Upload a file or paste a YouTube link. Pick output settings first.";
+    return "Upload a file and pick output settings first.";
   }, [flow]);
 
   const canStartUpload = settingsOk && !fileDurationLoading && fileCredits != null;
@@ -2317,6 +2319,8 @@ function UploadWorkspace() {
           </div>
         </div>
 
+        {YOUTUBE_INGEST_ENABLED ? (
+          <>
         {/* PART 1 ENDS HERE — YouTube panel continues in Part 2 */}
         {/* YOUTUBE URL (User-assisted, reliable) */}
         <div className="surface-soft relative overflow-hidden p-6">
@@ -2490,6 +2494,8 @@ function UploadWorkspace() {
             </div>
           </div>
         </div>
+          </>
+        ) : null}
       </div>
 
     </div>

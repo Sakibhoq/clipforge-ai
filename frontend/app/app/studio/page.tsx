@@ -6,8 +6,6 @@ import { apiFetch } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 import { SocialBrandPill, SocialPlatform, socialBrandTheme } from "@/components/SocialBrand";
 
-type Channel = { id: number };
-type QueueItem = { status: string };
 type SocialAccount = {
   id: number;
   provider: string;
@@ -55,8 +53,6 @@ function StatPill({ label, value }: { label: string; value: string }) {
 }
 
 export default function StudioPage() {
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
@@ -68,18 +64,9 @@ export default function StudioPage() {
     setLoading(true);
     setError(null);
     try {
-      const [ch, q, sa] = await Promise.allSettled([
-        apiFetch<Channel[]>("/youtube/channels", { method: "GET" }),
-        apiFetch<QueueItem[]>("/youtube/ingest/queue", { method: "GET" }),
-        apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" }),
-      ]);
-
-      if (ch.status === "fulfilled") setChannels(Array.isArray(ch.value) ? ch.value : []);
-      if (q.status === "fulfilled") setQueue(Array.isArray(q.value) ? q.value : []);
+      const [sa] = await Promise.allSettled([apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" })]);
       if (sa.status === "fulfilled") setSocialAccounts(Array.isArray(sa.value) ? sa.value : []);
-
-      const failed = [ch, q, sa].filter((res) => res.status === "rejected").length;
-      if (failed === 3) setError("Could not load data right now. Please refresh.");
+      if (sa.status === "rejected") setError("Could not load data right now. Please refresh.");
     } finally {
       setLoading(false);
     }
@@ -114,12 +101,6 @@ export default function StudioPage() {
     const count = allowedSocialProvidersForPlan(currentPlan).length;
     return `${count} channel${count === 1 ? "" : "s"}`;
   }, [currentPlan]);
-
-  const queueSummary = useMemo(() => {
-    const queued = queue.filter((item) => item.status === "queued").length;
-    const processing = queue.filter((item) => item.status === "processing").length;
-    return { queued, processing, total: queue.length };
-  }, [queue]);
 
   const socialByProvider = useMemo(() => {
     const out: Record<string, SocialAccount | null> = {};
@@ -211,22 +192,14 @@ export default function StudioPage() {
               <p className="mt-2 max-w-2xl text-sm text-white/65">
                 Connect your social accounts, manage status, and publish clips from one place.
               </p>
-              <p className="mt-2 max-w-2xl text-xs text-white/50">
-                Use YouTube Ingest to import channel videos. Use Upload for manual files.
-              </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <StatPill label="Connected" value={`${connectedCount}/${SOCIAL_PROVIDERS.length}`} />
                 <StatPill label="Social access" value={socialAccessLabel} />
-                <StatPill label="YouTube Channels" value={`${channels.length}`} />
-                <StatPill label="Ingest Queue" value={`${queueSummary.total}`} />
               </div>
             </div>
 
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-              <Link href="/app/youtube" className="btn-ghost text-center text-[12px] px-4 py-2">
-                Open YouTube ingest
-              </Link>
               <Link href="/app/clips" className="btn-solid-dark text-center text-[12px] px-4 py-2">
                 Open clips
               </Link>
