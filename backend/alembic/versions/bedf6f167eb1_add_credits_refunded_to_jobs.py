@@ -18,9 +18,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def _has_column(conn, table: str, col: str) -> bool:
-    # SQLite-safe column existence check
-    rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
-    return any(r[1] == col for r in rows)
+    # Dialect-agnostic column existence check (SQLite + Postgres).
+    inspector = sa.inspect(conn)
+    try:
+        rows = inspector.get_columns(table)
+    except Exception:
+        return False
+    return any(str(r.get("name")) == col for r in rows)
 
 
 def upgrade() -> None:
