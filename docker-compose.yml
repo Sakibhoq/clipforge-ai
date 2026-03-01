@@ -25,7 +25,7 @@ services:
       - ./backend:/app
       - ./data:/data
 
-      # AWS credentials (Codespaces + local dev)
+      # Shared credentials mount (AWS profiles / S3-compatible HMAC creds)
       - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
     environment:
       # Core
@@ -51,6 +51,11 @@ services:
       LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
       S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-}"
+      S3_ADDRESSING_STYLE: "${S3_ADDRESSING_STYLE:-}"
+      S3_SIGNATURE_VERSION: "${S3_SIGNATURE_VERSION:-s3v4}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
       UPLOAD_PROXY_CHUNK_SIZE: "${UPLOAD_PROXY_CHUNK_SIZE:-524288}"
       STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC: "${STORAGE_REMOTE_FFPROBE_TIMEOUT_SEC:-25}"
       STORAGE_FFPROBE_TIMEOUT_SEC: "${STORAGE_FFPROBE_TIMEOUT_SEC:-120}"
@@ -148,6 +153,11 @@ services:
       LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
       S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-}"
+      S3_ADDRESSING_STYLE: "${S3_ADDRESSING_STYLE:-}"
+      S3_SIGNATURE_VERSION: "${S3_SIGNATURE_VERSION:-s3v4}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
 
       # Timeouts
       WORKER_FFPROBE_TIMEOUT: "180"

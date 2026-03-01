@@ -5,6 +5,8 @@ This folder contains copy-paste templates for a simple EC2 launch.
 ## Recommended production shape
 
 - Docker Compose runs the app containers (frontend/backend/worker) on the EC2 host
+
+For Google Cloud migration guidance, use `deploy/GCP_MIGRATION.md`.
 - Reverse proxy (Nginx or Caddy) terminates TLS on ports 80/443
 - `3000` and `8000` are bound to `127.0.0.1` only (see `docker-compose.prod.yml`)
 

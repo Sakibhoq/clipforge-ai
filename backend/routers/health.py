@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
 from core.database import SessionLocal
+from storage.s3_client import build_s3_client, uses_object_storage_backend
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -18,7 +19,7 @@ def ready():
     """
     Readiness check for production orchestration.
     - DB connectivity
-    - Storage backend basic sanity (local writable OR S3 bucket reachable)
+    - Storage backend basic sanity (local writable OR object storage bucket reachable)
     """
     checks: dict[str, str] = {}
     ok = True
@@ -36,22 +37,20 @@ def ready():
     backend = (os.getenv("STORAGE_BACKEND") or "local").strip().lower()
     checks["storage_backend"] = backend
 
-    if backend == "s3":
+    if uses_object_storage_backend(backend):
         bucket = (os.getenv("S3_BUCKET") or "").strip()
         region = (os.getenv("AWS_REGION") or "").strip()
         if not bucket:
             ok = False
-            checks["s3_bucket"] = "missing"
+            checks["object_storage_bucket"] = "missing"
         else:
             try:
-                import boto3
-
-                s3 = boto3.client("s3", region_name=region or None)
+                s3 = build_s3_client(region_name=region or None)
                 s3.head_bucket(Bucket=bucket)
-                checks["s3"] = "ok"
+                checks["object_storage"] = "ok"
             except Exception as e:
                 ok = False
-                checks["s3"] = f"fail: {type(e).__name__}"
+                checks["object_storage"] = f"fail: {type(e).__name__}"
     else:
         path = (os.getenv("LOCAL_STORAGE_PATH") or "/data/storage").strip()
         checks["local_storage_path"] = path

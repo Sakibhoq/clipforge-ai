@@ -14,8 +14,6 @@ from typing import Optional, Dict
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
-import boto3
-from botocore.config import Config
 from botocore.exceptions import NoCredentialsError, ClientError
 
 from models.user import User
@@ -23,6 +21,7 @@ from routers.auth import get_current_user
 from core.config import settings
 from storage.local import LocalStorage
 from storage import get_storage
+from storage.s3_client import build_s3_client, uses_object_storage_backend
 
 router = APIRouter(prefix="/storage", tags=["storage"])
 
@@ -107,18 +106,12 @@ class ProxyChunkCompleteRequest(BaseModel):
     content_type: Optional[str] = None
 
 
-def _s3_client(region: str):
+def _s3_client(region: Optional[str]):
     """
-    Use default credential chain:
-    - env vars (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)
-    - ~/.aws/credentials if mounted into container
-    - IAM role (EC2/ECS) in prod
+    S3-compatible object storage client (AWS S3 or GCS interoperability endpoint).
+    Credential sources remain the default boto chain.
     """
-    return boto3.client(
-        "s3",
-        region_name=region,
-        config=Config(signature_version="s3v4"),
-    )
+    return build_s3_client(region_name=region)
 
 
 def _new_storage_key(user_id: int, filename: str) -> str:
@@ -199,8 +192,8 @@ def presign_put(
 
         bucket = os.getenv("S3_BUCKET")
         region = os.getenv("AWS_REGION")
-        if backend == "s3" and (not bucket or not region):
-            raise HTTPException(status_code=500, detail="S3 config missing (S3_BUCKET/AWS_REGION)")
+        if uses_object_storage_backend(backend) and not bucket:
+            raise HTTPException(status_code=500, detail="Object storage config missing (S3_BUCKET)")
 
         ct = (req.content_type or "").strip().lower()
         if not ct or not ct.startswith(ALLOWED_CONTENT_PREFIXES):
@@ -223,8 +216,8 @@ def presign_put(
             "x-amz-meta-original_filename": safe_name,
         }
 
-        # Local dev flow (no AWS required)
-        if backend != "s3":
+        # Local upload flow
+        if not uses_object_storage_backend(backend):
             token = _sign_storage_key(key)
             # Use same-origin relative path so frontend proxy rules can forward to backend
             # in local/codespaces without cross-origin PUT/CORS.
@@ -256,7 +249,7 @@ def presign_put(
         print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail="AWS credentials not available to backend container (mount ~/.aws or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY).",
+            detail="Object storage credentials unavailable (set HMAC keys or workload credentials for your storage backend).",
         )
 
     except ClientError as e:
@@ -281,7 +274,7 @@ async def upload_proxy(
     """
     Fallback upload path for environments where direct browser PUT is blocked
     (S3 CORS, strict proxies, enterprise browsers).
-    Works with both STORAGE_BACKEND=local and STORAGE_BACKEND=s3.
+    Works with STORAGE_BACKEND=local and S3-compatible object storage backends.
     """
     if not file:
         raise HTTPException(status_code=400, detail="No file received")
@@ -321,7 +314,7 @@ async def upload_proxy(
     try:
         storage.save(file.file, key, content_type=ct)  # type: ignore[arg-type]
     except NoCredentialsError:
-        raise HTTPException(status_code=500, detail="AWS credentials missing for upload")
+        raise HTTPException(status_code=500, detail="Object storage credentials missing for upload")
     except ClientError as e:
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
@@ -484,7 +477,7 @@ async def local_upload(
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower().strip()
     # Allow local storage upload whenever STORAGE_BACKEND=local.
     # Production/local deployments rely on this path + signed key token.
-    if backend == "s3":
+    if uses_object_storage_backend(backend):
         raise HTTPException(status_code=403, detail="Local uploads are disabled")
 
     key = _validate_local_key(key)
@@ -516,7 +509,7 @@ def local_get(
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower().strip()
     # Allow local storage reads whenever STORAGE_BACKEND=local.
     # Signed key token still protects direct object access.
-    if backend == "s3":
+    if uses_object_storage_backend(backend):
         raise HTTPException(status_code=404, detail="Not found")
 
     key = _validate_local_key(key)

@@ -107,13 +107,22 @@ def main() -> int:
     # Storage
     backend = (os.getenv("STORAGE_BACKEND") or "local").lower()
     _print("STORAGE_BACKEND", True, backend)
-    if backend == "s3":
+    if backend in {"s3", "gcs"}:
         ok &= _check_env("S3_BUCKET", required=True, redact=False)
-        ok &= _check_env("AWS_REGION", required=True, redact=False)
-        # Credentials can come from env or mounted ~/.aws
+        _check_env("AWS_REGION", required=False, redact=False)
+        _check_env("S3_ENDPOINT_URL", required=False, redact=False)
+        _check_env("S3_ADDRESSING_STYLE", required=False, redact=False)
+        if backend == "gcs" and not (os.getenv("S3_ENDPOINT_URL") or "").strip():
+            _print("S3_ENDPOINT_URL(gcs)", False, "missing (expected: https://storage.googleapis.com)")
+        # Credentials can come from env or mounted credential files.
         has_creds = bool(os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"))
         has_file = Path("/root/.aws/credentials").exists()
-        _print("AWS credentials", has_creds or has_file, "env or /root/.aws/credentials")
+        has_gcp_file = bool((os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip())
+        _print(
+            "Object storage credentials",
+            has_creds or has_file or has_gcp_file,
+            "AWS-style env, /root/.aws/credentials, or GOOGLE_APPLICATION_CREDENTIALS",
+        )
     else:
         _check_env("LOCAL_STORAGE_PATH", required=False, redact=False)
 

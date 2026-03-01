@@ -3,17 +3,17 @@ from __future__ import annotations
 import os
 from typing import BinaryIO, Optional
 
-import boto3
 from botocore.exceptions import ClientError
 
 from .base import Storage
+from .s3_client import build_s3_client
 
 
 class S3Storage(Storage):
     def __init__(self) -> None:
         self.bucket = os.environ["S3_BUCKET"]
         self.region = os.environ.get("AWS_REGION", "us-east-1")
-        self.s3 = boto3.client("s3", region_name=self.region)
+        self.s3 = build_s3_client(region_name=self.region)
 
     def save(self, fileobj: BinaryIO, key: str, content_type: Optional[str] = None) -> str:
         extra_args = {}
@@ -60,4 +60,3 @@ class S3Storage(Storage):
             if code in ("404", "NoSuchKey", "NotFound"):
                 return False
             raise
-
