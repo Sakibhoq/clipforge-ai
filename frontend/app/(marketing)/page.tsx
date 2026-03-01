@@ -152,10 +152,6 @@ function AmbientFX() {
           55% { opacity: calc(var(--orb-a) * 0.92); }
           100% { opacity: 0; }
         }
-        @keyframes orbHue {
-          0% { filter: blur(var(--orb-blur)) hue-rotate(0deg); }
-          100% { filter: blur(var(--orb-blur)) hue-rotate(240deg); }
-        }
         @keyframes washFloat {
           0% { transform: translate3d(-2%, -1%, 0) scale(1.04); opacity: 0.14; }
           100% { transform: translate3d(2.5%, 1.5%, 0) scale(1.12); opacity: 0.22; }
@@ -227,13 +223,36 @@ function AmbientFX() {
         @media (prefers-reduced-motion: reduce) {
           .orbito-anim { animation: none !important; }
         }
+        @media (max-width: 900px), (pointer: coarse) {
+          .orbito-fx-heavy {
+            display: none !important;
+          }
+          .orbito-hero-border {
+            padding: 2px;
+          }
+          .orbito-hero-border::before {
+            inset: -62%;
+            animation: none !important;
+            opacity: 0.82;
+          }
+          .orbito-hero-border::after {
+            inset: 2px;
+            border-radius: 18px;
+            box-shadow:
+              0 0 8px rgba(125, 211, 252, 0.16),
+              0 0 14px rgba(167, 139, 250, 0.12);
+          }
+          .orbito-hero-border > .orbito-hero-inner {
+            border-radius: 18px;
+          }
+        }
       `}</style>
 
       {/* FX layer ABOVE base background but BELOW content */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         {/* brighter base wash */}
         <div
-          className="orbito-anim absolute -inset-[45%] blur-3xl"
+          className="orbito-anim orbito-fx-heavy absolute -inset-[45%] blur-3xl"
           style={{
             background:
               "radial-gradient(900px 520px at 18% 18%, rgba(56,130,246,0.48), transparent 64%), radial-gradient(920px 540px at 82% 22%, rgba(129,90,255,0.44), transparent 64%), radial-gradient(980px 580px at 55% 88%, rgba(20,184,166,0.38), transparent 66%)",
@@ -248,7 +267,7 @@ function AmbientFX() {
         {orbs.map((o, i) => (
           <div
             key={i}
-            className="orbito-anim absolute rounded-full"
+            className="orbito-anim orbito-fx-heavy absolute rounded-full"
             style={{
               left: o.x,
               top: o.y,
@@ -267,20 +286,17 @@ function AmbientFX() {
                 hsla(${(o.h + 220) % 360}, 88%, 40%, 0.66), transparent 60%)`,
               mixBlendMode: "screen",
               filter: `blur(${o.blur}px)`,
-              animation: `orbDrift ${o.t}s ease-in-out infinite, orbPulse ${o.t + 10}s ease-in-out infinite, orbHue ${Math.max(
-                26,
-                o.t + 14
-              )}s linear infinite`,
-              animationDelay: `${o.d}s, ${o.d * 0.8}s, ${o.d * 0.4}s`,
+              animation: `orbDrift ${o.t}s ease-in-out infinite, orbPulse ${o.t + 10}s ease-in-out infinite`,
+              animationDelay: `${o.d}s, ${o.d * 0.8}s`,
               transform: "translateZ(0)",
-              willChange: "transform, opacity, filter",
+              willChange: "transform, opacity",
             }}
           />
         ))}
 
         {/* sweeping highlight */}
         <div
-          className="orbito-anim absolute left-[-30%] top-[6%] h-[420px] w-[720px] blur-3xl"
+          className="orbito-anim orbito-fx-heavy absolute left-[-30%] top-[6%] h-[420px] w-[720px] blur-3xl"
           style={{
             background:
               "radial-gradient(closest-side, rgba(180,210,255,0.48), rgba(56,130,246,0.34), rgba(129,90,255,0.22), transparent 72%)",
@@ -317,7 +333,7 @@ function AmbientFX() {
         </div>
 
         {/* grain */}
-        <div className="absolute inset-0 opacity-[0.12] orbito-grain" />
+        <div className="absolute inset-0 opacity-[0.12] orbito-grain orbito-fx-heavy" />
       </div>
 
       {/* base background (slightly brighter) */}
@@ -396,7 +412,7 @@ export default function Page() {
           <div data-reveal className="reveal orbito-hero-border">
             <div className="orbito-hero-inner relative overflow-hidden p-5 sm:p-6 md:p-10">
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-              <div className="aurora opacity-38 sm:opacity-48" />
+              <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
               <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.05),transparent_64%)]" />
               <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
             </div>

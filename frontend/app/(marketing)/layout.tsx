@@ -26,7 +26,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="absolute inset-0">
           {/* left orb */}
           <div
-            className="absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.84]"
+            className="marketing-fx-heavy absolute left-[-12%] top-[6%] h-[560px] w-[560px] rounded-full opacity-[0.84]"
             style={{
               background:
                 "radial-gradient(circle at 35% 35%, rgba(56,130,246,0.62), rgba(56,130,246,0.2) 38%, transparent 68%)",
@@ -37,7 +37,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* right orb */}
           <div
-            className="absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.8]"
+            className="marketing-fx-heavy absolute right-[-14%] top-[10%] h-[620px] w-[620px] rounded-full opacity-[0.8]"
             style={{
               background:
                 "radial-gradient(circle at 55% 40%, rgba(129,90,255,0.6), rgba(129,90,255,0.2) 40%, transparent 70%)",
@@ -48,7 +48,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* bottom orb */}
           <div
-            className="absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.74] sm:block"
+            className="marketing-fx-heavy absolute left-[18%] bottom-[-22%] hidden h-[760px] w-[760px] rounded-full opacity-[0.74] sm:block"
             style={{
               background:
                 "radial-gradient(circle at 45% 45%, rgba(20,184,166,0.54), rgba(20,184,166,0.18) 42%, transparent 72%)",
@@ -59,7 +59,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           />
           {/* micro sparkles */}
           <div
-            className="absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.58]"
+            className="marketing-fx-heavy absolute left-[14%] top-[28%] h-[220px] w-[220px] rounded-full opacity-[0.58]"
             style={{
               background: "radial-gradient(circle at 40% 40%, rgba(214,238,255,0.24), transparent 65%)",
               filter: "blur(18px)",
@@ -67,7 +67,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             }}
           />
           <div
-            className="absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.5] sm:block"
+            className="marketing-fx-heavy absolute right-[18%] top-[44%] hidden h-[260px] w-[260px] rounded-full opacity-[0.5] sm:block"
             style={{
               background: "radial-gradient(circle at 45% 45%, rgba(225,230,255,0.2), transparent 68%)",
               filter: "blur(20px)",
@@ -77,13 +77,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* aurora (existing global class) */}
-        <div className="marketing-aurora absolute inset-0 hidden opacity-[0.8] sm:block">
+        <div className="marketing-fx-heavy marketing-aurora absolute inset-0 hidden opacity-[0.8] sm:block">
           <div className="aurora" />
         </div>
 
         {/* subtle grain */}
         <div
-          className="absolute inset-0 opacity-[0.10]"
+          className="marketing-fx-heavy absolute inset-0 opacity-[0.10]"
           style={{
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E\")",
@@ -117,6 +117,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               }
               .marketing-aurora .aurora::before { animation-duration: 7s; }
               .marketing-aurora .aurora::after { animation-duration: 9.5s; }
+              @media (max-width: 900px), (pointer: coarse) {
+                .marketing-fx-heavy { display: none !important; }
+              }
             `,
           }}
         />
