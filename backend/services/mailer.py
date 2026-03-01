@@ -4,7 +4,7 @@ import html
 import os
 import smtplib
 from email.message import EmailMessage
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 
 def _env_bool(key: str, default: bool) -> bool:
@@ -47,11 +47,36 @@ def _frontend_base_url() -> str:
     return "https://app.orbito.cc"
 
 
+def _rewrite_api_host_to_app(url: str) -> str:
+    parsed = urlsplit((url or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return (url or "").strip()
+    host = (parsed.hostname or "").strip().lower()
+    if not host.startswith("api."):
+        return (url or "").strip()
+    app_host = f"app.{host[4:]}"
+    if parsed.port:
+        app_netloc = f"{app_host}:{parsed.port}"
+    else:
+        app_netloc = app_host
+    return urlunsplit((parsed.scheme, app_netloc, parsed.path, parsed.query, parsed.fragment))
+
+
+def _prefer_raster_logo(url: str) -> str:
+    parsed = urlsplit((url or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return (url or "").strip()
+    path = parsed.path or ""
+    if path.lower().endswith(".svg"):
+        path = f"{path[:-4]}.png"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
+
+
 def _email_logo_url() -> str:
     explicit = (os.getenv("EMAIL_LOGO_URL") or "").strip()
     if explicit:
-        return explicit
-    return f"{_frontend_base_url()}/orbito-mark.png"
+        return _prefer_raster_logo(_rewrite_api_host_to_app(explicit))
+    return _prefer_raster_logo(f"{_rewrite_api_host_to_app(_frontend_base_url())}/orbito-mark.png")
 
 
 def _default_no_reply_email() -> str:
