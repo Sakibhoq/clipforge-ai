@@ -1471,44 +1471,45 @@ function UploadWorkspace() {
         const msg = compactUploadErrorMessage(directErr?.message || directErr || "");
         if (msg.toLowerCase().includes("canceled")) throw directErr;
 
-        setStatusText("Direct upload failed. Retrying via backend…");
-        setProgress((p) => Math.max(p, 28));
-        persistUploadSession({ flow: "uploading", progress: 28 });
+        setStatusText("Direct upload failed. Switching to chunked upload…");
+        setProgress((p) => Math.max(p, 24));
+        persistUploadSession({ flow: "uploading", progress: 24 });
 
         try {
-          const proxied = await uploadViaBackendProxy({
+          const chunked = await uploadViaBackendProxyChunked({
             file,
             storageKey: presign.storage_key,
             signal: ac.signal,
+            onProgress: (pct) => {
+              const mapped = 24 + pct * 0.58;
+              setProgress((p) => {
+                const next = Math.max(p, Math.min(82, mapped));
+                persistUploadProgressThrottled(next);
+                return next;
+              });
+            },
           });
-          uploadedStorageKey = proxied.storage_key || presign.storage_key;
+          uploadedStorageKey = chunked.storage_key || presign.storage_key;
           setStorageKey(uploadedStorageKey);
-          setProgress((p) => Math.max(p, 80));
-          persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 80 });
-        } catch (proxyErr: any) {
-          if (isRetryableUploadPathError(proxyErr)) {
-            setStatusText("Fallback blocked. Retrying chunked upload…");
-            setProgress((p) => Math.max(p, 32));
-            persistUploadSession({ flow: "uploading", progress: 32 });
+          setProgress((p) => Math.max(p, 82));
+          persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
+        } catch (chunkErr: any) {
+          if (isRetryableUploadPathError(chunkErr)) {
+            setStatusText("Chunked fallback failed. Retrying via backend…");
+            setProgress((p) => Math.max(p, 34));
+            persistUploadSession({ flow: "uploading", progress: 34 });
+
             try {
-              const chunked = await uploadViaBackendProxyChunked({
+              const proxied = await uploadViaBackendProxy({
                 file,
                 storageKey: presign.storage_key,
                 signal: ac.signal,
-                onProgress: (pct) => {
-                  const mapped = 32 + pct * 0.48;
-                  setProgress((p) => {
-                    const next = Math.max(p, Math.min(82, mapped));
-                    persistUploadProgressThrottled(next);
-                    return next;
-                  });
-                },
               });
-              uploadedStorageKey = chunked.storage_key || presign.storage_key;
+              uploadedStorageKey = proxied.storage_key || presign.storage_key;
               setStorageKey(uploadedStorageKey);
-              setProgress((p) => Math.max(p, 82));
-              persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
-            } catch (chunkErr: any) {
+              setProgress((p) => Math.max(p, 80));
+              persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 80 });
+            } catch (proxyErr: any) {
               if (
                 isRequestEntityTooLargeError(chunkErr) ||
                 isRequestEntityTooLargeError(proxyErr) ||
@@ -1518,16 +1519,26 @@ function UploadWorkspace() {
                 tooLargeErr.status = 413;
                 throw tooLargeErr;
               }
-              const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
               const chunkMsg = compactUploadErrorMessage(chunkErr?.message || chunkErr || "");
+              const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
               throw new Error(
-                `Direct upload failed: ${msg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}`
+                `Direct upload failed: ${msg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}`
               );
             }
           }
-          const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
+
+          if (
+            isRequestEntityTooLargeError(chunkErr) ||
+            isRequestEntityTooLargeError(directErr)
+          ) {
+            const tooLargeErr: any = new Error("Upload too large (HTTP 413).");
+            tooLargeErr.status = 413;
+            throw tooLargeErr;
+          }
+
+          const chunkMsg = compactUploadErrorMessage(chunkErr?.message || chunkErr || "");
           throw new Error(
-            `Direct upload failed: ${msg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}`
+            `Direct upload failed: ${msg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}`
           );
         }
       }
