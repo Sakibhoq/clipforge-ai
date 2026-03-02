@@ -73,6 +73,13 @@ def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     return None
 
 
+def _stripe_error_message(exc: Exception) -> str:
+    if isinstance(exc, stripe.error.StripeError):
+        msg = (getattr(exc, "user_message", None) or str(exc) or "").strip()
+        return msg or "Stripe request failed"
+    return (str(exc) or "").strip() or "Unknown billing error"
+
+
 def _reload_user(db: Session, current_user: User) -> User:
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
@@ -88,10 +95,15 @@ def _ensure_stripe_customer(db: Session, user: User) -> str:
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="Stripe not configured")
 
-    customer = stripe.Customer.create(
-        email=user.email,
-        metadata={"user_id": str(user.id)},
-    )
+    try:
+        customer = stripe.Customer.create(
+            email=user.email,
+            metadata={"user_id": str(user.id)},
+        )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe customer setup failed: {_stripe_error_message(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to create customer")
 
     user.stripe_customer_id = customer.id
     db.commit()
@@ -250,21 +262,26 @@ def create_checkout_session(
     success_url = f"{base}/app/billing?checkout=success"
     cancel_url = f"{base}/app/billing?checkout=cancel"
 
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        line_items=[{"price": price_id, "quantity": quantity}],
-        success_url=success_url,
-        cancel_url=cancel_url,
-        customer=customer_id,
-        payment_method_collection="always",
-        allow_promotion_codes=True,
-        metadata={
-            "user_id": str(user.id),
-            "plan": plan,
-            "interval": interval,
-            "pack": str(quantity),
-        },
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": quantity}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer=customer_id,
+            payment_method_collection="always",
+            allow_promotion_codes=True,
+            metadata={
+                "user_id": str(user.id),
+                "plan": plan,
+                "interval": interval,
+                "pack": str(quantity),
+            },
+        )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe checkout failed: {_stripe_error_message(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to start checkout")
 
     return CheckoutSessionResponse(url=session.url)
 

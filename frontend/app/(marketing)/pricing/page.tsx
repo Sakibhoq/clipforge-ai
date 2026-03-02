@@ -461,26 +461,37 @@ export default function Page() {
     }
   }
 
-function checkoutErrorMessage(e: any): string {
-  if (!e) return "Checkout is temporarily unavailable. Please try again.";
-  const detail = e?.detail || e?.message || e?.error;
-  const detailStr = typeof detail === "string" ? detail : "";
-  if (detailStr.toLowerCase().includes("stripe not configured")) {
-    return "Checkout isn’t live yet. Please try again shortly.";
+  function checkoutErrorMessage(e: any): string {
+    if (!e) return "Checkout is temporarily unavailable. Please try again.";
+
+    const status = Number(e?.status || 0);
+    const detail = e?.detail ?? e?.message ?? e?.error;
+    const detailStr = typeof detail === "string" ? detail.trim() : "";
+    const lower = detailStr.toLowerCase();
+    const fetchFailed = String(e?.message || "").toLowerCase().includes("failed to fetch");
+
+    if (!status && fetchFailed) {
+      return "Network error reaching billing. Please refresh and try again.";
+    }
+    if (lower.includes("stripe not configured")) {
+      return "Checkout isn’t live yet. Please try again shortly.";
+    }
+    if (lower.includes("price not configured") || lower.includes("no such price")) {
+      return "Pricing isn’t fully configured yet. Please contact support.";
+    }
+    if (status === 401) {
+      return "Your session expired. Please sign in again.";
+    }
+    if (status >= 500 && !detailStr) {
+      return "Billing service is temporarily unavailable. Please try again in a minute.";
+    }
+    if (detailStr) return detailStr;
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return "Checkout is temporarily unavailable. Please try again.";
+    }
   }
-  if (detailStr.toLowerCase().includes("price not configured")) {
-    return "Pricing isn’t fully configured yet. Please try again shortly.";
-  }
-  if (detailStr.toLowerCase().includes("failed to fetch")) {
-    return "Network error. Please refresh and try again.";
-  }
-  if (typeof detail === "string") return detail;
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return "Checkout is temporarily unavailable. Please try again.";
-  }
-}
 
 async function startCheckout(plan: "free" | "starter" | "creator") {
   const ok = await requireAuthOrRedirect();
@@ -502,7 +513,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
     const data = (await apiFetch("/billing/checkout-session", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: payload,
     })) as any;
 
     const url = data?.url;

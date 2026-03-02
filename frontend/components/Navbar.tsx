@@ -360,7 +360,7 @@ export default function Navbar() {
       // Free trial checkout (card collection enforced in backend)
       const data = (await apiFetch("/billing/checkout-session", {
         method: "POST",
-        body: JSON.stringify({ plan: "free", interval: "monthly", pack: 1 }),
+        body: { plan: "free", interval: "monthly", pack: 1 },
       })) as any;
 
       const url = data?.url;
