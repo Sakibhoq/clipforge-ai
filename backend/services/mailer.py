@@ -103,6 +103,62 @@ def _automations_enabled() -> bool:
     return _env_bool("EMAIL_AUTOMATIONS_ENABLED", True)
 
 
+def _render_branded_email_html(
+    *,
+    title: str,
+    content_html: str,
+    footer_html: str,
+    cta_label: str | None = None,
+    cta_url: str | None = None,
+) -> str:
+    esc_title = html.escape((title or "").strip() or "Orbito")
+    esc_logo_url = html.escape(_email_logo_url(), quote=True)
+    esc_cta_label = html.escape((cta_label or "").strip())
+    esc_cta_url = html.escape((cta_url or "").strip(), quote=True)
+    cta_block = ""
+    if esc_cta_label and esc_cta_url:
+        cta_block = f"""
+            <tr>
+              <td align="center" style="padding:20px 24px 16px 24px;">
+                <a href="{esc_cta_url}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">{esc_cta_label}</a>
+              </td>
+            </tr>
+""".rstrip()
+
+    return f"""
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f7fb;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;text-align:center;">
+                <img src="{esc_logo_url}" alt="Orbito" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">{esc_title}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
+                {content_html}
+              </td>
+            </tr>
+            {cta_block}
+            <tr>
+              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
+                {footer_html}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+""".strip()
+
+
 def send_email(
     *,
     to_email: str,
@@ -156,7 +212,6 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
     first = (name or "").strip().split(" ")[0] or "there"
     support = _support_email()
     app_url = _frontend_base_url()
-    logo_url = _email_logo_url()
 
     body = "\n".join(
         [
@@ -179,48 +234,20 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
 
     esc_first = html.escape(first)
     esc_support = html.escape(support)
-    esc_app_url = html.escape(app_url, quote=True)
-    esc_logo_url = html.escape(logo_url, quote=True)
-    esc_logo_alt = html.escape("Orbito")
-
-    html_body = f"""
-<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f5f7fb;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="{esc_logo_alt}" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Welcome to Orbito</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
-                Hi {esc_first},<br /><br />
-                Your account is ready. You can now upload videos, generate clips, and publish to connected platforms.
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:20px 24px 16px 24px;">
-                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Orbito</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
-                This is an automated message from an unmonitored inbox.<br />
-                For help, contact <a href="mailto:{html.escape(support, quote=True)}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-""".strip()
+    esc_support_mailto = html.escape(support, quote=True)
+    html_body = _render_branded_email_html(
+        title="Welcome to Orbito",
+        content_html=(
+            f"Hi {esc_first},<br /><br />"
+            "Your account is ready. You can now upload videos, generate clips, and publish to connected platforms."
+        ),
+        cta_label="Open Orbito",
+        cta_url=app_url,
+        footer_html=(
+            "This is an automated message from an unmonitored inbox.<br />"
+            f'For help, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.'
+        ),
+    )
 
     return send_email(
         to_email=to_email,
@@ -241,7 +268,6 @@ def send_password_reset_email(*, to_email: str, token: str, name: str | None = N
     support = _support_email()
     base = _frontend_base_url()
     reset_url = f"{base}/reset-password?token={token}"
-    logo_url = _email_logo_url()
 
     body = "\n".join(
         [
@@ -259,47 +285,20 @@ def send_password_reset_email(*, to_email: str, token: str, name: str | None = N
 
     esc_first = html.escape(first)
     esc_support = html.escape(support)
-    esc_reset = html.escape(reset_url, quote=True)
-    esc_logo_url = html.escape(logo_url, quote=True)
-
-    html_body = f"""
-<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f5f7fb;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="Orbito" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Reset your password</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
-                Hi {esc_first},<br /><br />
-                We received a request to reset your Orbito password.
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:20px 24px 16px 24px;">
-                <a href="{esc_reset}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Reset password</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
-                If you did not request this, you can ignore this email.<br />
-                For help, contact <a href="mailto:{html.escape(support, quote=True)}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-""".strip()
+    esc_support_mailto = html.escape(support, quote=True)
+    html_body = _render_branded_email_html(
+        title="Reset your password",
+        content_html=(
+            f"Hi {esc_first},<br /><br />"
+            "We received a request to reset your Orbito password."
+        ),
+        cta_label="Reset password",
+        cta_url=reset_url,
+        footer_html=(
+            "If you did not request this, you can ignore this email.<br />"
+            f'For help, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.'
+        ),
+    )
 
     return send_email(
         to_email=to_email,
@@ -322,6 +321,7 @@ def send_billing_confirmation_email(
         return False
 
     support = _support_email()
+    app_url = _frontend_base_url()
     interval_label = "monthly" if interval in {"month", "monthly"} else "yearly"
     balance_line = (
         f"Current credits balance: {int(credits_balance)}"
@@ -331,6 +331,8 @@ def send_billing_confirmation_email(
 
     body = "\n".join(
         [
+            "Hi there,",
+            "",
             "Your Orbito billing update is complete.",
             "",
             f"Plan: {plan.capitalize()} ({interval_label})",
@@ -341,10 +343,35 @@ def send_billing_confirmation_email(
             f"For billing help, contact {support}.",
         ]
     )
+    esc_plan = html.escape(plan.capitalize())
+    esc_interval = html.escape(interval_label)
+    esc_support = html.escape(support)
+    esc_support_mailto = html.escape(support, quote=True)
+    esc_balance = html.escape(balance_line)
+    billing_url = f"{app_url.rstrip('/')}/app/billing"
+    html_body = _render_branded_email_html(
+        title="Orbito billing confirmation",
+        content_html=(
+            "Hi there,<br /><br />"
+            "Your Orbito billing update is complete."
+            '<div style="margin-top:14px;border:1px solid #24314e;border-radius:10px;background:#11192a;padding:12px 14px;">'
+            f'<div><span style="color:#9fb0c7;">Plan:</span> {esc_plan} ({esc_interval})</div>'
+            f'<div style="margin-top:6px;"><span style="color:#9fb0c7;">Credits added:</span> {int(credits_granted)}</div>'
+            f'<div style="margin-top:6px;"><span style="color:#9fb0c7;">{esc_balance}</span></div>'
+            "</div>"
+        ),
+        cta_label="Open Billing",
+        cta_url=billing_url,
+        footer_html=(
+            "This is an automated message from an unmonitored inbox. Please do not reply to this email.<br />"
+            f'For billing help, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.'
+        ),
+    )
     return send_email(
         to_email=to_email,
         subject="Orbito billing confirmation",
         text_body=body,
+        html_body=html_body,
         reply_to=_reply_to_email(),
     )
 
@@ -361,8 +388,7 @@ def send_contact_autoreply(
     first = (name or "").strip().split(" ")[0] or "there"
     support = _support_email()
     app_url = _frontend_base_url()
-    logo_url = _email_logo_url()
-    contact_url = f"{app_url}/contact"
+    contact_url = f"{app_url.rstrip('/')}/contact"
     body = "\n".join(
         [
             f"Hi {first},",
@@ -378,49 +404,21 @@ def send_contact_autoreply(
     esc_first = html.escape(first)
     esc_subject = html.escape((subject or "").strip() or "General inquiry")
     esc_support = html.escape(support)
-    esc_contact_url = html.escape(contact_url, quote=True)
-    esc_logo_url = html.escape(logo_url, quote=True)
     esc_support_mailto = html.escape(support, quote=True)
-
-    html_body = f"""
-<!doctype html>
-<html>
-  <body style="margin:0;padding:0;background:#f5f7fb;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:24px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #1f2a44;border-radius:14px;overflow:hidden;">
-            <tr>
-              <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="Orbito" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">We received your message</div>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
-                Hi {esc_first},<br /><br />
-                Thanks for contacting Orbito. Our team has received your message and will review it shortly.<br /><br />
-                <span style="color:#9fb0c7;">Subject:</span> {esc_subject}
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:20px 24px 16px 24px;">
-                <a href="{esc_contact_url}" style="display:inline-block;padding:11px 18px;background:#3b82f6;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Contact Page</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
-                This is an automated message from an unmonitored inbox. Please do not reply to this email.<br />
-                For support, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-""".strip()
+    html_body = _render_branded_email_html(
+        title="We received your message",
+        content_html=(
+            f"Hi {esc_first},<br /><br />"
+            "Thanks for contacting Orbito. Our team has received your message and will review it shortly.<br /><br />"
+            f'<span style="color:#9fb0c7;">Subject:</span> {esc_subject}'
+        ),
+        cta_label="Open Contact Page",
+        cta_url=contact_url,
+        footer_html=(
+            "This is an automated message from an unmonitored inbox. Please do not reply to this email.<br />"
+            f'For support, contact <a href="mailto:{esc_support_mailto}" style="color:#9ecbff;text-decoration:none;">{esc_support}</a>.'
+        ),
+    )
     return send_email(
         to_email=to_email,
         subject="Orbito — We received your message",
