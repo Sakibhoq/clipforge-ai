@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import json
 import math
+import logging
 from typing import Optional, Any, Dict
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError, SQLAlchemyError
 
 from models.upload import Upload
 from models.job import Job
 from models.user import User
 from storage import get_storage
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_filename(name: str) -> str:
@@ -169,5 +173,30 @@ def register_upload_for_user(
 
     except HTTPException:
         raise
-    except Exception:
-        raise HTTPException(500, "Failed to register upload")
+    except IntegrityError as exc:
+        db.rollback()
+        logger.exception(
+            "register_upload integrity error user_id=%s storage_key=%s",
+            getattr(user, "id", None),
+            storage_key,
+        )
+        raise HTTPException(409, "Upload already registered. Please retry.")
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception(
+            "register_upload database error user_id=%s storage_key=%s",
+            getattr(user, "id", None),
+            storage_key,
+        )
+        if isinstance(exc, OperationalError):
+            raise HTTPException(503, "Database temporarily unavailable. Please retry.")
+        if isinstance(exc, ProgrammingError):
+            raise HTTPException(500, "Database schema mismatch. Please contact support.")
+        raise HTTPException(500, "Database error while registering upload.")
+    except Exception as exc:
+        logger.exception(
+            "register_upload unexpected error user_id=%s storage_key=%s",
+            getattr(user, "id", None),
+            storage_key,
+        )
+        raise HTTPException(500, f"Failed to register upload ({type(exc).__name__})")
