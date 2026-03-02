@@ -114,12 +114,14 @@ def _allowed_autopost_providers() -> set:
 
 
 def _meta_request_publish_scopes() -> bool:
-    return (os.getenv("OAUTH_META_REQUEST_PUBLISH_SCOPES") or "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    raw = (os.getenv("OAUTH_META_REQUEST_PUBLISH_SCOPES") or "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    # Production default: request publish scopes so Instagram/Facebook posting works.
+    app_env = (os.getenv("APP_ENV") or "").strip().lower()
+    return app_env == "production"
 
 
 def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
@@ -1071,7 +1073,7 @@ def _instagram_publish_reel(
 
 
 def _tiktok_publish_video(access_token: str, title: str, description: str, video_path: str) -> str:
-    privacy = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip() or "PUBLIC_TO_EVERYONE"
+    privacy = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "SELF_ONLY").strip() or "SELF_ONLY"
     text = (description or title or "New Orbito clip").strip()
     video_size = int(os.path.getsize(video_path))
     if video_size <= 0:
