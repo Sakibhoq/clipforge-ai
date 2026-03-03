@@ -1179,7 +1179,7 @@ function UploadWorkspace() {
     if (!normalized) return;
     window.open(normalized, "_blank", "noopener,noreferrer");
     setYtStep("opened");
-    if (YOUTUBE_INGEST_ENABLED) pulseDropzone();
+    pulseDropzone();
   }
 
   function resetFileFlow() {
@@ -1825,7 +1825,7 @@ function UploadWorkspace() {
       </div>
 
       {/* Upload options */}
-      <div className={cx("grid gap-4", YOUTUBE_INGEST_ENABLED && "md:grid-cols-2")}>
+      <div className="grid gap-4 md:grid-cols-[1.45fr_1fr]">
         {/* FILE */}
         <div className="surface-soft relative overflow-hidden p-6">
           <div
@@ -2339,46 +2339,6 @@ function UploadWorkspace() {
               Uploads use secure storage links from the API.
             </div>
 
-            <div className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-[12px] text-amber-100/85">
-              <div className="font-semibold text-amber-100/95">Paste a link</div>
-              <div className="mt-2 text-amber-100/80">
-                Paste a YouTube link to open it quickly, then upload the MP4 file here.
-              </div>
-
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="field min-w-0 flex-1 border-amber-200/20 bg-black/20 text-amber-50 placeholder:text-amber-100/40"
-                />
-                <button
-                  type="button"
-                  onClick={openPastedLink}
-                  disabled={!urlOk}
-                  className={cx(
-                    "btn-solid-dark shrink-0 px-4 py-2 text-[12px]",
-                    !urlOk && "cursor-not-allowed opacity-50"
-                  )}
-                >
-                  Open link
-                </button>
-              </div>
-
-              {!urlOk && url.trim().length > 0 ? (
-                <div className="mt-2 text-rose-200/75">
-                  Enter a valid YouTube URL (youtube.com/watch?v=... or youtu.be/...).
-                </div>
-              ) : null}
-
-              <div className="mt-3 rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-rose-100/85">
-                Warning: link-based imports can be blocked or rejected by the source platform. If that happens, use a trusted tool to export MP4 and upload the file directly.
-              </div>
-
-              <div className="mt-2 text-amber-100/70">
-                Only use content you own or are licensed to use, and follow platform terms.
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2554,7 +2514,71 @@ function UploadWorkspace() {
           </div>
         </div>
           </>
-        ) : null}
+        ) : (
+          <div className="surface-soft relative overflow-hidden p-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-10 opacity-30 blur-2xl"
+              style={{
+                background:
+                  "radial-gradient(160px 110px at 25% 30%, rgba(125,211,252,0.14), transparent 70%), radial-gradient(180px 130px at 80% 45%, rgba(45,212,191,0.12), transparent 72%), radial-gradient(180px 130px at 50% 85%, rgba(167,139,250,0.10), transparent 72%)",
+              }}
+            />
+            <div className="relative">
+              <div className="text-sm font-semibold text-white/90">Paste a link</div>
+              <div className="mt-1 text-sm text-white/62">
+                Open a YouTube link, then upload the MP4 in the Upload card.
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <input
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setYtStep("idle");
+                  }}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="field min-w-0"
+                />
+                <button
+                  type="button"
+                  onClick={openPastedLink}
+                  disabled={!urlOk}
+                  className={cx(
+                    "btn-solid-dark w-full px-4 py-2 text-[12px]",
+                    !urlOk && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  Open link
+                </button>
+              </div>
+
+              {!urlOk && url.trim().length > 0 ? (
+                <div className="mt-2 text-[12px] text-rose-200/75">
+                  Enter a valid YouTube URL (youtube.com/watch?v=... or youtu.be/...).
+                </div>
+              ) : null}
+
+              <div className="mt-4 rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-[12px] text-rose-100/85">
+                Warning: link-based imports may be blocked or rejected by the source platform.
+              </div>
+
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
+                If blocked: export MP4 with a trusted tool, then upload that file directly.
+              </div>
+
+              {ytStep === "opened" ? (
+                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-100/85">
+                  Link opened. Download/export MP4, then upload it in the left card.
+                </div>
+              ) : null}
+
+              <div className="mt-3 text-[12px] text-white/45">
+                Only use content you own or are licensed to use, and follow platform terms.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
