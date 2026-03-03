@@ -87,6 +87,9 @@ def init_db() -> None:
             "title": f"TEXT",
             "hook": f"TEXT",
         },
+        "social_posts": {
+            "post_options_json": f"TEXT",
+        },
     }
 
     if not auto_backfill:
