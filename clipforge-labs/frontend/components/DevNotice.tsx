@@ -20,6 +20,7 @@ export default function DevNotice() {
 
     if (dismissed) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpen(true);
     const t = window.setTimeout(() => setInView(true), 30);
     return () => window.clearTimeout(t);

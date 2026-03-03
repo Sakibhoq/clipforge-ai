@@ -15,6 +15,13 @@ from pathlib import Path
 
 from sqlalchemy import text
 
+# Allow direct execution from repo root:
+# python backend/scripts/doctor.py
+SCRIPT_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = SCRIPT_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from core.config import settings
 from core.database import SessionLocal
 from storage.s3_client import uses_object_storage_backend

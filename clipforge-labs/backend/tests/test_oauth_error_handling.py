@@ -1,23 +1,37 @@
-from urllib.parse import urlparse, parse_qs
+import time
 
-import httpx
+import jwt
 import requests
 import pytest
+from starlette.requests import Request
 
-from main import app
 import routers.oauth as oauth_router
 
 
-def _extract_state_from_google_auth_url(url: str) -> str:
-    parsed = urlparse(url)
-    qs = parse_qs(parsed.query)
-    state = (qs.get("state") or [None])[0]
-    assert state, "missing state in oauth start redirect URL"
-    return state
+def _request_with_oauth_ctx(provider: str, state: str) -> Request:
+    ctx = {
+        "provider": provider,
+        "state": state,
+        "code_verifier": "test-code-verifier",
+        "next": "/app",
+        "iat": int(time.time()),
+    }
+    token = jwt.encode(ctx, oauth_router.settings.SECRET_KEY, algorithm="HS256")
+    cookie_header = f"{oauth_router.OAUTH_CTX_COOKIE}={token}".encode()
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "scheme": "https",
+        "path": f"/auth/oauth/{provider}/callback",
+        "headers": [(b"cookie", cookie_header)],
+        "query_string": b"",
+    }
+    return Request(scope)
 
 
-@pytest.mark.anyio
-async def test_oauth_callback_token_exchange_non_json_returns_502(monkeypatch):
+def test_oauth_callback_token_exchange_non_json_returns_502(monkeypatch):
+    monkeypatch.setattr(oauth_router.settings, "SECRET_KEY", "test-secret-key")
+    monkeypatch.setattr(oauth_router, "PUBLIC_API_BASE", "https://api.example.com")
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_SECRET", "test-client-secret")
 
@@ -30,21 +44,25 @@ async def test_oauth_callback_token_exchange_non_json_returns_502(monkeypatch):
 
     monkeypatch.setattr(oauth_router.requests, "post", lambda *a, **k: FakeOkNonJson())
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        start = await client.get("/auth/oauth/google/start?next=%2Fapp", follow_redirects=False)
-        assert start.status_code in (302, 307)
-        state = _extract_state_from_google_auth_url(start.headers["location"])
+    state = "state-non-json"
+    request = _request_with_oauth_ctx("google", state)
 
-        cb = await client.get(
-            f"/auth/oauth/google/callback?code=dummy&state={state}",
-            follow_redirects=False,
+    with pytest.raises(oauth_router.HTTPException) as exc:
+        oauth_router.oauth_callback(
+            provider="google",
+            request=request,
+            code="dummy",
+            state=state,
+            db=None,
         )
-        assert cb.status_code == 502
+
+    assert exc.value.status_code == 502
+    assert exc.value.detail == "OAuth token exchange returned an invalid response"
 
 
-@pytest.mark.anyio
-async def test_oauth_callback_token_exchange_request_exception_returns_502(monkeypatch):
+def test_oauth_callback_token_exchange_request_exception_returns_502(monkeypatch):
+    monkeypatch.setattr(oauth_router.settings, "SECRET_KEY", "test-secret-key")
+    monkeypatch.setattr(oauth_router, "PUBLIC_API_BASE", "https://api.example.com")
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("OAUTH_GOOGLE_CLIENT_SECRET", "test-client-secret")
 
@@ -53,14 +71,17 @@ async def test_oauth_callback_token_exchange_request_exception_returns_502(monke
 
     monkeypatch.setattr(oauth_router.requests, "post", boom)
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        start = await client.get("/auth/oauth/google/start?next=%2Fapp", follow_redirects=False)
-        assert start.status_code in (302, 307)
-        state = _extract_state_from_google_auth_url(start.headers["location"])
+    state = "state-request-exception"
+    request = _request_with_oauth_ctx("google", state)
 
-        cb = await client.get(
-            f"/auth/oauth/google/callback?code=dummy&state={state}",
-            follow_redirects=False,
+    with pytest.raises(oauth_router.HTTPException) as exc:
+        oauth_router.oauth_callback(
+            provider="google",
+            request=request,
+            code="dummy",
+            state=state,
+            db=None,
         )
-        assert cb.status_code == 502
+
+    assert exc.value.status_code == 502
+    assert exc.value.detail == "OAuth token exchange request failed"

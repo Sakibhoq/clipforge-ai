@@ -129,7 +129,10 @@ export default function Page() {
   useEffect(() => {
     try {
       const seen = window.sessionStorage.getItem("clipforge-dev-gate-v1") === "1";
-      if (seen) setShowDevGate(false);
+      if (seen) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setShowDevGate(false);
+      }
     } catch {
       // Keep visible when storage is unavailable.
     }

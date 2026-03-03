@@ -136,10 +136,8 @@ function Textarea({
 }
 
 function SendMessageModal({
-  open,
   onClose,
 }: {
-  open: boolean;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<FormState>({
@@ -179,32 +177,26 @@ function SendMessageModal({
     }, 220);
   }
 
-  // Reset when opened
+  // focus first field on mount
   useEffect(() => {
-    if (!open) return;
-    setStatus({ kind: "idle" });
-    setForm({ name: "", email: "", subject: "", message: "" });
-    setTouched({ name: false, email: false, subject: false, message: false });
-
-    // focus first field
-    window.setTimeout(() => {
+    const t = window.setTimeout(() => {
       try {
         firstFieldRef.current?.focus();
       } catch {
         // ignore
       }
     }, 60);
-  }, [open]);
+    return () => window.clearTimeout(t);
+  }, []);
 
   // ESC to close
   useEffect(() => {
-    if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [onClose]);
 
   const errors = useMemo(() => {
     const e: Record<keyof FormState, string | null> = {
@@ -256,8 +248,6 @@ function SendMessageModal({
       setStatus({ kind: "error", message: detail });
     }
   }
-
-  if (!open) return null;
 
   const fieldError = (k: keyof FormState) => (touched[k] ? errors[k] : null);
 
@@ -638,7 +628,7 @@ export default function ContactPage() {
         </section>
       </main>
 
-      <SendMessageModal open={open} onClose={() => setOpen(false)} />
+      {open ? <SendMessageModal onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }
