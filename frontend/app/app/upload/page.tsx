@@ -2559,7 +2559,7 @@ function UploadWorkspace() {
                 </div>
               ) : null}
 
-              <div className="mt-4 rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-[12px] text-rose-100/85">
+              <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
                 Warning: link-based imports may be blocked or rejected by the source platform.
               </div>
 
