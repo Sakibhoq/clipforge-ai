@@ -156,13 +156,15 @@ function fallbackPublishOptions(provider: SupportedSocialProvider): ProviderPubl
       provider,
       options: {
         publish_mode: { value: "DIRECT_POST", choices: ["DIRECT_POST", "MEDIA_UPLOAD"] },
-        privacy_level: { value: "PUBLIC_TO_EVERYONE", choices: TIKTOK_PRIVACY_CHOICES },
-        allow_comments: { value: true },
-        allow_duet: { value: true },
-        allow_stitch: { value: true },
+        privacy_level: { value: "", choices: TIKTOK_PRIVACY_CHOICES, required: true },
+        allow_comments: { value: false },
+        allow_duet: { value: false },
+        allow_stitch: { value: false },
         branded_content: { value: false },
         brand_organic: { value: false },
         is_aigc: { value: false },
+        confirm_music_usage: { value: false, required: true },
+        confirm_branded_content: { value: false, required_if_branded: true },
       },
     };
   }
@@ -1334,6 +1336,24 @@ function ClipsWorkspace() {
           setScheduleError(`TikTok currently allows up to ${rawMax}s for this account. Trim clip duration before posting.`);
           return;
         }
+        const tkValues = providerOptionValues[provider] || {};
+        const publishMode = String(tkValues.publish_mode || "DIRECT_POST").toUpperCase();
+        const privacyLevel = String(tkValues.privacy_level || "").trim();
+        const confirmMusic = Boolean(tkValues.confirm_music_usage);
+        const needsBrandedConfirm = Boolean(tkValues.branded_content) || Boolean(tkValues.brand_organic);
+        const confirmBranded = Boolean(tkValues.confirm_branded_content);
+        if (publishMode === "DIRECT_POST" && !privacyLevel) {
+          setScheduleError("TikTok: choose a privacy level before posting.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && !confirmMusic) {
+          setScheduleError("TikTok: confirm music usage terms before posting.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && needsBrandedConfirm && !confirmBranded) {
+          setScheduleError("TikTok: confirm branded content disclosure before posting.");
+          return;
+        }
       }
     }
 
@@ -1393,6 +1413,42 @@ function ClipsWorkspace() {
       setScheduleNotice(summaryParts.length > 0 ? summaryParts.join(" • ") : "Social post created.");
       setActionError(null);
       setScheduleClipId(null);
+
+      if (posting > 0 && scheduleSelectedProviders.includes("tiktok")) {
+        setScheduleNotice("TikTok is processing your post. This can take a few minutes.");
+        for (let i = 0; i < 6; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          try {
+            const sync = await apiFetch<{ results?: SocialPostDTO[] }>("/social/posts/sync?limit=12", {
+              method: "POST",
+            });
+            const rows = Array.isArray(sync?.results) ? sync.results : [];
+            const failedRows = rows.filter(
+              (r) => String(r.provider || "").toLowerCase() === "tiktok" && String(r.status || "").toLowerCase() === "failed"
+            );
+            if (failedRows.length > 0) {
+              setScheduleError(
+                failedRows.map((r) => `TikTok: ${String(r.last_error || "Publish failed")}`).join("\n")
+              );
+              break;
+            }
+            const processingRows = rows.filter(
+              (r) => String(r.provider || "").toLowerCase() === "tiktok" && String(r.status || "").toLowerCase() === "posting"
+            );
+            if (processingRows.length === 0) {
+              const postedRows = rows.filter(
+                (r) => String(r.provider || "").toLowerCase() === "tiktok" && String(r.status || "").toLowerCase() === "posted"
+              );
+              if (postedRows.length > 0) {
+                setScheduleNotice(`TikTok posted ${postedRows.length} clip${postedRows.length === 1 ? "" : "s"}.`);
+              }
+              break;
+            }
+          } catch {
+            // best-effort status sync only
+          }
+        }
+      }
     } catch (e: any) {
       setScheduleError(toErrorText(e));
     } finally {
@@ -3354,6 +3410,14 @@ function ScheduleForm({
                 const privacyChoices = Array.isArray((options.privacy_level as any)?.choices)
                   ? (options.privacy_level as any).choices
                   : TIKTOK_PRIVACY_CHOICES;
+                const publishMode = String(values.publish_mode || "DIRECT_POST").toUpperCase();
+                const isDirectPost = publishMode === "DIRECT_POST";
+                const interactionLocks: Record<string, boolean> = {
+                  allow_comments: Boolean((options.allow_comments as any)?.locked),
+                  allow_duet: Boolean((options.allow_duet as any)?.locked),
+                  allow_stitch: Boolean((options.allow_stitch as any)?.locked),
+                };
+                const needsBrandedConfirm = Boolean(values.branded_content) || Boolean(values.brand_organic);
                 const maxDuration =
                   options.max_video_post_duration_sec && typeof options.max_video_post_duration_sec === "object"
                     ? Number((options.max_video_post_duration_sec as any).value || 0)
@@ -3383,11 +3447,12 @@ function ScheduleForm({
                       <label className="grid gap-1">
                         <span className="text-[11px] text-white/60">Privacy level</span>
                         <select
-                          value={String(values.privacy_level || "PUBLIC_TO_EVERYONE")}
+                          value={String(values.privacy_level || "")}
                           onChange={(e) => onUpdateProviderOption(provider, "privacy_level", e.target.value)}
                           disabled={loading || busy}
                           className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
                         >
+                          <option value="">Select privacy level</option>
                           {privacyChoices.map((choice: string) => (
                             <option key={choice} value={choice}>
                               {choice}
@@ -3396,6 +3461,11 @@ function ScheduleForm({
                         </select>
                       </label>
                     </div>
+                    {isDirectPost && !String(values.privacy_level || "").trim() ? (
+                      <div className="mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/85">
+                        TikTok requires you to choose a privacy level before posting.
+                      </div>
+                    ) : null}
                     <div className="mt-2 grid gap-2 sm:grid-cols-3">
                       {[
                         { key: "allow_comments", label: "Allow comments" },
@@ -3407,13 +3477,18 @@ function ScheduleForm({
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
                             onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
-                            disabled={loading || busy}
+                            disabled={loading || busy || interactionLocks[toggle.key]}
                             className="h-4 w-4 accent-cyan-400"
                           />
                           <span>{toggle.label}</span>
                         </label>
                       ))}
                     </div>
+                    {(interactionLocks.allow_comments || interactionLocks.allow_duet || interactionLocks.allow_stitch) ? (
+                      <div className="mt-2 text-[11px] text-white/55">
+                        One or more interaction toggles are locked by this TikTok account’s current creator settings.
+                      </div>
+                    ) : null}
                     <div className="mt-2 grid gap-2 sm:grid-cols-3">
                       {[
                         { key: "branded_content", label: "Paid partnership" },
@@ -3432,9 +3507,42 @@ function ScheduleForm({
                         </label>
                       ))}
                     </div>
+                    {isDirectPost ? (
+                      <div className="mt-2 grid gap-2">
+                        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(values.confirm_music_usage)}
+                            onChange={(e) => onUpdateProviderOption(provider, "confirm_music_usage", e.target.checked)}
+                            disabled={loading || busy}
+                            className="mt-0.5 h-4 w-4 accent-cyan-400"
+                          />
+                          <span>
+                            I confirm this post complies with TikTok Music Usage Confirmation and content rights requirements.
+                          </span>
+                        </label>
+                        {needsBrandedConfirm ? (
+                          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(values.confirm_branded_content)}
+                              onChange={(e) => onUpdateProviderOption(provider, "confirm_branded_content", e.target.checked)}
+                              disabled={loading || busy}
+                              className="mt-0.5 h-4 w-4 accent-cyan-400"
+                            />
+                            <span>
+                              I confirm branded content disclosure is accurate and follows TikTok Branded Content Policy.
+                            </span>
+                          </label>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {maxDuration > 0 ? (
                       <div className="mt-2 text-[11px] text-white/55">Account max duration: {maxDuration}s.</div>
                     ) : null}
+                    <div className="mt-1 text-[11px] text-white/50">
+                      Direct posts may remain in processing for a few minutes while TikTok finalizes publication.
+                    </div>
                   </div>
                 );
               }

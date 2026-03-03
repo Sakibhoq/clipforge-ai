@@ -338,19 +338,19 @@ def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
         if publish_mode not in TIKTOK_PUBLISH_MODES:
             publish_mode = "DIRECT_POST"
 
-        privacy_default = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip().upper()
-        if privacy_default not in TIKTOK_PRIVACY_LEVELS:
-            privacy_default = "PUBLIC_TO_EVERYONE"
-        privacy_level = str(opts.get("privacy_level") or privacy_default).strip().upper()
+        privacy_level = str(opts.get("privacy_level") or "").strip().upper()
         if privacy_level not in TIKTOK_PRIVACY_LEVELS:
-            privacy_level = privacy_default
+            privacy_level = ""
 
-        allow_comments = _as_bool(opts.get("allow_comments"), True)
-        allow_duet = _as_bool(opts.get("allow_duet"), True)
-        allow_stitch = _as_bool(opts.get("allow_stitch"), True)
+        # Keep interaction toggles OFF by default unless user explicitly enables them.
+        allow_comments = _as_bool(opts.get("allow_comments"), False)
+        allow_duet = _as_bool(opts.get("allow_duet"), False)
+        allow_stitch = _as_bool(opts.get("allow_stitch"), False)
         branded_content = _as_bool(opts.get("branded_content"), False)
         brand_organic = _as_bool(opts.get("brand_organic"), False)
         is_aigc = _as_bool(opts.get("is_aigc"), False)
+        confirm_music_usage = _as_bool(opts.get("confirm_music_usage"), False)
+        confirm_branded_content = _as_bool(opts.get("confirm_branded_content"), False)
 
         return {
             "publish_mode": publish_mode,
@@ -361,6 +361,8 @@ def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
             "branded_content": branded_content,
             "brand_organic": brand_organic,
             "is_aigc": is_aigc,
+            "confirm_music_usage": confirm_music_usage,
+            "confirm_branded_content": confirm_branded_content,
         }
 
     if p == "instagram":
@@ -1021,22 +1023,26 @@ def get_provider_publish_options(
     if not privacy_choices:
         privacy_choices = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]
 
-    env_default = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "").strip().upper()
-    default_privacy = env_default if env_default in privacy_choices else privacy_choices[0]
-
     scope_set = _as_scope_set(account.scopes)
     has_publish_scope = "video.publish" in scope_set if scope_set else True
     publish_mode_choices = ["DIRECT_POST", "MEDIA_UPLOAD"] if has_publish_scope else ["MEDIA_UPLOAD"]
+    comment_disabled = bool(creator.get("comment_disabled", False))
+    duet_disabled = bool(creator.get("duet_disabled", False))
+    stitch_disabled = bool(creator.get("stitch_disabled", False))
 
     return {
         "provider": p,
         "account_name": account.account_name,
         "options": {
             "publish_mode": {"value": publish_mode_choices[0], "choices": publish_mode_choices},
-            "privacy_level": {"value": default_privacy, "choices": privacy_choices},
-            "allow_comments": {"value": not bool(creator.get("comment_disabled", False))},
-            "allow_duet": {"value": not bool(creator.get("duet_disabled", False))},
-            "allow_stitch": {"value": not bool(creator.get("stitch_disabled", False))},
+            # Keep privacy unselected until the user explicitly chooses one.
+            "privacy_level": {"value": "", "choices": privacy_choices, "required": True},
+            # Keep toggles off by default. If TikTok marks one disabled, lock it in the UI.
+            "allow_comments": {"value": False, "locked": comment_disabled},
+            "allow_duet": {"value": False, "locked": duet_disabled},
+            "allow_stitch": {"value": False, "locked": stitch_disabled},
+            "confirm_music_usage": {"value": False, "required": True},
+            "confirm_branded_content": {"value": False, "required_if_branded": True},
             "max_video_post_duration_sec": int(creator.get("max_video_post_duration_sec") or 0),
         },
     }
@@ -1157,6 +1163,72 @@ def _tiktok_query_creator_info(access_token: str) -> dict:
     if not isinstance(info, dict):
         info = {}
     return info
+
+
+def _tiktok_fetch_publish_status(access_token: str, publish_id: str) -> dict:
+    pid = str(publish_id or "").strip()
+    if not pid:
+        raise RuntimeError("TikTok status check failed: publish id missing")
+
+    resp = requests.post(
+        "https://open.tiktokapis.com/v2/post/publish/status/fetch/",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        json={"publish_id": pid},
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"TikTok status check failed: {resp.text[:300]}")
+
+    payload = resp.json() if resp.text else {}
+    data = payload.get("data") if isinstance(payload, dict) else {}
+    if not isinstance(data, dict):
+        data = {}
+    status_raw = str(
+        data.get("publish_status")
+        or data.get("status")
+        or data.get("post_status")
+        or ""
+    ).strip().upper()
+    fail_reason = str(
+        data.get("fail_reason")
+        or data.get("reason")
+        or data.get("error_message")
+        or ""
+    ).strip()
+    return {"status_raw": status_raw, "reason": fail_reason, "data": data}
+
+
+def _classify_tiktok_publish_status(status_raw: Any) -> str:
+    s = str(status_raw or "").strip().upper()
+    if not s:
+        return "processing"
+    if any(token in s for token in ("PUBLISH_COMPLETE", "PUBLISHED", "SUCCESS", "POSTED", "SEND_TO_USER_INBOX")):
+        return "posted"
+    if any(token in s for token in ("FAIL", "FAILED", "REJECT", "DENY", "ERROR", "CANCEL")):
+        return "failed"
+    return "processing"
+
+
+def _tiktok_wait_for_publish_status(access_token: str, publish_id: str) -> dict:
+    max_polls = max(1, min(30, int((os.getenv("TIKTOK_STATUS_MAX_POLLS") or "6").strip() or "6")))
+    wait_seconds = max(
+        0.5,
+        min(10.0, float((os.getenv("TIKTOK_STATUS_POLL_INTERVAL_SECONDS") or "2").strip() or "2")),
+    )
+
+    last = {"status_raw": "", "reason": "", "data": {}}
+    for idx in range(max_polls):
+        last = _tiktok_fetch_publish_status(access_token, publish_id)
+        state = _classify_tiktok_publish_status(last.get("status_raw"))
+        if state != "processing":
+            return {"state": state, **last}
+        if idx < max_polls - 1:
+            time.sleep(wait_seconds)
+
+    return {"state": "processing", **last}
 
 
 def _youtube_upload_video(
@@ -1326,10 +1398,10 @@ def _tiktok_publish_video(
 ) -> str:
     normalized = _normalize_provider_post_options("tiktok", options or {})
     publish_mode = str(normalized.get("publish_mode") or "DIRECT_POST").strip().upper()
-    privacy = str(normalized.get("privacy_level") or "PUBLIC_TO_EVERYONE").strip().upper()
-    allow_comments = bool(normalized.get("allow_comments", True))
-    allow_duet = bool(normalized.get("allow_duet", True))
-    allow_stitch = bool(normalized.get("allow_stitch", True))
+    privacy = str(normalized.get("privacy_level") or "SELF_ONLY").strip().upper()
+    allow_comments = bool(normalized.get("allow_comments", False))
+    allow_duet = bool(normalized.get("allow_duet", False))
+    allow_stitch = bool(normalized.get("allow_stitch", False))
     branded_content = bool(normalized.get("branded_content", False))
     brand_organic = bool(normalized.get("brand_organic", False))
     is_aigc = bool(normalized.get("is_aigc", False))
@@ -1459,8 +1531,11 @@ def _validate_tiktok_post_options(
     if not account or not account.access_token:
         raise HTTPException(status_code=400, detail="Connect TikTok first")
 
+    publish_mode = str(options.get("publish_mode") or "DIRECT_POST").strip().upper()
+    is_direct_post = publish_mode == "DIRECT_POST"
+
     scope_set = _as_scope_set(account.scopes)
-    if options.get("publish_mode") == "DIRECT_POST" and scope_set and "video.publish" not in scope_set:
+    if is_direct_post and scope_set and "video.publish" not in scope_set:
         raise HTTPException(
             status_code=422,
             detail="TikTok account is missing video.publish scope. Reconnect TikTok and approve direct posting.",
@@ -1476,10 +1551,26 @@ def _validate_tiktok_post_options(
     privacy_choices: List[str] = []
     if isinstance(privacy_raw, list):
         privacy_choices = [str(x or "").strip().upper() for x in privacy_raw if str(x or "").strip()]
-    if privacy_choices and str(options.get("privacy_level") or "").strip().upper() not in set(privacy_choices):
+    privacy_level = str(options.get("privacy_level") or "").strip().upper()
+    if is_direct_post and not privacy_level:
+        raise HTTPException(status_code=422, detail="Select TikTok privacy level before posting.")
+    if privacy_choices and privacy_level and privacy_level not in set(privacy_choices):
         raise HTTPException(
             status_code=422,
             detail=f"TikTok privacy level must be one of: {', '.join(privacy_choices)}",
+        )
+    options["privacy_level"] = privacy_level
+
+    if is_direct_post and not bool(options.get("confirm_music_usage")):
+        raise HTTPException(
+            status_code=422,
+            detail="Confirm TikTok Music Usage terms before posting.",
+        )
+    needs_branded_confirm = bool(options.get("branded_content")) or bool(options.get("brand_organic"))
+    if is_direct_post and needs_branded_confirm and not bool(options.get("confirm_branded_content")):
+        raise HTTPException(
+            status_code=422,
+            detail="Confirm TikTok Branded Content disclosure before posting.",
         )
 
     max_duration = int(creator.get("max_video_post_duration_sec") or 0)
@@ -1494,11 +1585,17 @@ def _validate_tiktok_post_options(
 
     # Lock interaction toggles to creator capability values when TikTok indicates restrictions.
     if "comment_disabled" in creator:
-        options["allow_comments"] = not bool(creator.get("comment_disabled", False))
+        if bool(creator.get("comment_disabled", False)):
+            options["allow_comments"] = False
+        options["allow_comments_locked"] = bool(creator.get("comment_disabled", False))
     if "duet_disabled" in creator:
-        options["allow_duet"] = not bool(creator.get("duet_disabled", False))
+        if bool(creator.get("duet_disabled", False)):
+            options["allow_duet"] = False
+        options["allow_duet_locked"] = bool(creator.get("duet_disabled", False))
     if "stitch_disabled" in creator:
-        options["allow_stitch"] = not bool(creator.get("stitch_disabled", False))
+        if bool(creator.get("stitch_disabled", False)):
+            options["allow_stitch"] = False
+        options["allow_stitch_locked"] = bool(creator.get("stitch_disabled", False))
     return options
 
 
@@ -1726,6 +1823,22 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                 tk_opts = _normalize_provider_post_options("tiktok", post_options)
                 remote_id = _tiktok_publish_video(access_token, title, desc, tmp_path, options=tk_opts)
                 post.remote_id = remote_id
+                if str(tk_opts.get("publish_mode") or "").upper() == "DIRECT_POST" and remote_id:
+                    status_info = _tiktok_wait_for_publish_status(access_token, remote_id)
+                    state = str(status_info.get("state") or "processing").lower()
+                    if state == "failed":
+                        reason = str(status_info.get("reason") or "").strip()
+                        if not reason:
+                            reason = f"TikTok publish failed ({status_info.get('status_raw') or 'failed'})."
+                        raise RuntimeError(reason)
+                    if state == "processing":
+                        post.status = "posting"
+                        post.posted_at = None
+                        post.last_error = (
+                            "TikTok is processing this post. This can take a few minutes. "
+                            "Status will update automatically."
+                        )
+                        continue
             else:
                 raise RuntimeError(f"Unsupported provider: {post.provider}")
 
@@ -1745,6 +1858,78 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
             results.append(_serialize_social_post(post))
 
     return results
+
+
+def _sync_tiktok_post_statuses(
+    db: Session,
+    *,
+    user_id: int,
+    limit: int = 12,
+) -> dict:
+    rows = (
+        db.query(SocialPost)
+        .filter(
+            SocialPost.user_id == user_id,
+            SocialPost.provider == "tiktok",
+            SocialPost.status == "posting",
+            SocialPost.remote_id != None,
+        )
+        .order_by(SocialPost.id.desc())
+        .limit(max(1, min(50, int(limit))))
+        .all()
+    )
+    if not rows:
+        return {"checked": 0, "updated": 0, "results": []}
+
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == user_id,
+            SocialAccount.provider == "tiktok",
+            SocialAccount.status == "connected",
+        )
+        .first()
+    )
+    if not account or not account.access_token:
+        return {"checked": 0, "updated": 0, "results": []}
+
+    try:
+        access_token = _refresh_access_token_if_needed(db, account)
+    except Exception:
+        return {"checked": 0, "updated": 0, "results": []}
+
+    changed: List[SocialPost] = []
+    checked = 0
+    for row in rows:
+        publish_id = str(row.remote_id or "").strip()
+        if not publish_id:
+            continue
+        checked += 1
+        try:
+            status_info = _tiktok_fetch_publish_status(access_token, publish_id)
+            state = _classify_tiktok_publish_status(status_info.get("status_raw"))
+            if state == "posted":
+                row.status = "posted"
+                row.posted_at = datetime.now(timezone.utc)
+                row.last_error = None
+                changed.append(row)
+            elif state == "failed":
+                reason = str(status_info.get("reason") or "").strip()
+                row.status = "failed"
+                row.last_error = reason or f"TikTok publish failed ({status_info.get('status_raw') or 'failed'})."
+                changed.append(row)
+            else:
+                row.last_error = (
+                    "TikTok is processing this post. This can take a few minutes. "
+                    f"Last status: {status_info.get('status_raw') or 'PROCESSING'}"
+                )
+                changed.append(row)
+        except Exception as e:
+            row.last_error = _friendly_publish_error("tiktok", str(e))[:1000]
+            changed.append(row)
+
+    db.commit()
+    return {"checked": checked, "updated": len(changed), "results": [_serialize_social_post(r) for r in rows]}
 
 
 def _dispatch_due_posts(
@@ -1779,3 +1964,12 @@ def dispatch_posts(
         user_id=current_user.id,
     )
     return {"processed": len(results), "results": results}
+
+
+@router.post("/posts/sync")
+def sync_posts(
+    limit: int = 12,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _sync_tiktok_post_statuses(db, user_id=current_user.id, limit=limit)
