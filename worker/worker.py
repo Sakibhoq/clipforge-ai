@@ -2993,8 +2993,10 @@ CAPTION_WORD_DELAY_SECONDS = float(os.getenv("WORKER_CAPTION_WORD_DELAY_SECONDS"
 # Context-layout caption tuning (blurred band placement)
 CAPTION_CONTEXT_FONT_SCALE = float(os.getenv("WORKER_CAPTION_CONTEXT_FONT_SCALE", "0.84"))
 CAPTION_CONTEXT_MIN_FONT_SIZE = int(os.getenv("WORKER_CAPTION_CONTEXT_MIN_FONT_SIZE", "42"))
-CAPTION_CONTEXT_MARGIN_RATIO = float(os.getenv("WORKER_CAPTION_CONTEXT_MARGIN_RATIO", "0.28"))
-CAPTION_CONTEXT_MIN_MARGIN_V = int(os.getenv("WORKER_CAPTION_CONTEXT_MIN_MARGIN_V", "28"))
+# Context-layout captions were landing too low in blurred-band outputs.
+# Raise default vertical placement for better readability and platform safe-area.
+CAPTION_CONTEXT_MARGIN_RATIO = float(os.getenv("WORKER_CAPTION_CONTEXT_MARGIN_RATIO", "0.42"))
+CAPTION_CONTEXT_MIN_MARGIN_V = int(os.getenv("WORKER_CAPTION_CONTEXT_MIN_MARGIN_V", "96"))
 
 # Karaoke timing safety
 KARAOKE_MIN_CS = int(os.getenv("WORKER_KARAOKE_MIN_CS", "1"))     # 0.01s
