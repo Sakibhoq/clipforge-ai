@@ -14,6 +14,7 @@ class SocialPost(Base):
     provider = Column(String, nullable=False, index=True)
     storage_key = Column(String, nullable=True)
     caption = Column(Text, nullable=True)
+    post_options_json = Column(Text, nullable=True)
 
     status = Column(String, nullable=False, default="queued")  # queued, scheduled, posting, posted, failed
     scheduled_at = Column(DateTime(timezone=True), nullable=True)

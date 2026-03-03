@@ -9,7 +9,7 @@ from models.job import Job
 from models.social_post import SocialPost
 from models.upload import Upload
 from models.user import User
-from routers.social import _enforce_clip_platform_limit
+from routers.social import _enforce_clip_platform_limit, _normalize_provider_post_options
 
 
 def _mk_user(db, *, plan: str) -> User:
@@ -147,3 +147,32 @@ def test_legacy_creator_alias_unlocks_full_provider_access(db):
     clip = _mk_clip(db, user_id=u.id)
     for provider in ("youtube", "tiktok", "instagram", "facebook"):
         _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider=provider)
+
+
+def test_normalize_youtube_post_options_defaults_invalid_values():
+    out = _normalize_provider_post_options("youtube", {"privacy_status": "friends_only"})
+    assert out["privacy_status"] == "public"
+
+
+def test_normalize_tiktok_post_options_maps_toggles():
+    out = _normalize_provider_post_options(
+        "tiktok",
+        {
+            "publish_mode": "media_upload",
+            "privacy_level": "self_only",
+            "allow_comments": "0",
+            "allow_duet": "false",
+            "allow_stitch": "yes",
+            "branded_content": "1",
+            "brand_organic": "true",
+            "is_aigc": "on",
+        },
+    )
+    assert out["publish_mode"] == "MEDIA_UPLOAD"
+    assert out["privacy_level"] == "SELF_ONLY"
+    assert out["allow_comments"] is False
+    assert out["allow_duet"] is False
+    assert out["allow_stitch"] is True
+    assert out["branded_content"] is True
+    assert out["brand_organic"] is True
+    assert out["is_aigc"] is True

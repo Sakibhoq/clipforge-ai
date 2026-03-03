@@ -29,6 +29,13 @@ type SocialPostDTO = {
   provider: string;
   status: string;
   last_error?: string | null;
+  platform_options?: Record<string, any>;
+};
+
+type ProviderPublishOptionsDTO = {
+  provider: string;
+  account_name?: string | null;
+  options?: Record<string, any>;
 };
 
 const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"] as const;
@@ -36,6 +43,55 @@ type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 type SocialPlan = AppPlan;
 type AssetFilter = "all" | "video" | "image" | "audio";
 type ActionIconName = "download" | "play" | "schedule";
+
+const TIKTOK_PRIVACY_CHOICES = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
+
+function extractOptionDefaults(options: Record<string, any> | undefined): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [key, value] of Object.entries(options || {})) {
+    if (value && typeof value === "object" && "value" in (value as Record<string, any>)) {
+      out[key] = (value as Record<string, any>).value;
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+function fallbackPublishOptions(provider: SupportedSocialProvider): ProviderPublishOptionsDTO {
+  if (provider === "youtube") {
+    return {
+      provider,
+      options: {
+        privacy_status: { value: "public", choices: ["public", "unlisted", "private"] },
+      },
+    };
+  }
+  if (provider === "tiktok") {
+    return {
+      provider,
+      options: {
+        publish_mode: { value: "DIRECT_POST", choices: ["DIRECT_POST", "MEDIA_UPLOAD"] },
+        privacy_level: { value: "PUBLIC_TO_EVERYONE", choices: TIKTOK_PRIVACY_CHOICES },
+        allow_comments: { value: true },
+        allow_duet: { value: true },
+        allow_stitch: { value: true },
+        branded_content: { value: false },
+        brand_organic: { value: false },
+        is_aigc: { value: false },
+      },
+    };
+  }
+  if (provider === "instagram") {
+    return {
+      provider,
+      options: {
+        share_to_feed: { value: true },
+      },
+    };
+  }
+  return { provider, options: {} };
+}
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -203,6 +259,9 @@ export default function ClipsPage() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+  const [providerOptionCatalog, setProviderOptionCatalog] = useState<Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>>({});
+  const [providerOptionValues, setProviderOptionValues] = useState<Partial<Record<SupportedSocialProvider, Record<string, any>>>>({});
+  const [providerOptionLoading, setProviderOptionLoading] = useState<Partial<Record<SupportedSocialProvider, boolean>>>({});
 
   async function loadClips() {
     setLoading(true);
@@ -305,7 +364,53 @@ export default function ClipsPage() {
     setScheduleWhen("");
     setScheduleError(null);
     setScheduleNotice(null);
+    setProviderOptionCatalog({});
+    setProviderOptionValues({});
+    setProviderOptionLoading({});
   }
+
+  async function loadProviderOptions(provider: SupportedSocialProvider) {
+    if (providerOptionLoading[provider]) return;
+    if (providerOptionCatalog[provider]) return;
+
+    setProviderOptionLoading((prev) => ({ ...prev, [provider]: true }));
+    try {
+      const fetched = await apiFetch<ProviderPublishOptionsDTO>(`/social/providers/${provider}/publish-options`, {
+        method: "GET",
+      });
+      const normalized = fetched && typeof fetched === "object" ? fetched : fallbackPublishOptions(provider);
+      const options = normalized.options || {};
+      const defaults = extractOptionDefaults(options);
+      setProviderOptionCatalog((prev) => ({ ...prev, [provider]: { ...normalized, options } }));
+      setProviderOptionValues((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), ...defaults } }));
+    } catch {
+      const fallback = fallbackPublishOptions(provider);
+      const options = fallback.options || {};
+      const defaults = extractOptionDefaults(options);
+      setProviderOptionCatalog((prev) => ({ ...prev, [provider]: fallback }));
+      setProviderOptionValues((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), ...defaults } }));
+    } finally {
+      setProviderOptionLoading((prev) => ({ ...prev, [provider]: false }));
+    }
+  }
+
+  function updateProviderOption(provider: SupportedSocialProvider, key: string, value: any) {
+    setProviderOptionValues((prev) => ({
+      ...prev,
+      [provider]: {
+        ...(prev[provider] || {}),
+        [key]: value,
+      },
+    }));
+  }
+
+  useEffect(() => {
+    if (!scheduleClip) return;
+    for (const provider of scheduleSelectedProviders) {
+      void loadProviderOptions(provider);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleClip, scheduleSelectedProviders]);
 
   async function submitSocialPosts(mode: "post_now" | "schedule") {
     if (!scheduleClip || scheduleBusy) return;
@@ -321,6 +426,23 @@ export default function ClipsPage() {
       setScheduleError("Choose a schedule time, or use Post now.");
       return;
     }
+    for (const provider of scheduleSelectedProviders) {
+      if (providerOptionLoading[provider]) {
+        setScheduleError(`Loading ${socialLabel(provider)} publish settings. Try again in a second.`);
+        return;
+      }
+      if (provider === "tiktok") {
+        const tiktokMeta = providerOptionCatalog.tiktok?.options || {};
+        const rawMax =
+          tiktokMeta.max_video_post_duration_sec && typeof tiktokMeta.max_video_post_duration_sec === "object"
+            ? Number((tiktokMeta.max_video_post_duration_sec as Record<string, any>).value)
+            : Number(tiktokMeta.max_video_post_duration_sec || 0);
+        if (rawMax > 0 && Number(scheduleClip.duration || 0) > rawMax) {
+          setScheduleError(`TikTok currently allows up to ${rawMax}s for this account. Trim clip duration before posting.`);
+          return;
+        }
+      }
+    }
 
     setScheduleBusy(true);
     setScheduleError(null);
@@ -333,6 +455,7 @@ export default function ClipsPage() {
 
       for (const provider of scheduleSelectedProviders) {
         try {
+          const platformOptions = providerOptionValues[provider] || {};
           const res = await apiFetch<SocialPostDTO>("/social/posts", {
             method: "POST",
             body: {
@@ -340,6 +463,7 @@ export default function ClipsPage() {
               clip_id: scheduleClip.id,
               caption: scheduleCaption || "New clip",
               scheduled_at: scheduledAt,
+              platform_options: platformOptions,
             },
           });
           success.push(res);
@@ -695,6 +819,7 @@ export default function ClipsPage() {
                               setScheduleSelectedProviders((prev) => prev.filter((p) => p !== provider));
                               return;
                             }
+                            void loadProviderOptions(provider);
                             setScheduleSelectedProviders((prev) => limitSelectedProviders([...prev, provider]));
                           }}
                           className="h-4 w-4 accent-orange-500"
@@ -706,6 +831,166 @@ export default function ClipsPage() {
                 })}
               </div>
             </div>
+
+            {scheduleSelectedProviders.length > 0 ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-sm font-semibold text-white/90">Platform settings</div>
+                <div className="mt-1 text-[12px] text-white/58">Required publish controls vary by platform and account capabilities.</div>
+                <div className="mt-3 grid gap-3">
+                  {scheduleSelectedProviders.map((provider) => {
+                    const fallback = fallbackPublishOptions(provider);
+                    const catalog = providerOptionCatalog[provider] || fallback;
+                    const options = catalog.options || {};
+                    const defaults = extractOptionDefaults(options);
+                    const values = { ...defaults, ...(providerOptionValues[provider] || {}) };
+                    const loading = !!providerOptionLoading[provider];
+
+                    if (provider === "youtube") {
+                      const choices = Array.isArray((options.privacy_status as any)?.choices)
+                        ? (options.privacy_status as any).choices
+                        : ["public", "unlisted", "private"];
+                      return (
+                        <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
+                          <div className="text-[12px] font-semibold text-white/86">YouTube</div>
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <label className="text-[12px] text-white/60">Visibility</label>
+                            <select
+                              value={String(values.privacy_status || "public")}
+                              onChange={(e) => updateProviderOption(provider, "privacy_status", e.target.value)}
+                              disabled={loading || scheduleBusy}
+                              className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
+                            >
+                              {choices.map((choice: string) => (
+                                <option key={choice} value={choice}>
+                                  {choice}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (provider === "tiktok") {
+                      const modeChoices = Array.isArray((options.publish_mode as any)?.choices)
+                        ? (options.publish_mode as any).choices
+                        : ["DIRECT_POST", "MEDIA_UPLOAD"];
+                      const privacyChoices = Array.isArray((options.privacy_level as any)?.choices)
+                        ? (options.privacy_level as any).choices
+                        : TIKTOK_PRIVACY_CHOICES;
+                      const maxDuration =
+                        options.max_video_post_duration_sec && typeof options.max_video_post_duration_sec === "object"
+                          ? Number((options.max_video_post_duration_sec as any).value || 0)
+                          : Number(options.max_video_post_duration_sec || 0);
+                      return (
+                        <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-[12px] font-semibold text-white/86">TikTok</div>
+                            {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            <label className="grid gap-1">
+                              <span className="text-[11px] text-white/60">Post destination</span>
+                              <select
+                                value={String(values.publish_mode || "DIRECT_POST")}
+                                onChange={(e) => updateProviderOption(provider, "publish_mode", e.target.value)}
+                                disabled={loading || scheduleBusy}
+                                className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
+                              >
+                                {modeChoices.map((choice: string) => (
+                                  <option key={choice} value={choice}>
+                                    {choice === "DIRECT_POST" ? "Direct post" : "Upload to TikTok inbox"}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="grid gap-1">
+                              <span className="text-[11px] text-white/60">Privacy level</span>
+                              <select
+                                value={String(values.privacy_level || "PUBLIC_TO_EVERYONE")}
+                                onChange={(e) => updateProviderOption(provider, "privacy_level", e.target.value)}
+                                disabled={loading || scheduleBusy}
+                                className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
+                              >
+                                {privacyChoices.map((choice: string) => (
+                                  <option key={choice} value={choice}>
+                                    {choice}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                            {[
+                              { key: "allow_comments", label: "Allow comments" },
+                              { key: "allow_duet", label: "Allow duet" },
+                              { key: "allow_stitch", label: "Allow stitch" },
+                            ].map((toggle) => (
+                              <label key={toggle.key} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(values[toggle.key])}
+                                  onChange={(e) => updateProviderOption(provider, toggle.key, e.target.checked)}
+                                  disabled={loading || scheduleBusy}
+                                  className="h-4 w-4 accent-orange-500"
+                                />
+                                <span>{toggle.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                            {[
+                              { key: "branded_content", label: "Paid partnership" },
+                              { key: "brand_organic", label: "Your brand" },
+                              { key: "is_aigc", label: "AI-generated" },
+                            ].map((toggle) => (
+                              <label key={toggle.key} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(values[toggle.key])}
+                                  onChange={(e) => updateProviderOption(provider, toggle.key, e.target.checked)}
+                                  disabled={loading || scheduleBusy}
+                                  className="h-4 w-4 accent-orange-500"
+                                />
+                                <span>{toggle.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                          {maxDuration > 0 ? (
+                            <div className="mt-2 text-[11px] text-white/55">Account max duration: {maxDuration}s.</div>
+                          ) : null}
+                        </div>
+                      );
+                    }
+
+                    if (provider === "instagram") {
+                      return (
+                        <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
+                          <div className="text-[12px] font-semibold text-white/86">Instagram</div>
+                          <label className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(values.share_to_feed)}
+                              onChange={(e) => updateProviderOption(provider, "share_to_feed", e.target.checked)}
+                              disabled={loading || scheduleBusy}
+                              className="h-4 w-4 accent-orange-500"
+                            />
+                            <span>Also share reel to feed</span>
+                          </label>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
+                        <div className="text-[12px] font-semibold text-white/86">Facebook</div>
+                        <div className="mt-2 text-[12px] text-white/60">Uses your connected Page settings.</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

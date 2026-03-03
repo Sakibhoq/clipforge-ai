@@ -107,6 +107,15 @@ PLAN_POSTING_PROVIDER_ALLOWLIST: Dict[str, set[str]] = {
     "studio": set(PROVIDERS.keys()),
 }
 
+YOUTUBE_PRIVACY_STATUSES = {"public", "unlisted", "private"}
+TIKTOK_PUBLISH_MODES = {"DIRECT_POST", "MEDIA_UPLOAD"}
+TIKTOK_PRIVACY_LEVELS = {
+    "PUBLIC_TO_EVERYONE",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "FOLLOWER_OF_CREATOR",
+    "SELF_ONLY",
+}
+
 
 def _allowed_autopost_providers() -> set:
     raw = (os.getenv("AUTOPOST_PROVIDERS") or "youtube,tiktok,instagram,facebook").strip()
@@ -266,6 +275,84 @@ def _safe_json_loads(v: Any) -> dict:
         return json.loads(str(v))
     except Exception:
         return {}
+
+
+def _as_bool(v: Any, default: bool) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, (int, float)):
+        return bool(v)
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in {"1", "true", "yes", "on"}:
+            return True
+        if s in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _as_scope_set(raw_scopes: Any) -> set[str]:
+    if not raw_scopes:
+        return set()
+    value: Any = raw_scopes
+    if isinstance(raw_scopes, str):
+        try:
+            value = json.loads(raw_scopes)
+        except Exception:
+            value = raw_scopes
+    if isinstance(value, list):
+        return {str(s).strip() for s in value if str(s).strip()}
+    if isinstance(value, str):
+        parts = re.split(r"[,\s]+", value)
+        return {p.strip() for p in parts if p.strip()}
+    return set()
+
+
+def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
+    opts = raw_options if isinstance(raw_options, dict) else {}
+    p = str(provider or "").strip().lower()
+
+    if p == "youtube":
+        privacy = str(opts.get("privacy_status") or "public").strip().lower()
+        if privacy not in YOUTUBE_PRIVACY_STATUSES:
+            privacy = "public"
+        return {"privacy_status": privacy}
+
+    if p == "tiktok":
+        publish_mode = str(opts.get("publish_mode") or "DIRECT_POST").strip().upper()
+        if publish_mode not in TIKTOK_PUBLISH_MODES:
+            publish_mode = "DIRECT_POST"
+
+        privacy_default = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip().upper()
+        if privacy_default not in TIKTOK_PRIVACY_LEVELS:
+            privacy_default = "PUBLIC_TO_EVERYONE"
+        privacy_level = str(opts.get("privacy_level") or privacy_default).strip().upper()
+        if privacy_level not in TIKTOK_PRIVACY_LEVELS:
+            privacy_level = privacy_default
+
+        allow_comments = _as_bool(opts.get("allow_comments"), True)
+        allow_duet = _as_bool(opts.get("allow_duet"), True)
+        allow_stitch = _as_bool(opts.get("allow_stitch"), True)
+        branded_content = _as_bool(opts.get("branded_content"), False)
+        brand_organic = _as_bool(opts.get("brand_organic"), False)
+        is_aigc = _as_bool(opts.get("is_aigc"), False)
+
+        return {
+            "publish_mode": publish_mode,
+            "privacy_level": privacy_level,
+            "allow_comments": allow_comments,
+            "allow_duet": allow_duet,
+            "allow_stitch": allow_stitch,
+            "branded_content": branded_content,
+            "brand_organic": brand_organic,
+            "is_aigc": is_aigc,
+        }
+
+    if p == "instagram":
+        return {"share_to_feed": _as_bool(opts.get("share_to_feed"), True)}
+
+    # Facebook currently exposes no extra publish controls in-app.
+    return {}
 
 
 def _friendly_publish_error(provider: str, raw_error: str) -> str:
@@ -541,6 +628,7 @@ class SocialPostRequest(BaseModel):
     clip_id: int
     caption: Optional[str] = None
     scheduled_at: Optional[str] = None  # ISO string
+    platform_options: Dict[str, Any] = Field(default_factory=dict)
 
 
 class SocialPostResponse(BaseModel):
@@ -550,13 +638,23 @@ class SocialPostResponse(BaseModel):
     scheduled_at: Optional[str]
     posted_at: Optional[str]
     last_error: Optional[str]
+    platform_options: Dict[str, Any] = Field(default_factory=dict)
 
 
 class SocialDisconnectResponse(BaseModel):
     status: str
 
 
+class ProviderPublishOptionsResponse(BaseModel):
+    provider: str
+    account_name: Optional[str] = None
+    options: Dict[str, Any] = Field(default_factory=dict)
+
+
 def _serialize_social_post(post: SocialPost) -> dict:
+    options = _safe_json_loads(getattr(post, "post_options_json", None))
+    if not isinstance(options, dict):
+        options = {}
     return {
         "id": post.id,
         "provider": post.provider,
@@ -564,6 +662,7 @@ def _serialize_social_post(post: SocialPost) -> dict:
         "scheduled_at": post.scheduled_at.isoformat() if post.scheduled_at else None,
         "posted_at": post.posted_at.isoformat() if post.posted_at else None,
         "last_error": post.last_error,
+        "platform_options": options,
     }
 
 
@@ -844,6 +943,88 @@ def disconnect_account(
     return {"status": "disconnected"}
 
 
+@router.get("/providers/{provider}/publish-options", response_model=ProviderPublishOptionsResponse)
+def get_provider_publish_options(
+    provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = (provider or "").strip().lower()
+    if p not in PROVIDERS:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+
+    if p == "youtube":
+        return {
+            "provider": p,
+            "options": {
+                "privacy_status": {
+                    "value": "public",
+                    "choices": ["public", "unlisted", "private"],
+                }
+            },
+        }
+
+    if p == "instagram":
+        return {
+            "provider": p,
+            "options": {
+                "share_to_feed": {"value": True},
+            },
+        }
+
+    if p == "facebook":
+        return {"provider": p, "options": {}}
+
+    # TikTok: query creator capabilities for required posting UX controls.
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == current_user.id,
+            SocialAccount.provider == "tiktok",
+            SocialAccount.status == "connected",
+        )
+        .first()
+    )
+    if not account or not account.access_token:
+        raise HTTPException(status_code=404, detail="Connect TikTok first")
+
+    try:
+        access_token = _refresh_access_token_if_needed(db, account)
+        creator = _tiktok_query_creator_info(access_token)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=_friendly_publish_error("tiktok", str(e)))
+
+    privacy_raw = creator.get("privacy_level_options")
+    privacy_choices: List[str] = []
+    if isinstance(privacy_raw, list):
+        for item in privacy_raw:
+            val = str(item or "").strip().upper()
+            if val in TIKTOK_PRIVACY_LEVELS and val not in privacy_choices:
+                privacy_choices.append(val)
+    if not privacy_choices:
+        privacy_choices = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"]
+
+    env_default = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "").strip().upper()
+    default_privacy = env_default if env_default in privacy_choices else privacy_choices[0]
+
+    scope_set = _as_scope_set(account.scopes)
+    has_publish_scope = "video.publish" in scope_set if scope_set else True
+    publish_mode_choices = ["DIRECT_POST", "MEDIA_UPLOAD"] if has_publish_scope else ["MEDIA_UPLOAD"]
+
+    return {
+        "provider": p,
+        "account_name": account.account_name,
+        "options": {
+            "publish_mode": {"value": publish_mode_choices[0], "choices": publish_mode_choices},
+            "privacy_level": {"value": default_privacy, "choices": privacy_choices},
+            "allow_comments": {"value": not bool(creator.get("comment_disabled", False))},
+            "allow_duet": {"value": not bool(creator.get("duet_disabled", False))},
+            "allow_stitch": {"value": not bool(creator.get("stitch_disabled", False))},
+            "max_video_post_duration_sec": int(creator.get("max_video_post_duration_sec") or 0),
+        },
+    }
+
+
 # ---------------------------------------------------------
 # Posting
 # ---------------------------------------------------------
@@ -911,7 +1092,67 @@ def _refresh_facebook_token(provider: str, access_token: str) -> Optional[dict]:
     return resp.json()
 
 
-def _youtube_upload_video(access_token: str, title: str, description: str, video_path: str) -> str:
+def _refresh_access_token_if_needed(db: Session, account: SocialAccount) -> str:
+    access_token = str(account.access_token or "").strip()
+    if not access_token:
+        raise RuntimeError("No connected account")
+
+    if account.token_expires_at and account.token_expires_at < int(time.time()):
+        refreshed: Optional[dict] = None
+        if account.provider == "youtube" and account.refresh_token:
+            refreshed = _refresh_google_token(account.provider, account.refresh_token)
+        elif account.provider == "tiktok" and account.refresh_token:
+            refreshed = _refresh_tiktok_token(account.provider, account.refresh_token)
+        elif account.provider in {"facebook", "instagram"}:
+            refreshed = _refresh_facebook_token(account.provider, access_token)
+
+        if not refreshed or not refreshed.get("access_token"):
+            raise RuntimeError("Access token expired")
+
+        access_token = str(refreshed["access_token"])
+        account.access_token = access_token
+        if refreshed.get("refresh_token"):
+            account.refresh_token = str(refreshed.get("refresh_token"))
+        if refreshed.get("expires_in"):
+            account.token_expires_at = int(time.time()) + int(refreshed["expires_in"])
+        db.commit()
+
+    return access_token
+
+
+def _tiktok_query_creator_info(access_token: str) -> dict:
+    resp = requests.post(
+        "https://open.tiktokapis.com/v2/post/publish/creator_info/query/",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        json={},
+        timeout=25,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"TikTok creator info query failed: {resp.text[:300]}")
+    payload = resp.json() if resp.text else {}
+    data = payload.get("data") if isinstance(payload, dict) else {}
+    if not isinstance(data, dict):
+        data = {}
+    info = data.get("creator_info")
+    if not isinstance(info, dict):
+        info = {}
+    return info
+
+
+def _youtube_upload_video(
+    access_token: str,
+    title: str,
+    description: str,
+    video_path: str,
+    *,
+    privacy_status: str = "public",
+) -> str:
+    privacy = str(privacy_status or "public").strip().lower()
+    if privacy not in YOUTUBE_PRIVACY_STATUSES:
+        privacy = "public"
     init_resp = requests.post(
         "https://www.googleapis.com/upload/youtube/v3/videos"
         "?uploadType=resumable&part=snippet,status",
@@ -922,7 +1163,7 @@ def _youtube_upload_video(access_token: str, title: str, description: str, video
         },
         json={
             "snippet": {"title": title, "description": description},
-            "status": {"privacyStatus": "public"},
+            "status": {"privacyStatus": privacy},
         },
         timeout=30,
     )
@@ -996,15 +1237,19 @@ def _instagram_publish_reel(
     ig_user_id: str,
     caption: str,
     video_url: str,
+    *,
+    share_to_feed: bool = True,
 ) -> str:
+    payload = {
+        "media_type": "REELS",
+        "video_url": video_url,
+        "caption": caption[:2200],
+        "share_to_feed": "true" if share_to_feed else "false",
+        "access_token": page_access_token,
+    }
     create_resp = requests.post(
         f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
-        data={
-            "media_type": "REELS",
-            "video_url": video_url,
-            "caption": caption[:2200],
-            "access_token": page_access_token,
-        },
+        data=payload,
         timeout=45,
     )
     if create_resp.status_code >= 400:
@@ -1055,8 +1300,24 @@ def _instagram_publish_reel(
     return str(pub.get("id") or container_id)
 
 
-def _tiktok_publish_video(access_token: str, title: str, description: str, video_path: str) -> str:
-    privacy = (os.getenv("TIKTOK_DEFAULT_PRIVACY") or "PUBLIC_TO_EVERYONE").strip() or "PUBLIC_TO_EVERYONE"
+def _tiktok_publish_video(
+    access_token: str,
+    title: str,
+    description: str,
+    video_path: str,
+    *,
+    options: Optional[Dict[str, Any]] = None,
+) -> str:
+    normalized = _normalize_provider_post_options("tiktok", options or {})
+    publish_mode = str(normalized.get("publish_mode") or "DIRECT_POST").strip().upper()
+    privacy = str(normalized.get("privacy_level") or "PUBLIC_TO_EVERYONE").strip().upper()
+    allow_comments = bool(normalized.get("allow_comments", True))
+    allow_duet = bool(normalized.get("allow_duet", True))
+    allow_stitch = bool(normalized.get("allow_stitch", True))
+    branded_content = bool(normalized.get("branded_content", False))
+    brand_organic = bool(normalized.get("brand_organic", False))
+    is_aigc = bool(normalized.get("is_aigc", False))
+
     text = (description or title or "New Orbito clip").strip()
     video_size = int(os.path.getsize(video_path))
     if video_size <= 0:
@@ -1089,23 +1350,36 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
         if total_chunk_count > 1000:
             raise RuntimeError("TikTok upload failed: video exceeds 1000-chunk limit")
 
-    payload = {
-        "post_info": {
+    source_info = {
+        "source": "FILE_UPLOAD",
+        "video_size": video_size,
+        "chunk_size": chunk_size,
+        "total_chunk_count": total_chunk_count,
+    }
+    if publish_mode == "MEDIA_UPLOAD":
+        init_url = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
+        payload: Dict[str, Any] = {"source_info": source_info}
+    else:
+        init_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+        post_info: Dict[str, Any] = {
             "title": text[:150],
             "privacy_level": privacy,
-            "disable_duet": False,
-            "disable_comment": False,
-            "disable_stitch": False,
-        },
-        "source_info": {
-            "source": "FILE_UPLOAD",
-            "video_size": video_size,
-            "chunk_size": chunk_size,
-            "total_chunk_count": total_chunk_count,
-        },
-    }
+            "disable_duet": not allow_duet,
+            "disable_comment": not allow_comments,
+            "disable_stitch": not allow_stitch,
+            "brand_content_toggle": branded_content,
+            "brand_organic_toggle": brand_organic,
+        }
+        # TikTok supports explicit AI-generated content disclosure for direct posts.
+        if is_aigc:
+            post_info["is_aigc"] = True
+        payload = {
+            "post_info": post_info,
+            "source_info": source_info,
+        }
+
     init_resp = requests.post(
-        "https://open.tiktokapis.com/v2/post/publish/video/init/",
+        init_url,
         headers={
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json; charset=UTF-8",
@@ -1150,6 +1424,68 @@ def _tiktok_publish_video(access_token: str, title: str, description: str, video
     return str((d or {}).get("publish_id") or (d or {}).get("video_id") or "")
 
 
+def _validate_tiktok_post_options(
+    db: Session,
+    *,
+    user_id: int,
+    clip_duration_seconds: float,
+    options: dict,
+) -> dict:
+    account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == user_id,
+            SocialAccount.provider == "tiktok",
+            SocialAccount.status == "connected",
+        )
+        .first()
+    )
+    if not account or not account.access_token:
+        raise HTTPException(status_code=400, detail="Connect TikTok first")
+
+    scope_set = _as_scope_set(account.scopes)
+    if options.get("publish_mode") == "DIRECT_POST" and scope_set and "video.publish" not in scope_set:
+        raise HTTPException(
+            status_code=422,
+            detail="TikTok account is missing video.publish scope. Reconnect TikTok and approve direct posting.",
+        )
+
+    try:
+        access_token = _refresh_access_token_if_needed(db, account)
+        creator = _tiktok_query_creator_info(access_token)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=_friendly_publish_error("tiktok", str(e)))
+
+    privacy_raw = creator.get("privacy_level_options")
+    privacy_choices: List[str] = []
+    if isinstance(privacy_raw, list):
+        privacy_choices = [str(x or "").strip().upper() for x in privacy_raw if str(x or "").strip()]
+    if privacy_choices and str(options.get("privacy_level") or "").strip().upper() not in set(privacy_choices):
+        raise HTTPException(
+            status_code=422,
+            detail=f"TikTok privacy level must be one of: {', '.join(privacy_choices)}",
+        )
+
+    max_duration = int(creator.get("max_video_post_duration_sec") or 0)
+    if max_duration > 0 and float(clip_duration_seconds or 0.0) > float(max_duration):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"TikTok max post duration for this account is {max_duration}s. "
+                "Trim clip duration or switch to another platform."
+            ),
+        )
+
+    # Lock interaction toggles to creator capability values when TikTok indicates restrictions.
+    if "comment_disabled" in creator:
+        options["allow_comments"] = not bool(creator.get("comment_disabled", False))
+    if "duet_disabled" in creator:
+        options["allow_duet"] = not bool(creator.get("duet_disabled", False))
+    if "stitch_disabled" in creator:
+        options["allow_stitch"] = not bool(creator.get("stitch_disabled", False))
+    return options
+
+
 @router.post("/posts", response_model=SocialPostResponse)
 def create_post(
     req: SocialPostRequest,
@@ -1185,12 +1521,22 @@ def create_post(
         except Exception:
             raise HTTPException(422, "scheduled_at must be ISO datetime")
 
+    post_options = _normalize_provider_post_options(provider, req.platform_options)
+    if provider == "tiktok":
+        post_options = _validate_tiktok_post_options(
+            db,
+            user_id=current_user.id,
+            clip_duration_seconds=float(clip.duration or 0.0),
+            options=post_options,
+        )
+
     post = SocialPost(
         user_id=current_user.id,
         clip_id=clip.id,
         provider=provider,
         storage_key=clip.storage_key,
         caption=req.caption,
+        post_options_json=_safe_json_dumps(post_options),
         status="scheduled" if when else "queued",
         scheduled_at=when,
     )
@@ -1294,26 +1640,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
             if not account or not account.access_token:
                 raise RuntimeError("No connected account")
 
-            access_token = account.access_token
-            if account.token_expires_at and account.token_expires_at < int(time.time()):
-                refreshed = None
-                if account.provider == "youtube" and account.refresh_token:
-                    refreshed = _refresh_google_token(account.provider, account.refresh_token)
-                elif account.provider == "tiktok" and account.refresh_token:
-                    refreshed = _refresh_tiktok_token(account.provider, account.refresh_token)
-                elif account.provider in {"facebook", "instagram"}:
-                    refreshed = _refresh_facebook_token(account.provider, access_token)
-
-                if refreshed and refreshed.get("access_token"):
-                    access_token = str(refreshed["access_token"])
-                    account.access_token = access_token
-                    if refreshed.get("refresh_token"):
-                        account.refresh_token = str(refreshed.get("refresh_token"))
-                    if refreshed.get("expires_in"):
-                        account.token_expires_at = int(time.time()) + int(refreshed["expires_in"])
-                    db.commit()
-                else:
-                    raise RuntimeError("Access token expired")
+            access_token = _refresh_access_token_if_needed(db, account)
 
             try:
                 import tempfile
@@ -1327,9 +1654,19 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
 
             title = (post.caption or "Orbito Clip")[:80]
             desc = post.caption or ""
+            post_options = _safe_json_loads(getattr(post, "post_options_json", None))
+            if not isinstance(post_options, dict):
+                post_options = {}
 
             if post.provider == "youtube":
-                remote_id = _youtube_upload_video(access_token, title, desc, tmp_path)
+                yt_opts = _normalize_provider_post_options("youtube", post_options)
+                remote_id = _youtube_upload_video(
+                    access_token,
+                    title,
+                    desc,
+                    tmp_path,
+                    privacy_status=str(yt_opts.get("privacy_status") or "public"),
+                )
                 post.remote_id = remote_id
             elif post.provider == "facebook":
                 page = _meta_pick_page(access_token, preferred_page_id=account.account_id)
@@ -1352,6 +1689,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                 )
                 post.remote_id = remote_id
             elif post.provider == "instagram":
+                ig_opts = _normalize_provider_post_options("instagram", post_options)
                 clip_url = _absolute_storage_url(storage, post.storage_key)
                 page = _meta_pick_instagram(access_token, preferred_ig_id=account.account_id)
                 ig = page.get("instagram_business_account") or {}
@@ -1361,10 +1699,17 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                     raise RuntimeError("No Instagram Professional account linked to a Facebook Page")
                 if not page_token:
                     raise RuntimeError("Facebook Page access token missing for Instagram publish")
-                remote_id = _instagram_publish_reel(page_token, ig_user_id, desc, clip_url)
+                remote_id = _instagram_publish_reel(
+                    page_token,
+                    ig_user_id,
+                    desc,
+                    clip_url,
+                    share_to_feed=bool(ig_opts.get("share_to_feed", True)),
+                )
                 post.remote_id = remote_id
             elif post.provider == "tiktok":
-                remote_id = _tiktok_publish_video(access_token, title, desc, tmp_path)
+                tk_opts = _normalize_provider_post_options("tiktok", post_options)
+                remote_id = _tiktok_publish_video(access_token, title, desc, tmp_path, options=tk_opts)
                 post.remote_id = remote_id
             else:
                 raise RuntimeError(f"Unsupported provider: {post.provider}")

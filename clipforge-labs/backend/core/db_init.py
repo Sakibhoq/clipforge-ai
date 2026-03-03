@@ -88,6 +88,9 @@ def init_db() -> None:
             "title": f"TEXT",
             "hook": f"TEXT",
         },
+        "social_posts": {
+            "post_options_json": f"TEXT",
+        },
     }
 
     with engine.begin() as conn:
