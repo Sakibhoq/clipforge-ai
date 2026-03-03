@@ -209,7 +209,7 @@ function CreditsPill({ credits, loading }: { credits: number | null; loading: bo
   return (
     <div
       className={[
-        "group relative hidden md:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] text-white/75",
+        "group relative hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] text-white/75",
         pillClass,
       ].join(" ")}
     >
@@ -429,10 +429,10 @@ export default function Navbar() {
               shellClass,
             ].join(" ")}
           >
-            <div className="flex items-center gap-8 md:gap-10 min-w-0">
+            <div className="flex items-center gap-5 lg:gap-8 xl:gap-10 min-w-0">
               <Logo />
 
-              <nav className="hidden md:flex items-center gap-4">
+              <nav className="hidden lg:flex items-center gap-3 xl:gap-4">
                 {navLinks.map((l) => (
                   <NavLink
                     key={l.href}
@@ -448,19 +448,19 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-3">
+              <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 <a
                   href={BRAND.orbitoUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="btn-orbito text-xs"
+                  className="hidden xl:inline-flex btn-orbito text-xs"
                   title={`Go to ${BRAND.orbitoName}`}
                 >
                   {BRAND.orbitoName} <span aria-hidden="true">↗</span>
                 </a>
 
                 {authed && (
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/80">
+                  <div className="hidden xl:inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/80">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-300/80" />
                     <span className="max-w-[140px] truncate">{displayName}</span>
                   </div>
@@ -522,7 +522,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className="md:hidden group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/85 transition active:scale-[0.98]"
+                className="lg:hidden group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/85 transition active:scale-[0.98]"
                 aria-label={open ? "Close menu" : "Open menu"}
                 aria-expanded={open}
               >
@@ -549,7 +549,7 @@ export default function Navbar() {
 
           {open && (
             <div
-              className="md:hidden mt-3 rounded-2xl border border-white/15 bg-[#04070fe8] p-2 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+              className="lg:hidden mt-3 rounded-2xl border border-white/15 bg-[#04070fe8] p-2 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl"
               style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
               role="dialog"
               aria-label="Mobile navigation"
