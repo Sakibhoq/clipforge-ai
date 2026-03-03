@@ -1143,6 +1143,8 @@ function UploadWorkspace() {
 
   // YouTube URL changes: reset step + preview state (debounced preview call)
   useEffect(() => {
+    if (!YOUTUBE_INGEST_ENABLED) return;
+
     const u = url.trim();
     setYtPreviewError(null);
 
@@ -1170,6 +1172,15 @@ function UploadWorkspace() {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlOk, url]);
+
+  function openPastedLink() {
+    if (!urlOk) return;
+    const normalized = normalizeYoutubeUrl(url);
+    if (!normalized) return;
+    window.open(normalized, "_blank", "noopener,noreferrer");
+    setYtStep("opened");
+    if (YOUTUBE_INGEST_ENABLED) pulseDropzone();
+  }
 
   function resetFileFlow() {
     pollAbort.current?.abort();
@@ -2329,14 +2340,43 @@ function UploadWorkspace() {
             </div>
 
             <div className="mt-4 rounded-2xl border border-amber-200/20 bg-amber-200/10 px-4 py-3 text-[12px] text-amber-100/85">
-              <div className="font-semibold text-amber-100/95">Need an MP4 from a link?</div>
-              <div className="mt-2 space-y-1 text-amber-100/80">
-                <div>1) Copy the video URL.</div>
-                <div>2) Use a trusted third-party downloader to export MP4.</div>
-                <div>3) Upload that MP4 here and generate clips.</div>
+              <div className="font-semibold text-amber-100/95">Paste a link</div>
+              <div className="mt-2 text-amber-100/80">
+                Paste a YouTube link to open it quickly, then upload the MP4 file here.
               </div>
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=..."
+                  className="field min-w-0 flex-1 border-amber-200/20 bg-black/20 text-amber-50 placeholder:text-amber-100/40"
+                />
+                <button
+                  type="button"
+                  onClick={openPastedLink}
+                  disabled={!urlOk}
+                  className={cx(
+                    "btn-solid-dark shrink-0 px-4 py-2 text-[12px]",
+                    !urlOk && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  Open link
+                </button>
+              </div>
+
+              {!urlOk && url.trim().length > 0 ? (
+                <div className="mt-2 text-rose-200/75">
+                  Enter a valid YouTube URL (youtube.com/watch?v=... or youtu.be/...).
+                </div>
+              ) : null}
+
+              <div className="mt-3 rounded-xl border border-rose-300/25 bg-rose-400/10 px-3 py-2 text-rose-100/85">
+                Warning: link-based imports can be blocked or rejected by the source platform. If that happens, use a trusted tool to export MP4 and upload the file directly.
+              </div>
+
               <div className="mt-2 text-amber-100/70">
-                Only download content you own or have permission to use, and follow platform terms.
+                Only use content you own or are licensed to use, and follow platform terms.
               </div>
             </div>
           </div>
@@ -2464,11 +2504,7 @@ function UploadWorkspace() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!urlOk) return;
-                    const u = normalizeYoutubeUrl(url);
-                    window.open(u, "_blank", "noopener,noreferrer");
-                    setYtStep("opened");
-                    pulseDropzone();
+                    openPastedLink();
                   }}
                   disabled={!urlOk}
                   className={cx(
