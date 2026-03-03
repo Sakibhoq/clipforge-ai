@@ -426,7 +426,7 @@ export default function Page() {
                 </div>
 
                 <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
-                  Build <H>income</H> from every upload.
+                  Stop editing. Start <H>earning</H>.
                 </h1>
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
