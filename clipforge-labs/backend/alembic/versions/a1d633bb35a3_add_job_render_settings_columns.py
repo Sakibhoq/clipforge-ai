@@ -16,11 +16,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Use direct add_column to avoid sqlite batch column reordering issues.
-    op.add_column("jobs", sa.Column("aspect_ratio", sa.String(), nullable=False, server_default="9:16"))
-    op.add_column("jobs", sa.Column("captions_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
-    op.add_column("jobs", sa.Column("watermark_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
-    op.add_column("jobs", sa.Column("caption_style_json", sa.Text(), nullable=True))
+    # SQLite-safe and retry-safe: skip columns that already exist if a previous run partially applied.
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing = {col["name"] for col in inspector.get_columns("jobs")}
+
+    if "aspect_ratio" not in existing:
+        op.add_column("jobs", sa.Column("aspect_ratio", sa.String(), nullable=False, server_default="9:16"))
+    if "captions_enabled" not in existing:
+        op.add_column("jobs", sa.Column("captions_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
+    if "watermark_enabled" not in existing:
+        op.add_column("jobs", sa.Column("watermark_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
+    if "caption_style_json" not in existing:
+        op.add_column("jobs", sa.Column("caption_style_json", sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
