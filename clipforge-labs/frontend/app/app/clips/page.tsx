@@ -711,6 +711,7 @@ export default function ClipsPage() {
                   >
                     <div className="relative aspect-[9/12] bg-black/50">
                       {assetType === "image" ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
                       ) : (
                         <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />

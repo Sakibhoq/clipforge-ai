@@ -51,6 +51,7 @@ function Logo() {
         />
 
         {/* Primary mark */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/orbito-mark.svg?v=${v}`}
           alt={`${BRAND.name} logo`}

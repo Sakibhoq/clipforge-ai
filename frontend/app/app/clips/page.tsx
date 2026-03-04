@@ -724,8 +724,13 @@ function ClipPreview({
     aspectStringToCss(clip.aspect_ratio) ??
     whToCss(clip.width, clip.height) ??
     "9 / 16";
-  const [resolvedAR, setResolvedAR] = useState(clipAR);
-  const displayAR = aspectStringToCss(clip.aspect_ratio) ?? whToCss(clip.width, clip.height) ?? resolvedAR ?? "9 / 16";
+  const [resolvedAR, setResolvedAR] = useState<{ url: string; value: string } | null>(null);
+  const resolvedARForClip = resolvedAR?.url === clip.url ? resolvedAR.value : null;
+  const displayAR =
+    aspectStringToCss(clip.aspect_ratio) ??
+    whToCss(clip.width, clip.height) ??
+    resolvedARForClip ??
+    clipAR;
 
   function ratioToNumber(ar: string): number {
     const m = String(ar || "").match(/^\s*([\d.]+)\s*\/\s*([\d.]+)\s*$/);
@@ -740,10 +745,6 @@ function ClipPreview({
     displayRatio >= 1
       ? { width: "100%", maxWidth: "100%", maxHeight: "100%", aspectRatio: displayAR as any }
       : { height: "100%", maxWidth: "100%", maxHeight: "100%", aspectRatio: displayAR as any };
-
-  useEffect(() => {
-    setResolvedAR(clipAR);
-  }, [clip.url, clipAR]);
 
   const wrapper =
     variant === "grid"
@@ -769,7 +770,7 @@ function ClipPreview({
                 const vw = Number(video.videoWidth || 0);
                 const vh = Number(video.videoHeight || 0);
                 if (vw > 0 && vh > 0) {
-                  setResolvedAR(`${vw} / ${vh}`);
+                  setResolvedAR({ url: clip.url, value: `${vw} / ${vh}` });
                 }
               }}
             />
@@ -790,7 +791,7 @@ function ClipPreview({
             const vw = Number(video.videoWidth || 0);
             const vh = Number(video.videoHeight || 0);
             if (vw > 0 && vh > 0) {
-              setResolvedAR(`${vw} / ${vh}`);
+              setResolvedAR({ url: clip.url, value: `${vw} / ${vh}` });
             }
           }}
         />
@@ -2607,10 +2608,10 @@ function CropForm({
     if (!video) return;
     if (video.currentTime < trimStartSafe || video.currentTime > trimEndSafe) {
       video.currentTime = trimStartSafe;
-      setScrub(trimStartSafe);
     }
   }, [trimStartSafe, trimEndSafe]);
 
+  // Keyboard shortcuts intentionally use a stable subscription over selected state fields.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const active = document.activeElement as HTMLElement | null;
@@ -2688,6 +2689,7 @@ function CropForm({
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rect, scrub, trimStartSafe, trimEndSafe, playbackRate, effectiveDuration]);
 
   return (

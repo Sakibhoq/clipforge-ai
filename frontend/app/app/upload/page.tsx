@@ -1170,7 +1170,6 @@ function UploadWorkspace() {
     }, 450);
 
     return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlOk, url]);
 
   function openPastedLink() {
@@ -1305,7 +1304,6 @@ function UploadWorkspace() {
     let delay = 700;
 
     while (!ac.signal.aborted) {
-      // eslint-disable-next-line no-await-in-loop
       const hit = await apiFetch<JobRow>(`/jobs/${targetJobId}`, {
         signal: ac.signal,
       });
@@ -1358,7 +1356,6 @@ function UploadWorkspace() {
         return;
       }
 
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, delay));
       delay = Math.min(long ? 8000 : 2500, Math.round(delay * 1.2));
     }

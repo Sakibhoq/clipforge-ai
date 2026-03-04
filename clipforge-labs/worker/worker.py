@@ -180,6 +180,18 @@ def _provider_timeout_seconds() -> int:
     return _env_int("GOOGLE_API_TIMEOUT_SECONDS", 120, min_value=5, max_value=600)
 
 
+def _media_cmd_timeout_seconds() -> int:
+    return _env_int("WORKER_MEDIA_CMD_TIMEOUT_SECONDS", 300, min_value=30, max_value=3600)
+
+
+def _run_media_cmd(cmd: list[str], *, timeout_seconds: int | None = None) -> subprocess.CompletedProcess:
+    timeout = int(timeout_seconds or _media_cmd_timeout_seconds())
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Media command timed out after {timeout}s") from exc
+
+
 def _model_prefers_google(model: str | None) -> bool:
     model_name = (model or "").strip().lower()
     if model_name:
@@ -674,7 +686,7 @@ def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out
             "yuv420p",
             out_path,
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = _run_media_cmd(cmd, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
         if proc.returncode != 0:
             raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg video failed").strip()[:500])
     finally:
@@ -720,7 +732,7 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
             vf,
             out_path,
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = _run_media_cmd(cmd, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
         if proc.returncode != 0:
             raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg image failed").strip()[:500])
     finally:
@@ -741,7 +753,7 @@ def _probe_audio_duration(path: str) -> float:
         "default=noprint_wrappers=1:nokey=1",
         path,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = _run_media_cmd(cmd, timeout_seconds=max(30, _media_cmd_timeout_seconds()))
     if proc.returncode != 0:
         return 0.0
     raw = (proc.stdout or "").strip()
@@ -806,7 +818,7 @@ def _render_image_slideshow_video(
                 "yuv420p",
                 scene_path,
             ]
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = _run_media_cmd(cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))
             if proc.returncode != 0:
                 raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg scene render failed").strip()[:500])
 
@@ -843,7 +855,7 @@ def _render_image_slideshow_video(
             "+faststart",
             out_path,
         ]
-        proc = subprocess.run(concat_cmd, capture_output=True, text=True)
+        proc = _run_media_cmd(concat_cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
         if proc.returncode != 0:
             raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg concat render failed").strip()[:500])
     finally:
@@ -881,7 +893,7 @@ def _run_fallback_tone_voiceover(*, script: str, out_path: str) -> None:
         "160k",
         out_path,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = _run_media_cmd(cmd, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
     if proc.returncode != 0:
         raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg tone voiceover failed").strip()[:500])
 
@@ -913,7 +925,7 @@ def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: st
             wav_path,
             safe_script,
         ]
-        tts_proc = subprocess.run(tts, capture_output=True, text=True)
+        tts_proc = _run_media_cmd(tts, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
         if tts_proc.returncode != 0:
             _run_fallback_tone_voiceover(script=safe_script, out_path=out_path)
             return
@@ -929,7 +941,7 @@ def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: st
             "160k",
             out_path,
         ]
-        enc_proc = subprocess.run(enc, capture_output=True, text=True)
+        enc_proc = _run_media_cmd(enc, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
         if enc_proc.returncode != 0:
             raise RuntimeError((enc_proc.stderr or enc_proc.stdout or "ffmpeg mp3 encode failed").strip()[:500])
     finally:

@@ -39,7 +39,8 @@ export function getAuthToken(): string | null {
 /**
  * Back-compat. No-op now.
  */
-export function setAuthToken(_: string) {
+export function setAuthToken(token: string) {
+  void token;
   setAuthTokenHint();
 }
 
@@ -53,7 +54,8 @@ export function clearAuthToken() {
 /**
  * Not used in cookie auth. Keep to avoid import crashes.
  */
-export function decodeJwt(_: string): any | null {
+export function decodeJwt(token: string): any | null {
+  void token;
   return null;
 }
 export function getEmailFromToken(): string | null {

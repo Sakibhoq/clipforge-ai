@@ -216,6 +216,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     filter: "blur(10px)",
                   }}
                 />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/clipforge-labs-mark.svg?v=${logoV}`}
                   alt={`${BRAND.product} logo`}

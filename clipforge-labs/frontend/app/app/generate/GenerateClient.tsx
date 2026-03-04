@@ -345,18 +345,18 @@ export default function GenerateClient() {
   }
 
   useEffect(() => {
+    const voicePreviewAudio = voicePreviewAudioRef.current;
     refreshJobs();
     apiFetch<{ plan?: string }>("/auth/me", { method: "GET" })
       .then((me) => setCurrentPlan(String(me?.plan || "free")))
       .catch(() => setCurrentPlan("free"));
     return () => {
       if (pollTimer.current) window.clearInterval(pollTimer.current);
-      if (voicePreviewAudioRef.current) {
-        voicePreviewAudioRef.current.pause();
-        voicePreviewAudioRef.current.removeAttribute("src");
+      if (voicePreviewAudio) {
+        voicePreviewAudio.pause();
+        voicePreviewAudio.removeAttribute("src");
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

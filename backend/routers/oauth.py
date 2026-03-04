@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -30,6 +31,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 OAUTH_CTX_COOKIE = "cf_oauth_ctx"
 OAUTH_CTX_TTL_SECONDS = 10 * 60  # 10 minutes
+APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+APPLE_JWKS_CACHE_SECONDS = 60 * 60
+_APPLE_JWKS_CACHE: dict[str, object] = {"expires_at": 0.0, "keys": []}
 
 LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
 
@@ -149,6 +153,85 @@ def _safe_err_body(resp: requests.Response) -> str:
     except Exception:
         txt = (resp.text or "").strip()
         return txt[:500]
+
+
+def _apple_jwks(force_refresh: bool = False) -> list[dict]:
+    now = time.time()
+    if not force_refresh:
+        cached_keys = _APPLE_JWKS_CACHE.get("keys")
+        cached_exp = float(_APPLE_JWKS_CACHE.get("expires_at") or 0.0)
+        if isinstance(cached_keys, list) and cached_keys and now < cached_exp:
+            return cached_keys
+
+    try:
+        resp = requests.get(APPLE_JWKS_URL, timeout=10)
+    except RequestException:
+        raise HTTPException(status_code=502, detail="Apple key discovery request failed")
+
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Apple key discovery failed")
+
+    try:
+        payload = resp.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Apple key discovery returned an invalid response")
+
+    keys = payload.get("keys") if isinstance(payload, dict) else None
+    if not isinstance(keys, list) or not keys:
+        raise HTTPException(status_code=502, detail="Apple key discovery returned no keys")
+
+    _APPLE_JWKS_CACHE["keys"] = keys
+    _APPLE_JWKS_CACHE["expires_at"] = now + APPLE_JWKS_CACHE_SECONDS
+    return keys
+
+
+def _decode_apple_id_token(id_token: str) -> dict:
+    try:
+        header = jwt.get_unverified_header(id_token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+
+    kid = str(header.get("kid") or "").strip()
+    alg = str(header.get("alg") or "").strip().upper()
+    if not kid or alg != "RS256":
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+
+    keys = _apple_jwks(force_refresh=False)
+    jwk = next((k for k in keys if str(k.get("kid") or "") == kid), None)
+    if not isinstance(jwk, dict):
+        keys = _apple_jwks(force_refresh=True)
+        jwk = next((k for k in keys if str(k.get("kid") or "") == kid), None)
+    if not isinstance(jwk, dict):
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+
+    try:
+        signing_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Apple signing key parse failed")
+
+    audience = _client_id("apple")
+    kwargs: dict[str, object] = {
+        "key": signing_key,
+        "algorithms": ["RS256"],
+        "issuer": "https://appleid.apple.com",
+    }
+    if audience:
+        kwargs["audience"] = audience
+    else:
+        kwargs["options"] = {"verify_aud": False}
+
+    try:
+        payload = jwt.decode(id_token, **kwargs)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Apple id_token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+    return payload
 
 
 def _provider_profile(provider: str, userinfo: dict) -> dict:
@@ -543,10 +626,7 @@ async def oauth_callback(
         if provider == "apple":
             if not id_token:
                 raise HTTPException(status_code=400, detail="Apple OAuth missing id_token")
-            try:
-                userinfo = jwt.decode(id_token, options={"verify_signature": False})
-            except Exception:
-                raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+            userinfo = _decode_apple_id_token(id_token)
         elif provider == "facebook":
             try:
                 userinfo_resp = requests.get(

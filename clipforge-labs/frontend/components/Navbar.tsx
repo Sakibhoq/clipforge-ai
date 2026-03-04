@@ -52,6 +52,7 @@ function Logo() {
         />
 
         {/* Primary mark */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/clipforge-labs-mark.svg?v=${v}`}
           alt={`${BRAND.name} logo`}

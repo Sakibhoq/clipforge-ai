@@ -157,18 +157,6 @@ function formatBytes(value: number) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function aspectValue(frame: FrameRatio) {
-  if (frame === "1:1") return "1 / 1";
-  if (frame === "16:9") return "16 / 9";
-  return "9 / 16";
-}
-
-function stageMaxWidth(frame: FrameRatio) {
-  if (frame === "9:16") return 420;
-  if (frame === "1:1") return 680;
-  return 980;
-}
-
 function extFromStorageKey(key: string): string {
   const match = String(key || "").toLowerCase().match(/(\.[a-z0-9]+)$/);
   return match ? match[1] : "";
@@ -428,17 +416,6 @@ export default function EditorPage() {
     );
     return active || null;
   }, [project.captions, playhead]);
-
-  const activeAudio = useMemo(() => {
-    const voice = project.voiceover.find(
-      (item) => playhead >= item.start && playhead < item.start + item.duration
-    );
-    if (voice) return voice;
-    const music = project.music.find(
-      (item) => playhead >= item.start && playhead < item.start + item.duration
-    );
-    return music || null;
-  }, [project.voiceover, project.music, playhead]);
 
   function setTrackItems(track: TrackKey, updater: (items: TimelineItem[]) => TimelineItem[]) {
     setProject((prev) => ({ ...prev, [track]: updater(prev[track]) }));
@@ -1354,6 +1331,7 @@ export default function EditorPage() {
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
                   <div className="absolute inset-0 overflow-hidden">
                     {previewVisual?.type === "image" && previewVisual.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={previewVisual.url} alt={previewVisual.title} className="absolute" style={cropMediaStyle(previewCrop)} />
                     ) : previewVisual?.url ? (
                       <video src={previewVisual.url} muted autoPlay loop playsInline preload="metadata" className="absolute" style={cropMediaStyle(previewCrop)} />

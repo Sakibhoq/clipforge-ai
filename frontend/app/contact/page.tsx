@@ -181,18 +181,24 @@ function SendMessageModal({
   // Reset when opened
   useEffect(() => {
     if (!open) return;
-    setStatus({ kind: "idle" });
-    setForm({ name: "", email: "", subject: "", message: "" });
-    setTouched({ name: false, email: false, subject: false, message: false });
+    const resetTimer = window.setTimeout(() => {
+      setStatus({ kind: "idle" });
+      setForm({ name: "", email: "", subject: "", message: "" });
+      setTouched({ name: false, email: false, subject: false, message: false });
+    }, 0);
 
     // focus first field
-    window.setTimeout(() => {
+    const focusTimer = window.setTimeout(() => {
       try {
         firstFieldRef.current?.focus();
       } catch {
         // ignore
       }
     }, 60);
+    return () => {
+      window.clearTimeout(resetTimer);
+      window.clearTimeout(focusTimer);
+    };
   }, [open]);
 
   // ESC to close

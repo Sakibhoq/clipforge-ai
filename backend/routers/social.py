@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.database import SessionLocal
 from models.user import User
 from models.social_account import SocialAccount
@@ -32,6 +33,13 @@ router = APIRouter(prefix="/social", tags=["social"])
 
 SOCIAL_CTX_COOKIE = "cf_social_ctx"
 SOCIAL_CTX_TTL_SECONDS = 10 * 60
+
+
+def _social_ctx_secret_or_500() -> str:
+    secret = (settings.SECRET_KEY or "").strip()
+    if not secret:
+        raise HTTPException(status_code=500, detail="SECRET_KEY is not configured")
+    return secret
 
 
 # ---------------------------------------------------------
@@ -499,7 +507,7 @@ def _code_challenge(verifier: str) -> str:
 
 
 def _set_social_ctx_cookie(response: JSONResponse, request: Request, ctx: dict):
-    token = jwt.encode(ctx, os.getenv("SECRET_KEY") or "dev", algorithm="HS256")
+    token = jwt.encode(ctx, _social_ctx_secret_or_500(), algorithm="HS256")
     opts = cookie_options(request)
     response.set_cookie(
         key=SOCIAL_CTX_COOKIE,
@@ -514,7 +522,7 @@ def _set_social_ctx_cookie(response: JSONResponse, request: Request, ctx: dict):
 
 def _decode_ctx(token: str) -> dict:
     try:
-        return jwt.decode(token, os.getenv("SECRET_KEY") or "dev", algorithms=["HS256"])
+        return jwt.decode(token, _social_ctx_secret_or_500(), algorithms=["HS256"])
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid social context")
 

@@ -381,10 +381,8 @@ function checkoutErrorMessage(e: any): string {
 
 function CreditsCard({
   credits,
-  onBuy,
 }: {
   credits: number | null;
-  onBuy: () => void;
 }) {
   const creditDisplay = credits === null ? "—" : credits.toLocaleString();
   const estRunsLeft =
@@ -771,7 +769,7 @@ export default function BillingPage() {
       </SoftCard>
 
       {/* Credits */}
-      <CreditsCard credits={credits} onBuy={() => openPackModal("pack_3x")} />
+      <CreditsCard credits={credits} />
 
       {/* Current */}
       <SoftCard className="p-6" glow>
