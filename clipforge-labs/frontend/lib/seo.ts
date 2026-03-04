@@ -1,4 +1,6 @@
-const DEFAULT_SITE_URL = "https://orbito.cc";
+import { BRAND } from "@/lib/brand";
+
+const DEFAULT_SITE_URL = BRAND.siteUrl;
 
 function normalizeSiteUrl(raw?: string | null): string {
   const value = (raw || "").trim();

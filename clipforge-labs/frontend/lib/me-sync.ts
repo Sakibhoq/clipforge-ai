@@ -5,7 +5,7 @@ export type MeSyncPayload = {
   credits: number;
 } | null;
 
-const ME_SYNC_EVENT = "orbito:me-sync";
+const ME_SYNC_EVENT = "clipforge-labs:me-sync";
 
 function isBrowser() {
   return typeof window !== "undefined";

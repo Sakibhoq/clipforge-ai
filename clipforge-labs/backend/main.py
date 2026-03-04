@@ -1,6 +1,7 @@
 import os
 import re
 import threading
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Load backend/.env when present.
@@ -31,7 +32,6 @@ ENABLE_YOUTUBE_INGEST = (os.getenv("ENABLE_YOUTUBE_INGEST") or "").strip().lower
 # ---------------------------------------------------------
 # App
 # ---------------------------------------------------------
-app = FastAPI(title="Clipforge Labs API")
 _social_dispatch_stop = threading.Event()
 _social_dispatch_thread: threading.Thread | None = None
 
@@ -53,10 +53,6 @@ def _social_dispatch_loop() -> None:
             print(f"[social-dispatch] error: {e}")
         _social_dispatch_stop.wait(interval)
 
-# ---------------------------------------------------------
-# DB init (sqlite dev convenience)
-# ---------------------------------------------------------
-@app.on_event("startup")
 def _startup_db() -> None:
     global _social_dispatch_thread
     init_db()
@@ -66,11 +62,22 @@ def _startup_db() -> None:
         _social_dispatch_thread.start()
 
 
-@app.on_event("shutdown")
 def _shutdown_background_workers() -> None:
     _social_dispatch_stop.set()
     if _social_dispatch_thread is not None and _social_dispatch_thread.is_alive():
         _social_dispatch_thread.join(timeout=2.0)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    _startup_db()
+    try:
+        yield
+    finally:
+        _shutdown_background_workers()
+
+
+app = FastAPI(title="Clipforge Labs API", lifespan=lifespan)
 
 # ---------------------------------------------------------
 # Optional: YouTube automated ingest (DISABLED by default in prod)

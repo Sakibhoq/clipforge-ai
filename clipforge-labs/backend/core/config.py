@@ -65,7 +65,7 @@ if not settings.SECRET_KEY:
         raise RuntimeError("SECRET_KEY is required when APP_ENV=production")
     print("⚠️  WARNING: SECRET_KEY is not set. Auth endpoints will fail until it is set.")
 
-# In production with split subdomains (orbito.cc + api.orbito.cc), COOKIE_DOMAIN must be set
+# In production with split subdomains (clipforge.ai + api.clipforge.ai), COOKIE_DOMAIN must be set
 # for the frontend domain to see the auth cookie.
 if APP_ENV == "production" and not (settings.COOKIE_DOMAIN or "").strip():
-    print("⚠️  WARNING: COOKIE_DOMAIN is not set. For orbito.cc + api.orbito.cc, set COOKIE_DOMAIN=.orbito.cc")
+    print("⚠️  WARNING: COOKIE_DOMAIN is not set. For clipforge.ai + api.clipforge.ai, set COOKIE_DOMAIN=.clipforge.ai")

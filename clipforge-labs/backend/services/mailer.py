@@ -26,7 +26,7 @@ def _smtp_config() -> dict:
 
 
 def _support_email() -> str:
-    return (os.getenv("CONTACT_TO_EMAIL") or "support@orbito.cc").strip()
+    return (os.getenv("CONTACT_TO_EMAIL") or "support@clipforge.ai").strip()
 
 
 def _frontend_base_url() -> str:
@@ -44,7 +44,7 @@ def _frontend_base_url() -> str:
         if parsed.scheme in {"http", "https"} and parsed.netloc:
             path = (parsed.path or "").rstrip("/")
             return f"{parsed.scheme}://{parsed.netloc}{path}"
-    return "https://clipforge.us"
+    return "https://clipforge.ai"
 
 
 def _email_logo_url() -> str:
@@ -59,7 +59,7 @@ def _default_no_reply_email() -> str:
     if explicit:
         return explicit
 
-    return "no-reply@orbito.cc"
+    return "no-reply@clipforge.ai"
 
 
 def _from_header() -> str:

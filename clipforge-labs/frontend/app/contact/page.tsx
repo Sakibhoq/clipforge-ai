@@ -430,8 +430,8 @@ function SendMessageModal({
 
             <div className="mt-4 text-xs text-white/45">
               Prefer email?{" "}
-              <a className="text-white/70 hover:text-white" href="mailto:support@orbito.cc">
-                support@orbito.cc
+              <a className="text-white/70 hover:text-white" href={`mailto:${BRAND.supportEmail}`}>
+                {BRAND.supportEmail}
               </a>
               .
             </div>
@@ -481,7 +481,6 @@ export default function ContactPage() {
         <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(58,134,255,0.16),transparent_64%)] blur-3xl" />
         <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(251,86,7,0.12),transparent_65%)] blur-3xl" />
 
-        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
@@ -568,7 +567,7 @@ export default function ContactPage() {
 
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
                       <div className="text-xs text-white/45">Support</div>
-                      <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
+                      <div className="mt-1 text-sm font-semibold text-white/85">{BRAND.supportEmail}</div>
                       <div className="mt-2 text-xs text-white/45">
                         Billing? include the email on your account.
                       </div>
@@ -581,7 +580,7 @@ export default function ContactPage() {
 
                       <a
                         className="btn-ghost"
-                        href="mailto:support@orbito.cc?subject=Studio%20%2F%20Enterprise%20inquiry"
+                        href={`mailto:${BRAND.supportEmail}?subject=Studio%20%2F%20Enterprise%20inquiry`}
                       >
                         Studio / enterprise
                       </a>

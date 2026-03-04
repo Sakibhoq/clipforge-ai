@@ -89,7 +89,7 @@ def _check_ports() -> None:
 
 
 def main() -> int:
-    print("Orbito doctor — quick checks\n")
+    print("Clipforge Labs doctor — quick checks\n")
 
     ok = True
 
@@ -102,7 +102,7 @@ def main() -> int:
     _check_env("PUBLIC_API_BASE", required=False, redact=False)
     _check_env("COOKIE_DOMAIN", required=False, redact=False)
     if app_env == "production" and not (os.getenv("COOKIE_DOMAIN") or "").strip():
-        _print("COOKIE_DOMAIN(prod)", False, "missing (recommended: .orbito.cc)")
+        _print("COOKIE_DOMAIN(prod)", False, "missing (recommended: .clipforge.ai)")
 
     # Stripe
     ok &= _check_env("STRIPE_SECRET_KEY", required=False, redact=True)

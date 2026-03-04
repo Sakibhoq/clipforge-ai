@@ -9,6 +9,8 @@ export const BRAND = {
   metaTitle: "Clipforge Labs — AI Video Generator",
   metaDescription:
     "Generate short, platform-ready videos from a prompt. Download MP4s and publish to your connected channels.",
+  siteUrl: "https://clipforge.ai",
+  supportEmail: "support@clipforge.ai",
 
   // Sister product link
   orbitoName: "Orbito",

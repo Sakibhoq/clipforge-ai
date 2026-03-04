@@ -78,11 +78,11 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
     smtp_use_tls = _env_bool("SMTP_USE_TLS", True)
     smtp_use_ssl = _env_bool("SMTP_USE_SSL", False)
 
-    support_to = (os.getenv("CONTACT_TO_EMAIL") or "support@orbito.cc").strip()
+    support_to = (os.getenv("CONTACT_TO_EMAIL") or "support@clipforge.ai").strip()
     from_email = (
         (os.getenv("CONTACT_FROM_EMAIL") or "").strip()
         or (os.getenv("EMAIL_FROM_EMAIL") or "").strip()
-        or "no-reply@orbito.cc"
+        or "no-reply@clipforge.ai"
         or smtp_username
         or support_to
     )

@@ -228,12 +228,12 @@ function Toggle({
   discountLabel: string;
 }) {
   return (
-    <div className="flex items-center">
-      <div className="flex w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] p-1">
+    <div className="flex w-full items-center md:w-auto md:justify-end">
+      <div className="flex w-full max-w-[380px] items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 sm:w-auto sm:gap-2">
         <button
           onClick={() => setMode("monthly")}
           className={cn(
-            "rounded-full px-4 py-2 text-sm font-medium transition sm:px-5",
+            "inline-flex min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium transition sm:flex-none sm:px-5 sm:text-sm",
             mode === "monthly"
               ? "bg-white text-black"
               : "text-white/70 hover:text-white"
@@ -245,14 +245,14 @@ function Toggle({
         <button
           onClick={() => setMode("yearly")}
           className={cn(
-            "rounded-full px-4 py-2 text-sm font-medium transition sm:px-5",
+            "inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium transition sm:flex-none sm:gap-2 sm:px-5 sm:text-sm",
             mode === "yearly"
               ? "bg-white text-black"
               : "text-white/70 hover:text-white"
           )}
         >
-          Yearly{" "}
-          <span className="ml-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] text-white">
+          <span>Yearly</span>
+          <span className="inline-flex shrink-0 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] text-white sm:px-2 sm:text-[11px]">
             {discountLabel}
           </span>
         </button>

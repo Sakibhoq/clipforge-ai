@@ -1,4 +1,4 @@
-// frontend/middleware.ts
+// frontend/proxy.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const AUTH_COOKIE = "cf_token";
@@ -55,7 +55,7 @@ function applySecurityHeaders(
   return res;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hostHeader = req.headers.get("host") || req.nextUrl.host || "";
   const host = hostWithoutPort(hostHeader);
@@ -96,7 +96,7 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // Optional: force one canonical host in production (e.g. CANONICAL_HOST=orbito.cc).
+  // Optional: force one canonical host in production (e.g. CANONICAL_HOST=clipforge.ai).
   // Keeps crawl/index signals on a single host and avoids duplicate-host indexing churn.
   if (isProduction && !isCodespaces && !isLocal && canonicalHost && host !== canonicalHost) {
     const url = req.nextUrl.clone();
@@ -108,7 +108,7 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // ✅ DEV/CODESPACES/LOCAL: do NOT enforce auth in middleware
+  // ✅ DEV/CODESPACES/LOCAL: do NOT enforce auth in proxy
   // Cookie is set on backend origin (8000) and not readable on frontend origin (3000).
   // In dev, auth is enforced by /auth/me in the app layout.
   if (!isProduction || isCodespaces || isLocal) {
