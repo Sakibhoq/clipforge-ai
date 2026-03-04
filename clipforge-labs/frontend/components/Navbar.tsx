@@ -14,7 +14,7 @@ function Logo() {
   const inApp = pathname?.startsWith("/app");
 
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
-  const v = "cflabs-1";
+  const v = "cflabs-2";
 
   const markBoxClass = inApp ? "h-10 w-10 rounded-[18px]" : "h-9 w-9 rounded-2xl";
   const markImgSize = inApp ? 24 : 22;

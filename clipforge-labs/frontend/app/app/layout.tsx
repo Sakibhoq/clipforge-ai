@@ -174,7 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "cflabs-1";
+  const logoV = "cflabs-2";
 
   return (
     <div
