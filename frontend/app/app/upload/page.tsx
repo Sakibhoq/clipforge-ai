@@ -485,6 +485,56 @@ async function apiFetchWithEndpointFallback<T = any>(
   throw lastErr ?? new Error("Request failed");
 }
 
+async function apiPostWithProxyFallback<T = any>(
+  path: string,
+  body: Record<string, any>,
+  signal?: AbortSignal
+): Promise<T> {
+  try {
+    return await apiFetch<T>(path, { method: "POST", body, signal });
+  } catch (e: any) {
+    if (!isLikelyNetworkFetchError(e)) throw e;
+    const proxyPath = `/api${path.startsWith("/") ? path : `/${path}`}`;
+
+    let res: Response;
+    try {
+      res = await fetch(proxyPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+        cache: "no-store",
+        signal,
+      });
+    } catch {
+      throw e;
+    }
+
+    const text = await res.text();
+    let parsed: any = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = text || null;
+    }
+
+    if (!res.ok) {
+      const payload: Record<string, any> = { status: res.status, url: proxyPath };
+      if (parsed && typeof parsed === "object") {
+        if ("detail" in parsed) payload.detail = (parsed as any).detail;
+        if ("message" in parsed) payload.message = (parsed as any).message;
+        if ("error" in parsed) payload.error = (parsed as any).error;
+        if (!payload.detail && !payload.message && !payload.error) payload.body = parsed;
+      } else if (typeof parsed === "string" && parsed) {
+        payload.message = parsed;
+      }
+      throw payload;
+    }
+
+    return parsed as T;
+  }
+}
+
 function buildPutUrlCandidates(rawUrl: string) {
   if (!rawUrl) return [];
   if (/^https?:\/\//i.test(rawUrl)) return [rawUrl];
@@ -1034,11 +1084,11 @@ function UploadWorkspace() {
     setYtPreviewError(null);
 
     try {
-      const data = await apiFetch<YouTubePreviewResponse>("/youtube/preview", {
-        method: "POST",
-        body: { url: targetUrl },
-        signal: ac.signal,
-      });
+      const data = await apiPostWithProxyFallback<YouTubePreviewResponse>(
+        "/youtube/preview",
+        { url: targetUrl },
+        ac.signal
+      );
       setYtPreview(data);
     } catch (e: any) {
       const rawMsg =
@@ -1653,16 +1703,13 @@ function UploadWorkspace() {
 
     try {
       const normalized = normalizeYoutubeUrl(url);
-      const reg = await apiFetch<RegisterResponse>("/youtube/ingest", {
-        method: "POST",
-        body: {
-          url: normalized,
-          aspect_ratio: aspectRatio,
-          captions_enabled: captionsEnabled,
-          watermark_enabled: isFree ? true : watermarkEnabled,
-          caption_style_json: null,
-          create_new_job: true,
-        },
+      const reg = await apiPostWithProxyFallback<RegisterResponse>("/youtube/ingest", {
+        url: normalized,
+        aspect_ratio: aspectRatio,
+        captions_enabled: captionsEnabled,
+        watermark_enabled: isFree ? true : watermarkEnabled,
+        caption_style_json: null,
+        create_new_job: true,
       });
 
       setUploadId(reg.upload_id);
