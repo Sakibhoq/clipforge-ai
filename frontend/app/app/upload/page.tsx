@@ -2396,21 +2396,10 @@ function UploadWorkspace() {
             }}
           />
           <div className="relative">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
-                <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
-                  Paste a link and import.
-                </div>
-              </div>
-
-              <div
-                className={cx(
-                  "shrink-0 whitespace-nowrap rounded-full border bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/75",
-                  "border-white/10"
-                )}
-              >
-                Step 1/1
+            <div>
+              <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
+              <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
+                Paste a link and import.
               </div>
             </div>
 
@@ -2451,13 +2440,19 @@ function UploadWorkspace() {
                         <div className="text-[12px] font-semibold text-white/80">
                           {ytPreviewLoading
                             ? "Loading preview..."
-                            : ytPreview
+                            : ytPreview?.title?.trim()
                             ? ytPreview.title
+                            : ytPreviewFallbackThumb
+                            ? "YouTube video"
                             : "Preview"}
                       </div>
 
                       {ytPreviewError ? (
-                        <div className="mt-1 text-[12px] text-rose-200/70">{ytPreviewError}</div>
+                        <div className="mt-1 text-[12px] text-white/55">
+                          {ytPreviewFallbackThumb
+                            ? "Title and duration are unavailable for this link. You can still import."
+                            : "Preview unavailable right now. You can still try import."}
+                        </div>
                       ) : ytPreview ? (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-white/55">
                           <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5">
@@ -2513,8 +2508,11 @@ function UploadWorkspace() {
                 </div>
               </div>
 
-              <div className="pt-1 text-[12px] text-white/35">
-                Tip: if direct import is blocked, use a trusted external MP4 downloader, then upload the file on the left.
+              <div className="rounded-2xl border border-amber-300/35 bg-amber-300/12 p-4 text-[12px] text-amber-100/90">
+                <div className="font-semibold text-amber-100">Warning</div>
+                <div className="mt-1">
+                  Direct import can be blocked by the source platform. If blocked, export MP4 with a trusted tool and upload it on the left panel.
+                </div>
               </div>
             </div>
           </div>
