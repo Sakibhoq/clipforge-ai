@@ -17,8 +17,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("clips", sa.Column("hook", sa.String(), nullable=True))
+    inspector = sa.inspect(op.get_bind())
+    cols = {c["name"] for c in inspector.get_columns("clips")}
+    if "hook" not in cols:
+        op.add_column("clips", sa.Column("hook", sa.String(), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("clips", "hook")
+    inspector = sa.inspect(op.get_bind())
+    cols = {c["name"] for c in inspector.get_columns("clips")}
+    if "hook" in cols:
+        op.drop_column("clips", "hook")
