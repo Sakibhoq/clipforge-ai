@@ -1234,6 +1234,8 @@ def _is_provider_capacity_error(exc: Exception | str | None) -> bool:
     if not msg:
         return False
     markers = (
+        "provider capacity",
+        "queue is at provider capacity",
         "quota exceeded",
         "resourceexhausted",
         "429",
