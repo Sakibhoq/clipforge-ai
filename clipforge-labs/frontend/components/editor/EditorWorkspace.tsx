@@ -15,6 +15,20 @@ type TimelineHoverLens = {
   y: number;
   laneWidth: number;
   laneHeight: number;
+  clientX: number;
+  clientY: number;
+};
+type CropDragMode = "draw" | "move" | "resize-se" | "resize-sw" | "resize-ne" | "resize-nw";
+type CropDragState = {
+  mode: CropDragMode;
+  startX: number;
+  startY: number;
+  stageW: number;
+  stageH: number;
+  stageLeft: number;
+  stageTop: number;
+  startRect: CropRect;
+  ratio: number;
 };
 type TimelineDragState = {
   track: TrackKey;
@@ -115,7 +129,7 @@ function cropMediaStyle(crop?: CropRect): React.CSSProperties {
       inset: 0,
       width: "100%",
       height: "100%",
-      objectFit: "contain",
+      objectFit: "cover",
     };
   }
 
@@ -374,17 +388,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const [cropMode, setCropMode] = useState(false);
   const [cropTargetItemId, setCropTargetItemId] = useState<string | null>(null);
   const [cropDraft, setCropDraft] = useState<CropRect | null>(null);
+  const [showCropGrid, setShowCropGrid] = useState(true);
+  const [cropSnapGuides, setCropSnapGuides] = useState(true);
+  const [lockCropAspect, setLockCropAspect] = useState(true);
 
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [localMusicAssets, setLocalMusicAssets] = useState<LocalMusicAsset[]>([]);
   const localMusicInputRef = useRef<HTMLInputElement | null>(null);
   const localMusicObjectUrlsRef = useRef<string[]>([]);
-  const cropDragRef = useRef<{ active: boolean; startX: number; startY: number; targetItemId: string | null }>({
-    active: false,
-    startX: 0,
-    startY: 0,
-    targetItemId: null,
-  });
+  const previewStageRef = useRef<HTMLDivElement | null>(null);
+  const cropDragRef = useRef<CropDragState | null>(null);
+  const clearCropDragListenersRef = useRef<(() => void) | null>(null);
   const cropDraftRef = useRef<CropRect | null>(null);
   const timelineDragRef = useRef<TimelineDragState | null>(null);
   const clearTimelineDragListenersRef = useRef<(() => void) | null>(null);
@@ -609,8 +623,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setCropTargetItemId(null);
     setCropDraft(null);
     cropDraftRef.current = null;
-    cropDragRef.current.active = false;
-    cropDragRef.current.targetItemId = null;
+    clearCropDragListenersRef.current?.();
+    cropDragRef.current = null;
   }
 
   function startCropMode() {
@@ -632,8 +646,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setCropTargetItemId(null);
     setCropDraft(null);
     cropDraftRef.current = null;
-    cropDragRef.current.active = false;
-    cropDragRef.current.targetItemId = null;
+    clearCropDragListenersRef.current?.();
+    cropDragRef.current = null;
   }
 
   function applyCropDraft() {
@@ -648,57 +662,201 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     cancelCropMode();
   }
 
-  function cropPointFromEvent(event: React.PointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
-    const y = clamp((event.clientY - rect.top) / Math.max(1, rect.height), 0, 1);
-    return { x, y };
+  function applyCropRectDraft(nextRect: CropRect) {
+    const minSize = 0.08;
+    const clamped = normalizeCropRect(nextRect, minSize);
+
+    if (cropSnapGuides) {
+      const snap = 0.012;
+      const centerX = clamped.x + clamped.w / 2;
+      const centerY = clamped.y + clamped.h / 2;
+      if (Math.abs(clamped.x) <= snap) clamped.x = 0;
+      if (Math.abs(clamped.y) <= snap) clamped.y = 0;
+      if (Math.abs(1 - (clamped.x + clamped.w)) <= snap) clamped.x = Math.max(0, 1 - clamped.w);
+      if (Math.abs(1 - (clamped.y + clamped.h)) <= snap) clamped.y = Math.max(0, 1 - clamped.h);
+      if (Math.abs(centerX - 0.5) <= snap) clamped.x = clamp01(0.5 - clamped.w / 2);
+      if (Math.abs(centerY - 0.5) <= snap) clamped.y = clamp01(0.5 - clamped.h / 2);
+      if (clamped.x + clamped.w > 1) clamped.x = Math.max(0, 1 - clamped.w);
+      if (clamped.y + clamped.h > 1) clamped.y = Math.max(0, 1 - clamped.h);
+    }
+
+    cropDraftRef.current = clamped;
+    setCropDraft(clamped);
   }
 
-  function beginCropDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function stopCropDrag() {
+    cropDragRef.current = null;
+    window.removeEventListener("pointermove", onCropPointerMove);
+    window.removeEventListener("pointerup", stopCropDrag);
+    clearCropDragListenersRef.current = null;
+  }
+
+  function onCropPointerMove(event: PointerEvent) {
+    const state = cropDragRef.current;
+    if (!state) return;
+
+    const dx = (event.clientX - state.startX) / Math.max(1, state.stageW);
+    const dy = (event.clientY - state.startY) / Math.max(1, state.stageH);
+
+    if (state.mode === "draw") {
+      const curX = clamp01((event.clientX - state.stageLeft) / Math.max(1, state.stageW));
+      const curY = clamp01((event.clientY - state.stageTop) / Math.max(1, state.stageH));
+      const sx = clamp01(state.startRect.x);
+      const sy = clamp01(state.startRect.y);
+      let w = Math.max(0.08, Math.abs(curX - sx));
+      let h = Math.max(0.08, Math.abs(curY - sy));
+      let x = Math.min(sx, curX);
+      let y = Math.min(sy, curY);
+      if (lockCropAspect) {
+        const ratio = Math.max(0.2, state.ratio || activeFrameAspect);
+        if (w / Math.max(0.001, h) > ratio) h = w / ratio;
+        else w = h * ratio;
+      }
+      if (x + w > 1) x = Math.max(0, 1 - w);
+      if (y + h > 1) y = Math.max(0, 1 - h);
+      applyCropRectDraft({ x, y, w, h });
+      return;
+    }
+
+    if (state.mode === "move") {
+      applyCropRectDraft({
+        ...state.startRect,
+        x: state.startRect.x + dx,
+        y: state.startRect.y + dy,
+      });
+      return;
+    }
+
+    let x = state.startRect.x;
+    let y = state.startRect.y;
+    let w = state.startRect.w;
+    let h = state.startRect.h;
+
+    if (state.mode === "resize-se") {
+      w = state.startRect.w + dx;
+      h = state.startRect.h + dy;
+      if (lockCropAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) h = w / state.ratio;
+        else w = h * state.ratio;
+      }
+    } else if (state.mode === "resize-sw") {
+      x = state.startRect.x + dx;
+      w = state.startRect.w - dx;
+      h = state.startRect.h + dy;
+      if (lockCropAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.08, w);
+          h = w / state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+        } else {
+          h = Math.max(0.08, h);
+          w = h * state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+        }
+      }
+    } else if (state.mode === "resize-ne") {
+      y = state.startRect.y + dy;
+      h = state.startRect.h - dy;
+      w = state.startRect.w + dx;
+      if (lockCropAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.08, w);
+          h = w / state.ratio;
+          y = state.startRect.y + (state.startRect.h - h);
+        } else {
+          h = Math.max(0.08, h);
+          w = h * state.ratio;
+          y = state.startRect.y + (state.startRect.h - h);
+        }
+      }
+    } else {
+      x = state.startRect.x + dx;
+      y = state.startRect.y + dy;
+      w = state.startRect.w - dx;
+      h = state.startRect.h - dy;
+      if (lockCropAspect) {
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          w = Math.max(0.08, w);
+          h = w / state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+          y = state.startRect.y + (state.startRect.h - h);
+        } else {
+          h = Math.max(0.08, h);
+          w = h * state.ratio;
+          x = state.startRect.x + (state.startRect.w - w);
+          y = state.startRect.y + (state.startRect.h - h);
+        }
+      }
+    }
+
+    applyCropRectDraft({ x, y, w, h });
+  }
+
+  function beginCropDrag(event: React.PointerEvent<HTMLElement>, mode: CropDragMode) {
     if (!cropMode) return;
     if (!previewVisual || previewVisual.type === "audio" || previewVisual.type === "caption") return;
     if (!cropTargetItemId || previewVisual.id !== cropTargetItemId) return;
     if (event.button !== 0) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const p = cropPointFromEvent(event);
-    cropDragRef.current = { active: true, startX: p.x, startY: p.y, targetItemId: cropTargetItemId };
-    const seedHeight = 0.02;
-    const seedWidth = Math.max(0.02, seedHeight * activeFrameAspect);
-    const initialDraft = normalizeCropRect({ x: p.x, y: p.y, w: seedWidth, h: seedHeight }, 0.005);
-    cropDraftRef.current = initialDraft;
-    setCropDraft(initialDraft);
+    event.stopPropagation();
+
+    const stage = previewStageRef.current;
+    if (!stage) return;
+    const bounds = stage.getBoundingClientRect();
+    const startRect = cropDraftRef.current || cropDraft || { x: 0, y: 0, w: 1, h: 1 };
+    cropDragRef.current = {
+      mode,
+      startX: event.clientX,
+      startY: event.clientY,
+      stageW: bounds.width,
+      stageH: bounds.height,
+      stageLeft: bounds.left,
+      stageTop: bounds.top,
+      startRect: { ...startRect },
+      ratio: startRect.w / Math.max(0.0001, startRect.h),
+    };
+
+    clearCropDragListenersRef.current?.();
+    window.addEventListener("pointermove", onCropPointerMove, { passive: true });
+    window.addEventListener("pointerup", stopCropDrag, { once: true });
+    clearCropDragListenersRef.current = stopCropDrag;
   }
 
-  function moveCropDrag(event: React.PointerEvent<HTMLDivElement>) {
-    if (!cropDragRef.current.active) return;
+  function beginCropDraw(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropMode) return;
+    if (!previewVisual || previewVisual.type === "audio" || previewVisual.type === "caption") return;
+    if (!cropTargetItemId || previewVisual.id !== cropTargetItemId) return;
+    if (event.button !== 0) return;
+    if (event.target !== event.currentTarget) return;
     event.preventDefault();
-    const p = cropPointFromEvent(event);
-    const s = cropDragRef.current;
-    const dirX = p.x >= s.startX ? 1 : -1;
-    const dirY = p.y >= s.startY ? 1 : -1;
-    let w = Math.max(0.0001, Math.abs(s.startX - p.x));
-    let h = Math.max(0.0001, Math.abs(s.startY - p.y));
-    if (w / h > activeFrameAspect) {
-      h = w / activeFrameAspect;
-    } else {
-      w = h * activeFrameAspect;
-    }
-    const x = dirX > 0 ? s.startX : s.startX - w;
-    const y = dirY > 0 ? s.startY : s.startY - h;
-    const nextDraft = normalizeCropRect({ x, y, w, h }, 0.01);
-    cropDraftRef.current = nextDraft;
-    setCropDraft(nextDraft);
-  }
+    event.stopPropagation();
 
-  function endCropDrag(event?: React.PointerEvent<HTMLDivElement>) {
-    if (event?.currentTarget && event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    if (!cropDragRef.current.active) return;
-    cropDragRef.current.active = false;
-    cropDragRef.current.targetItemId = cropTargetItemId;
+    const stage = previewStageRef.current;
+    if (!stage) return;
+    const bounds = stage.getBoundingClientRect();
+    const x = clamp01((event.clientX - bounds.left) / Math.max(1, bounds.width));
+    const y = clamp01((event.clientY - bounds.top) / Math.max(1, bounds.height));
+    const seedHeight = 0.1;
+    const seedWidth = lockCropAspect ? Math.max(0.1, seedHeight * activeFrameAspect) : 0.1;
+    const seedRect = normalizeCropRect({ x, y, w: seedWidth, h: seedHeight }, 0.08);
+    applyCropRectDraft(seedRect);
+
+    cropDragRef.current = {
+      mode: "draw",
+      startX: event.clientX,
+      startY: event.clientY,
+      stageW: bounds.width,
+      stageH: bounds.height,
+      stageLeft: bounds.left,
+      stageTop: bounds.top,
+      startRect: { x, y, w: seedWidth, h: seedHeight },
+      ratio: activeFrameAspect,
+    };
+
+    clearCropDragListenersRef.current?.();
+    window.addEventListener("pointermove", onCropPointerMove, { passive: true });
+    window.addEventListener("pointerup", stopCropDrag, { once: true });
+    clearCropDragListenersRef.current = stopCropDrag;
   }
 
   function exportTargetVisualItem() {
@@ -854,8 +1012,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setCropTargetItemId(null);
     setCropDraft(null);
     cropDraftRef.current = null;
-    cropDragRef.current.active = false;
-    cropDragRef.current.targetItemId = null;
+    clearCropDragListenersRef.current?.();
+    cropDragRef.current = null;
   }, [cropTargetItemId, project.visual]);
 
   useEffect(() => {
@@ -863,8 +1021,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setCropDraft(null);
     setCropTargetItemId(null);
     cropDraftRef.current = null;
-    cropDragRef.current.active = false;
-    cropDragRef.current.targetItemId = null;
+    clearCropDragListenersRef.current?.();
+    cropDragRef.current = null;
   }, [cropMode]);
 
   useEffect(() => {
@@ -971,6 +1129,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   useEffect(() => {
     return () => {
       clearTimelineDragListenersRef.current?.();
+      clearCropDragListenersRef.current?.();
       localMusicObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       localMusicObjectUrlsRef.current = [];
     };
@@ -978,9 +1137,9 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const laneHeight = 68;
-    const lensSize = 120;
-    const lensScale = 2.25;
+    const laneHeight = 72;
+    const lensSize = 128;
+    const lensScale = 2.35;
     const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
     const lensActive = Boolean(timelineHoverLens && timelineHoverLens.track === track);
 
@@ -989,14 +1148,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const widthPct = clamp((item.duration / Math.max(1, timelineSeconds)) * 100, 1.1, 100 - leftPct);
       const active = selected?.track === track && selected?.itemId === item.id;
       const className = cx(
-        "absolute top-1/2 h-9 -translate-y-1/2 rounded-md border px-2 py-1 text-left transition",
+        "absolute top-1/2 h-10 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left transition",
         trackTone(track),
         item.type !== "caption" && "cursor-grab active:cursor-grabbing",
-        active && "ring-2 ring-white/70"
+        active && "ring-2 ring-white/75 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
       );
       const itemBody = (
         <>
-          <div className="truncate text-[10px] font-semibold">{item.title}</div>
+          <div className="truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div>
           <div className="text-[9px] tabular-nums opacity-90">
             {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
           </div>
@@ -1033,17 +1192,34 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       );
     }
 
+    const viewportW = typeof window !== "undefined" ? window.innerWidth : 1440;
+    const viewportH = typeof window !== "undefined" ? window.innerHeight : 900;
+    const lensLeft =
+      lensActive && timelineHoverLens
+        ? clamp(timelineHoverLens.clientX, lensSize / 2 + 10, Math.max(lensSize / 2 + 10, viewportW - lensSize / 2 - 10))
+        : 0;
+    const lensTop =
+      lensActive && timelineHoverLens
+        ? (() => {
+            const above = timelineHoverLens.clientY - lensSize - 22;
+            if (above >= 10) return above;
+            return Math.min(viewportH - lensSize - 10, timelineHoverLens.clientY + 22);
+          })()
+        : 0;
+
     return (
-      <div className="border border-white/10 bg-[#121726] px-3 py-2" key={track}>
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <div className="text-[11px] font-semibold tracking-[0.05em] text-white/82">{trackLabel(track)} Track</div>
-          <div className="text-[10px] text-white/52">{items.length} items</div>
+      <div className="grid gap-2.5 px-3 py-3 lg:grid-cols-[132px_minmax(0,1fr)]">
+        <div className="flex items-center justify-between gap-2 lg:block">
+          <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
+            {trackLabel(track)}
+          </div>
+          <div className="mt-0 text-[10px] text-white/50 lg:mt-2">{items.length} items</div>
         </div>
 
-        <div className="pb-0.5">
+        <div>
           <div className="clipforge-scrollbar overflow-x-auto overflow-y-visible pb-2">
-            <div className="relative min-w-[720px]" style={{ width: `${timelineWidthPct}%` }}>
-              <div className="grid h-3.5 grid-cols-12 text-[9px] text-white/38">
+            <div className="relative min-w-[760px]" style={{ width: `${timelineWidthPct}%` }}>
+              <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
                 {Array.from({ length: 13 }).map((_, index) => (
                   <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}>
                     {formatSeconds((timelineSeconds / 12) * index)}
@@ -1053,79 +1229,81 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div
                 data-track-lane={track}
-                className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-crosshair"
+                className="relative mt-1 overflow-visible rounded-xl border border-white/12 bg-[#0b1020]/92"
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
                   const x = clamp(event.clientX - rect.left, 0, rect.width);
                   const y = clamp(event.clientY - rect.top, 0, laneHeight);
-                  setTimelineHoverLens({ track, x, y, laneWidth: rect.width, laneHeight });
+                  setTimelineHoverLens({
+                    track,
+                    x,
+                    y,
+                    laneWidth: rect.width,
+                    laneHeight,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                  });
                 }}
                 onMouseLeave={() => {
                   setTimelineHoverLens((prev) => (prev?.track === track ? null : prev));
                 }}
               >
-              <div
-                className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
-                style={{ left: `${playheadPct}%` }}
-              />
-
-              {items.length ? (
-                items.map((item) => renderItem(item, true))
-              ) : (
-                <div className="flex h-full items-center justify-center text-[12px] text-white/45">No items yet.</div>
-              )}
-
-              {lensActive && timelineHoverLens ? (
                 <div
-                  className="pointer-events-none absolute z-30 -translate-x-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
-                  style={{
-                    width: lensSize,
-                    height: lensSize,
-                    left: clamp(timelineHoverLens.x, lensSize / 2, Math.max(lensSize / 2, timelineHoverLens.laneWidth - lensSize / 2)),
-                    top: timelineHoverLens.y - lensSize - 12,
-                  }}
-                >
+                  className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
+                  style={{ left: `${playheadPct}%` }}
+                />
+
+                {items.length ? (
+                  items.map((item) => renderItem(item, true))
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[12px] text-white/45">No items yet.</div>
+                )}
+
+                {lensActive && timelineHoverLens ? (
                   <div
-                    className="absolute left-0 top-0"
+                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                     style={{
-                      width: timelineHoverLens.laneWidth,
-                      height: timelineHoverLens.laneHeight,
-                      transformOrigin: "top left",
-                      transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
+                      width: lensSize,
+                      height: lensSize,
+                      left: lensLeft,
+                      top: lensTop,
                     }}
                   >
                     <div
-                      className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90"
-                      style={{ left: `${playheadPct}%` }}
-                    />
-                    {items.map((item) => renderItem(item, false))}
+                      className="absolute left-0 top-0"
+                      style={{
+                        width: timelineHoverLens.laneWidth,
+                        height: timelineHoverLens.laneHeight,
+                        transformOrigin: "top left",
+                        transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
+                      }}
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90"
+                        style={{ left: `${playheadPct}%` }}
+                      />
+                      {items.map((item) => renderItem(item, false))}
+                    </div>
+                    <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
+                      {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 rounded-full border border-white/45" />
+                    <div className="pointer-events-none absolute -bottom-2 right-2 h-5 w-1 rotate-[-36deg] rounded-full bg-cyan-200/80" />
                   </div>
-                  <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
-                    {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
+                ) : null}
+
+                {lensActive ? (
+                  <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-cyan-100/80">
+                    Magnifier on
                   </div>
-                  <div className="pointer-events-none absolute inset-0 rounded-full border border-white/45" />
-                  <div className="pointer-events-none absolute -bottom-2 right-2 h-5 w-1 rotate-[-36deg] rounded-full bg-cyan-200/80" />
-                </div>
-              ) : null}
+                ) : null}
 
-              {lensActive ? (
-                <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-cyan-100/80">
-                  Magnifier on
-                </div>
-              ) : null}
-
-              {!lensActive ? (
-                <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-white/40">
-                  Hover to magnify timeline edits
-                </div>
-              ) : null}
-
-              {items.length ? null : (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[12px] text-white/45">
-                  No items yet.
-                </div>
-              )}
+                {!lensActive ? (
+                  <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-white/40">
+                    Hover to magnify timeline edits
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1508,7 +1686,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       else startCropMode();
                     }}
                     className={cx(
-                      "border px-3 py-1 text-[11px] transition",
+                      "rounded-lg border px-3 py-1 text-[11px] transition",
                       cropMode
                         ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
                         : "border-white/10 bg-white/[0.03] text-white/72"
@@ -1518,21 +1696,61 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </button>
                   {cropMode ? (
                     <>
-                      <button type="button" onClick={applyCropDraft} className="border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
+                      <button
+                        type="button"
+                        onClick={() => setLockCropAspect((prev) => !prev)}
+                        className={cx(
+                          "rounded-lg border px-3 py-1 text-[11px] transition",
+                          lockCropAspect
+                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            : "border-white/10 bg-white/[0.03] text-white/72"
+                        )}
+                      >
+                        Aspect {lockCropAspect ? "lock" : "free"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowCropGrid((prev) => !prev)}
+                        className={cx(
+                          "rounded-lg border px-3 py-1 text-[11px] transition",
+                          showCropGrid
+                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            : "border-white/10 bg-white/[0.03] text-white/72"
+                        )}
+                      >
+                        Grid {showCropGrid ? "on" : "off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCropSnapGuides((prev) => !prev)}
+                        className={cx(
+                          "rounded-lg border px-3 py-1 text-[11px] transition",
+                          cropSnapGuides
+                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            : "border-white/10 bg-white/[0.03] text-white/72"
+                        )}
+                      >
+                        Snap {cropSnapGuides ? "on" : "off"}
+                      </button>
+                      <button type="button" onClick={applyCropDraft} className="rounded-lg border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
                         Apply crop
                       </button>
-                      <button type="button" onClick={cancelCropMode} className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72 transition">
+                      <button type="button" onClick={cancelCropMode} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72 transition">
                         Cancel
                       </button>
                     </>
                   ) : null}
-                  <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
+                  <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
                     {profile.label}
                   </div>
                 </div>
               </div>
-              <div className="border border-white/10 bg-black/45 p-4">
-                <div className="relative h-[500px] overflow-hidden border border-white/10 bg-[#060b16]">
+              <div className="rounded-2xl border border-white/10 bg-black/45 p-4">
+                <div
+                  ref={previewStageRef}
+                  className="relative mx-auto w-full max-w-[520px] overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
+                  style={{ aspectRatio: activeFrameAspect }}
+                >
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
                   <div className="absolute inset-0 overflow-hidden">
                     {previewVisual?.type === "image" && previewVisual.url ? (
@@ -1548,20 +1766,20 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
 
                   {activeCaption?.text ? (
-                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 bg-black/45 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
                       {activeCaption.text}
                     </div>
                   ) : null}
 
                   {previewVisual?.crop && !cropMode ? (
                     <div
-                      className="pointer-events-none absolute z-10 border border-cyan-200/45"
+                      className="pointer-events-none absolute z-10 rounded-sm border border-cyan-200/45"
                       style={{
                         left: `${previewVisual.crop.x * 100}%`,
                         top: `${previewVisual.crop.y * 100}%`,
                         width: `${previewVisual.crop.w * 100}%`,
                         height: `${previewVisual.crop.h * 100}%`,
-                        boxShadow: "0 0 0 9999px rgba(0,0,0,0.2)",
+                        boxShadow: "0 0 0 9999px rgba(0,0,0,0.24)",
                       }}
                     />
                   ) : null}
@@ -1572,24 +1790,69 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         "absolute inset-0 z-20 touch-none",
                         cropTargetItemId === previewVisual.id ? "cursor-crosshair" : "cursor-not-allowed"
                       )}
-                      onPointerDown={beginCropDrag}
-                      onPointerMove={moveCropDrag}
-                      onPointerUp={endCropDrag}
-                      onPointerCancel={endCropDrag}
+                      onPointerDown={beginCropDraw}
                     >
                       {cropDraft && cropTargetItemId === previewVisual.id ? (
-                        <div
-                          className="pointer-events-none absolute border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
-                          style={{
-                            left: `${cropDraft.x * 100}%`,
-                            top: `${cropDraft.y * 100}%`,
-                            width: `${cropDraft.w * 100}%`,
-                            height: `${cropDraft.h * 100}%`,
-                          }}
-                        />
+                        <>
+                          <div className="pointer-events-none absolute left-0 right-0 top-0 bg-black/50" style={{ height: `${cropDraft.y * 100}%` }} />
+                          <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50" style={{ height: `${(1 - (cropDraft.y + cropDraft.h)) * 100}%` }} />
+                          <div
+                            className="pointer-events-none absolute left-0 bg-black/50"
+                            style={{ top: `${cropDraft.y * 100}%`, width: `${cropDraft.x * 100}%`, height: `${cropDraft.h * 100}%` }}
+                          />
+                          <div
+                            className="pointer-events-none absolute right-0 bg-black/50"
+                            style={{ top: `${cropDraft.y * 100}%`, width: `${(1 - (cropDraft.x + cropDraft.w)) * 100}%`, height: `${cropDraft.h * 100}%` }}
+                          />
+
+                          <div
+                            className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.24)] cursor-move"
+                            style={{
+                              left: `${cropDraft.x * 100}%`,
+                              top: `${cropDraft.y * 100}%`,
+                              width: `${cropDraft.w * 100}%`,
+                              height: `${cropDraft.h * 100}%`,
+                            }}
+                            onPointerDown={(event) => beginCropDrag(event, "move")}
+                          >
+                            {showCropGrid ? (
+                              <>
+                                <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-cyan-100/40" />
+                                <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-cyan-100/40" />
+                                <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-cyan-100/40" />
+                                <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-cyan-100/40" />
+                              </>
+                            ) : null}
+
+                            <button
+                              type="button"
+                              aria-label="Resize top left"
+                              className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-nw")}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Resize top right"
+                              className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-ne")}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Resize bottom left"
+                              className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-sw")}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Resize bottom right"
+                              className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-se")}
+                            />
+                          </div>
+                        </>
                       ) : null}
-                      <div className="pointer-events-none absolute left-3 top-3 bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
-                        Drag to draw crop frame ({project.frame} lock). Press Enter to apply, Esc to cancel.
+                      <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+                        Draw, drag, or resize crop. Enter apply, Esc cancel.
                       </div>
                       {cropTargetItemId !== previewVisual.id ? (
                         <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
@@ -1754,10 +2017,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="grid gap-2.5">
-                {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) =>
-                  renderTrackLane(track)
-                )}
+              <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
+                {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track, index) => (
+                  <div key={track} className={cx(index > 0 && "border-t border-white/10")}>
+                    {renderTrackLane(track)}
+                  </div>
+                ))}
               </div>
             </section>
           </div>
