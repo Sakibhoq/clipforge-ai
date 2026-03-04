@@ -45,8 +45,9 @@ const POST_CREDITS_PER_MINUTE = 15;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
+const POST_DURATION_SECONDS = 60;
+const POST_IMAGE_DEFAULT_COUNT = 10;
 
-const POST_DURATION_OPTIONS = [60, 120] as const;
 const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
   { value: "real", label: "Real" },
   { value: "anime", label: "Anime" },
@@ -161,19 +162,6 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   return msg;
 }
 
-function isProviderCapacityError(raw: string | null | undefined): boolean {
-  const msg = String(raw || "").toLowerCase();
-  if (!msg) return false;
-  return (
-    msg.includes("queue is at provider capacity") ||
-    msg.includes("provider capacity") ||
-    msg.includes("resourceexhausted") ||
-    msg.includes("quota exceeded") ||
-    msg.includes("too many requests") ||
-    msg.includes("429")
-  );
-}
-
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -188,8 +176,6 @@ export default function GenerateClient() {
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
-  const [postDurationSeconds, setPostDurationSeconds] = useState<number>(60);
-  const [postImageCount, setPostImageCount] = useState<number>(12);
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
 
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
@@ -200,7 +186,6 @@ export default function GenerateClient() {
   const [error, setError] = useState<string | null>(null);
   const [errorTechnical, setErrorTechnical] = useState<string | null>(null);
   const [needsBilling, setNeedsBilling] = useState(false);
-  const [capacityRetryImageCount, setCapacityRetryImageCount] = useState<number | null>(null);
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -217,8 +202,7 @@ export default function GenerateClient() {
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      const mins = Math.max(1, Math.ceil(Number(postDurationSeconds || 60) / 60));
-      return mins * POST_CREDITS_PER_MINUTE;
+      return POST_CREDITS_PER_MINUTE;
     }
     if (mode === "image") return IMAGE_CREDITS;
     if (mode === "voiceover") {
@@ -227,7 +211,7 @@ export default function GenerateClient() {
     }
     const perSecond = videoSpeed === "fast" ? VIDEO_FAST_CREDITS_PER_SECOND : VIDEO_RELAX_CREDITS_PER_SECOND;
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, textLength, duration, videoSpeed, postDurationSeconds]);
+  }, [mode, textLength, duration, videoSpeed]);
 
   const fastEligible = useMemo(() => {
     const plan = String(currentPlan || "").trim().toLowerCase();
@@ -409,35 +393,18 @@ export default function GenerateClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spKey]);
 
-  useEffect(() => {
-    if (mode !== "post") setCapacityRetryImageCount(null);
-  }, [mode]);
-
   const selectedCaptionStyleHint = useMemo(() => {
     return CAPTION_STYLE_OPTIONS.find((opt) => opt.value === postCaptionStylePreset)?.hint || "";
   }, [postCaptionStylePreset]);
 
-  const capacityRetryFromActiveJob = useMemo(() => {
-    if (mode !== "post") return null;
-    if (!activeJob || activeJob.status !== "failed") return null;
-    if (!isProviderCapacityError(activeJob.error)) return null;
-    const next = Math.max(6, Math.min(48, postImageCount - 2));
-    return next < postImageCount ? next : null;
-  }, [activeJob, mode, postImageCount]);
-
-  const capacityRetryTarget = capacityRetryImageCount ?? capacityRetryFromActiveJob;
-
-  async function startGeneration(options?: { imageCountOverride?: number }) {
+  async function startGeneration() {
     setError(null);
     setErrorTechnical(null);
     setNeedsBilling(false);
-    setCapacityRetryImageCount(null);
 
     const p = prompt.trim();
     const postPrompt = postVisualPrompt.trim();
     const postScript = postVoiceScript.trim();
-    const requestedImageCountInput = options?.imageCountOverride ?? postImageCount ?? 12;
-    const requestedImageCount = Math.max(6, Math.min(48, Number(requestedImageCountInput)));
 
     if (mode === "post") {
       if (postPrompt.length < 3) {
@@ -464,11 +431,10 @@ export default function GenerateClient() {
           visual_prompt: postPrompt,
           voice_script: postScript,
           aspect_ratio: aspectRatio,
-          duration_seconds: postDurationSeconds,
-          image_count: requestedImageCount,
+          duration_seconds: POST_DURATION_SECONDS,
+          image_count: POST_IMAGE_DEFAULT_COUNT,
           model: "google",
           voice_name: voiceName,
-          speed_wpm: voiceSpeed,
           style_preset: stylePreset,
           caption_style_preset: postCaptionStylePreset,
         };
@@ -526,12 +492,6 @@ export default function GenerateClient() {
         const friendly = humanizeGenerationError(msg);
         setError(friendly);
         if (friendly !== msg) setErrorTechnical(msg);
-        if (mode === "post" && isProviderCapacityError(msg)) {
-          const fallbackCount = Math.max(6, Math.min(48, requestedImageCount - 2));
-          if (fallbackCount < requestedImageCount) {
-            setCapacityRetryImageCount(fallbackCount);
-          }
-        }
       }
     } finally {
       setSubmitting(false);
@@ -596,7 +556,7 @@ export default function GenerateClient() {
                 { label: "Plan", value: String(currentPlan || "free").toUpperCase() },
                 {
                   label: "Target",
-                  value: mode === "post" ? `${postDurationSeconds / 60} min` : mode === "video" ? `${duration}s` : "N/A",
+                  value: mode === "post" ? "1 min" : mode === "video" ? `${duration}s` : "N/A",
                 },
                 {
                   label: "Output Type",
@@ -622,7 +582,8 @@ export default function GenerateClient() {
                 <div className="text-xs text-white/55">• Prompt Builder</div>
                 <div className="mt-1 text-base font-semibold text-white/90">Create with one clean workflow</div>
                 <div className="mt-1 text-xs text-white/55 sm:text-[13px]">
-                  Start with AI Post for 1-2 minute output, or switch lanes for dedicated video/image/voice jobs.
+                  Start with AI Post for a single 1-minute ready-to-post clip, or switch lanes for dedicated
+                  video/image/voice jobs.
                 </div>
               </div>
               <Link
@@ -668,10 +629,28 @@ export default function GenerateClient() {
                     value={postVoiceScript}
                     onChange={(e) => setPostVoiceScript(e.target.value)}
                     rows={8}
-                    placeholder="Write the narration for your full 1-2 minute post."
+                    placeholder="Write the narration for your full 1-minute post."
                     className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
                   />
                   <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
+                  <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] text-amber-100/90">
+                    Need longer than 1 minute? Generate in Image mode, then stitch and time scenes in the editor.
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setMode("image")}
+                        className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
+                      >
+                        Switch to Image mode
+                      </button>
+                      <Link
+                        href="/app/clips?editor=1"
+                        className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
+                      >
+                        Open editor
+                      </Link>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -702,20 +681,6 @@ export default function GenerateClient() {
               <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
                 <div className="font-semibold text-rose-50">Generation issue</div>
                 <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
-                {mode === "post" && capacityRetryTarget ? (
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPostImageCount(capacityRetryTarget);
-                        void startGeneration({ imageCountOverride: capacityRetryTarget });
-                      }}
-                      className="rounded-xl border border-amber-300/35 bg-amber-300/12 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-300/20"
-                    >
-                      Retry with fewer images ({capacityRetryTarget})
-                    </button>
-                  </div>
-                ) : null}
                 {errorTechnical ? (
                   <details className="mt-2">
                     <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
@@ -738,20 +703,6 @@ export default function GenerateClient() {
               <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
                 <div className="font-semibold text-rose-50">Latest job failed</div>
                 <div className="mt-1 whitespace-pre-wrap break-words">{humanizeGenerationError(String(activeJob.error))}</div>
-                {mode === "post" && capacityRetryTarget ? (
-                  <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPostImageCount(capacityRetryTarget);
-                        void startGeneration({ imageCountOverride: capacityRetryTarget });
-                      }}
-                      className="rounded-xl border border-amber-300/35 bg-amber-300/12 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-300/20"
-                    >
-                      Retry with fewer images ({capacityRetryTarget})
-                    </button>
-                  </div>
-                ) : null}
               </div>
             ) : null}
 
@@ -807,32 +758,9 @@ export default function GenerateClient() {
 
                 {mode === "post" ? (
                   <>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Post length</label>
-                        <select
-                          value={postDurationSeconds}
-                          onChange={(e) => setPostDurationSeconds(Number(e.target.value || 60))}
-                          className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                        >
-                          {POST_DURATION_OPTIONS.map((v) => (
-                            <option key={v} value={v}>
-                              {v === 60 ? "1 minute" : "2 minutes"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Image count</label>
-                        <input
-                          type="number"
-                          value={postImageCount}
-                          min={10}
-                          max={24}
-                          onChange={(e) => setPostImageCount(Math.max(10, Math.min(24, Number(e.target.value || 12))))}
-                          className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                        />
-                      </div>
+                    <div className="rounded-2xl border border-cyan-300/20 bg-cyan-500/8 p-3 text-[11px] text-cyan-100/90">
+                      AI Post is fixed to 1 minute. If provider capacity is busy, backend retries scenes automatically
+                      with 10 → 8 → 6 images.
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Caption style</label>
@@ -850,16 +778,8 @@ export default function GenerateClient() {
                       <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
                     </div>
                     {renderVoiceSelector()}
-                    <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Voice speed (WPM)</label>
-                      <input
-                        type="number"
-                        value={voiceSpeed}
-                        min={80}
-                        max={260}
-                        onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
-                      />
+                    <div className="rounded-2xl border border-white/12 bg-black/35 p-3 text-[11px] text-white/65">
+                      Voice speed is auto-paced from your script so narration fits the 1-minute timeline naturally.
                     </div>
                   </>
                 ) : null}

@@ -30,7 +30,8 @@ VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {4, 6, 8}
-ALLOWED_POST_DURATIONS = {60, 120}
+POST_DEFAULT_DURATION_SECONDS = 60
+POST_DEFAULT_IMAGE_COUNT = 10
 
 PLAN_MAX_DURATION_SECONDS = {
     "free": 4,
@@ -383,11 +384,11 @@ class GeneratePostRequest(BaseModel):
     visual_prompt: str = Field(min_length=3, max_length=1200)
     voice_script: str = Field(min_length=30, max_length=12000)
     aspect_ratio: str = "9:16"
-    duration_seconds: int = Field(default=60, ge=60, le=120)
-    image_count: int = Field(default=12, ge=6, le=48)
+    duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=60)
+    image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int = Field(default=165, ge=80, le=260)
+    speed_wpm: int | None = Field(default=None, ge=80, le=260)
     style_preset: str | None = Field(default="social-native", max_length=64)
     caption_style_preset: str | None = Field(default="bold_center", max_length=64)
 
@@ -623,14 +624,20 @@ def create_post_generation(
     if ar not in ALLOWED_ASPECT_RATIOS:
         raise HTTPException(status_code=400, detail="Unsupported aspect ratio")
 
-    duration_seconds = int(payload.duration_seconds or 60)
-    if duration_seconds not in ALLOWED_POST_DURATIONS:
-        raise HTTPException(status_code=422, detail="Duration must be 60 or 120 seconds")
+    duration_seconds = POST_DEFAULT_DURATION_SECONDS
+    if int(payload.duration_seconds or POST_DEFAULT_DURATION_SECONDS) != POST_DEFAULT_DURATION_SECONDS:
+        raise HTTPException(status_code=422, detail="AI Post duration is fixed at 60 seconds")
 
-    image_count = max(6, min(48, int(payload.image_count or 12)))
+    image_count = max(6, min(10, int(payload.image_count or POST_DEFAULT_IMAGE_COUNT)))
     model = _check_model_supported(payload.model)
     text_length = len(voice_script)
-    safe_speed = max(80, min(260, int(payload.speed_wpm or 165)))
+    if payload.speed_wpm is None:
+        # Auto pace to keep script delivery natural for 60-second posts.
+        words = max(1, len([w for w in voice_script.split() if w.strip()]))
+        target_wpm = int(round((words / (duration_seconds / 60.0)) * 1.08))
+        safe_speed = max(130, min(210, target_wpm))
+    else:
+        safe_speed = max(80, min(260, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
     credits_needed = _post_credits_needed(duration_seconds)
 

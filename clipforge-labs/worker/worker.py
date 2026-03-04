@@ -1411,8 +1411,12 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             try:
                 image_count = int(image_count_raw)
             except Exception:
-                image_count = 12
-            image_count = max(6, min(48, image_count))
+                image_count = 10
+            image_count = max(6, min(10, image_count))
+            retry_image_counts: list[int] = [image_count]
+            for candidate in (8, 6):
+                if candidate < image_count and candidate not in retry_image_counts:
+                    retry_image_counts.append(candidate)
 
             if use_google_provider:
                 try:
@@ -1443,56 +1447,86 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             if audio_duration > target_duration:
                 target_duration = audio_duration
 
-            for idx in range(image_count):
-                fd_img, img_path = tempfile.mkstemp(prefix=f"cflabs-post-img-{job_id}-{idx}-", suffix=".png")
-                os.close(fd_img)
-                image_paths.append(img_path)
-
-                scene_prompt = (
-                    f"{visual_prompt}. Scene {idx + 1} of {image_count},"
-                    " consistent style, composition, and subject continuity."
-                )
-                provider_capacity_error_image = False
-
-                if use_google_provider:
+            def _clear_image_paths() -> None:
+                while image_paths:
+                    old_path = image_paths.pop()
                     try:
-                        if _env("GOOGLE_IMAGE_API_URL", ""):
-                            media_bytes, _, _, _ = _call_google_generation_endpoint(
-                                endpoint_env="GOOGLE_IMAGE_API_URL",
-                                payload={
-                                    "prompt": scene_prompt,
-                                    "negative_prompt": negative_prompt or None,
-                                    "aspect_ratio": aspect_ratio,
-                                    "model": model or "google",
-                                    "settings": {
-                                        **settings,
-                                        "scene_index": idx + 1,
-                                        "scene_count": image_count,
-                                        "mode": "post",
-                                    },
-                                    "kind": JOB_KIND_POST,
-                                },
-                            )
-                        else:
-                            media_bytes, _, _, _ = _run_google_vertex_image_generation(
-                                prompt=scene_prompt,
-                                negative_prompt=negative_prompt,
-                                aspect_ratio=aspect_ratio,
-                            )
-                        _write_bytes(img_path, media_bytes)
-                    except Exception as exc:
-                        provider_capacity_error_image = _is_provider_capacity_error(exc)
-                        if strict_provider or (not allow_demo_fallback and not provider_capacity_error_image):
-                            raise RuntimeError(f"Google post image generation failed: {exc}") from exc
-                        print(
-                            f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{image_count} "
-                            f"err={type(exc).__name__}: {exc}"
-                        )
+                        os.unlink(old_path)
+                    except Exception:
+                        pass
 
-                if not _file_has_data(img_path):
-                    if use_google_provider and not allow_demo_fallback and not provider_capacity_error_image:
-                        raise RuntimeError("Google post image generation returned no media payload")
-                    _run_ffmpeg_text_image(prompt=scene_prompt, aspect_ratio=aspect_ratio, out_path=img_path)
+            for attempt_idx, attempt_image_count in enumerate(retry_image_counts):
+                capacity_hit = False
+                _clear_image_paths()
+
+                for idx in range(attempt_image_count):
+                    fd_img, img_path = tempfile.mkstemp(prefix=f"cflabs-post-img-{job_id}-{idx}-", suffix=".png")
+                    os.close(fd_img)
+                    image_paths.append(img_path)
+
+                    scene_prompt = (
+                        f"{visual_prompt}. Scene {idx + 1} of {attempt_image_count},"
+                        " consistent style, composition, and subject continuity."
+                    )
+
+                    if use_google_provider:
+                        try:
+                            if _env("GOOGLE_IMAGE_API_URL", ""):
+                                media_bytes, _, _, _ = _call_google_generation_endpoint(
+                                    endpoint_env="GOOGLE_IMAGE_API_URL",
+                                    payload={
+                                        "prompt": scene_prompt,
+                                        "negative_prompt": negative_prompt or None,
+                                        "aspect_ratio": aspect_ratio,
+                                        "model": model or "google",
+                                        "settings": {
+                                            **settings,
+                                            "scene_index": idx + 1,
+                                            "scene_count": attempt_image_count,
+                                            "mode": "post",
+                                        },
+                                        "kind": JOB_KIND_POST,
+                                    },
+                                )
+                            else:
+                                media_bytes, _, _, _ = _run_google_vertex_image_generation(
+                                    prompt=scene_prompt,
+                                    negative_prompt=negative_prompt,
+                                    aspect_ratio=aspect_ratio,
+                                )
+                            _write_bytes(img_path, media_bytes)
+                        except Exception as exc:
+                            if _is_provider_capacity_error(exc):
+                                capacity_hit = True
+                                print(
+                                    f"[worker] post image capacity job_id={job_id} scene={idx + 1}/{attempt_image_count} "
+                                    f"retry_count={attempt_image_count} err={type(exc).__name__}: {exc}"
+                                )
+                                break
+                            if strict_provider or not allow_demo_fallback:
+                                raise RuntimeError(f"Google post image generation failed: {exc}") from exc
+                            print(
+                                f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{attempt_image_count} "
+                                f"err={type(exc).__name__}: {exc}"
+                            )
+
+                    if capacity_hit:
+                        break
+
+                    if not _file_has_data(img_path):
+                        if use_google_provider and not allow_demo_fallback:
+                            raise RuntimeError("Google post image generation returned no media payload")
+                        _run_ffmpeg_text_image(prompt=scene_prompt, aspect_ratio=aspect_ratio, out_path=img_path)
+
+                if capacity_hit:
+                    last_attempt = attempt_idx >= (len(retry_image_counts) - 1)
+                    if last_attempt:
+                        raise RuntimeError("Generation queue is at provider capacity. Retry in a few minutes.")
+                    continue
+                break
+
+            if not image_paths:
+                raise RuntimeError("Post generation failed before image rendering completed.")
 
             final_duration = _render_image_slideshow_video(
                 image_paths=image_paths,
