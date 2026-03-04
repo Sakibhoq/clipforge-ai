@@ -16,12 +16,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # SQLite-safe batch alter
-    with op.batch_alter_table("jobs") as batch:
-        batch.add_column(sa.Column("aspect_ratio", sa.String(), nullable=False, server_default="9:16"))
-        batch.add_column(sa.Column("captions_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
-        batch.add_column(sa.Column("watermark_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
-        batch.add_column(sa.Column("caption_style_json", sa.Text(), nullable=True))
+    # Use direct add_column to avoid sqlite batch column reordering issues.
+    op.add_column("jobs", sa.Column("aspect_ratio", sa.String(), nullable=False, server_default="9:16"))
+    op.add_column("jobs", sa.Column("captions_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
+    op.add_column("jobs", sa.Column("watermark_enabled", sa.Boolean(), nullable=False, server_default=sa.true()))
+    op.add_column("jobs", sa.Column("caption_style_json", sa.Text(), nullable=True))
 
 
 def downgrade() -> None:
