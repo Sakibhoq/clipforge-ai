@@ -1058,7 +1058,7 @@ export default function EditorPage() {
             </nav>
 
             {toolTab ? (
-              <aside className="pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+              <aside className="orbito-scrollbar pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
                 {toolTab === "project" ? (
@@ -1126,7 +1126,7 @@ export default function EditorPage() {
                       <div className="rounded-2xl border border-white/10 bg-black/35 p-2.5">
                         <div>
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
-                          <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                          <div className="orbito-scrollbar grid max-h-36 gap-2 overflow-auto pr-1">
                             {videos.map((clip) => (
                               <button
                                 key={clip.id}
@@ -1145,7 +1145,7 @@ export default function EditorPage() {
                         </div>
                         <div className="mt-3">
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
-                          <div className="grid max-h-36 gap-2 overflow-auto pr-1">
+                          <div className="orbito-scrollbar grid max-h-36 gap-2 overflow-auto pr-1">
                             {images.map((clip) => (
                               <button
                                 key={clip.id}
@@ -1175,7 +1175,7 @@ export default function EditorPage() {
                   <div className="grid gap-3">
                     <div>
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
-                      <div className="grid max-h-40 gap-2 overflow-auto pr-1">
+                      <div className="orbito-scrollbar grid max-h-40 gap-2 overflow-auto pr-1">
                         {audios.map((clip) => (
                           <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
                             <div className="truncate text-[11px] font-semibold text-white/88">{clip.title || `Audio #${clip.id}`}</div>
@@ -1218,7 +1218,7 @@ export default function EditorPage() {
                         {uploadingMusic ? "Uploading..." : "Upload local audio"}
                       </button>
                       {localMusicAssets.length ? (
-                        <div className="mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
+                        <div className="orbito-scrollbar mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
                           {localMusicAssets.map((asset) => (
                             <div key={asset.id} className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
                               <div className="truncate text-[11px] font-semibold text-white/90">{asset.name}</div>
@@ -1255,7 +1255,7 @@ export default function EditorPage() {
                       Add Caption Block
                     </button>
                     {project.captions.length ? (
-                      <div className="grid max-h-44 gap-2 overflow-auto pr-1">
+                      <div className="orbito-scrollbar grid max-h-44 gap-2 overflow-auto pr-1">
                         {sortTrack(project.captions).map((item) => (
                           <button
                             key={item.id}
