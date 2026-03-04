@@ -2576,17 +2576,6 @@ function UploadWorkspace() {
                 >
                   {ytIngestBusy ? "Importing..." : "Import"}
                 </button>
-                <button
-                  type="button"
-                  onClick={openPastedLink}
-                  disabled={!urlOk}
-                  className={cx(
-                    "btn-solid-dark w-full px-4 py-2 text-[12px]",
-                    !urlOk && "cursor-not-allowed opacity-50"
-                  )}
-                >
-                  Open video
-                </button>
               </div>
 
               {!urlOk && url.trim().length > 0 ? (
@@ -2600,7 +2589,7 @@ function UploadWorkspace() {
               </div>
 
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
-                If blocked: Orbito shows "Link blocked by source platform". Then use Open video, export MP4, and upload it directly.
+                If blocked: Orbito shows "Link blocked by source platform". Then export MP4 with a trusted tool and upload it directly.
               </div>
 
               {ytStep === "opened" ? (
@@ -2611,7 +2600,7 @@ function UploadWorkspace() {
 
               {flow === "error" && /link blocked by source platform/i.test(errorTitle || "") ? (
                 <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
-                  Import was blocked by source platform. Open video and upload MP4 manually.
+                  Import was blocked by source platform. Export MP4 manually and upload it in the left card.
                 </div>
               ) : null}
 
