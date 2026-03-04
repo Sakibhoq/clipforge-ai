@@ -389,6 +389,7 @@ class GeneratePostRequest(BaseModel):
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
     speed_wpm: int = Field(default=165, ge=80, le=260)
     style_preset: str | None = Field(default="social-native", max_length=64)
+    caption_style_preset: str | None = Field(default="bold_center", max_length=64)
 
 
 class GenerateResponse(BaseModel):
@@ -663,6 +664,7 @@ def create_post_generation(
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
         "style_preset": (payload.style_preset or "social-native"),
+        "caption_style_preset": (payload.caption_style_preset or "bold_center"),
     }
 
     upload, job = _create_generation_job(

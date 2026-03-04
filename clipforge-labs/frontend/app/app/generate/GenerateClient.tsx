@@ -10,6 +10,7 @@ type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 type StylePreset = "real" | "anime" | "cartoon" | "comic";
+type CaptionStylePreset = "bold_center" | "clean_bottom" | "minimal";
 
 type GenerateResponse = {
   upload_id: number;
@@ -51,6 +52,11 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "comic", label: "Comic" },
+];
+const CAPTION_STYLE_OPTIONS: Array<{ value: CaptionStylePreset; label: string; hint: string }> = [
+  { value: "bold_center", label: "Bold center", hint: "High contrast, centered lower-third." },
+  { value: "clean_bottom", label: "Clean bottom", hint: "Bottom aligned with softer background." },
+  { value: "minimal", label: "Minimal", hint: "Smaller clean text with light highlight." },
 ];
 
 const VOICE_OPTIONS = [
@@ -155,6 +161,19 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   return msg;
 }
 
+function isProviderCapacityError(raw: string | null | undefined): boolean {
+  const msg = String(raw || "").toLowerCase();
+  if (!msg) return false;
+  return (
+    msg.includes("queue is at provider capacity") ||
+    msg.includes("provider capacity") ||
+    msg.includes("resourceexhausted") ||
+    msg.includes("quota exceeded") ||
+    msg.includes("too many requests") ||
+    msg.includes("429")
+  );
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -171,6 +190,7 @@ export default function GenerateClient() {
   const [postVoiceScript, setPostVoiceScript] = useState("");
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(60);
   const [postImageCount, setPostImageCount] = useState<number>(12);
+  const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
 
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
   const [voiceSpeed, setVoiceSpeed] = useState(165);
@@ -180,6 +200,7 @@ export default function GenerateClient() {
   const [error, setError] = useState<string | null>(null);
   const [errorTechnical, setErrorTechnical] = useState<string | null>(null);
   const [needsBilling, setNeedsBilling] = useState(false);
+  const [capacityRetryImageCount, setCapacityRetryImageCount] = useState<number | null>(null);
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -388,15 +409,35 @@ export default function GenerateClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spKey]);
 
-  async function onGenerate(e: React.FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (mode !== "post") setCapacityRetryImageCount(null);
+  }, [mode]);
+
+  const selectedCaptionStyleHint = useMemo(() => {
+    return CAPTION_STYLE_OPTIONS.find((opt) => opt.value === postCaptionStylePreset)?.hint || "";
+  }, [postCaptionStylePreset]);
+
+  const capacityRetryFromActiveJob = useMemo(() => {
+    if (mode !== "post") return null;
+    if (!activeJob || activeJob.status !== "failed") return null;
+    if (!isProviderCapacityError(activeJob.error)) return null;
+    const next = Math.max(6, Math.min(48, postImageCount - 2));
+    return next < postImageCount ? next : null;
+  }, [activeJob, mode, postImageCount]);
+
+  const capacityRetryTarget = capacityRetryImageCount ?? capacityRetryFromActiveJob;
+
+  async function startGeneration(options?: { imageCountOverride?: number }) {
     setError(null);
     setErrorTechnical(null);
     setNeedsBilling(false);
+    setCapacityRetryImageCount(null);
 
     const p = prompt.trim();
     const postPrompt = postVisualPrompt.trim();
     const postScript = postVoiceScript.trim();
+    const requestedImageCountInput = options?.imageCountOverride ?? postImageCount ?? 12;
+    const requestedImageCount = Math.max(6, Math.min(48, Number(requestedImageCountInput)));
 
     if (mode === "post") {
       if (postPrompt.length < 3) {
@@ -424,11 +465,12 @@ export default function GenerateClient() {
           voice_script: postScript,
           aspect_ratio: aspectRatio,
           duration_seconds: postDurationSeconds,
-          image_count: postImageCount,
+          image_count: requestedImageCount,
           model: "google",
           voice_name: voiceName,
           speed_wpm: voiceSpeed,
           style_preset: stylePreset,
+          caption_style_preset: postCaptionStylePreset,
         };
       } else if (mode === "image") {
         endpoint = "/labs/generate/image";
@@ -484,10 +526,21 @@ export default function GenerateClient() {
         const friendly = humanizeGenerationError(msg);
         setError(friendly);
         if (friendly !== msg) setErrorTechnical(msg);
+        if (mode === "post" && isProviderCapacityError(msg)) {
+          const fallbackCount = Math.max(6, Math.min(48, requestedImageCount - 2));
+          if (fallbackCount < requestedImageCount) {
+            setCapacityRetryImageCount(fallbackCount);
+          }
+        }
       }
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function onGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    await startGeneration();
   }
 
   const status = activeJob?.status || "";
@@ -562,7 +615,7 @@ export default function GenerateClient() {
           </div>
         </section>
 
-        <form onSubmit={onGenerate} className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
+        <form onSubmit={onGenerate} className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
           <div className="surface rounded-3xl border border-white/10 p-5 sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -605,7 +658,7 @@ export default function GenerateClient() {
                   <textarea
                     value={postVisualPrompt}
                     onChange={(e) => setPostVisualPrompt(e.target.value)}
-                    rows={4}
+                    rows={7}
                     placeholder="Describe the visual story, framing, motion language, and visual style."
                     className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
                   />
@@ -614,7 +667,7 @@ export default function GenerateClient() {
                   <textarea
                     value={postVoiceScript}
                     onChange={(e) => setPostVoiceScript(e.target.value)}
-                    rows={9}
+                    rows={8}
                     placeholder="Write the narration for your full 1-2 minute post."
                     className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
                   />
@@ -649,6 +702,20 @@ export default function GenerateClient() {
               <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
                 <div className="font-semibold text-rose-50">Generation issue</div>
                 <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
+                {mode === "post" && capacityRetryTarget ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPostImageCount(capacityRetryTarget);
+                        void startGeneration({ imageCountOverride: capacityRetryTarget });
+                      }}
+                      className="rounded-xl border border-amber-300/35 bg-amber-300/12 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-300/20"
+                    >
+                      Retry with fewer images ({capacityRetryTarget})
+                    </button>
+                  </div>
+                ) : null}
                 {errorTechnical ? (
                   <details className="mt-2">
                     <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
@@ -671,6 +738,20 @@ export default function GenerateClient() {
               <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
                 <div className="font-semibold text-rose-50">Latest job failed</div>
                 <div className="mt-1 whitespace-pre-wrap break-words">{humanizeGenerationError(String(activeJob.error))}</div>
+                {mode === "post" && capacityRetryTarget ? (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPostImageCount(capacityRetryTarget);
+                        void startGeneration({ imageCountOverride: capacityRetryTarget });
+                      }}
+                      className="rounded-xl border border-amber-300/35 bg-amber-300/12 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-300/20"
+                    >
+                      Retry with fewer images ({capacityRetryTarget})
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -752,6 +833,21 @@ export default function GenerateClient() {
                           className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
                         />
                       </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Caption style</label>
+                      <select
+                        value={postCaptionStylePreset}
+                        onChange={(e) => setPostCaptionStylePreset(e.target.value as CaptionStylePreset)}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      >
+                        {CAPTION_STYLE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
                     </div>
                     {renderVoiceSelector()}
                     <div className="grid gap-2">
