@@ -26,7 +26,7 @@ import { emitMeSync } from "@/lib/me-sync";
 
    POLISH:
    - Clear direct-import first guidance
-   - Simple manual fallback (open video, download externally, upload on left)
+   - Simple manual fallback (download externally, upload on left)
    - YouTube trust + preview + disclaimer (shows credits)
 ========================================================= */
 
@@ -220,6 +220,26 @@ function normalizeYoutubeUrl(input: string) {
     return s;
   } catch {
     return s;
+  }
+}
+
+function extractYoutubeVideoId(input: string) {
+  const s = input.trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    const host = u.hostname.replace("www.", "");
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const id = u.searchParams.get("v")?.trim() ?? "";
+      return id || null;
+    }
+    if (host === "youtu.be") {
+      const id = u.pathname.replace("/", "").trim();
+      return id || null;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -878,13 +898,18 @@ function UploadWorkspace() {
   // YouTube (user-assisted)
   const [url, setUrl] = useState("");
   const urlOk = useMemo(() => isValidYoutubeUrl(url), [url]);
-  const [ytStep, setYtStep] = useState<"idle" | "opened">("idle");
 
   const [ytPreview, setYtPreview] = useState<YouTubePreviewResponse | null>(null);
   const [ytPreviewLoading, setYtPreviewLoading] = useState(false);
   const [ytPreviewError, setYtPreviewError] = useState<string | null>(null);
   const [ytIngestBusy, setYtIngestBusy] = useState(false);
   const ytPreviewAbort = useRef<AbortController | null>(null);
+  const ytPreviewFallbackThumb = useMemo(() => {
+    if (!urlOk) return null;
+    const videoId = extractYoutubeVideoId(url);
+    if (!videoId) return null;
+    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  }, [url, urlOk]);
 
   // Me (plan gating)
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -1188,15 +1213,6 @@ function UploadWorkspace() {
 
     return () => window.clearTimeout(t);
   }, [urlOk, url]);
-
-  function openPastedLink() {
-    if (!urlOk) return;
-    const normalized = normalizeYoutubeUrl(url);
-    if (!normalized) return;
-    window.open(normalized, "_blank", "noopener,noreferrer");
-    setYtStep("opened");
-    pulseDropzone();
-  }
 
   function resetFileFlow() {
     pollAbort.current?.abort();
@@ -1739,7 +1755,7 @@ function UploadWorkspace() {
           "Link blocked by source platform",
           [
             "Orbito tried to import this link, but the source platform blocked direct access.",
-            "Use Open video, export/download MP4, then upload in the left card.",
+            "Download/export MP4 with a trusted external tool, then upload in the left card.",
             "",
             `Details: ${msg}`,
           ].join("\n")
@@ -2391,10 +2407,10 @@ function UploadWorkspace() {
               <div
                 className={cx(
                   "shrink-0 whitespace-nowrap rounded-full border bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/75",
-                  ytStep === "idle" ? "border-white/10" : "border-white/14"
+                  "border-white/10"
                 )}
               >
-                {ytStep === "idle" ? "Step 1/2" : "Step 2/2"}
+                Step 1/1
               </div>
             </div>
 
@@ -2403,7 +2419,6 @@ function UploadWorkspace() {
                 value={url}
                 onChange={(e) => {
                   setUrl(e.target.value);
-                  setYtStep("idle");
                 }}
                 placeholder="Paste YouTube link…"
                 className="field"
@@ -2420,10 +2435,10 @@ function UploadWorkspace() {
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
                   <div className="flex items-start gap-3">
                     <div className="h-12 w-20 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
-                      {ytPreview?.thumbnail_url ? (
+                      {ytPreview?.thumbnail_url || ytPreviewFallbackThumb ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={ytPreview.thumbnail_url}
+                          src={ytPreview?.thumbnail_url || ytPreviewFallbackThumb || ""}
                           alt=""
                           className="h-full w-full object-cover"
                         />
@@ -2484,22 +2499,6 @@ function UploadWorkspace() {
                 >
                   {ytIngestBusy ? "Importing..." : "Import with Orbito"}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    openPastedLink();
-                  }}
-                  disabled={!urlOk}
-                  className={cx(
-                    "btn-solid-dark px-4 py-2 text-[12px]",
-                    !urlOk && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  Open video
-                </button>
-
-                <div className="text-[12px] text-white/55">Use Open video only if direct import fails.</div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
@@ -2510,26 +2509,9 @@ function UploadWorkspace() {
                   <div>3) Wait while clips process.</div>
                 </div>
                 <div className="mt-3 text-white/45">
-                  If direct import is blocked: click <span className="text-white/75">Open video</span>, download the MP4, then upload it on the left panel.
+                  If direct import is blocked: download/export MP4 with a trusted tool, then upload it on the left panel.
                 </div>
               </div>
-
-              {ytStep === "opened" ? (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                  <div className="text-sm font-semibold text-white/90">Manual upload ready</div>
-                  <div className="mt-1 text-sm text-white/65">
-                    Upload the downloaded MP4 in the left panel.
-                  </div>
-
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-[12px] font-semibold text-white/80">Manual fallback</div>
-                    <div className="mt-2 text-[12px] leading-relaxed text-white/55">
-                      Some videos block direct import. If that happens, download MP4 and upload it here.
-                    </div>
-                    <div className="mt-3 text-[12px] text-white/45">Use direct import first when available.</div>
-                  </div>
-                </div>
-              ) : null}
 
               <div className="pt-1 text-[12px] text-white/35">
                 Tip: if direct import is blocked, use a trusted external MP4 downloader, then upload the file on the left.
@@ -2559,7 +2541,6 @@ function UploadWorkspace() {
                   value={url}
                   onChange={(e) => {
                     setUrl(e.target.value);
-                    setYtStep("idle");
                   }}
                   placeholder="https://youtube.com/watch?v=..."
                   className="field min-w-0"
@@ -2576,17 +2557,6 @@ function UploadWorkspace() {
                 >
                   {ytIngestBusy ? "Importing..." : "Import"}
                 </button>
-                <button
-                  type="button"
-                  onClick={openPastedLink}
-                  disabled={!urlOk}
-                  className={cx(
-                    "btn-solid-dark w-full px-4 py-2 text-[12px]",
-                    !urlOk && "cursor-not-allowed opacity-50"
-                  )}
-                >
-                  Open video
-                </button>
               </div>
 
               {!urlOk && url.trim().length > 0 ? (
@@ -2600,18 +2570,12 @@ function UploadWorkspace() {
               </div>
 
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
-                If blocked: Orbito shows "Link blocked by source platform". Then use Open video, export MP4, and upload it directly.
+                If blocked: Orbito shows "Link blocked by source platform". Then export MP4 and upload it directly.
               </div>
-
-              {ytStep === "opened" ? (
-                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-100/85">
-                  Video opened. Download/export MP4, then upload it in the left card.
-                </div>
-              ) : null}
 
               {flow === "error" && /link blocked by source platform/i.test(errorTitle || "") ? (
                 <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
-                  Import was blocked by source platform. Open video and upload MP4 manually.
+                  Import was blocked by source platform. Upload MP4 manually in the left card.
                 </div>
               ) : null}
 
