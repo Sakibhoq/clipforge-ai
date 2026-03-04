@@ -20,9 +20,9 @@ import { emitMeSync } from "@/lib/me-sync";
    - Output settings (aspect required, captions toggle, watermark paid-only)
    - Settings + session persistence
 
-   YouTube (User-assisted, reliable):
-   - Paste link -> open in new tab -> user downloads MP4 -> upload via normal flow
-   - No server-side YouTube fetch (avoids bot-wall + silent failures)
+   YouTube (import-first):
+   - Paste link -> Import with Orbito
+   - If source blocks import, show clear blocked message + manual fallback
 
    POLISH:
    - Clear direct-import first guidance
@@ -35,7 +35,7 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
-const YOUTUBE_INGEST_ENABLED = false;
+const YOUTUBE_INGEST_ENABLED = (process.env.NEXT_PUBLIC_YOUTUBE_INGEST_ENABLED ?? "1") !== "0";
 
 type Flow =
   | "idle"
@@ -406,6 +406,23 @@ function compactUploadErrorMessage(raw: any) {
   }
   if (normalized.length > 320) return `${normalized.slice(0, 317)}...`;
   return normalized;
+}
+
+function isLikelyYoutubeSourceBlock(msg: string) {
+  const low = String(msg || "").toLowerCase();
+  return (
+    low.includes("sign in to confirm you’re not a bot") ||
+    low.includes("sign in to confirm you're not a bot") ||
+    low.includes("video unavailable") ||
+    low.includes("this video is unavailable") ||
+    low.includes("private video") ||
+    low.includes("members-only") ||
+    low.includes("age-restricted") ||
+    low.includes("not available in your country") ||
+    low.includes("blocked") ||
+    low.includes("copyright") ||
+    low.includes("yt-dlp failed")
+  );
 }
 
 function appendHintOnce(msg: string, hint: string) {
@@ -1717,6 +1734,16 @@ function UploadWorkspace() {
 
       if (isInsufficientCreditsError(e)) {
         fail("Insufficient credits", msg || "Not enough credits for this import.");
+      } else if (isLikelyYoutubeSourceBlock(msg)) {
+        fail(
+          "Link blocked by source platform",
+          [
+            "Orbito tried to import this link, but the source platform blocked direct access.",
+            "Use Open video, export/download MP4, then upload in the left card.",
+            "",
+            `Details: ${msg}`,
+          ].join("\n")
+        );
       } else {
         fail("YouTube import failed", msg);
       }
@@ -2524,7 +2551,7 @@ function UploadWorkspace() {
             <div className="relative">
               <div className="text-sm font-semibold text-white/90">Paste a link</div>
               <div className="mt-1 text-sm text-white/62">
-                Open a YouTube link, then upload the MP4 in the Upload card.
+                Paste a YouTube link and import. Orbito will try to create clips automatically.
               </div>
 
               <div className="mt-4 flex flex-col gap-2">
@@ -2539,6 +2566,18 @@ function UploadWorkspace() {
                 />
                 <button
                   type="button"
+                  onClick={ingestYoutubeDirect}
+                  disabled={!urlOk || ytIngestBusy || flow === "uploading" || flow === "processing"}
+                  className={cx(
+                    "btn-aurora w-full px-4 py-2 text-[12px]",
+                    (!urlOk || ytIngestBusy || flow === "uploading" || flow === "processing") &&
+                      "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  {ytIngestBusy ? "Importing..." : "Import"}
+                </button>
+                <button
+                  type="button"
                   onClick={openPastedLink}
                   disabled={!urlOk}
                   className={cx(
@@ -2546,7 +2585,7 @@ function UploadWorkspace() {
                     !urlOk && "cursor-not-allowed opacity-50"
                   )}
                 >
-                  Open link
+                  Open video
                 </button>
               </div>
 
@@ -2557,16 +2596,22 @@ function UploadWorkspace() {
               ) : null}
 
               <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
-                Warning: link-based imports may be blocked or rejected by the source platform.
+                Warning: direct import can be blocked by the source platform.
               </div>
 
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
-                If blocked: export MP4 with a trusted tool, then upload that file directly.
+                If blocked: Orbito shows "Link blocked by source platform". Then use Open video, export MP4, and upload it directly.
               </div>
 
               {ytStep === "opened" ? (
                 <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-100/85">
-                  Link opened. Download/export MP4, then upload it in the left card.
+                  Video opened. Download/export MP4, then upload it in the left card.
+                </div>
+              ) : null}
+
+              {flow === "error" && /link blocked by source platform/i.test(errorTitle || "") ? (
+                <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
+                  Import was blocked by source platform. Open video and upload MP4 manually.
                 </div>
               ) : null}
 
