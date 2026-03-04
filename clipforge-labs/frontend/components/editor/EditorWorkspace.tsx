@@ -257,6 +257,21 @@ function profileForFrame(frame: FrameRatio) {
   return EXPORT_PROFILES.find((profile) => profile.frame === frame) || EXPORT_PROFILES[0];
 }
 
+function frameAspectRatio(frame: FrameRatio) {
+  if (frame === "1:1") return 1;
+  if (frame === "16:9") return 16 / 9;
+  return 9 / 16;
+}
+
+function isEditableEventTarget(target: EventTarget | null) {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
+
 function computeIsDesktop() {
   if (typeof window === "undefined") return true;
   const wide = window.matchMedia("(min-width: 1024px)").matches;
@@ -354,6 +369,9 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const [exporting, setExporting] = useState(false);
   const [lastExportClipId, setLastExportClipId] = useState<number | null>(null);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
+  const [timelineZoom, setTimelineZoom] = useState(1.35);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [cropMode, setCropMode] = useState(false);
   const [cropTargetItemId, setCropTargetItemId] = useState<string | null>(null);
   const [cropDraft, setCropDraft] = useState<CropRect | null>(null);
 
@@ -373,6 +391,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const suppressClickKeyRef = useRef<string | null>(null);
 
   const profile = useMemo(() => profileForFrame(project.frame), [project.frame]);
+  const activeFrameAspect = useMemo(() => frameAspectRatio(project.frame), [project.frame]);
+  const timelineWidthPct = useMemo(() => clamp(timelineZoom * 100, 100, 360), [timelineZoom]);
 
   const videos = useMemo(() => clips.filter((clip) => detectAssetType(clip) === "video"), [clips]);
   const images = useMemo(() => clips.filter((clip) => detectAssetType(clip) === "image"), [clips]);
@@ -410,11 +430,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const previewVisual = useMemo(() => activeVisual, [activeVisual]);
 
   const previewCrop = useMemo(() => {
-    if (cropTargetItemId && previewVisual?.id === cropTargetItemId && cropDraft) {
-      return cropDraft;
-    }
     return previewVisual?.crop;
-  }, [cropTargetItemId, previewVisual, cropDraft]);
+  }, [previewVisual]);
 
   const activeCaption = useMemo(() => {
     const active = project.captions.find(
@@ -517,6 +534,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setSelected(null);
   }
 
+  function snapTimeValue(value: number) {
+    if (!snapToGrid) return value;
+    return Math.round(value * 4) / 4;
+  }
+
   function startTimelineItemDrag(track: TrackKey, item: TimelineItem, event: React.MouseEvent<HTMLButtonElement>) {
     if (event.button !== 0 || item.type === "caption") return;
     const laneEl = event.currentTarget.closest("[data-track-lane]") as HTMLElement | null;
@@ -549,7 +571,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       if (Math.abs(deltaPx) > 2) drag.moved = true;
       const deltaSec = (deltaPx / Math.max(1, drag.laneWidth)) * timelineSeconds;
       const maxStart = Math.max(0, timelineSeconds - drag.itemDuration);
-      const nextStart = clamp(drag.itemStart + deltaSec, 0, maxStart);
+      const nextStart = clamp(snapTimeValue(drag.itemStart + deltaSec), 0, maxStart);
 
       setTrackItems(drag.track, (items) =>
         items.map((laneItem) =>
@@ -591,6 +613,41 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     cropDragRef.current.targetItemId = null;
   }
 
+  function startCropMode() {
+    const source = selectedVisualItem || previewVisual;
+    if (!source || source.type === "audio" || source.type === "caption") {
+      setError("Select a visual clip in the timeline before cropping.");
+      return;
+    }
+    setError(null);
+    setCropMode(true);
+    setCropTargetItemId(source.id);
+    const base = source.crop ? normalizeCropRect(source.crop, 0.02) : { x: 0, y: 0, w: 1, h: 1 };
+    cropDraftRef.current = base;
+    setCropDraft(base);
+  }
+
+  function cancelCropMode() {
+    setCropMode(false);
+    setCropTargetItemId(null);
+    setCropDraft(null);
+    cropDraftRef.current = null;
+    cropDragRef.current.active = false;
+    cropDragRef.current.targetItemId = null;
+  }
+
+  function applyCropDraft() {
+    if (!cropTargetItemId || !cropDraft) {
+      cancelCropMode();
+      return;
+    }
+    const nextCrop = normalizeCropRect(cropDraft, 0.02);
+    setTrackItems("visual", (items) =>
+      items.map((item) => (item.id === cropTargetItemId ? { ...item, crop: nextCrop } : item))
+    );
+    cancelCropMode();
+  }
+
   function cropPointFromEvent(event: React.PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
@@ -599,14 +656,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   }
 
   function beginCropDrag(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropMode) return;
     if (!previewVisual || previewVisual.type === "audio" || previewVisual.type === "caption") return;
+    if (!cropTargetItemId || previewVisual.id !== cropTargetItemId) return;
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     const p = cropPointFromEvent(event);
-    cropDragRef.current = { active: true, startX: p.x, startY: p.y, targetItemId: previewVisual.id };
-    setCropTargetItemId(previewVisual.id);
-    const initialDraft = normalizeCropRect({ x: p.x, y: p.y, w: 0.02, h: 0.02 }, 0.005);
+    cropDragRef.current = { active: true, startX: p.x, startY: p.y, targetItemId: cropTargetItemId };
+    const seedHeight = 0.02;
+    const seedWidth = Math.max(0.02, seedHeight * activeFrameAspect);
+    const initialDraft = normalizeCropRect({ x: p.x, y: p.y, w: seedWidth, h: seedHeight }, 0.005);
     cropDraftRef.current = initialDraft;
     setCropDraft(initialDraft);
   }
@@ -616,32 +676,29 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     event.preventDefault();
     const p = cropPointFromEvent(event);
     const s = cropDragRef.current;
-    const x = Math.min(s.startX, p.x);
-    const y = Math.min(s.startY, p.y);
-    const w = Math.abs(s.startX - p.x);
-    const h = Math.abs(s.startY - p.y);
+    const dirX = p.x >= s.startX ? 1 : -1;
+    const dirY = p.y >= s.startY ? 1 : -1;
+    let w = Math.max(0.0001, Math.abs(s.startX - p.x));
+    let h = Math.max(0.0001, Math.abs(s.startY - p.y));
+    if (w / h > activeFrameAspect) {
+      h = w / activeFrameAspect;
+    } else {
+      w = h * activeFrameAspect;
+    }
+    const x = dirX > 0 ? s.startX : s.startX - w;
+    const y = dirY > 0 ? s.startY : s.startY - h;
     const nextDraft = normalizeCropRect({ x, y, w, h }, 0.01);
     cropDraftRef.current = nextDraft;
     setCropDraft(nextDraft);
   }
 
   function endCropDrag(event?: React.PointerEvent<HTMLDivElement>) {
-    if (event && event.currentTarget.hasPointerCapture(event.pointerId)) {
+    if (event?.currentTarget && event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    const targetItemId = cropDragRef.current.targetItemId;
-    const draft = cropDraftRef.current;
-    if (targetItemId && draft && draft.w >= 0.02 && draft.h >= 0.02) {
-      const nextCrop = normalizeCropRect(draft, 0.02);
-      setTrackItems("visual", (items) =>
-        items.map((item) => (item.id === targetItemId ? { ...item, crop: nextCrop } : item))
-      );
-    }
-    cropDragRef.current.targetItemId = null;
+    if (!cropDragRef.current.active) return;
     cropDragRef.current.active = false;
-    cropDraftRef.current = null;
-    setCropTargetItemId(null);
-    setCropDraft(null);
+    cropDragRef.current.targetItemId = cropTargetItemId;
   }
 
   function exportTargetVisualItem() {
@@ -793,12 +850,33 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     if (!cropTargetItemId) return;
     const exists = project.visual.some((item) => item.id === cropTargetItemId);
     if (exists) return;
+    setCropMode(false);
     setCropTargetItemId(null);
     setCropDraft(null);
     cropDraftRef.current = null;
     cropDragRef.current.active = false;
     cropDragRef.current.targetItemId = null;
   }, [cropTargetItemId, project.visual]);
+
+  useEffect(() => {
+    if (cropMode) return;
+    setCropDraft(null);
+    setCropTargetItemId(null);
+    cropDraftRef.current = null;
+    cropDragRef.current.active = false;
+    cropDragRef.current.targetItemId = null;
+  }, [cropMode]);
+
+  useEffect(() => {
+    if (!cropMode) return;
+    const source = selectedVisualItem || previewVisual;
+    if (!source || source.type === "audio" || source.type === "caption") return;
+    if (cropTargetItemId === source.id) return;
+    const base = source.crop ? normalizeCropRect(source.crop, 0.02) : { x: 0, y: 0, w: 1, h: 1 };
+    setCropTargetItemId(source.id);
+    setCropDraft(base);
+    cropDraftRef.current = base;
+  }, [cropMode, cropTargetItemId, selectedVisualItem, previewVisual]);
 
   useEffect(() => {
     if (toolTab !== "media" && mediaMenuOpen) setMediaMenuOpen(false);
@@ -818,6 +896,77 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     }, 100);
     return () => window.clearInterval(timer);
   }, [playing, timelineSeconds]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableEventTarget(event.target)) return;
+
+      if (event.key === " ") {
+        event.preventDefault();
+        setPlaying((prev) => !prev);
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        duplicateSelected();
+        return;
+      }
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (!selected) return;
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        const step = event.shiftKey ? 2 : 0.5;
+        setPlayhead((prev) => clamp(prev - step, 0, timelineSeconds));
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        const step = event.shiftKey ? 2 : 0.5;
+        setPlayhead((prev) => clamp(prev + step, 0, timelineSeconds));
+        return;
+      }
+
+      if (event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        if (cropMode) {
+          cancelCropMode();
+        } else {
+          startCropMode();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // Intentionally avoid function deps here; state deps keep handlers fresh without recreating callbacks across every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, selectedItem, timelineSeconds, cropMode, selectedVisualItem, previewVisual]);
+
+  useEffect(() => {
+    if (!cropMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableEventTarget(event.target)) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyCropDraft();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        cancelCropMode();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // Intentionally avoid function deps here; crop state deps keep handler logic in sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropMode, cropTargetItemId, cropDraft]);
 
   useEffect(() => {
     return () => {
@@ -892,29 +1041,30 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         </div>
 
         <div className="pb-0.5">
-          <div className="relative">
-            <div className="grid h-3.5 grid-cols-12 text-[9px] text-white/38">
-              {Array.from({ length: 13 }).map((_, index) => (
-                <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}> 
-                  {formatSeconds((timelineSeconds / 12) * index)}
-                </span>
-              ))}
-            </div>
+          <div className="orbito-scrollbar overflow-x-auto overflow-y-visible pb-2">
+            <div className="relative min-w-[720px]" style={{ width: `${timelineWidthPct}%` }}>
+              <div className="grid h-3.5 grid-cols-12 text-[9px] text-white/38">
+                {Array.from({ length: 13 }).map((_, index) => (
+                  <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}>
+                    {formatSeconds((timelineSeconds / 12) * index)}
+                  </span>
+                ))}
+              </div>
 
-            <div
-              data-track-lane={track}
-              className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-crosshair"
-              style={{ height: laneHeight }}
-              onMouseMove={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                const x = clamp(event.clientX - rect.left, 0, rect.width);
-                const y = clamp(event.clientY - rect.top, 0, laneHeight);
-                setTimelineHoverLens({ track, x, y, laneWidth: rect.width, laneHeight });
-              }}
-              onMouseLeave={() => {
-                setTimelineHoverLens((prev) => (prev?.track === track ? null : prev));
-              }}
-            >
+              <div
+                data-track-lane={track}
+                className="relative mt-1 overflow-visible border border-white/10 bg-[#0b1020]/90 cursor-crosshair"
+                style={{ height: laneHeight }}
+                onMouseMove={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const x = clamp(event.clientX - rect.left, 0, rect.width);
+                  const y = clamp(event.clientY - rect.top, 0, laneHeight);
+                  setTimelineHoverLens({ track, x, y, laneWidth: rect.width, laneHeight });
+                }}
+                onMouseLeave={() => {
+                  setTimelineHoverLens((prev) => (prev?.track === track ? null : prev));
+                }}
+              >
               <div
                 className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
                 style={{ left: `${playheadPct}%` }}
@@ -976,6 +1126,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   No items yet.
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -1349,8 +1500,35 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             <section className="border-b border-white/10 bg-[#121726] p-4 xl:col-start-2">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Preview Stage</div>
-                <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
-                  {profile.label}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (cropMode) cancelCropMode();
+                      else startCropMode();
+                    }}
+                    className={cx(
+                      "border px-3 py-1 text-[11px] transition",
+                      cropMode
+                        ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                        : "border-white/10 bg-white/[0.03] text-white/72"
+                    )}
+                  >
+                    {cropMode ? "Crop mode on" : "Crop"}
+                  </button>
+                  {cropMode ? (
+                    <>
+                      <button type="button" onClick={applyCropDraft} className="border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
+                        Apply crop
+                      </button>
+                      <button type="button" onClick={cancelCropMode} className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72 transition">
+                        Cancel
+                      </button>
+                    </>
+                  ) : null}
+                  <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
+                    {profile.label}
+                  </div>
                 </div>
               </div>
               <div className="border border-white/10 bg-black/45 p-4">
@@ -1375,16 +1553,31 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   ) : null}
 
-                  {previewVisual ? (
+                  {previewVisual?.crop && !cropMode ? (
                     <div
-                      className="absolute inset-0 z-20 cursor-crosshair touch-none"
+                      className="pointer-events-none absolute z-10 border border-cyan-200/45"
+                      style={{
+                        left: `${previewVisual.crop.x * 100}%`,
+                        top: `${previewVisual.crop.y * 100}%`,
+                        width: `${previewVisual.crop.w * 100}%`,
+                        height: `${previewVisual.crop.h * 100}%`,
+                        boxShadow: "0 0 0 9999px rgba(0,0,0,0.2)",
+                      }}
+                    />
+                  ) : null}
+
+                  {previewVisual && cropMode ? (
+                    <div
+                      className={cx(
+                        "absolute inset-0 z-20 touch-none",
+                        cropTargetItemId === previewVisual.id ? "cursor-crosshair" : "cursor-not-allowed"
+                      )}
                       onPointerDown={beginCropDrag}
                       onPointerMove={moveCropDrag}
                       onPointerUp={endCropDrag}
                       onPointerCancel={endCropDrag}
-                      onPointerLeave={endCropDrag}
                     >
-                      {cropDraft ? (
+                      {cropDraft && cropTargetItemId === previewVisual.id ? (
                         <div
                           className="pointer-events-none absolute border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
                           style={{
@@ -1396,8 +1589,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         />
                       ) : null}
                       <div className="pointer-events-none absolute left-3 top-3 bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
-                        Drag anywhere on preview to crop
+                        Drag to draw crop frame ({project.frame} lock). Press Enter to apply, Esc to cancel.
                       </div>
+                      {cropTargetItemId !== previewVisual.id ? (
+                        <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
+                          Move playhead to the selected visual clip to continue cropping.
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -1446,6 +1644,30 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     Length {formatSeconds(timelineSeconds)}
                   </div>
                   <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
+                    Zoom {timelineZoom.toFixed(2)}x
+                    <input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.05}
+                      value={timelineZoom}
+                      onChange={(event) => setTimelineZoom(clamp(Number(event.target.value || 1), 1, 3))}
+                      className="w-24 accent-white"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSnapToGrid((prev) => !prev)}
+                    className={cx(
+                      "border px-3 py-1 text-[11px] transition",
+                      snapToGrid
+                        ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                        : "border-white/10 bg-white/[0.03] text-white/70"
+                    )}
+                  >
+                    Snap {snapToGrid ? "on" : "off"}
+                  </button>
+                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
                     Music {formatPercent(project.musicBedLevel)}
                     <input
                       type="range"
@@ -1477,6 +1699,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               </div>
 
+              <div className="mb-3 text-[10px] text-white/45">
+                Shortcuts: Space play/pause, Arrows nudge playhead, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop mode.
+              </div>
+
               {selectedItem && selected ? (
                 <div className="mb-3 grid gap-2 border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[minmax(0,1fr)_120px_120px_auto_auto]">
                   <input
@@ -1489,7 +1715,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     min={0}
                     step={0.01}
                     value={selectedItem.start}
-                    onChange={(event) => updateSelected({ start: clamp(Number(event.target.value || 0), 0, 600) })}
+                    onChange={(event) => updateSelected({ start: clamp(snapTimeValue(Number(event.target.value || 0)), 0, 600) })}
                     className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
                   />
                   <input
