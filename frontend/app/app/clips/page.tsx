@@ -100,6 +100,9 @@ type SocialPostDTO = {
 type ProviderPublishOptionsDTO = {
   provider: string;
   account_name?: string | null;
+  last_caption?: string | null;
+  post_blocked?: boolean;
+  post_block_reason?: string | null;
   options?: Record<string, any>;
 };
 
@@ -1217,6 +1220,18 @@ function ClipsWorkspace() {
       const normalized = fetched && typeof fetched === "object" ? fetched : fallbackPublishOptions(provider);
       const options = normalized.options || {};
       const defaults = extractOptionDefaults(options);
+      if (provider === "tiktok") {
+        const rawLastCaption = typeof normalized.last_caption === "string" ? normalized.last_caption.trim() : "";
+        if (rawLastCaption) {
+          const scheduleClip = clips.find((c) => c.id === scheduleClipId);
+          const auto = scheduleClip ? autoTitle(scheduleClip).trim() : "";
+          setScheduleCaption((prev) => {
+            const prevTrimmed = String(prev || "").trim();
+            if (!prevTrimmed || prevTrimmed === auto) return rawLastCaption;
+            return prev;
+          });
+        }
+      }
       setProviderOptionCatalog((prev) => ({ ...prev, [provider]: { ...normalized, options } }));
       setProviderOptionValues((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), ...defaults } }));
     } catch {
@@ -1328,6 +1343,13 @@ function ClipsWorkspace() {
         return;
       }
       if (provider === "tiktok" && scheduleClip) {
+        const tiktokCatalog = providerOptionCatalog.tiktok;
+        const tiktokBlocked = Boolean(tiktokCatalog?.post_blocked);
+        const tiktokBlockedReason = String(tiktokCatalog?.post_block_reason || "").trim();
+        if (tiktokBlocked) {
+          setScheduleError(tiktokBlockedReason || "TikTok cannot post from this account right now. Please try again later.");
+          return;
+        }
         const tiktokMeta = providerOptionCatalog.tiktok?.options || {};
         const rawMax =
           tiktokMeta.max_video_post_duration_sec && typeof tiktokMeta.max_video_post_duration_sec === "object"
@@ -3170,6 +3192,11 @@ function ScheduleForm({
   const remainingSlots = maxPlatforms === null ? null : Math.max(0, maxPlatforms - selectedProviders.length);
   const hasConnected = providers.length > 0;
   const captionLen = caption.trim().length;
+  const tiktokCatalog = providerOptionCatalog.tiktok;
+  const tiktokBlocked = selectedSet.has("tiktok") && Boolean(tiktokCatalog?.post_blocked);
+  const tiktokBlockReason = tiktokBlocked
+    ? String(tiktokCatalog?.post_block_reason || "TikTok cannot post from this account right now. Please try again later.")
+    : "";
 
   function toggleProvider(provider: SupportedSocialProvider) {
     if (!connectedSet.has(provider)) return;
@@ -3370,6 +3397,11 @@ function ScheduleForm({
           <div className="mt-1 text-[12px] text-white/58">
             Required publish controls vary by platform and account capabilities.
           </div>
+          {tiktokBlocked ? (
+            <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
+              {tiktokBlockReason}
+            </div>
+          ) : null}
           <div className="mt-3 grid gap-3">
             {selectedProviders.map((provider) => {
               const fallback = fallbackPublishOptions(provider);
@@ -3424,19 +3456,26 @@ function ScheduleForm({
                   options.max_video_post_duration_sec && typeof options.max_video_post_duration_sec === "object"
                     ? Number((options.max_video_post_duration_sec as any).value || 0)
                     : Number(options.max_video_post_duration_sec || 0);
+                const postBlocked = Boolean(catalog.post_blocked);
+                const postBlockReason = String(catalog.post_block_reason || "").trim();
                 return (
                   <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[12px] font-semibold text-white/86">TikTok</div>
                       {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
                     </div>
+                    {postBlocked ? (
+                      <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/90">
+                        {postBlockReason || "TikTok cannot post from this account right now. Please try again later."}
+                      </div>
+                    ) : null}
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       <label className="grid gap-1">
                         <span className="text-[11px] text-white/60">Post destination</span>
                         <select
                           value={String(values.publish_mode || "DIRECT_POST")}
                           onChange={(e) => onUpdateProviderOption(provider, "publish_mode", e.target.value)}
-                          disabled={loading || busy}
+                          disabled={loading || busy || postBlocked}
                           className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
                         >
                           {modeChoices.map((choice: string) => (
@@ -3451,7 +3490,7 @@ function ScheduleForm({
                         <select
                           value={String(values.privacy_level || "")}
                           onChange={(e) => onUpdateProviderOption(provider, "privacy_level", e.target.value)}
-                          disabled={loading || busy}
+                          disabled={loading || busy || postBlocked}
                           className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
                         >
                           <option value="">Select privacy level</option>
@@ -3479,7 +3518,7 @@ function ScheduleForm({
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
                             onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
-                            disabled={loading || busy || interactionLocks[toggle.key]}
+                            disabled={loading || busy || postBlocked || interactionLocks[toggle.key]}
                             className="h-4 w-4 accent-cyan-400"
                           />
                           <span>{toggle.label}</span>
@@ -3502,7 +3541,7 @@ function ScheduleForm({
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
                             onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
-                            disabled={loading || busy}
+                            disabled={loading || busy || postBlocked}
                             className="h-4 w-4 accent-cyan-400"
                           />
                           <span>{toggle.label}</span>
@@ -3516,7 +3555,7 @@ function ScheduleForm({
                             type="checkbox"
                             checked={Boolean(values.confirm_music_usage)}
                             onChange={(e) => onUpdateProviderOption(provider, "confirm_music_usage", e.target.checked)}
-                            disabled={loading || busy}
+                            disabled={loading || busy || postBlocked}
                             className="mt-0.5 h-4 w-4 accent-cyan-400"
                           />
                           <span>
@@ -3525,13 +3564,13 @@ function ScheduleForm({
                         </label>
                         {needsBrandedConfirm ? (
                           <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(values.confirm_branded_content)}
-                              onChange={(e) => onUpdateProviderOption(provider, "confirm_branded_content", e.target.checked)}
-                              disabled={loading || busy}
-                              className="mt-0.5 h-4 w-4 accent-cyan-400"
-                            />
+                              <input
+                                type="checkbox"
+                                checked={Boolean(values.confirm_branded_content)}
+                                onChange={(e) => onUpdateProviderOption(provider, "confirm_branded_content", e.target.checked)}
+                                disabled={loading || busy || postBlocked}
+                                className="mt-0.5 h-4 w-4 accent-cyan-400"
+                              />
                             <span>
                               I confirm branded content disclosure is accurate and follows TikTok Branded Content Policy.
                             </span>
@@ -3627,7 +3666,7 @@ function ScheduleForm({
             type="button"
             onClick={onPostNow}
             className="btn-aurora text-sm px-4 py-2"
-            disabled={busy}
+            disabled={busy || tiktokBlocked}
           >
             {busy ? "Posting..." : "Post now"}
           </button>
@@ -3635,12 +3674,12 @@ function ScheduleForm({
             type="button"
             onClick={onSchedule}
             className="btn-ghost text-sm px-4 py-2"
-            disabled={busy || !when}
+            disabled={busy || !when || tiktokBlocked}
           >
             {busy ? "Scheduling..." : "Schedule post"}
           </button>
           <div className="text-[12px] text-white/55">
-            Set a time to schedule, or use Post now to publish instantly.
+            {tiktokBlocked ? tiktokBlockReason : "Set a time to schedule, or use Post now to publish instantly."}
           </div>
         </div>
       </div>
