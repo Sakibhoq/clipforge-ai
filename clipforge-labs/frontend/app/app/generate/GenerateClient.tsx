@@ -90,7 +90,7 @@ function prettyStatus(s: string) {
 
 function statusTone(status: string) {
   const v = String(status || "").toLowerCase();
-  if (v === "running" || v === "queued") return "border-cyan-300/30 bg-cyan-400/10 text-cyan-100";
+  if (v === "running" || v === "queued") return "border-amber-300/35 bg-amber-400/12 text-amber-100";
   if (v === "done") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-100";
   if (v === "failed" || v === "canceled") return "border-rose-300/30 bg-rose-400/10 text-rose-100";
   return "border-white/15 bg-white/[0.06] text-white/75";
@@ -144,7 +144,7 @@ function humanizeGenerationError(raw: string | null | undefined): string {
     low.includes("too many requests") ||
     low.includes("429")
   ) {
-    return "Generation queue is at provider capacity. Retry in a few minutes or lower image count.";
+    return "Generation queue is at provider capacity. Retry in a few minutes.";
   }
   if (
     low.includes("signaturedoesnotmatch") ||
@@ -184,7 +184,6 @@ export default function GenerateClient() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [errorTechnical, setErrorTechnical] = useState<string | null>(null);
   const [needsBilling, setNeedsBilling] = useState(false);
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
@@ -292,7 +291,7 @@ export default function GenerateClient() {
               className={cx(
                 "h-10 rounded-xl border px-3 text-[11px] font-semibold transition sm:min-w-[92px]",
                 previewLoading
-                  ? "border-cyan-300/40 bg-cyan-400/12 text-cyan-100"
+                  ? "border-amber-300/40 bg-amber-400/12 text-amber-100"
                   : "border-white/12 bg-white/[0.06] text-white/82 hover:bg-white/[0.12]"
               )}
             >
@@ -399,7 +398,6 @@ export default function GenerateClient() {
 
   async function startGeneration() {
     setError(null);
-    setErrorTechnical(null);
     setNeedsBilling(false);
 
     const p = prompt.trim();
@@ -491,7 +489,6 @@ export default function GenerateClient() {
       } else {
         const friendly = humanizeGenerationError(msg);
         setError(friendly);
-        if (friendly !== msg) setErrorTechnical(msg);
       }
     } finally {
       setSubmitting(false);
@@ -508,244 +505,192 @@ export default function GenerateClient() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-3xl border border-white/10 p-5 sm:p-7">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-16 opacity-50 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(340px 220px at 12% 18%, rgba(255,183,3,0.24), transparent 72%), radial-gradient(360px 220px at 88% 18%, rgba(58,134,255,0.2), transparent 74%), radial-gradient(340px 220px at 56% 98%, rgba(251,86,7,0.16), transparent 76%)",
-            }}
-          />
+      <main className="relative mx-auto max-w-[1100px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+        <form onSubmit={onGenerate} className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
+          <section className="surface relative overflow-hidden rounded-3xl border border-[#fb560740] p-5 sm:p-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-12 opacity-35 blur-3xl"
+              style={{
+                background:
+                  "radial-gradient(520px 260px at 18% 16%, rgba(255,183,3,0.22), transparent 72%), radial-gradient(520px 260px at 88% 18%, rgba(251,86,7,0.18), transparent 72%)",
+              }}
+            />
 
-          <div className="relative grid gap-5">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="text-xs text-white/55">• Generator Console</div>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  <span className="grad-text">Build Social-Ready AI Posts Faster</span>
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm text-white/70 sm:text-[15px]">
-                  Prompt once, generate assets, and move straight into timeline editing. Optimized for mobile and
-                  desktop workflows.
-                </p>
+            <div className="relative">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Generate Clips</h1>
+                  <p className="mt-1 text-sm text-white/65">
+                    Fast one-minute AI posts. For longer videos, generate images and finish in the editor.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
+                    Open editor
+                  </Link>
+                  <Link
+                    href="/app/clips"
+                    className="inline-flex items-center rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.10]"
+                  >
+                    Clips library
+                  </Link>
+                </div>
               </div>
 
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-                <Link href="/app/clips?editor=1" className="btn-aurora col-span-1 px-4 py-2 text-center text-xs">
-                  Open editor
-                </Link>
-                {activeJob ? (
-                  <span
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
+                {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
                     className={cx(
-                      "col-span-2 rounded-full border px-3 py-1.5 text-center text-xs font-semibold sm:col-auto",
-                      statusTone(status)
+                      "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
+                      mode === m
+                        ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
+                        : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
                     )}
                   >
+                    {modeLabel(m)}
+                  </button>
+                ))}
+              </div>
+
+              {activeJob ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                  <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(status))}>
                     {statusLabel}
                   </span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {[
-                { label: "Mode", value: modeLabel(mode) },
-                { label: "Estimated Cost", value: `${estimatedCredits} credits` },
-                { label: "Plan", value: String(currentPlan || "free").toUpperCase() },
-                {
-                  label: "Target",
-                  value: mode === "post" ? "1 min" : mode === "video" ? `${duration}s` : "N/A",
-                },
-                {
-                  label: "Output Type",
-                  value:
-                    mode === "voiceover"
-                      ? "N/A"
-                      : STYLE_PRESET_OPTIONS.find((opt) => opt.value === stylePreset)?.label || stylePreset,
-                },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{item.label}</div>
-                  <div className="mt-1 text-sm font-semibold text-white/90">{item.value}</div>
+                  <span className="text-xs text-white/60">Latest job #{activeJob.id}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
+              ) : null}
 
-        <form onSubmit={onGenerate} className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
-          <div className="surface rounded-3xl border border-white/10 p-5 sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <div className="text-xs text-white/55">• Prompt Builder</div>
-                <div className="mt-1 text-base font-semibold text-white/90">Create with one clean workflow</div>
-                <div className="mt-1 text-xs text-white/55 sm:text-[13px]">
-                  Start with AI Post for a single 1-minute ready-to-post clip, or switch lanes for dedicated
-                  video/image/voice jobs.
-                </div>
+              <div className="mt-4 grid gap-3">
+                {mode === "post" ? (
+                  <>
+                    <label className="text-xs font-medium text-white/70">Visual direction</label>
+                    <textarea
+                      value={postVisualPrompt}
+                      onChange={(e) => setPostVisualPrompt(e.target.value)}
+                      rows={7}
+                      placeholder="Describe shots, scene style, camera behavior, and pacing."
+                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                    />
+
+                    <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
+                    <textarea
+                      value={postVoiceScript}
+                      onChange={(e) => setPostVoiceScript(e.target.value)}
+                      rows={8}
+                      placeholder="Write the narration for your 1-minute clip."
+                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                    />
+                    <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
+
+                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] text-amber-100/90">
+                      Need longer than 1 minute? Use Image mode and complete timing/transitions in editor.
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMode("image")}
+                          className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
+                        >
+                          Switch to Image mode
+                        </button>
+                        <Link
+                          href="/app/clips?editor=1"
+                          className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
+                        >
+                          Open editor
+                        </Link>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="text-xs font-medium text-white/70">Prompt</label>
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      rows={mode === "voiceover" ? 10 : 8}
+                      placeholder={
+                        mode === "voiceover"
+                          ? "Write the exact script you want spoken."
+                          : mode === "image"
+                            ? "Describe subject, lighting, lens, and mood."
+                            : "Describe the shot, motion, and final style in one concise prompt."
+                      }
+                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                    />
+                    <div className="text-[11px] text-white/50">
+                      {mode === "voiceover"
+                        ? `${textLength.toLocaleString()} characters`
+                        : "Keep prompts short and specific for cleaner output."}
+                    </div>
+                  </>
+                )}
               </div>
-              <Link
-                href="/app/clips"
-                className="btn-aurora w-full px-3 py-2 text-center text-xs sm:w-auto"
-              >
-                Open clips library
-              </Link>
-            </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
-              {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={cx(
-                    "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
-                    mode === m
-                      ? "border-white/30 bg-white/18 text-white"
-                      : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
-                  )}
-                >
-                  {modeLabel(m)}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-5 grid gap-3">
-              {mode === "post" ? (
-                <>
-                  <label className="text-xs font-medium text-white/70">Visual direction</label>
-                  <textarea
-                    value={postVisualPrompt}
-                    onChange={(e) => setPostVisualPrompt(e.target.value)}
-                    rows={7}
-                    placeholder="Describe the visual story, framing, motion language, and visual style."
-                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                  />
-
-                  <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
-                  <textarea
-                    value={postVoiceScript}
-                    onChange={(e) => setPostVoiceScript(e.target.value)}
-                    rows={8}
-                    placeholder="Write the narration for your full 1-minute post."
-                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                  />
-                  <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
-                  <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] text-amber-100/90">
-                    Need longer than 1 minute? Generate in Image mode, then stitch and time scenes in the editor.
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setMode("image")}
-                        className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
-                      >
-                        Switch to Image mode
-                      </button>
-                      <Link
-                        href="/app/clips?editor=1"
-                        className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
-                      >
-                        Open editor
+              {error ? (
+                <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
+                  <div className="font-semibold text-rose-50">Generation issue</div>
+                  <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
+                  {needsBilling ? (
+                    <div className="mt-2">
+                      <Link href="/pricing" className="underline decoration-rose-200/30 underline-offset-4">
+                        Open pricing
                       </Link>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <label className="text-xs font-medium text-white/70">Prompt</label>
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={mode === "voiceover" ? 10 : 8}
-                    placeholder={
-                      mode === "voiceover"
-                        ? "Write the exact script you want spoken."
-                        : mode === "image"
-                          ? "Describe subject, angle, lighting, and mood."
-                          : "Describe scene, motion, framing, and style in 1-2 lines."
-                    }
-                    className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-white/25"
-                  />
-                  <div className="text-[11px] text-white/50">
-                    {mode === "voiceover"
-                      ? `${textLength.toLocaleString()} characters`
-                      : "Short, direct prompts generate cleaner output."}
-                  </div>
-                </>
-              )}
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-3 text-xs text-white/70">
+                  Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={!canGenerate}
+                  className={cx(
+                    "h-12 rounded-2xl border px-6 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/25",
+                    canGenerate
+                      ? "border-amber-300/35 bg-amber-500/14 text-amber-100 hover:bg-amber-500/22"
+                      : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                  )}
+                >
+                  {submitting ? "Starting generation..." : `Generate ${modeLabel(mode)}`}
+                </button>
+              </div>
             </div>
-
-            {error ? (
-              <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
-                <div className="font-semibold text-rose-50">Generation issue</div>
-                <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
-                {errorTechnical ? (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-[11px] text-rose-100/80">Show technical details</summary>
-                    <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-rose-300/20 bg-black/20 p-2 text-[11px] text-rose-50/85">
-                      {errorTechnical}
-                    </pre>
-                  </details>
-                ) : null}
-                {needsBilling ? (
-                  <div className="mt-2">
-                    <Link href="/pricing" className="underline decoration-rose-200/30 underline-offset-4">
-                      Open pricing
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {activeJob?.status === "failed" && activeJob?.error ? (
-              <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
-                <div className="font-semibold text-rose-50">Latest job failed</div>
-                <div className="mt-1 whitespace-pre-wrap break-words">{humanizeGenerationError(String(activeJob.error))}</div>
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={!canGenerate}
-              className={cx(
-                "mt-5 h-12 w-full rounded-2xl border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
-                canGenerate
-                  ? "border-white/12 bg-white/12 text-white hover:bg-white/18"
-                  : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-              )}
-            >
-              {submitting ? "Starting generation..." : `Generate ${modeLabel(mode)}`}
-            </button>
-          </div>
+          </section>
 
           <aside className="grid gap-4">
-            <div className="surface-soft rounded-3xl border border-white/10 p-5">
-              <div className="text-xs text-white/55">• Output Settings</div>
+            <div className="surface-soft rounded-3xl border border-[#fb560740] p-5">
+              <div className="text-sm font-semibold text-white/88">Settings</div>
               <div className="mt-3 grid gap-3">
-                {(mode === "post" || mode === "video" || mode === "image") && (
+                {(mode === "post" || mode === "video" || mode === "image") ? (
                   <div className="grid gap-2">
                     <label className="text-xs font-medium text-white/70">Aspect ratio</label>
                     <select
                       value={aspectRatio}
                       onChange={(e) => setAspectRatio(e.target.value)}
-                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                     >
                       <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
-                      <option value="16:9">16:9 (YouTube landscape)</option>
+                      <option value="16:9">16:9 (Landscape)</option>
                       <option value="1:1">1:1 (Square)</option>
                     </select>
                   </div>
-                )}
+                ) : null}
 
-                {(mode === "post" || mode === "video" || mode === "image") && (
+                {(mode === "post" || mode === "video" || mode === "image") ? (
                   <div className="grid gap-2">
-                    <label className="text-xs font-medium text-white/70">Output type</label>
+                    <label className="text-xs font-medium text-white/70">Style</label>
                     <select
                       value={stylePreset}
                       onChange={(e) => setStylePreset(e.target.value as StylePreset)}
-                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                     >
                       {STYLE_PRESET_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -754,20 +699,19 @@ export default function GenerateClient() {
                       ))}
                     </select>
                   </div>
-                )}
+                ) : null}
 
                 {mode === "post" ? (
                   <>
-                    <div className="rounded-2xl border border-cyan-300/20 bg-cyan-500/8 p-3 text-[11px] text-cyan-100/90">
-                      AI Post is fixed to 1 minute. If provider capacity is busy, backend retries scenes automatically
-                      with 10 → 8 → 6 images.
+                    <div className="rounded-2xl border border-amber-300/25 bg-amber-500/10 p-3 text-[11px] text-amber-100/90">
+                      AI Post is fixed to 1 minute. Backend retries automatically with 10 → 8 → 6 scenes when capacity is tight.
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Caption style</label>
                       <select
                         value={postCaptionStylePreset}
                         onChange={(e) => setPostCaptionStylePreset(e.target.value as CaptionStylePreset)}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                       >
                         {CAPTION_STYLE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -779,7 +723,7 @@ export default function GenerateClient() {
                     </div>
                     {renderVoiceSelector()}
                     <div className="rounded-2xl border border-white/12 bg-black/35 p-3 text-[11px] text-white/65">
-                      Voice speed is auto-paced from your script so narration fits the 1-minute timeline naturally.
+                      Voice speed is auto-calculated to match 60-second delivery.
                     </div>
                   </>
                 ) : null}
@@ -791,7 +735,7 @@ export default function GenerateClient() {
                       <select
                         value={duration}
                         onChange={(e) => setDuration(Number(e.target.value))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                       >
                         <option value={4}>4 seconds</option>
                         <option value={6}>6 seconds</option>
@@ -807,7 +751,7 @@ export default function GenerateClient() {
                           className={cx(
                             "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                             videoSpeed === "relax"
-                              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                              ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
                               : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
                           )}
                         >
@@ -846,75 +790,55 @@ export default function GenerateClient() {
                         min={80}
                         max={260}
                         onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-white/25"
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                       />
                     </div>
                   </>
                 ) : null}
-
-                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-xs text-white/70">
-                  <div>
-                    Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
-                  </div>
-                  <div className="mt-2 text-[11px] text-white/55">
-                    AI post (image + voice): {POST_CREDITS_PER_MINUTE} credits/min. Video:{" "}
-                    {VIDEO_RELAX_CREDITS_PER_SECOND} credits/s Relax, {VIDEO_FAST_CREDITS_PER_SECOND} credits/s Fast.
-                  </div>
-                </div>
               </div>
             </div>
 
-            <div className="surface-soft rounded-3xl border border-white/10 p-5">
+            <div className="surface-soft rounded-3xl border border-[#fb560740] p-5">
               <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs text-white/55">• Queue</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">Recent generation jobs</div>
+                <div className="text-sm font-semibold text-white/88">Queue</div>
+                <button
+                  type="button"
+                  onClick={refreshJobs}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
+                >
+                  Refresh
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={refreshJobs}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
-              >
-                Refresh
-              </button>
-            </div>
 
-            {jobs.length ? (
-              <div className="mt-4 grid gap-2">
-                {jobs.slice(0, 3).map((j) => (
-                  <button
-                    key={j.id}
-                    type="button"
-                    onClick={() => {
-                      pollJob(j.id);
-                    }}
-                    className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-4 transition hover:bg-white/[0.06]"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0 break-words pr-0 text-sm font-semibold text-white/85 sm:flex-1 sm:pr-3">
-                        {shortPromptLabel(j.prompt, j.id)}
+              {jobs.length ? (
+                <div className="mt-3 grid gap-2">
+                  {jobs.slice(0, 4).map((j) => (
+                    <button
+                      key={j.id}
+                      type="button"
+                      onClick={() => {
+                        pollJob(j.id);
+                      }}
+                      className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.06]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 text-sm font-semibold text-white/85">{shortPromptLabel(j.prompt, j.id)}</div>
+                        <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
+                          {prettyStatus(j.status)}
+                        </span>
                       </div>
-                      <span
-                        className={cx(
-                          "self-start rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:self-auto",
-                          statusTone(j.status)
-                        )}
-                      >
-                        {prettyStatus(j.status)}
-                      </span>
-                    </div>
-                    <div className="mt-2 break-words text-xs text-white/55">
-                      {kindLabel(j.kind)} • {j.aspect_ratio || "—"} • {durationPresetLabel(j.duration_seconds)} • Upload #{j.upload_id}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-6 text-center text-sm text-white/60">
-                No generation jobs yet.
-              </div>
-            )}
-          </div>
+                      <div className="mt-1 text-xs text-white/55">
+                        {kindLabel(j.kind)} • {durationPresetLabel(j.duration_seconds)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4 text-center text-sm text-white/60">
+                  No generation jobs yet.
+                </div>
+              )}
+            </div>
           </aside>
         </form>
         <audio
