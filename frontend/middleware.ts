@@ -14,16 +14,10 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
-const AUTH_PAGES = ["/login", "/register"];
-
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
-}
-
-function isAuthPage(pathname: string) {
-  return AUTH_PAGES.includes(pathname);
 }
 
 function hasAuthCookie(req: NextRequest) {
@@ -98,19 +92,10 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // ✅ PRODUCTION: enforce via cookie on shared domain (e.g. Domain=.clipforge.ai)
+  // ✅ PRODUCTION: enforce protected routes via cookie on shared domain.
+  // Do NOT auto-redirect /login or /register based on cookie presence:
+  // stale/invalid cookies can otherwise trap users outside login.
   const authed = hasAuthCookie(req);
-
-  // If logged in, keep auth pages clean
-  if (authed && isAuthPage(pathname)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/app";
-    url.search = "";
-    return applySecurityHeaders(NextResponse.redirect(url), {
-      production: isProduction,
-      https: isHttps,
-    });
-  }
 
   // Protected paths require auth
   if (isProtectedPath(pathname) && !authed) {
