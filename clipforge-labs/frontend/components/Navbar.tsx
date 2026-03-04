@@ -16,8 +16,7 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "cflabs-2";
 
-  const markBoxClass = inApp ? "h-10 w-10 rounded-[18px]" : "h-9 w-9 rounded-2xl";
-  const markImgSize = inApp ? 24 : 22;
+  const markImgSize = inApp ? 28 : 26;
   const wordmarkClass = inApp
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
     : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
@@ -35,15 +34,12 @@ function Logo() {
   return (
     <Link href={inApp ? "/app" : "/"} onClick={onLogoClick} className="group flex items-center gap-3 shrink-0">
       <span
-        className={[
-          "relative inline-flex items-center justify-center overflow-hidden border border-white/10 bg-white/5 backdrop-blur",
-          markBoxClass,
-        ].join(" ")}
+        className="relative inline-flex items-center justify-center"
       >
         {/* light-leak halo */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          className="pointer-events-none absolute -inset-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{
             background:
               "radial-gradient(62px 62px at 42% 45%, rgba(255,183,3,0.30), transparent 70%), radial-gradient(74px 74px at 70% 42%, rgba(251,86,7,0.24), transparent 72%), radial-gradient(78px 78px at 62% 76%, rgba(58,134,255,0.20), transparent 72%)",

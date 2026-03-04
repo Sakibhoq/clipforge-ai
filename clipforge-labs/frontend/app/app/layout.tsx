@@ -206,10 +206,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Brand */}
           <div className="flex min-w-0 items-center gap-2.5">
             <Link href="/" className="group inline-flex min-w-0 items-center gap-2.5">
-              <span className="relative inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur sm:h-9 sm:w-9">
+              <span className="relative inline-flex items-center justify-center">
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  className="pointer-events-none absolute -inset-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                   style={{
                     background:
                       "radial-gradient(62px 62px at 42% 45%, rgba(255,183,3,0.30), transparent 70%), radial-gradient(74px 74px at 70% 42%, rgba(251,86,7,0.24), transparent 72%), radial-gradient(78px 78px at 62% 76%, rgba(58,134,255,0.20), transparent 72%)",
@@ -220,8 +220,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <img
                   src={`/clipforge-labs-mark.svg?v=${logoV}`}
                   alt={`${BRAND.product} logo`}
-                  width={22}
-                  height={22}
+                  width={26}
+                  height={26}
                   style={{ display: "block" }}
                 />
               </span>
