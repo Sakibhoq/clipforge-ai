@@ -520,7 +520,7 @@ export default function GenerateClient() {
               </div>
 
               <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-                <Link href="/app/editor" className="btn-aurora col-span-1 px-4 py-2 text-center text-xs">
+                <Link href="/app/clips?editor=1" className="btn-aurora col-span-1 px-4 py-2 text-center text-xs">
                   Open editor
                 </Link>
                 {activeJob ? (

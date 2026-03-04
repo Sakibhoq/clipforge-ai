@@ -3737,6 +3737,8 @@ function Drawer({
 
   if (!open) return null;
   const scheduleCard = variant === "schedule";
+  const studioCard = variant === "studio";
+  const enhancedScrollbar = scheduleCard || studioCard;
 
   return (
     <div className="fixed inset-0 z-[80]">
@@ -3786,7 +3788,7 @@ function Drawer({
           </button>
         </div>
 
-        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto", scheduleCard ? "orbito-scrollbar pr-3" : "pr-2")}>
+        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto", enhancedScrollbar ? "orbito-scrollbar pr-3" : "pr-2")}>
           {children}
         </div>
       </div>

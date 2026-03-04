@@ -2,8 +2,10 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
+import EditorWorkspace from "@/components/editor/EditorWorkspace";
 
 type ClipRow = {
   id: number;
@@ -42,7 +44,7 @@ const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 type SocialPlan = AppPlan;
 type AssetFilter = "all" | "video" | "image" | "audio";
-type ActionIconName = "download" | "play" | "schedule";
+type ActionIconName = "download" | "play" | "schedule" | "edit";
 
 const TIKTOK_PRIVACY_CHOICES = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
 
@@ -206,6 +208,14 @@ function ActionGlyph({ icon }: { icon: ActionIconName }) {
       </svg>
     );
   }
+  if (icon === "edit") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 20h9" />
+        <path d="m16.5 3.5 4 4L7 21H3v-4z" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
       <path d="M8 6.5c0-1.02 1.1-1.66 1.98-1.13l8.24 4.95a1.31 1.31 0 0 1 0 2.26l-8.24 4.95A1.32 1.32 0 0 1 8 16.39V6.5Z" />
@@ -245,6 +255,9 @@ function ActionIconButton({
 }
 
 export default function ClipsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+
   const [rows, setRows] = useState<ClipRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -253,6 +266,8 @@ export default function ClipsPage() {
 
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
   const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorFromQuery, setEditorFromQuery] = useState(false);
 
   const [scheduleClip, setScheduleClip] = useState<ClipRow | null>(null);
   const [scheduleSelectedProviders, setScheduleSelectedProviders] = useState<SupportedSocialProvider[]>([]);
@@ -264,6 +279,21 @@ export default function ClipsPage() {
   const [providerOptionCatalog, setProviderOptionCatalog] = useState<Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>>({});
   const [providerOptionValues, setProviderOptionValues] = useState<Partial<Record<SupportedSocialProvider, Record<string, any>>>>({});
   const [providerOptionLoading, setProviderOptionLoading] = useState<Partial<Record<SupportedSocialProvider, boolean>>>({});
+
+  function openEditor() {
+    setScheduleClip(null);
+    setEditorOpen(true);
+  }
+
+  function closeEditor() {
+    setEditorOpen(false);
+    if (!editorFromQuery) return;
+    const nextQuery = new URLSearchParams(window.location.search);
+    nextQuery.delete("editor");
+    const next = nextQuery.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    setEditorFromQuery(false);
+  }
 
   async function loadClips() {
     setLoading(true);
@@ -301,6 +331,25 @@ export default function ClipsPage() {
     refreshAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("editor") !== "1") return;
+    setEditorFromQuery(true);
+    setEditorOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+    };
+  }, [editorOpen]);
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
@@ -614,9 +663,9 @@ export default function ClipsPage() {
                 <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Generator
                 </Link>
-                <Link href="/app/editor" className="btn-aurora px-4 py-2 text-center text-[12px]">
+                <button type="button" onClick={openEditor} className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Editor
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -731,6 +780,7 @@ export default function ClipsPage() {
                       <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
                       <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <ActionIconButton onClick={openEditor} icon="edit" label="Open editor" />
                         <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
                         <ActionIconButton href={c.url} icon="play" label="Open preview" />
                         {assetType === "video" ? (
@@ -801,6 +851,32 @@ export default function ClipsPage() {
           </section>
         ) : null}
       </main>
+
+      {editorOpen ? (
+        <div className="fixed inset-0 z-[90]">
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px]" onClick={closeEditor} />
+          <div className="absolute inset-0 p-3 sm:p-5">
+            <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden rounded-[28px] border border-[#7dd3fc33] bg-[radial-gradient(130%_120%_at_15%_0%,rgba(125,211,252,0.16),transparent_52%),radial-gradient(100%_120%_at_84%_0%,rgba(167,139,250,0.13),transparent_48%),rgba(7,11,21,0.96)] shadow-[0_38px_120px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-white/55">Floating editor card</div>
+                  <div className="truncate text-sm font-semibold text-white/92 sm:text-base">Clipforge Master Editor</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditor}
+                  className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:bg-white/[0.08]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="orbito-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+                <EditorWorkspace mode="card" onClose={closeEditor} />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {scheduleClip ? (
         <div className="fixed inset-0 z-[80]">
