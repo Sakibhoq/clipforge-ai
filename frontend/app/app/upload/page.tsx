@@ -22,11 +22,11 @@ import { emitMeSync } from "@/lib/me-sync";
 
    YouTube (import-first):
    - Paste link -> Import with Orbito
-   - If source blocks import, show clear blocked message + manual fallback upload
+   - If source blocks import, show clear blocked message + manual fallback
 
    POLISH:
    - Clear direct-import first guidance
-   - Simple manual fallback (upload MP4 on left)
+   - Simple manual fallback (open video, download externally, upload on left)
    - YouTube trust + preview + disclaimer (shows credits)
 ========================================================= */
 
@@ -485,56 +485,6 @@ async function apiFetchWithEndpointFallback<T = any>(
   throw lastErr ?? new Error("Request failed");
 }
 
-async function apiPostWithProxyFallback<T = any>(
-  path: string,
-  body: Record<string, any>,
-  signal?: AbortSignal
-): Promise<T> {
-  try {
-    return await apiFetch<T>(path, { method: "POST", body, signal });
-  } catch (e: any) {
-    if (!isLikelyNetworkFetchError(e)) throw e;
-    const proxyPath = `/api${path.startsWith("/") ? path : `/${path}`}`;
-
-    let res: Response;
-    try {
-      res = await fetch(proxyPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        credentials: "include",
-        cache: "no-store",
-        signal,
-      });
-    } catch {
-      throw e;
-    }
-
-    const text = await res.text();
-    let parsed: any = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = text || null;
-    }
-
-    if (!res.ok) {
-      const payload: Record<string, any> = { status: res.status, url: proxyPath };
-      if (parsed && typeof parsed === "object") {
-        if ("detail" in parsed) payload.detail = (parsed as any).detail;
-        if ("message" in parsed) payload.message = (parsed as any).message;
-        if ("error" in parsed) payload.error = (parsed as any).error;
-        if (!payload.detail && !payload.message && !payload.error) payload.body = parsed;
-      } else if (typeof parsed === "string" && parsed) {
-        payload.message = parsed;
-      }
-      throw payload;
-    }
-
-    return parsed as T;
-  }
-}
-
 function buildPutUrlCandidates(rawUrl: string) {
   if (!rawUrl) return [];
   if (/^https?:\/\//i.test(rawUrl)) return [rawUrl];
@@ -928,6 +878,7 @@ function UploadWorkspace() {
   // YouTube (user-assisted)
   const [url, setUrl] = useState("");
   const urlOk = useMemo(() => isValidYoutubeUrl(url), [url]);
+  const [ytStep, setYtStep] = useState<"idle" | "opened">("idle");
 
   const [ytPreview, setYtPreview] = useState<YouTubePreviewResponse | null>(null);
   const [ytPreviewLoading, setYtPreviewLoading] = useState(false);
@@ -947,6 +898,11 @@ function UploadWorkspace() {
 
   const pollAbort = useRef<AbortController | null>(null);
   const uploadAbort = useRef<AbortController | null>(null);
+
+  // Dropzone pulse focus (YouTube Step 3)
+  const dropzoneRef = useRef<HTMLDivElement | null>(null);
+  const [pulseOn, setPulseOn] = useState(false);
+  const pulseTimer = useRef<number | null>(null);
   async function requestCancelJob(targetJobId: number) {
     try {
       await apiFetch(`/jobs/${targetJobId}/cancel`, { method: "POST" });
@@ -1031,6 +987,34 @@ function UploadWorkspace() {
     pollJobUntilComplete(row.id).catch(() => {});
   }
 
+
+  function pulseDropzone() {
+    try {
+      if (typeof window !== "undefined") {
+        if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
+      }
+    } catch {}
+    setPulseOn(true);
+
+    try {
+      dropzoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {}
+
+    if (typeof window !== "undefined") {
+      pulseTimer.current = window.setTimeout(() => setPulseOn(false), 1400);
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (typeof window !== "undefined" && pulseTimer.current) {
+          window.clearTimeout(pulseTimer.current);
+        }
+      } catch {}
+    };
+  }, []);
+
   const steps = useMemo(() => {
     const selectedDone = flow !== "idle" && flow !== "dragging";
     const uploadDone = flow === "processing" || flow === "done";
@@ -1084,14 +1068,14 @@ function UploadWorkspace() {
     setYtPreviewError(null);
 
     try {
-      const data = await apiPostWithProxyFallback<YouTubePreviewResponse>(
-        "/youtube/preview",
-        { url: targetUrl },
-        ac.signal
-      );
+      const data = await apiFetch<YouTubePreviewResponse>("/youtube/preview", {
+        method: "POST",
+        body: { url: targetUrl },
+        signal: ac.signal,
+      });
       setYtPreview(data);
     } catch (e: any) {
-      const rawMsg =
+      const msg =
         typeof e?.detail === "string"
           ? e.detail
           : typeof e?.body?.detail === "string"
@@ -1099,14 +1083,8 @@ function UploadWorkspace() {
           : typeof e?.message === "string"
           ? e.message
           : "Could not preview video.";
-      const msg = compactUploadErrorMessage(rawMsg);
-      const status = getErrorStatus(e);
       setYtPreview(null);
-      if (status === 404 || /^not found\.?$/i.test(msg) || isLikelyYoutubeSourceBlock(msg)) {
-        setYtPreviewError("Link unavailable or blocked by source platform.");
-      } else {
-        setYtPreviewError(msg || "Could not preview video.");
-      }
+      setYtPreviewError(msg);
     } finally {
       setYtPreviewLoading(false);
       ytPreviewAbort.current = null;
@@ -1180,7 +1158,7 @@ function UploadWorkspace() {
     if (isFree) setWatermarkEnabled(true);
   }, [isFree]);
 
-  // YouTube URL changes: keep preview state in sync (debounced preview call)
+  // YouTube URL changes: reset step + preview state (debounced preview call)
   useEffect(() => {
     if (!YOUTUBE_INGEST_ENABLED) return;
 
@@ -1210,6 +1188,15 @@ function UploadWorkspace() {
 
     return () => window.clearTimeout(t);
   }, [urlOk, url]);
+
+  function openPastedLink() {
+    if (!urlOk) return;
+    const normalized = normalizeYoutubeUrl(url);
+    if (!normalized) return;
+    window.open(normalized, "_blank", "noopener,noreferrer");
+    setYtStep("opened");
+    pulseDropzone();
+  }
 
   function resetFileFlow() {
     pollAbort.current?.abort();
@@ -1703,13 +1690,16 @@ function UploadWorkspace() {
 
     try {
       const normalized = normalizeYoutubeUrl(url);
-      const reg = await apiPostWithProxyFallback<RegisterResponse>("/youtube/ingest", {
-        url: normalized,
-        aspect_ratio: aspectRatio,
-        captions_enabled: captionsEnabled,
-        watermark_enabled: isFree ? true : watermarkEnabled,
-        caption_style_json: null,
-        create_new_job: true,
+      const reg = await apiFetch<RegisterResponse>("/youtube/ingest", {
+        method: "POST",
+        body: {
+          url: normalized,
+          aspect_ratio: aspectRatio,
+          captions_enabled: captionsEnabled,
+          watermark_enabled: isFree ? true : watermarkEnabled,
+          caption_style_json: null,
+          create_new_job: true,
+        },
       });
 
       setUploadId(reg.upload_id);
@@ -1733,7 +1723,6 @@ function UploadWorkspace() {
       void refreshActiveJobs();
       await pollJobUntilComplete(reg.job_id);
     } catch (e: any) {
-      const status = getErrorStatus(e);
       const msg =
         typeof e?.detail === "string"
           ? compactUploadErrorMessage(e.detail)
@@ -1745,12 +1734,12 @@ function UploadWorkspace() {
 
       if (isInsufficientCreditsError(e)) {
         fail("Insufficient credits", msg || "Not enough credits for this import.");
-      } else if (status === 404 || /^not found\.?$/i.test(msg) || isLikelyYoutubeSourceBlock(msg)) {
+      } else if (isLikelyYoutubeSourceBlock(msg)) {
         fail(
-          "Link unavailable or blocked",
+          "Link blocked by source platform",
           [
             "Orbito tried to import this link, but the source platform blocked direct access.",
-            "Upload an MP4 file in the left card to continue.",
+            "Use Open video, export/download MP4, then upload in the left card.",
             "",
             `Details: ${msg}`,
           ].join("\n")
@@ -2051,6 +2040,7 @@ function UploadWorkspace() {
 
             {/* Dropzone */}
             <div
+              ref={dropzoneRef}
               onClick={onDropzoneClick}
               onKeyDown={onDropzoneKeyDown}
               role={canBrowse ? "button" : undefined}
@@ -2077,7 +2067,9 @@ function UploadWorkspace() {
                 canBrowse ? "cursor-pointer" : "cursor-default",
                 flow === "dragging"
                   ? "border-white/35 bg-white/[0.06]"
-                  : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]"
+                  : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]",
+                pulseOn &&
+                  "ring-2 ring-emerald-400/30 border-emerald-400/35 bg-emerald-500/[0.06]"
               )}
             >
               <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -2388,17 +2380,31 @@ function UploadWorkspace() {
             }}
           />
           <div className="relative">
-            <div>
-              <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
-              <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
-                Paste a link and import.
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-white/90">Paste a YouTube link</div>
+                <div className="mt-1 max-w-[42rem] overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-white/62">
+                  Paste a link and import.
+                </div>
+              </div>
+
+              <div
+                className={cx(
+                  "shrink-0 whitespace-nowrap rounded-full border bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium tracking-wide text-white/75",
+                  ytStep === "idle" ? "border-white/10" : "border-white/14"
+                )}
+              >
+                {ytStep === "idle" ? "Step 1/2" : "Step 2/2"}
               </div>
             </div>
 
             <div className="mt-4 space-y-3">
               <input
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setYtStep("idle");
+                }}
                 placeholder="Paste YouTube link…"
                 className="field"
               />
@@ -2478,6 +2484,22 @@ function UploadWorkspace() {
                 >
                   {ytIngestBusy ? "Importing..." : "Import with Orbito"}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    openPastedLink();
+                  }}
+                  disabled={!urlOk}
+                  className={cx(
+                    "btn-solid-dark px-4 py-2 text-[12px]",
+                    !urlOk && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  Open video
+                </button>
+
+                <div className="text-[12px] text-white/55">Use Open video only if direct import fails.</div>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/55">
@@ -2488,12 +2510,29 @@ function UploadWorkspace() {
                   <div>3) Wait while clips process.</div>
                 </div>
                 <div className="mt-3 text-white/45">
-                  If direct import is blocked, Orbito will show an error. Then upload an MP4 in the left panel.
+                  If direct import is blocked: click <span className="text-white/75">Open video</span>, download the MP4, then upload it on the left panel.
                 </div>
               </div>
 
+              {ytStep === "opened" ? (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <div className="text-sm font-semibold text-white/90">Manual upload ready</div>
+                  <div className="mt-1 text-sm text-white/65">
+                    Upload the downloaded MP4 in the left panel.
+                  </div>
+
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-[12px] font-semibold text-white/80">Manual fallback</div>
+                    <div className="mt-2 text-[12px] leading-relaxed text-white/55">
+                      Some videos block direct import. If that happens, download MP4 and upload it here.
+                    </div>
+                    <div className="mt-3 text-[12px] text-white/45">Use direct import first when available.</div>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="pt-1 text-[12px] text-white/35">
-                Tip: if direct import is blocked, upload an MP4 file directly in the left panel.
+                Tip: if direct import is blocked, use a trusted external MP4 downloader, then upload the file on the left.
               </div>
             </div>
           </div>
@@ -2518,7 +2557,10 @@ function UploadWorkspace() {
               <div className="mt-4 flex flex-col gap-2">
                 <input
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setYtStep("idle");
+                  }}
                   placeholder="https://youtube.com/watch?v=..."
                   className="field min-w-0"
                 />
@@ -2534,6 +2576,17 @@ function UploadWorkspace() {
                 >
                   {ytIngestBusy ? "Importing..." : "Import"}
                 </button>
+                <button
+                  type="button"
+                  onClick={openPastedLink}
+                  disabled={!urlOk}
+                  className={cx(
+                    "btn-solid-dark w-full px-4 py-2 text-[12px]",
+                    !urlOk && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  Open video
+                </button>
               </div>
 
               {!urlOk && url.trim().length > 0 ? (
@@ -2547,12 +2600,18 @@ function UploadWorkspace() {
               </div>
 
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
-                If blocked: Orbito shows a link unavailable/blocked error. Then upload an MP4 file directly.
+                If blocked: Orbito shows "Link blocked by source platform". Then use Open video, export MP4, and upload it directly.
               </div>
 
-              {flow === "error" && /link (blocked by source platform|unavailable or blocked)/i.test(errorTitle || "") ? (
+              {ytStep === "opened" ? (
+                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-100/85">
+                  Video opened. Download/export MP4, then upload it in the left card.
+                </div>
+              ) : null}
+
+              {flow === "error" && /link blocked by source platform/i.test(errorTitle || "") ? (
                 <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
-                  Import was blocked by the source platform. Upload an MP4 manually in the left card.
+                  Import was blocked by source platform. Open video and upload MP4 manually.
                 </div>
               ) : null}
 
