@@ -148,6 +148,7 @@ def _render_branded_email_html(
             <tr>
               <td style="padding:0 24px 22px 24px;font-family:Arial,Helvetica,sans-serif;color:#9fb0c7;font-size:12px;line-height:1.6;">
                 {footer_html}
+                <div style="margin-top:10px;color:#7f8ea5;">Orbito is operated by Sakib LLC.</div>
               </td>
             </tr>
           </table>
