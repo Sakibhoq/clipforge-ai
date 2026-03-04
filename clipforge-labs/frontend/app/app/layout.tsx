@@ -237,8 +237,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
 
-            <span className="hidden text-xs text-white/40 md:inline">/</span>
-            <span className="hidden text-xs text-white/60 md:inline">Lab</span>
           </div>
 
           {/* Desktop nav */}
