@@ -262,6 +262,11 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
         ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
         : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
 
+  const proxyFallbackUrl =
+    !path.startsWith("http") && !path.startsWith("/api")
+      ? `/api${path.startsWith("/") ? path : `/${path}`}`
+      : null;
+
   const headers = new Headers(init.headers || {});
   let body: RequestInit["body"] = init.body;
 
@@ -272,23 +277,42 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
 
-  let res: Response;
+  const requestInit: RequestInit = {
+    ...init,
+    headers,
+    body,
+    credentials: "include",
+    cache: "no-store",
+  };
+
+  let res: Response | null = null;
+  let finalUrl = url;
+  let firstFetchErr: any = null;
   try {
-    res = await fetch(url, {
-      ...init,
-      headers,
-      body,
-      credentials: "include",
-      cache: "no-store",
-    });
+    res = await fetch(url, requestInit);
   } catch (e: any) {
-    throw { message: e?.message || "Failed to fetch", url } satisfies ApiErrorShape;
+    firstFetchErr = e;
+  }
+
+  // Safety fallback for production/browser CORS/network misroutes:
+  // retry relative /api proxy once if direct base fails at fetch layer.
+  if (!res && isBrowser() && proxyFallbackUrl && proxyFallbackUrl !== url) {
+    try {
+      res = await fetch(proxyFallbackUrl, requestInit);
+      finalUrl = proxyFallbackUrl;
+    } catch {
+      // keep original network error below
+    }
+  }
+
+  if (!res) {
+    throw { message: firstFetchErr?.message || "Failed to fetch", url } satisfies ApiErrorShape;
   }
 
   const parsed = await readJsonSafe(res);
 
   if (!res.ok) {
-    throw buildErrorPayload(res, url, parsed);
+    throw buildErrorPayload(res, finalUrl, parsed);
   }
 
   return parsed as T;
