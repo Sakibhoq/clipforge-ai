@@ -1118,9 +1118,8 @@ function ClipsWorkspace() {
   );
 
   const defaultSelectedProviders = useCallback((): SupportedSocialProvider[] => {
-    if (schedulePlatformLimit === null) return [...connectedScheduleProviders];
-    return connectedScheduleProviders.slice(0, schedulePlatformLimit);
-  }, [connectedScheduleProviders, schedulePlatformLimit]);
+    return [];
+  }, []);
 
   useEffect(() => {
     setScheduleSelectedProviders((prev) => {
@@ -1193,13 +1192,7 @@ function ClipsWorkspace() {
 
   function openSchedule(clip: ClipDTO) {
     setScheduleClipId(clip.id);
-    setScheduleSelectedProviders((prev) => {
-      const next = limitSelectedProviders(prev);
-      if (next.length > 0) return next;
-      const fallback = defaultSelectedProviders();
-      if (fallback.length > 0) return fallback;
-      return [];
-    });
+    setScheduleSelectedProviders(defaultSelectedProviders());
     setScheduleCaption(autoTitle(clip));
     setScheduleWhen("");
     setScheduleError(null);
