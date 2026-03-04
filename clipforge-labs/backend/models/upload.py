@@ -1,10 +1,10 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from core.database import Base
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 def utc_now_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Upload(Base):
