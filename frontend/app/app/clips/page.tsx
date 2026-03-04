@@ -2042,6 +2042,7 @@ function ClipsWorkspace() {
         onClose={() => setScheduleClipId(null)}
         title={scheduleClipId ? `Schedule - Clip #${scheduleClipId}` : "Schedule"}
         subtitle="Publish to social platforms"
+        variant="full"
       >
         {scheduleClipId ? (
           <ScheduleForm
@@ -3459,9 +3460,9 @@ function ScheduleForm({
                 const postBlocked = Boolean(catalog.post_blocked);
                 const postBlockReason = String(catalog.post_block_reason || "").trim();
                 return (
-                  <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
+                  <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-[12px] font-semibold text-white/86">TikTok</div>
+                      <div className="text-[12px] font-semibold tracking-wide text-white/86">TikTok</div>
                       {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
                     </div>
                     {postBlocked ? (
@@ -3469,14 +3470,14 @@ function ScheduleForm({
                         {postBlockReason || "TikTok cannot post from this account right now. Please try again later."}
                       </div>
                     ) : null}
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <label className="grid gap-1">
-                        <span className="text-[11px] text-white/60">Post destination</span>
+                        <span className="text-[11px] font-medium text-white/58">Post destination</span>
                         <select
                           value={String(values.publish_mode || "DIRECT_POST")}
                           onChange={(e) => onUpdateProviderOption(provider, "publish_mode", e.target.value)}
                           disabled={loading || busy || postBlocked}
-                          className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
+                          className="h-10 rounded-xl border border-white/12 bg-black/40 px-3 text-sm text-white/90 outline-none focus:border-cyan-300/40"
                         >
                           {modeChoices.map((choice: string) => (
                             <option key={choice} value={choice}>
@@ -3486,12 +3487,12 @@ function ScheduleForm({
                         </select>
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-[11px] text-white/60">Privacy level</span>
+                        <span className="text-[11px] font-medium text-white/58">Privacy level</span>
                         <select
                           value={String(values.privacy_level || "")}
                           onChange={(e) => onUpdateProviderOption(provider, "privacy_level", e.target.value)}
                           disabled={loading || busy || postBlocked}
-                          className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
+                          className="h-10 rounded-xl border border-white/12 bg-black/40 px-3 text-sm text-white/90 outline-none focus:border-cyan-300/40"
                         >
                           <option value="">Select privacy level</option>
                           {privacyChoices.map((choice: string) => (
@@ -3503,17 +3504,21 @@ function ScheduleForm({
                       </label>
                     </div>
                     {isDirectPost && !String(values.privacy_level || "").trim() ? (
-                      <div className="mt-2 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/85">
+                      <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/85">
                         TikTok requires you to choose a privacy level before posting.
                       </div>
                     ) : null}
-                    <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <div className="mt-3 text-[11px] font-medium text-white/58">Interaction settings</div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {[
                         { key: "allow_comments", label: "Allow comments" },
                         { key: "allow_duet", label: "Allow duet" },
                         { key: "allow_stitch", label: "Allow stitch" },
                       ].map((toggle) => (
-                        <label key={toggle.key} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                        <label
+                          key={toggle.key}
+                          className="flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80"
+                        >
                           <input
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
@@ -3526,17 +3531,21 @@ function ScheduleForm({
                       ))}
                     </div>
                     {(interactionLocks.allow_comments || interactionLocks.allow_duet || interactionLocks.allow_stitch) ? (
-                      <div className="mt-2 text-[11px] text-white/55">
+                      <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
                         One or more interaction toggles are locked by this TikTok account’s current creator settings.
                       </div>
                     ) : null}
-                    <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    <div className="mt-3 text-[11px] font-medium text-white/58">Disclosure settings</div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {[
                         { key: "branded_content", label: "Paid partnership" },
                         { key: "brand_organic", label: "Your brand" },
                         { key: "is_aigc", label: "AI-generated" },
                       ].map((toggle) => (
-                        <label key={toggle.key} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                        <label
+                          key={toggle.key}
+                          className="flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80"
+                        >
                           <input
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
@@ -3549,8 +3558,9 @@ function ScheduleForm({
                       ))}
                     </div>
                     {isDirectPost ? (
-                      <div className="mt-2 grid gap-2">
-                        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                      <div className="mt-3 grid gap-2">
+                        <div className="text-[11px] font-medium text-white/58">Required confirmations</div>
+                        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-relaxed text-white/80">
                           <input
                             type="checkbox"
                             checked={Boolean(values.confirm_music_usage)}
@@ -3563,7 +3573,7 @@ function ScheduleForm({
                           </span>
                         </label>
                         {needsBrandedConfirm ? (
-                          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-relaxed text-white/80">
                               <input
                                 type="checkbox"
                                 checked={Boolean(values.confirm_branded_content)}
@@ -3581,7 +3591,7 @@ function ScheduleForm({
                     {maxDuration > 0 ? (
                       <div className="mt-2 text-[11px] text-white/55">Account max duration: {maxDuration}s.</div>
                     ) : null}
-                    <div className="mt-1 text-[11px] text-white/50">
+                    <div className="mt-2 border-t border-white/8 pt-2 text-[11px] text-white/50">
                       Direct posts may remain in processing for a few minutes while TikTok finalizes publication.
                     </div>
                   </div>
@@ -3702,7 +3712,7 @@ function Drawer({
   onClose: () => void;
   title: string;
   subtitle?: string;
-  variant?: "side" | "studio";
+  variant?: "side" | "studio" | "full";
   children: React.ReactNode;
 }) {
   React.useEffect(() => {
@@ -3746,9 +3756,11 @@ function Drawer({
       <div
         className={cx(
           "absolute flex flex-col border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]",
-          variant === "studio"
-            ? "inset-2 sm:inset-4 rounded-3xl border"
-            : "right-0 top-0 h-full w-full max-w-md border-l"
+          variant === "full"
+            ? "inset-0 border-0 rounded-none"
+            : variant === "studio"
+              ? "inset-2 sm:inset-4 rounded-3xl border"
+              : "right-0 top-0 h-full w-full max-w-md border-l"
         )}
       >
         <div className="flex items-start justify-between gap-3">
