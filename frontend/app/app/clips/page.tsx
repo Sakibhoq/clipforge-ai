@@ -2042,7 +2042,7 @@ function ClipsWorkspace() {
         onClose={() => setScheduleClipId(null)}
         title={scheduleClipId ? `Schedule - Clip #${scheduleClipId}` : "Schedule"}
         subtitle="Publish to social platforms"
-        variant="full"
+        variant="schedule"
       >
         {scheduleClipId ? (
           <ScheduleForm
@@ -3712,7 +3712,7 @@ function Drawer({
   onClose: () => void;
   title: string;
   subtitle?: string;
-  variant?: "side" | "studio" | "full";
+  variant?: "side" | "studio" | "full" | "schedule";
   children: React.ReactNode;
 }) {
   React.useEffect(() => {
@@ -3736,6 +3736,7 @@ function Drawer({
   }, [open, onClose]);
 
   if (!open) return null;
+  const scheduleCard = variant === "schedule";
 
   return (
     <div className="fixed inset-0 z-[80]">
@@ -3758,27 +3759,34 @@ function Drawer({
           "absolute flex flex-col border-white/10 bg-black/70 backdrop-blur p-4 sm:p-5 pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))]",
           variant === "full"
             ? "inset-0 border-0 rounded-none"
+            : scheduleCard
+              ? "left-1/2 top-1/2 h-[min(90svh,860px)] w-[min(1040px,calc(100vw-1.25rem))] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border shadow-[0_30px_120px_rgba(0,0,0,0.65),0_0_0_1px_rgba(125,211,252,0.09)] bg-[radial-gradient(130%_110%_at_18%_0%,rgba(125,211,252,0.14),transparent_54%),radial-gradient(100%_120%_at_82%_0%,rgba(167,139,250,0.11),transparent_48%),rgba(7,10,15,0.92)]"
             : variant === "studio"
               ? "inset-2 sm:inset-4 rounded-3xl border"
               : "right-0 top-0 h-full w-full max-w-md border-l"
         )}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className={cx("flex items-start justify-between gap-3", scheduleCard ? "border-b border-white/10 pb-3" : "")}>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-white/90">{title}</div>
-            {subtitle && <div className="mt-1 text-sm text-white/55">{subtitle}</div>}
+            <div className={cx("font-semibold text-white/90", scheduleCard ? "text-base sm:text-lg" : "text-sm")}>{title}</div>
+            {subtitle && <div className={cx("mt-1 text-white/55", scheduleCard ? "text-[13px]" : "text-sm")}>{subtitle}</div>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+            className={cx(
+              "inline-flex h-9 w-9 items-center justify-center rounded-full border transition focus:outline-none focus-visible:ring-2",
+              scheduleCard
+                ? "border-cyan-300/25 bg-cyan-300/10 hover:bg-cyan-300/16 focus-visible:ring-cyan-200/30"
+                : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06] focus-visible:ring-white/20"
+            )}
             aria-label="Close"
           >
             <Icon name="x" />
           </button>
         </div>
 
-        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto pr-2")}>
+        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto", scheduleCard ? "orbito-scrollbar pr-3" : "pr-2")}>
           {children}
         </div>
       </div>
