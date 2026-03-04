@@ -49,47 +49,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [meLoadError, setMeLoadError] = useState(false);
 
   // Cookie-auth: load once on mount (do NOT re-run on every path change)
   useEffect(() => {
     let mounted = true;
-    let retryTimer: number | null = null;
 
-    async function loadMe(attempt = 0) {
-      if (!mounted) return;
-      if (attempt === 0) setLoading(true);
+    async function loadMe() {
+      setLoading(true);
       try {
         const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
         if (!mounted) return;
         setMe(data);
-        setMeLoadError(false);
         emitMeSync(data);
       } catch (err: any) {
         if (!mounted) return;
-        if (Number(err?.status) === 401) {
-          setMe(null);
-          setMeLoadError(false);
-          emitMeSync(null);
+        setMe(null);
+        emitMeSync(null);
+        if (err?.status === 401) {
           router.replace("/login");
-          return;
         }
-        // Keep prior user snapshot on transient network/API failures.
-        setMeLoadError(true);
-        if (retryTimer) window.clearTimeout(retryTimer);
-        retryTimer = window.setTimeout(() => {
-          void loadMe(Math.min(8, attempt + 1));
-        }, Math.min(12000, 2000 + attempt * 1500));
       } finally {
         if (!mounted) return;
         setLoading(false);
       }
     }
 
-    void loadMe();
+    loadMe();
     return () => {
       mounted = false;
-      if (retryTimer) window.clearTimeout(retryTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -97,7 +84,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     return subscribeMeSync((payload) => {
       setMe(payload);
-      setMeLoadError(false);
       setLoading(false);
     });
   }, []);
@@ -246,19 +232,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Right */}
           <div className="flex items-center gap-3">
             <div className="hidden md:block text-right">
-              <div className="text-xs text-white/60">
-                {loading ? "Loading…" : me ? displayName : meLoadError ? "Reconnecting…" : "Signed out"}
-              </div>
-              <div className="text-[11px] text-white/40">
-                {loading ? "—" : me ? `Plan: ${planLabel}` : meLoadError ? "Retrying session…" : "—"}
-              </div>
+              <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
+              <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
             </div>
 
             {/* Slightly bigger credits pill */}
             <div className="rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-2 text-[13px] text-white/85">
               <span className="text-white/60">Credits</span>{" "}
               <span className="font-semibold tabular-nums">
-                {loading ? "—" : typeof me?.credits === "number" ? me.credits : meLoadError ? "…" : "—"}
+                {loading ? "—" : typeof me?.credits === "number" ? me.credits : "—"}
               </span>
             </div>
 
@@ -291,12 +273,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             >
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="text-xs text-white/60">
-                  {loading ? "Loading…" : me ? displayName : meLoadError ? "Reconnecting…" : "Signed out"}
-                </div>
-                <div className="mt-1 text-[11px] text-white/40">
-                  {loading ? "—" : me ? `Plan: ${planLabel}` : meLoadError ? "Retrying session…" : "—"}
-                </div>
+                <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
+                <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
               </div>
 
               {navItem("/app", "Overview", true)}
