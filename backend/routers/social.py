@@ -1067,6 +1067,7 @@ def get_provider_publish_options(
             "allow_comments": {"value": False if comment_disabled else allow_comments_prefill, "locked": comment_disabled},
             "allow_duet": {"value": False if duet_disabled else allow_duet_prefill, "locked": duet_disabled},
             "allow_stitch": {"value": False if stitch_disabled else allow_stitch_prefill, "locked": stitch_disabled},
+            "commercial_content_disclosure": {"value": bool(branded_content_prefill or brand_organic_prefill)},
             "branded_content": {"value": branded_content_prefill},
             "brand_organic": {"value": brand_organic_prefill},
             "is_aigc": {"value": is_aigc_prefill},
@@ -1685,6 +1686,17 @@ def _validate_tiktok_post_options(
             detail=f"TikTok privacy level must be one of: {', '.join(privacy_choices)}",
         )
     options["privacy_level"] = privacy_level
+
+    if is_direct_post and privacy_level == "SELF_ONLY":
+        # Private posts cannot use paid partnership and do not support interaction toggles.
+        if bool(options.get("branded_content")):
+            raise HTTPException(
+                status_code=422,
+                detail="TikTok Paid partnership disclosure is unavailable for private posts.",
+            )
+        options["allow_comments"] = False
+        options["allow_duet"] = False
+        options["allow_stitch"] = False
 
     if is_direct_post and not bool(options.get("confirm_music_usage")):
         raise HTTPException(

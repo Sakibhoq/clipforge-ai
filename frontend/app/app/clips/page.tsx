@@ -163,6 +163,7 @@ function fallbackPublishOptions(provider: SupportedSocialProvider): ProviderPubl
         allow_comments: { value: false },
         allow_duet: { value: false },
         allow_stitch: { value: false },
+        commercial_content_disclosure: { value: false },
         branded_content: { value: false },
         brand_organic: { value: false },
         is_aigc: { value: false },
@@ -1221,6 +1222,15 @@ function ClipsWorkspace() {
       const options = normalized.options || {};
       const defaults = extractOptionDefaults(options);
       if (provider === "tiktok") {
+        const disclosurePrefill = Boolean(defaults.branded_content) || Boolean(defaults.brand_organic);
+        if (typeof defaults.commercial_content_disclosure === "undefined") {
+          defaults.commercial_content_disclosure = disclosurePrefill;
+        }
+        if (!Boolean(defaults.commercial_content_disclosure)) {
+          defaults.branded_content = false;
+          defaults.brand_organic = false;
+          defaults.confirm_branded_content = false;
+        }
         const rawLastCaption = typeof normalized.last_caption === "string" ? normalized.last_caption.trim() : "";
         if (rawLastCaption) {
           const scheduleClip = clips.find((c) => c.id === scheduleClipId);
@@ -1246,11 +1256,50 @@ function ClipsWorkspace() {
   }
 
   function updateProviderOption(provider: SupportedSocialProvider, key: string, value: any) {
+    const current = providerOptionValues[provider] || {};
+    if (provider === "tiktok" && key === "privacy_level" && String(value || "").trim().toUpperCase() === "SELF_ONLY") {
+      const hadInteraction = Boolean(current.allow_comments) || Boolean(current.allow_duet) || Boolean(current.allow_stitch);
+      const hadPaidPartnership = Boolean(current.branded_content);
+      if (hadInteraction || hadPaidPartnership) {
+        setScheduleNotice("TikTok private posts disable comments, duet, stitch, and paid partnership disclosure.");
+      }
+    }
     setProviderOptionValues((prev) => ({
       ...prev,
       [provider]: {
-        ...(prev[provider] || {}),
-        [key]: value,
+        ...(() => {
+          const base = { ...(prev[provider] || {}), [key]: value };
+          if (provider !== "tiktok") return base;
+
+          const next = { ...base };
+          const privacy = String(next.privacy_level || "").trim().toUpperCase();
+
+          if (key === "commercial_content_disclosure" && !Boolean(value)) {
+            next.branded_content = false;
+            next.brand_organic = false;
+            next.confirm_branded_content = false;
+          }
+
+          if (key === "branded_content" || key === "brand_organic") {
+            const hasDisclosureType = Boolean(next.branded_content) || Boolean(next.brand_organic);
+            next.commercial_content_disclosure = hasDisclosureType || Boolean(next.commercial_content_disclosure);
+            if (!hasDisclosureType) {
+              next.confirm_branded_content = false;
+            }
+          }
+
+          if (privacy === "SELF_ONLY") {
+            next.allow_comments = false;
+            next.allow_duet = false;
+            next.allow_stitch = false;
+            if (Boolean(next.branded_content)) {
+              next.branded_content = false;
+              next.confirm_branded_content = false;
+            }
+          }
+
+          return next;
+        })(),
       },
     }));
   }
@@ -1362,11 +1411,21 @@ function ClipsWorkspace() {
         const tkValues = providerOptionValues[provider] || {};
         const publishMode = String(tkValues.publish_mode || "DIRECT_POST").toUpperCase();
         const privacyLevel = String(tkValues.privacy_level || "").trim();
+        const disclosureEnabled = Boolean(tkValues.commercial_content_disclosure);
+        const hasDisclosureType = Boolean(tkValues.branded_content) || Boolean(tkValues.brand_organic);
         const confirmMusic = Boolean(tkValues.confirm_music_usage);
-        const needsBrandedConfirm = Boolean(tkValues.branded_content) || Boolean(tkValues.brand_organic);
+        const needsBrandedConfirm = hasDisclosureType;
         const confirmBranded = Boolean(tkValues.confirm_branded_content);
         if (publishMode === "DIRECT_POST" && !privacyLevel) {
           setScheduleError("TikTok: choose a privacy level before posting.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && disclosureEnabled && !hasDisclosureType) {
+          setScheduleError("TikTok: select Paid partnership or Your brand, or turn off content disclosure.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && privacyLevel.toUpperCase() === "SELF_ONLY" && Boolean(tkValues.branded_content)) {
+          setScheduleError("TikTok: Paid partnership disclosure is not available for private posts.");
           return;
         }
         if (publishMode === "DIRECT_POST" && !confirmMusic) {
@@ -3198,6 +3257,14 @@ function ScheduleForm({
   const tiktokBlockReason = tiktokBlocked
     ? String(tiktokCatalog?.post_block_reason || "TikTok cannot post from this account right now. Please try again later.")
     : "";
+  const tiktokValues = (providerOptionValues.tiktok || {}) as Record<string, any>;
+  const tiktokDisclosureInvalid =
+    selectedSet.has("tiktok") &&
+    Boolean(tiktokValues.commercial_content_disclosure) &&
+    !Boolean(tiktokValues.branded_content) &&
+    !Boolean(tiktokValues.brand_organic);
+  const tiktokDisclosureReason =
+    "TikTok: select Paid partnership or Your brand, or turn off content disclosure.";
 
   function toggleProvider(provider: SupportedSocialProvider) {
     if (!connectedSet.has(provider)) return;
@@ -3447,12 +3514,16 @@ function ScheduleForm({
                   : TIKTOK_PRIVACY_CHOICES;
                 const publishMode = String(values.publish_mode || "DIRECT_POST").toUpperCase();
                 const isDirectPost = publishMode === "DIRECT_POST";
+                const privacyLevel = String(values.privacy_level || "").trim().toUpperCase();
+                const isPrivatePrivacy = privacyLevel === "SELF_ONLY";
                 const interactionLocks: Record<string, boolean> = {
                   allow_comments: Boolean((options.allow_comments as any)?.locked),
                   allow_duet: Boolean((options.allow_duet as any)?.locked),
                   allow_stitch: Boolean((options.allow_stitch as any)?.locked),
                 };
-                const needsBrandedConfirm = Boolean(values.branded_content) || Boolean(values.brand_organic);
+                const disclosureEnabled = Boolean(values.commercial_content_disclosure);
+                const hasDisclosureType = Boolean(values.branded_content) || Boolean(values.brand_organic);
+                const needsBrandedConfirm = hasDisclosureType;
                 const maxDuration =
                   options.max_video_post_duration_sec && typeof options.max_video_post_duration_sec === "object"
                     ? Number((options.max_video_post_duration_sec as any).value || 0)
@@ -3523,40 +3594,89 @@ function ScheduleForm({
                             type="checkbox"
                             checked={Boolean(values[toggle.key])}
                             onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
-                            disabled={loading || busy || postBlocked || interactionLocks[toggle.key]}
+                            disabled={loading || busy || postBlocked || interactionLocks[toggle.key] || isPrivatePrivacy}
                             className="h-4 w-4 accent-cyan-400"
                           />
                           <span>{toggle.label}</span>
                         </label>
                       ))}
                     </div>
+                    {isPrivatePrivacy ? (
+                      <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
+                        Privacy is set to <strong>Private</strong>: comments, duet, and stitch are disabled.
+                      </div>
+                    ) : null}
                     {(interactionLocks.allow_comments || interactionLocks.allow_duet || interactionLocks.allow_stitch) ? (
                       <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
                         One or more interaction toggles are locked by this TikTok account’s current creator settings.
                       </div>
                     ) : null}
-                    <div className="mt-3 text-[11px] font-medium text-white/58">Disclosure settings</div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {[
-                        { key: "branded_content", label: "Paid partnership" },
-                        { key: "brand_organic", label: "Your brand" },
-                        { key: "is_aigc", label: "AI-generated" },
-                      ].map((toggle) => (
-                        <label
-                          key={toggle.key}
-                          className="flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(values[toggle.key])}
-                            onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
-                            disabled={loading || busy || postBlocked}
-                            className="h-4 w-4 accent-cyan-400"
-                          />
-                          <span>{toggle.label}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <div className="mt-3 text-[11px] font-medium text-white/58">Content disclosure setting</div>
+                    <label className="mt-2 flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
+                      <input
+                        type="checkbox"
+                        checked={disclosureEnabled}
+                        onChange={(e) => onUpdateProviderOption(provider, "commercial_content_disclosure", e.target.checked)}
+                        disabled={loading || busy || postBlocked}
+                        className="h-4 w-4 accent-cyan-400"
+                      />
+                      <span>Enable commercial content disclosure</span>
+                    </label>
+                    {disclosureEnabled ? (
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {[
+                          { key: "branded_content", label: "Paid partnership", disabled: isPrivatePrivacy },
+                          { key: "brand_organic", label: "Your brand", disabled: false },
+                        ].map((toggle) => (
+                          <label
+                            key={toggle.key}
+                            className="flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(values[toggle.key])}
+                              onChange={(e) => onUpdateProviderOption(provider, toggle.key, e.target.checked)}
+                              disabled={loading || busy || postBlocked || toggle.disabled}
+                              className="h-4 w-4 accent-cyan-400"
+                            />
+                            <span>{toggle.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+                    {disclosureEnabled ? (
+                      <div
+                        className={cx(
+                          "mt-2 rounded-xl px-3 py-2 text-[11px]",
+                          hasDisclosureType
+                            ? "border border-emerald-300/25 bg-emerald-300/10 text-emerald-100/85"
+                            : "border border-amber-300/25 bg-amber-300/10 text-amber-100/85"
+                        )}
+                      >
+                        {!hasDisclosureType
+                          ? "Select at least one disclosure type: Paid partnership or Your brand."
+                          : Boolean(values.branded_content) && Boolean(values.brand_organic)
+                            ? "Paid partnership and Your brand disclosures are enabled."
+                            : Boolean(values.branded_content)
+                              ? "Paid partnership disclosure is enabled."
+                              : "Your brand disclosure is enabled."}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[11px] text-white/55">
+                        Disclosure is off by default. Turn it on if this post includes paid partnership or your own brand promotion.
+                      </div>
+                    )}
+                    <div className="mt-3 text-[11px] font-medium text-white/58">AI disclosure</div>
+                    <label className="mt-2 flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(values.is_aigc)}
+                        onChange={(e) => onUpdateProviderOption(provider, "is_aigc", e.target.checked)}
+                        disabled={loading || busy || postBlocked}
+                        className="h-4 w-4 accent-cyan-400"
+                      />
+                      <span>AI-generated</span>
+                    </label>
                     {isDirectPost ? (
                       <div className="mt-3 grid gap-2">
                         <div className="text-[11px] font-medium text-white/58">Required confirmations</div>
@@ -3569,7 +3689,17 @@ function ScheduleForm({
                             className="mt-0.5 h-4 w-4 accent-cyan-400"
                           />
                           <span>
-                            I confirm this post complies with TikTok Music Usage Confirmation and content rights requirements.
+                            I confirm this post complies with{" "}
+                            <a
+                              href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="underline underline-offset-2 hover:text-white"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              TikTok Music Usage Confirmation
+                            </a>{" "}
+                            and content rights requirements.
                           </span>
                         </label>
                         {needsBrandedConfirm ? (
@@ -3582,7 +3712,17 @@ function ScheduleForm({
                                 className="mt-0.5 h-4 w-4 accent-cyan-400"
                               />
                             <span>
-                              I confirm branded content disclosure is accurate and follows TikTok Branded Content Policy.
+                              I confirm branded content disclosure is accurate and follows{" "}
+                              <a
+                                href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="underline underline-offset-2 hover:text-white"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                TikTok Branded Content Policy
+                              </a>
+                              .
                             </span>
                           </label>
                         ) : null}
@@ -3676,7 +3816,8 @@ function ScheduleForm({
             type="button"
             onClick={onPostNow}
             className="btn-aurora text-sm px-4 py-2"
-            disabled={busy || tiktokBlocked}
+            disabled={busy || tiktokBlocked || tiktokDisclosureInvalid}
+            title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
           >
             {busy ? "Posting..." : "Post now"}
           </button>
@@ -3684,12 +3825,17 @@ function ScheduleForm({
             type="button"
             onClick={onSchedule}
             className="btn-ghost text-sm px-4 py-2"
-            disabled={busy || !when || tiktokBlocked}
+            disabled={busy || !when || tiktokBlocked || tiktokDisclosureInvalid}
+            title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
           >
             {busy ? "Scheduling..." : "Schedule post"}
           </button>
           <div className="text-[12px] text-white/55">
-            {tiktokBlocked ? tiktokBlockReason : "Set a time to schedule, or use Post now to publish instantly."}
+            {tiktokBlocked
+              ? tiktokBlockReason
+              : tiktokDisclosureInvalid
+                ? tiktokDisclosureReason
+                : "Set a time to schedule, or use Post now to publish instantly."}
           </div>
         </div>
       </div>
