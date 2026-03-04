@@ -496,7 +496,6 @@ export default function ContactPage() {
         <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
         <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
 
-        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
       </div>
 
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
