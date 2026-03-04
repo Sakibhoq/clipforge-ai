@@ -10,12 +10,12 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("")
-def health():
+async def health():
     return {"status": "ok"}
 
 
 @router.get("/ready")
-def ready():
+async def ready():
     """
     Readiness check for production orchestration.
     - DB connectivity

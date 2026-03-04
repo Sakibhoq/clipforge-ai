@@ -12,12 +12,11 @@ from urllib.parse import urlencode, urlsplit
 import jwt
 import requests
 from requests import RequestException
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.database import SessionLocal
@@ -373,24 +372,11 @@ def _decode_oauth_ctx(token: str) -> dict:
 
 
 # ---------------------------------------------------------
-# DB dependency
-# ---------------------------------------------------------
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# ---------------------------------------------------------
 # Routes
 # ---------------------------------------------------------
 
 @router.get("/providers")
-def oauth_providers():
+async def oauth_providers():
     """
     Returns which OAuth providers are configured.
     """
@@ -465,7 +451,7 @@ def _build_oauth_start(provider: str, request: Request, next_path: Optional[str]
 
 
 @router.get("/{provider}/start")
-def oauth_start_get(
+async def oauth_start_get(
     provider: str,
     request: Request,
     next: Optional[str] = None,
@@ -477,7 +463,7 @@ def oauth_start_get(
 
 
 @router.post("/{provider}/start")
-def oauth_start(
+async def oauth_start(
     provider: str,
     request: Request,
     payload: OAuthStartRequest,
@@ -489,239 +475,231 @@ def oauth_start(
 
 
 @router.get("/{provider}/callback", name="oauth_callback")
-def oauth_callback(
+async def oauth_callback(
     provider: str,
     request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
-    db: Session = Depends(get_db),
 ):
-    conf = _require_provider_ready(provider)
-    if not code or not state:
-        raise HTTPException(status_code=400, detail="Missing OAuth code or state")
-
-    ctx_token = request.cookies.get(OAUTH_CTX_COOKIE)
-    if not ctx_token:
-        raise HTTPException(status_code=400, detail="Missing OAuth context")
-
-    ctx = _decode_oauth_ctx(ctx_token)
-    if ctx.get("provider") != provider or ctx.get("state") != state:
-        raise HTTPException(status_code=400, detail="OAuth state mismatch")
-
-    client_id = _client_id(provider)
-    client_secret = _client_secret(provider)
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=400, detail="OAuth client not configured")
-
-    redirect_uri = str(ctx.get("redirect_uri") or "").strip() or _redirect_uri(request, provider)
-
-    token_data = {
-        conf.get("client_id_param", "client_id"): client_id,
-        conf.get("client_secret_param", "client_secret"): client_secret,
-        "code": code,
-        "grant_type": "authorization_code",
-        "redirect_uri": redirect_uri,
-    }
-    if conf.get("pkce", True) and ctx.get("code_verifier"):
-        token_data["code_verifier"] = ctx["code_verifier"]
-
+    db = SessionLocal()
     try:
-        token_resp = requests.post(
-            conf["token_url"],
-            data=token_data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=20,
-        )
-    except RequestException as e:
-        # Network/DNS/TLS/timeouts. Avoid leaking secrets; just log error type.
-        print(f"[oauth] token exchange request failed provider={provider} err={type(e).__name__}")
-        raise HTTPException(status_code=502, detail="OAuth token exchange request failed")
+        conf = _require_provider_ready(provider)
+        if not code or not state:
+            raise HTTPException(status_code=400, detail="Missing OAuth code or state")
 
-    if token_resp.status_code >= 400:
-        msg = _safe_err_body(token_resp)
-        print(f"[oauth] token exchange failed provider={provider} status={token_resp.status_code} msg={msg!r}")
-        raise HTTPException(status_code=400, detail=f"OAuth token exchange failed: {msg or 'unknown error'}")
+        ctx_token = request.cookies.get(OAUTH_CTX_COOKIE)
+        if not ctx_token:
+            raise HTTPException(status_code=400, detail="Missing OAuth context")
 
-    try:
-        token_json = token_resp.json()
-    except Exception:
-        print(f"[oauth] token exchange non-json response provider={provider} status={token_resp.status_code}")
-        raise HTTPException(status_code=502, detail="OAuth token exchange returned an invalid response")
-    access_token = token_json.get("access_token")
-    id_token = token_json.get("id_token")
+        ctx = _decode_oauth_ctx(ctx_token)
+        if ctx.get("provider") != provider or ctx.get("state") != state:
+            raise HTTPException(status_code=400, detail="OAuth state mismatch")
 
-    if not access_token and not id_token:
-        raise HTTPException(status_code=400, detail="OAuth token missing")
+        client_id = _client_id(provider)
+        client_secret = _client_secret(provider)
+        if not client_id or not client_secret:
+            raise HTTPException(status_code=400, detail="OAuth client not configured")
 
-    userinfo = {}
-    if provider == "apple":
-        if not id_token:
-            raise HTTPException(status_code=400, detail="Apple OAuth missing id_token")
+        redirect_uri = str(ctx.get("redirect_uri") or "").strip() or _redirect_uri(request, provider)
+
+        token_data = {
+            conf.get("client_id_param", "client_id"): client_id,
+            conf.get("client_secret_param", "client_secret"): client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+        if conf.get("pkce", True) and ctx.get("code_verifier"):
+            token_data["code_verifier"] = ctx["code_verifier"]
+
         try:
-            userinfo = jwt.decode(id_token, options={"verify_signature": False})
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid Apple id_token")
-    elif provider == "facebook":
-        try:
-            userinfo_resp = requests.get(
-                conf["userinfo_url"],
-                params={"fields": "id,name,email", "access_token": access_token},
+            token_resp = requests.post(
+                conf["token_url"],
+                data=token_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
                 timeout=20,
             )
         except RequestException as e:
-            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
-            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+            print(f"[oauth] token exchange request failed provider={provider} err={type(e).__name__}")
+            raise HTTPException(status_code=502, detail="OAuth token exchange request failed")
 
-        if userinfo_resp.status_code >= 400:
-            msg = _safe_err_body(userinfo_resp)
-            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
-            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+        if token_resp.status_code >= 400:
+            msg = _safe_err_body(token_resp)
+            print(f"[oauth] token exchange failed provider={provider} status={token_resp.status_code} msg={msg!r}")
+            raise HTTPException(status_code=400, detail=f"OAuth token exchange failed: {msg or 'unknown error'}")
 
         try:
-            userinfo = userinfo_resp.json()
+            token_json = token_resp.json()
         except Exception:
-            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
-    elif provider == "tiktok":
-        try:
-            userinfo_resp = requests.get(
-                conf["userinfo_url"],
-                params={"fields": "open_id,union_id,display_name,avatar_url"},
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=20,
+            print(f"[oauth] token exchange non-json response provider={provider} status={token_resp.status_code}")
+            raise HTTPException(status_code=502, detail="OAuth token exchange returned an invalid response")
+        access_token = token_json.get("access_token")
+        id_token = token_json.get("id_token")
+
+        if not access_token and not id_token:
+            raise HTTPException(status_code=400, detail="OAuth token missing")
+
+        userinfo = {}
+        if provider == "apple":
+            if not id_token:
+                raise HTTPException(status_code=400, detail="Apple OAuth missing id_token")
+            try:
+                userinfo = jwt.decode(id_token, options={"verify_signature": False})
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid Apple id_token")
+        elif provider == "facebook":
+            try:
+                userinfo_resp = requests.get(
+                    conf["userinfo_url"],
+                    params={"fields": "id,name,email", "access_token": access_token},
+                    timeout=20,
+                )
+            except RequestException as e:
+                print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+                raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+            if userinfo_resp.status_code >= 400:
+                msg = _safe_err_body(userinfo_resp)
+                print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+                raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+            try:
+                userinfo = userinfo_resp.json()
+            except Exception:
+                raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
+        elif provider == "tiktok":
+            try:
+                userinfo_resp = requests.get(
+                    conf["userinfo_url"],
+                    params={"fields": "open_id,union_id,display_name,avatar_url"},
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=20,
+                )
+            except RequestException as e:
+                print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+                raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+            if userinfo_resp.status_code >= 400:
+                msg = _safe_err_body(userinfo_resp)
+                print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+                raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+            try:
+                userinfo = userinfo_resp.json()
+            except Exception:
+                raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
+        elif provider == "instagram":
+            try:
+                userinfo_resp = requests.get(
+                    conf["userinfo_url"],
+                    params={"fields": "id,username", "access_token": access_token},
+                    timeout=20,
+                )
+            except RequestException as e:
+                print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+                raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+            if userinfo_resp.status_code >= 400:
+                msg = _safe_err_body(userinfo_resp)
+                print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+                raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+            try:
+                userinfo = userinfo_resp.json()
+            except Exception:
+                raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
+        else:
+            try:
+                userinfo_resp = requests.get(
+                    conf["userinfo_url"],
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=20,
+                )
+            except RequestException as e:
+                print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
+                raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
+
+            if userinfo_resp.status_code >= 400:
+                msg = _safe_err_body(userinfo_resp)
+                print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
+                raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+
+            try:
+                userinfo = userinfo_resp.json()
+            except Exception:
+                raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
+
+        email = None
+        provider_id = None
+        name = None
+        if isinstance(userinfo, dict):
+            email = userinfo.get("email")
+            provider_id = _provider_unique_id(provider, userinfo)
+            name = _provider_display_name(provider, userinfo)
+
+        if not email and provider_id:
+            email = _synthetic_oauth_email(provider, str(provider_id))
+
+        if not email:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{conf.get('label')} did not return an email or account id. Try another login method.",
             )
-        except RequestException as e:
-            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
-            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
 
-        if userinfo_resp.status_code >= 400:
-            msg = _safe_err_body(userinfo_resp)
-            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
-            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
+        email = str(email).strip()
 
-        try:
-            userinfo = userinfo_resp.json()
-        except Exception:
-            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
-    elif provider == "instagram":
-        try:
-            userinfo_resp = requests.get(
-                conf["userinfo_url"],
-                params={"fields": "id,username", "access_token": access_token},
-                timeout=20,
+        legacy_email = None
+        synthetic_domain = _synthetic_email_domain()
+        if email.lower().endswith(f"@{synthetic_domain}"):
+            local = email[: -(len(synthetic_domain) + 1)]
+            legacy_email = f"{local}@{LEGACY_SYNTHETIC_EMAIL_DOMAIN}"
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user and legacy_email:
+            user = db.query(User).filter(User.email == legacy_email).first()
+            if user:
+                conflict = db.query(User).filter(User.email == email).first()
+                if not conflict:
+                    user.email = email
+                    db.commit()
+        created_user = False
+        if not user:
+            random_pw = secrets.token_urlsafe(20)
+            user = User(
+                name=name,
+                email=email,
+                hashed_password=pwd_context.hash(random_pw),
+                plan="free",
+                credits=0,
             )
-        except RequestException as e:
-            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
-            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
-
-        if userinfo_resp.status_code >= 400:
-            msg = _safe_err_body(userinfo_resp)
-            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
-            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
-
-        try:
-            userinfo = userinfo_resp.json()
-        except Exception:
-            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
-    else:
-        try:
-            userinfo_resp = requests.get(
-                conf["userinfo_url"],
-                headers={"Authorization": f"Bearer {access_token}"},
-                timeout=20,
-            )
-        except RequestException as e:
-            print(f"[oauth] userinfo request failed provider={provider} err={type(e).__name__}")
-            raise HTTPException(status_code=502, detail="OAuth userinfo request failed")
-
-        if userinfo_resp.status_code >= 400:
-            msg = _safe_err_body(userinfo_resp)
-            print(f"[oauth] userinfo failed provider={provider} status={userinfo_resp.status_code} msg={msg!r}")
-            raise HTTPException(status_code=400, detail="OAuth userinfo request failed")
-
-        try:
-            userinfo = userinfo_resp.json()
-        except Exception:
-            raise HTTPException(status_code=502, detail="OAuth userinfo returned an invalid response")
-
-    email = None
-    provider_id = None
-    name = None
-    if isinstance(userinfo, dict):
-        email = userinfo.get("email")
-        provider_id = _provider_unique_id(provider, userinfo)
-        name = _provider_display_name(provider, userinfo)
-
-    # Some providers (notably TikTok/Instagram) do not provide email via OAuth.
-    # Use a stable synthetic email keyed by provider account id so users can still sign in.
-    if not email and provider_id:
-        email = _synthetic_oauth_email(provider, str(provider_id))
-
-    if not email:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{conf.get('label')} did not return an email or account id. Try another login method.",
-        )
-
-    # Find or create user
-    email = str(email).strip()
-
-    # Back-compat: older deployments used a `.local` synthetic email domain which is
-    # rejected by `email_validator` (Pydantic EmailStr) and can break /auth/me.
-    legacy_email = None
-    synthetic_domain = _synthetic_email_domain()
-    if email.lower().endswith(f"@{synthetic_domain}"):
-        local = email[: -(len(synthetic_domain) + 1)]
-        legacy_email = f"{local}@{LEGACY_SYNTHETIC_EMAIL_DOMAIN}"
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user and legacy_email:
-        user = db.query(User).filter(User.email == legacy_email).first()
-        if user:
-            # Migrate to the new synthetic domain if no conflict exists.
-            conflict = db.query(User).filter(User.email == email).first()
-            if not conflict:
-                user.email = email
+            db.add(user)
+            try:
                 db.commit()
-    created_user = False
-    if not user:
-        random_pw = secrets.token_urlsafe(20)
-        user = User(
-            name=name,
-            email=email,
-            hashed_password=pwd_context.hash(random_pw),
-            plan="free",
-            credits=0,
-        )
-        db.add(user)
-        try:
+                created_user = True
+            except IntegrityError:
+                db.rollback()
+                user = db.query(User).filter(User.email == email).first()
+                if not user:
+                    raise HTTPException(status_code=500, detail="Failed to complete social login")
+            db.refresh(user)
+        elif name and not getattr(user, "name", None):
+            user.name = name
             db.commit()
-            created_user = True
-        except IntegrityError:
-            # Rare race: two callbacks for same account land at once.
-            db.rollback()
-            user = db.query(User).filter(User.email == email).first()
-            if not user:
-                raise HTTPException(status_code=500, detail="Failed to complete social login")
-        db.refresh(user)
-    elif name and not getattr(user, "name", None):
-        user.name = name
-        db.commit()
 
-    # Send welcome email only for Google OAuth signups.
-    # Email/password signups are handled in /auth/register.
-    if created_user and provider == "google":
-        try:
-            send_welcome_email(user.email, user.name)
-        except Exception as exc:
-            print(f"[oauth] welcome email skipped provider={provider} err={type(exc).__name__}")
+        if created_user and provider == "google":
+            try:
+                send_welcome_email(user.email, user.name)
+            except Exception as exc:
+                print(f"[oauth] welcome email skipped provider={provider} err={type(exc).__name__}")
 
-    # Issue session cookie
-    token = create_token(user.email)
-    next_path = _safe_next_path(ctx.get("next"))
-    base = _frontend_base(request).rstrip("/")
-    redirect_to = f"{base}{next_path}"
+        token = create_token(user.email)
+        next_path = _safe_next_path(ctx.get("next"))
+        base = _frontend_base(request).rstrip("/")
+        redirect_to = f"{base}{next_path}"
 
-    response = RedirectResponse(url=redirect_to, status_code=303)
-    set_auth_cookie(response, request, token)
-    _clear_oauth_ctx_cookie(response, request)
-    return response
+        response = RedirectResponse(url=redirect_to, status_code=303)
+        set_auth_cookie(response, request, token)
+        _clear_oauth_ctx_cookie(response, request)
+        return response
+    finally:
+        db.close()

@@ -8,8 +8,10 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact, settings, generate
 from routers import storage as storage_router
@@ -127,28 +129,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------
-# Security headers
-# ---------------------------------------------------------
-def _request_is_https(request: Request) -> bool:
-    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+def _scope_is_https(scope: Scope) -> bool:
+    headers = Headers(scope=scope)
+    xf_proto = (headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
     if xf_proto:
         return xf_proto == "https"
-    return request.url.scheme == "https"
+    return str(scope.get("scheme") or "").lower() == "https"
 
 
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    if APP_ENV == "production" and _request_is_https(request):
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
-    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
-    return response
+class SecurityHeadersMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                if APP_ENV == "production" and _scope_is_https(scope):
+                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "DENY"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+                headers["Cross-Origin-Opener-Policy"] = "same-origin"
+                headers["Cross-Origin-Resource-Policy"] = "same-site"
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------
 # Routes
