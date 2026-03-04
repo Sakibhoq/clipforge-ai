@@ -253,14 +253,19 @@ type ApiFetchInit = Omit<RequestInit, "body"> & { body?: any };
 export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const base = getApiBase();
 
+  // In browser, prefer same-origin /api to avoid cross-domain cookie drift.
+  const useSameOriginProxy = isBrowser() && !path.startsWith("http");
+
   // If base is "/api", keep relative routing.
   // Otherwise, call backend origin directly.
   const url =
     path.startsWith("http")
       ? path
-      : base === "/api"
-        ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
-        : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+      : useSameOriginProxy
+        ? `/api${path.startsWith("/") ? "" : "/"}${path}`
+        : base === "/api"
+          ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
+          : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
 
   const headers = new Headers(init.headers || {});
   let body: RequestInit["body"] = init.body;
