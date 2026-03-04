@@ -252,27 +252,15 @@ type ApiFetchInit = Omit<RequestInit, "body"> & { body?: any };
 
 export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const base = getApiBase();
-  const normalizedPath =
-    path.startsWith("http")
-      ? null
-      : `/${path.replace(/^\/+/, "")}`;
-  const proxyPath = normalizedPath ? `/api${normalizedPath}` : null;
-  const isAuthPath = normalizedPath ? normalizedPath.startsWith("/auth/") : false;
 
   // If base is "/api", keep relative routing.
   // Otherwise, call backend origin directly.
-  const defaultUrl =
+  const url =
     path.startsWith("http")
       ? path
       : base === "/api"
         ? `${base}${path.startsWith("/") ? "" : "/"}${path}`
         : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
-
-  // Keep auth cookie flows same-origin to avoid cross-origin credential drift.
-  let url = defaultUrl;
-  if (isBrowser() && isAuthPath && proxyPath) {
-    url = proxyPath;
-  }
 
   const headers = new Headers(init.headers || {});
   let body: RequestInit["body"] = init.body;
@@ -284,8 +272,7 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
 
-  let res: Response | null = null;
-  let firstFetchErr: any = null;
+  let res: Response;
   try {
     res = await fetch(url, {
       ...init,
@@ -295,27 +282,7 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
       cache: "no-store",
     });
   } catch (e: any) {
-    firstFetchErr = e;
-  }
-
-  // One safe network fallback: retry via same-origin proxy.
-  if (!res && isBrowser() && proxyPath && proxyPath !== url) {
-    try {
-      res = await fetch(proxyPath, {
-        ...init,
-        headers,
-        body,
-        credentials: "include",
-        cache: "no-store",
-      });
-      url = proxyPath;
-    } catch {
-      // keep original fetch error
-    }
-  }
-
-  if (!res) {
-    throw { message: firstFetchErr?.message || "Failed to fetch", url } satisfies ApiErrorShape;
+    throw { message: e?.message || "Failed to fetch", url } satisfies ApiErrorShape;
   }
 
   const parsed = await readJsonSafe(res);
