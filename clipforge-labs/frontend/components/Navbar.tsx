@@ -16,10 +16,11 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "cflabs-2";
 
-  const markImgSize = inApp ? 28 : 26;
+  const markWrapClass = inApp ? "h-10 w-10" : "h-9 w-9";
+  const markImgSize = inApp ? 30 : 28;
   const wordmarkClass = inApp
-    ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
-    : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
+    ? "text-[20px] sm:text-[21px] font-semibold leading-none tracking-[-0.012em] text-white/95"
+    : "text-[18px] font-semibold leading-none tracking-[-0.01em] text-white/95";
 
   function onLogoClick(e: React.MouseEvent<HTMLAnchorElement>) {
     // On landing, clicking logo should always bring user to top.
@@ -32,9 +33,13 @@ function Logo() {
   }
 
   return (
-    <Link href={inApp ? "/app" : "/"} onClick={onLogoClick} className="group flex items-center gap-3 shrink-0">
+    <Link
+      href={inApp ? "/app" : "/"}
+      onClick={onLogoClick}
+      className="group flex items-center gap-2.5 shrink-0"
+    >
       <span
-        className="relative inline-flex items-center justify-center"
+        className={`relative inline-flex items-center justify-center shrink-0 ${markWrapClass}`}
       >
         {/* light-leak halo */}
         <span
@@ -59,7 +64,7 @@ function Logo() {
       </span>
 
       {/* Wordmark */}
-      <span className="inline-flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5">
         <span className="relative">
           <span className={wordmarkClass}>{BRAND.name}</span>
 
@@ -74,7 +79,7 @@ function Logo() {
           />
         </span>
 
-        <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em] text-white/70">
+        <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-white/70">
           LABS
         </span>
       </span>

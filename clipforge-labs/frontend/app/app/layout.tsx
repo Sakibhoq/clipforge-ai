@@ -204,9 +204,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         >
           {/* Brand */}
-          <div className="flex min-w-0 items-center gap-2.5">
-            <Link href="/" className="group inline-flex min-w-0 items-center gap-2.5">
-              <span className="relative inline-flex items-center justify-center">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href="/" className="group inline-flex min-w-0 items-center gap-2">
+              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute -inset-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -220,18 +220,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <img
                   src={`/clipforge-labs-mark.svg?v=${logoV}`}
                   alt={`${BRAND.product} logo`}
-                  width={26}
-                  height={26}
+                  width={28}
+                  height={28}
                   style={{ display: "block" }}
                 />
               </span>
 
               {/* Bigger wordmark */}
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <span className="text-[16px] font-semibold tracking-[-0.01em] text-white/95 sm:text-[19px]">
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <span className="text-[16px] font-semibold leading-none tracking-[-0.01em] text-white/95 sm:text-[19px]">
                   {BRAND.name}
                 </span>
-                <span className="hidden shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold tracking-[0.08em] text-white/70 sm:inline-flex">
+                <span className="hidden shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-white/70 sm:inline-flex">
                   LABS
                 </span>
               </span>
