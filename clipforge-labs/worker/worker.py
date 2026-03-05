@@ -710,10 +710,11 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
         )
         brand = _env("WORKER_BRAND_TEXT", "Clipforge Labs")
 
+        font_size = 38 if h >= 1600 else 34
         vf = (
             "format=rgb24,"
             f"drawtext=fontfile={fontfile}:textfile={txt_path}:reload=1:"
-            "fontcolor=white:fontsize=44:line_spacing=8:"
+            f"fontcolor=white:fontsize={font_size}:line_spacing=8:"
             "x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.4:boxborderw=20,"
             f"drawtext=fontfile={fontfile}:text='{brand}':"
             "fontcolor=white@0.78:fontsize=26:x=(w-text_w)/2:y=h-84"
@@ -740,6 +741,18 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
             os.unlink(txt_path)
         except Exception:
             pass
+
+
+def _post_scene_fallback_text(*, raw_visual_prompt: str, scene_index: int, scene_count: int) -> str:
+    prompt_value = (raw_visual_prompt or "").strip()
+    if "Visual style:" in prompt_value:
+        prompt_value = prompt_value.split("Visual style:", 1)[0].strip()
+    prompt_value = " ".join(prompt_value.split())
+    if not prompt_value:
+        prompt_value = "Generated visual scene"
+    if len(prompt_value) > 110:
+        prompt_value = prompt_value[:107].rstrip() + "..."
+    return f"Scene {scene_index + 1}/{scene_count}\n{prompt_value}"
 
 
 def _probe_audio_duration(path: str) -> float:
@@ -1516,7 +1529,15 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     if not _file_has_data(img_path):
                         if use_google_provider and not allow_demo_fallback:
                             raise RuntimeError("Google post image generation returned no media payload")
-                        _run_ffmpeg_text_image(prompt=scene_prompt, aspect_ratio=aspect_ratio, out_path=img_path)
+                        _run_ffmpeg_text_image(
+                            prompt=_post_scene_fallback_text(
+                                raw_visual_prompt=raw_visual_prompt,
+                                scene_index=idx,
+                                scene_count=attempt_image_count,
+                            ),
+                            aspect_ratio=aspect_ratio,
+                            out_path=img_path,
+                        )
 
                 if capacity_hit:
                     last_attempt = attempt_idx >= (len(retry_image_counts) - 1)
@@ -1539,7 +1560,11 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                                     " consistent style, composition, and subject continuity."
                                 )
                                 _run_ffmpeg_text_image(
-                                    prompt=scene_prompt,
+                                    prompt=_post_scene_fallback_text(
+                                        raw_visual_prompt=raw_visual_prompt,
+                                        scene_index=idx,
+                                        scene_count=attempt_image_count,
+                                    ),
                                     aspect_ratio=aspect_ratio,
                                     out_path=img_path,
                                 )
