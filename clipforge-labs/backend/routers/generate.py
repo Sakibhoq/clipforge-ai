@@ -175,7 +175,7 @@ def _resolve_google_tts_endpoint() -> str:
 
 def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> tuple[str, bytes]:
     endpoint = _resolve_google_tts_endpoint()
-    safe_speed = max(80, min(260, int(speed_wpm or 165)))
+    safe_speed = max(80, min(330, int(speed_wpm or 165)))
     speaking_rate = max(0.5, min(2.0, float(safe_speed) / 165.0))
 
     default_voice_name = (os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
@@ -377,7 +377,7 @@ class GenerateVoiceoverRequest(BaseModel):
     script: str = Field(min_length=3, max_length=6000)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int = Field(default=165, ge=80, le=260)
+    speed_wpm: int = Field(default=165, ge=80, le=330)
 
 
 class GeneratePostRequest(BaseModel):
@@ -388,7 +388,7 @@ class GeneratePostRequest(BaseModel):
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int | None = Field(default=None, ge=80, le=260)
+    speed_wpm: int | None = Field(default=None, ge=80, le=330)
     style_preset: str | None = Field(default="social-native", max_length=64)
     caption_style_preset: str | None = Field(default="bold_center", max_length=64)
 
@@ -405,7 +405,7 @@ class GenerateResponse(BaseModel):
 
 class VoicePreviewRequest(BaseModel):
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int = Field(default=165, ge=80, le=260)
+    speed_wpm: int = Field(default=165, ge=80, le=330)
     text: str | None = Field(default=None, max_length=240)
 
 
@@ -565,7 +565,7 @@ def create_voiceover_generation(
     model = _check_model_supported(payload.model)
     credits_needed = _voiceover_credits_needed(script)
     text_length = len(script)
-    safe_speed = max(80, min(260, int(payload.speed_wpm or 165)))
+    safe_speed = max(80, min(330, int(payload.speed_wpm or 165)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
 
     def _plan_guard(plan: str) -> None:
@@ -637,7 +637,7 @@ def create_post_generation(
         target_wpm = int(round((words / (duration_seconds / 60.0)) * 1.08))
         safe_speed = max(130, min(210, target_wpm))
     else:
-        safe_speed = max(80, min(260, int(payload.speed_wpm)))
+        safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
     credits_needed = _post_credits_needed(duration_seconds)
 

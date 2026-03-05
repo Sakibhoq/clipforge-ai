@@ -45,8 +45,17 @@ const POST_CREDITS_PER_MINUTE = 15;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
+const VOICE_BASE_WPM = 165;
 const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 10;
+const VOICE_SPEED_OPTIONS = [
+  { value: 0.5, label: "0.5x" },
+  { value: 0.75, label: "0.75x" },
+  { value: 1, label: "1x" },
+  { value: 1.25, label: "1.25x" },
+  { value: 1.5, label: "1.5x" },
+  { value: 2, label: "2x" },
+] as const;
 
 const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
   { value: "real", label: "Real" },
@@ -162,6 +171,10 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   return msg;
 }
 
+function speedMultiplierToWpm(multiplier: number): number {
+  return Math.max(80, Math.min(330, Math.round(VOICE_BASE_WPM * multiplier)));
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -179,7 +192,7 @@ export default function GenerateClient() {
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
 
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
-  const [voiceSpeed, setVoiceSpeed] = useState(165);
+  const [voiceSpeedMultiplier, setVoiceSpeedMultiplier] = useState<number>(1);
   const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
@@ -198,6 +211,7 @@ export default function GenerateClient() {
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
+  const voiceSpeedWpm = useMemo(() => speedMultiplierToWpm(voiceSpeedMultiplier), [voiceSpeedMultiplier]);
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
@@ -226,12 +240,12 @@ export default function GenerateClient() {
     return p.length >= 3 && p.length <= 12000;
   }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
 
-  function voicePreviewKey(targetVoice: string, targetSpeed: number) {
-    return `${targetVoice}::${targetSpeed}`;
+  function voicePreviewKey(targetVoice: string, targetSpeedWpm: number) {
+    return `${targetVoice}::${targetSpeedWpm}`;
   }
 
   async function playVoicePreview(targetVoice: string) {
-    const key = voicePreviewKey(targetVoice, voiceSpeed);
+    const key = voicePreviewKey(targetVoice, voiceSpeedWpm);
     setVoicePreviewError(null);
 
     try {
@@ -241,7 +255,7 @@ export default function GenerateClient() {
           method: "POST",
           body: {
             voice_name: targetVoice,
-            speed_wpm: voiceSpeed,
+            speed_wpm: voiceSpeedWpm,
           },
         });
         src = `data:${payload.content_type || "audio/mpeg"};base64,${payload.audio_base64 || ""}`;
@@ -263,7 +277,7 @@ export default function GenerateClient() {
   }
 
   function renderVoiceSelector() {
-    const activePreviewKey = voicePreviewKey(voiceName, voiceSpeed);
+    const activePreviewKey = voicePreviewKey(voiceName, voiceSpeedWpm);
     const previewLoading = voicePreviewPlayingKey === activePreviewKey;
 
     return (
@@ -450,7 +464,7 @@ export default function GenerateClient() {
           script: p,
           model: "google",
           voice_name: voiceName,
-          speed_wpm: voiceSpeed,
+          speed_wpm: voiceSpeedWpm,
         };
       } else {
         endpoint = "/labs/generate";
@@ -758,15 +772,18 @@ export default function GenerateClient() {
                   <>
                     {renderVoiceSelector()}
                     <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Speed (WPM)</label>
-                      <input
-                        type="number"
-                        value={voiceSpeed}
-                        min={80}
-                        max={260}
-                        onChange={(e) => setVoiceSpeed(Number(e.target.value || 165))}
+                      <label className="text-xs font-medium text-white/70">Speed</label>
+                      <select
+                        value={voiceSpeedMultiplier}
+                        onChange={(e) => setVoiceSpeedMultiplier(Number(e.target.value || 1))}
                         className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
-                      />
+                      >
+                        {VOICE_SPEED_OPTIONS.map((opt) => (
+                          <option key={String(opt.value)} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 ) : null}

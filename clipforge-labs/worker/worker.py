@@ -914,7 +914,7 @@ def _run_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: st
         raw_voice = (voice_name or "en-us").strip()[:64] or "en-us"
         # espeak does not support Google Neural2 voice ids, so normalize when needed.
         voice = "en-us" if "neural" in raw_voice.lower() else raw_voice
-        speed = max(80, min(260, int(speed_wpm or 165)))
+        speed = max(80, min(330, int(speed_wpm or 165)))
         tts = [
             espeak_bin,
             "-v",
