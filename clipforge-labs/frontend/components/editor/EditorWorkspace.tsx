@@ -1278,7 +1278,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const laneHeight = track === "visual" ? 96 : 44;
+    const laneHeight = track === "visual" ? 96 : 40;
     const lensSize = 104;
     const lensScale = 2.35;
     const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
@@ -1391,11 +1391,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
     return (
       <div className={cx("grid gap-x-2.5 gap-y-0 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "pb-1 pt-2.5" : "py-0")}>
-        <div className="flex items-center justify-between gap-2 lg:block">
+        <div className="flex items-center justify-between gap-2 lg:flex lg:h-full lg:flex-col lg:items-start lg:justify-center">
           <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
             {trackLabel(track)}
           </div>
-          <div className="mt-0 text-[10px] text-white/50 lg:mt-2">{items.length} items</div>
+          <div className="mt-0 text-[10px] text-white/50 lg:mt-1.5">{items.length} items</div>
         </div>
 
         <div>
