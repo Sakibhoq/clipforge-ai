@@ -2302,6 +2302,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       {renderTrackLane(track)}
                     </div>
                   ))}
+                  <div className="h-4" aria-hidden="true" />
                 </div>
               </div>
             </section>
