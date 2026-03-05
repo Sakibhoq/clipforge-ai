@@ -405,7 +405,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const [exporting, setExporting] = useState(false);
   const [lastExportClipId, setLastExportClipId] = useState<number | null>(null);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
-  const [timelineZoom, setTimelineZoom] = useState(1.35);
+  const [timelineZoom, setTimelineZoom] = useState(1);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [cropMode, setCropMode] = useState(false);
   const [cropTargetItemId, setCropTargetItemId] = useState<string | null>(null);
@@ -429,7 +429,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
   const profile = useMemo(() => profileForFrame(project.frame), [project.frame]);
   const activeFrameAspect = useMemo(() => frameAspectRatio(project.frame), [project.frame]);
-  const timelineWidthPct = useMemo(() => clamp(timelineZoom * 100, 100, 360), [timelineZoom]);
+  const timelineWidthPct = useMemo(() => clamp(timelineZoom * 100, 100, 260), [timelineZoom]);
 
   const videos = useMemo(() => clips.filter((clip) => detectAssetType(clip) === "video"), [clips]);
   const images = useMemo(() => clips.filter((clip) => detectAssetType(clip) === "image"), [clips]);
@@ -489,6 +489,21 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     );
     return active || null;
   }, [project.captions, playhead]);
+
+  const previewStageSize = useMemo(() => {
+    const maxWidth = cardMode ? 420 : 480;
+    const maxHeight = cardMode ? 360 : 420;
+    let width = maxWidth;
+    let height = width / Math.max(0.2, activeFrameAspect);
+    if (height > maxHeight) {
+      height = maxHeight;
+      width = height * activeFrameAspect;
+    }
+    return {
+      width: Math.max(200, Math.round(width)),
+      height: Math.max(260, Math.round(height)),
+    };
+  }, [activeFrameAspect, cardMode]);
 
   function setTrackItems(track: TrackKey, updater: (items: TimelineItem[]) => TimelineItem[]) {
     setProject((prev) => ({ ...prev, [track]: updater(prev[track]) }));
@@ -1396,7 +1411,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
         <div>
           <div className="clipforge-scrollbar overflow-x-auto overflow-y-visible pb-2">
-            <div className="relative min-w-[760px]" style={{ width: `${timelineWidthPct}%` }}>
+            <div className="relative min-w-[560px]" style={{ width: `${timelineWidthPct}%` }}>
               {track === "visual" ? (
                 <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
                   {Array.from({ length: 13 }).map((_, index) => (
@@ -1469,13 +1484,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 ) : null}
 
-                {lensActive ? (
+                {lensActive && track === "visual" ? (
                   <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-cyan-100/80">
                     Magnifier on
                   </div>
                 ) : null}
 
-                {!lensActive ? (
+                {!lensActive && track === "visual" ? (
                   <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-white/40">
                     Hover to magnify timeline edits
                   </div>
@@ -1541,31 +1556,33 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             : "mx-auto h-[calc(100vh-78px)] max-w-[1820px] px-3 py-2 sm:px-4"
         )}
       >
-        <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <header className="mb-2 flex items-center justify-between gap-2">
           <div>
-            <div className="text-xs text-white/55">{cardMode ? "• Editor Card" : "• Full Page Editor"}</div>
-            <h1 className={cx("mt-1 font-semibold tracking-tight text-white/95", cardMode ? "text-2xl sm:text-3xl" : "text-2xl sm:text-3xl")}>
+            <h1 className={cx("font-semibold tracking-tight text-white/95", cardMode ? "text-lg" : "text-2xl sm:text-3xl")}>
               Clipforge <span className="grad-text">Master Editor</span>
             </h1>
-            <p className="mt-1 text-xs text-white/66 sm:text-sm">
-              Timeline workspace for visual, voiceover, music, and captions.
-            </p>
+            {!cardMode ? <p className="mt-1 text-xs text-white/66 sm:text-sm">Timeline workspace for visual, voiceover, music, and captions.</p> : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/app/generate" className="btn-ghost px-4 py-2 text-[12px]">Open Generator</Link>
-            {cardMode ? (
-              <button type="button" onClick={onClose} className="btn-ghost px-4 py-2 text-[12px]">
-                Close Editor
-              </button>
-            ) : (
+          {cardMode ? (
+            <button type="button" onClick={onClose} className="btn-ghost px-3 py-1.5 text-[11px]">
+              Close
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/app/generate" className="btn-ghost px-4 py-2 text-[12px]">Open Generator</Link>
               <Link href="/app/clips" className="btn-ghost px-4 py-2 text-[12px]">Open Library</Link>
-            )}
-          </div>
+            </div>
+          )}
         </header>
 
-        <section className="h-[calc(100%-92px)] overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-          <div className="relative grid h-full gap-0 xl:grid-cols-[74px_minmax(0,1fr)] xl:grid-rows-[minmax(250px,44%)_minmax(0,1fr)]">
+        <section
+          className={cx(
+            "overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]",
+            cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
+          )}
+        >
+          <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[minmax(250px,44%)_minmax(0,1fr)]">
             <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {TOOL_TABS.map((tab) => {
@@ -1576,7 +1593,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
-                        "inline-flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-xl border text-white/78 transition",
+                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
                         active
                           ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
                           : "border-white/12 bg-black/35 hover:border-white/28 hover:bg-white/[0.08]"
@@ -1585,7 +1602,6 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       aria-label={toolLabel(tab)}
                     >
                       <ToolbarIcon tab={tab} />
-                      <span className="text-[9px] font-medium leading-none text-white/75">{toolLabel(tab)}</span>
                     </button>
                   );
                 })}
@@ -1593,7 +1609,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             </nav>
 
             {toolTab ? (
-              <aside className="clipforge-scrollbar pointer-events-auto absolute left-[86px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+              <aside className="clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
                 {toolTab === "project" ? (
@@ -1876,82 +1892,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className="min-h-0 border-b border-white/10 bg-[#121726] p-3 xl:col-start-2">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-xs text-white/55">• Preview Stage</div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (cropMode) cancelCropMode();
-                      else startCropMode();
-                    }}
-                    className={cx(
-                      "rounded-lg border px-3 py-1 text-[11px] transition",
-                      cropMode
-                        ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                        : "border-white/10 bg-white/[0.03] text-white/72"
-                    )}
+            <section className="min-h-0 border-b border-white/10 bg-[#121726] p-2.5 xl:col-start-2">
+              <div className="grid gap-2.5 xl:grid-cols-[minmax(220px,auto)_minmax(0,1fr)]">
+                <div className="rounded-2xl border border-white/10 bg-black/45 p-2.5">
+                  <div
+                    ref={previewStageRef}
+                    className="relative mx-auto overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
+                    style={{ width: `${previewStageSize.width}px`, height: `${previewStageSize.height}px` }}
                   >
-                    {cropMode ? "Crop mode on" : "Crop"}
-                  </button>
-                  {cropMode ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setLockCropAspect((prev) => !prev)}
-                        className={cx(
-                          "rounded-lg border px-3 py-1 text-[11px] transition",
-                          lockCropAspect
-                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                            : "border-white/10 bg-white/[0.03] text-white/72"
-                        )}
-                      >
-                        Aspect {lockCropAspect ? "lock" : "free"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCropGrid((prev) => !prev)}
-                        className={cx(
-                          "rounded-lg border px-3 py-1 text-[11px] transition",
-                          showCropGrid
-                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                            : "border-white/10 bg-white/[0.03] text-white/72"
-                        )}
-                      >
-                        Grid {showCropGrid ? "on" : "off"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCropSnapGuides((prev) => !prev)}
-                        className={cx(
-                          "rounded-lg border px-3 py-1 text-[11px] transition",
-                          cropSnapGuides
-                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                            : "border-white/10 bg-white/[0.03] text-white/72"
-                        )}
-                      >
-                        Snap {cropSnapGuides ? "on" : "off"}
-                      </button>
-                      <button type="button" onClick={applyCropDraft} className="rounded-lg border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
-                        Apply crop
-                      </button>
-                      <button type="button" onClick={cancelCropMode} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72 transition">
-                        Cancel
-                      </button>
-                    </>
-                  ) : null}
-                  <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72">
-                    {profile.label}
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/45 p-3">
-                <div
-                  ref={previewStageRef}
-                  className="relative mx-auto w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
-                  style={{ aspectRatio: activeFrameAspect }}
-                >
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
                   <div className="absolute inset-0 overflow-hidden">
                     {previewVisual?.type === "image" && previewVisual.url ? (
@@ -2101,110 +2049,191 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
                     </>
                   ) : null}
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+                    <IconButton label="Back 1 second" onClick={() => setPlayhead((prev) => clamp(prev - 1, 0, timelineSeconds))}>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M11 6 5 12l6 6" />
+                        <path d="M19 6v12" />
+                      </svg>
+                    </IconButton>
+                    <IconButton label={playing ? "Pause" : "Play"} onClick={togglePlayback}>
+                      {playing ? (
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                          <rect x="7" y="5" width="3.8" height="14" rx="1" />
+                          <rect x="13.2" y="5" width="3.8" height="14" rx="1" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                          <path d="M8 6.5c0-1.02 1.1-1.66 1.98-1.13l8.24 4.95a1.31 1.31 0 0 1 0 2.26l-8.24 4.95A1.32 1.32 0 0 1 8 16.39V6.5Z" />
+                        </svg>
+                      )}
+                    </IconButton>
+                    <IconButton label="Forward 1 second" onClick={() => setPlayhead((prev) => clamp(prev + 1, 0, timelineSeconds))}>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m13 6 6 6-6 6" />
+                        <path d="M5 6v12" />
+                      </svg>
+                    </IconButton>
+                  </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  <IconButton label="Back 1 second" onClick={() => setPlayhead((prev) => clamp(prev - 1, 0, timelineSeconds))}>
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M11 6 5 12l6 6" />
-                      <path d="M19 6v12" />
-                    </svg>
-                  </IconButton>
-                  <IconButton label={playing ? "Pause" : "Play"} onClick={togglePlayback}>
-                    {playing ? (
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                        <rect x="7" y="5" width="3.8" height="14" rx="1" />
-                        <rect x="13.2" y="5" width="3.8" height="14" rx="1" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                        <path d="M8 6.5c0-1.02 1.1-1.66 1.98-1.13l8.24 4.95a1.31 1.31 0 0 1 0 2.26l-8.24 4.95A1.32 1.32 0 0 1 8 16.39V6.5Z" />
-                      </svg>
-                    )}
-                  </IconButton>
-                  <IconButton label="Forward 1 second" onClick={() => setPlayhead((prev) => clamp(prev + 1, 0, timelineSeconds))}>
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="m13 6 6 6-6 6" />
-                      <path d="M5 6v12" />
-                    </svg>
-                  </IconButton>
+                <div className="grid auto-rows-min gap-2">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0 truncate text-[11px] font-semibold text-white/85">
+                        {previewVisual?.title || "No visual clip selected"}
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/35 px-2 py-1 text-[10px] text-white/68">
+                        {profile.label}
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (cropMode) cancelCropMode();
+                          else startCropMode();
+                        }}
+                        className={cx(
+                          "rounded-lg border px-3 py-1 text-[11px] transition",
+                          cropMode
+                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            : "border-white/10 bg-white/[0.03] text-white/72"
+                        )}
+                      >
+                        {cropMode ? "Crop mode on" : "Crop"}
+                      </button>
+                      {cropMode ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setLockCropAspect((prev) => !prev)}
+                            className={cx(
+                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              lockCropAspect
+                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                : "border-white/10 bg-white/[0.03] text-white/72"
+                            )}
+                          >
+                            Aspect {lockCropAspect ? "lock" : "free"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowCropGrid((prev) => !prev)}
+                            className={cx(
+                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              showCropGrid
+                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                : "border-white/10 bg-white/[0.03] text-white/72"
+                            )}
+                          >
+                            Grid {showCropGrid ? "on" : "off"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCropSnapGuides((prev) => !prev)}
+                            className={cx(
+                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              cropSnapGuides
+                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                : "border-white/10 bg-white/[0.03] text-white/72"
+                            )}
+                          >
+                            Snap {cropSnapGuides ? "on" : "off"}
+                          </button>
+                          <button type="button" onClick={applyCropDraft} className="rounded-lg border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
+                            Apply crop
+                          </button>
+                          <button type="button" onClick={cancelCropMode} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/72 transition">
+                            Cancel
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="border border-white/10 bg-black/35 px-3 py-1 text-[11px] text-white/70">
+                        Length {formatSeconds(timelineSeconds)}
+                      </div>
+                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        Zoom {timelineZoom.toFixed(2)}x
+                        <input
+                          type="range"
+                          min={1}
+                          max={3}
+                          step={0.05}
+                          value={timelineZoom}
+                          onChange={(event) => setTimelineZoom(clamp(Number(event.target.value || 1), 1, 3))}
+                          className="w-20 accent-white"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setSnapToGrid((prev) => !prev)}
+                        className={cx(
+                          "border px-3 py-1 text-[11px] transition",
+                          snapToGrid
+                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            : "border-white/10 bg-black/35 text-white/70"
+                        )}
+                      >
+                        Snap {snapToGrid ? "on" : "off"}
+                      </button>
+                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        Music {formatPercent(project.musicBedLevel)}
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={project.musicBedLevel}
+                          onChange={(event) =>
+                            setProject((prev) => ({
+                              ...prev,
+                              musicBedLevel: clamp01(Number(event.target.value || prev.musicBedLevel)),
+                            }))
+                          }
+                          className="w-20 accent-white"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        Playhead {formatSeconds(playhead)}
+                        <input
+                          type="range"
+                          min={0}
+                          max={timelineSeconds}
+                          step={0.01}
+                          value={playhead}
+                          onChange={(event) => setPlayhead(clamp(Number(event.target.value || 0), 0, timelineSeconds))}
+                          className="w-24"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/35 px-2.5 py-2 text-[10px] text-white/55">
+                    Shortcuts: Space play/pause, Arrows nudge, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop.
+                  </div>
                 </div>
               </div>
             </section>
 
             <section className="min-h-0 bg-[#121726] p-3 xl:col-start-2">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs text-white/55">• Timeline</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
-                    Length {formatSeconds(timelineSeconds)}
-                  </div>
-                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
-                    Zoom {timelineZoom.toFixed(2)}x
-                    <input
-                      type="range"
-                      min={1}
-                      max={3}
-                      step={0.05}
-                      value={timelineZoom}
-                      onChange={(event) => setTimelineZoom(clamp(Number(event.target.value || 1), 1, 3))}
-                      className="w-24 accent-white"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setSnapToGrid((prev) => !prev)}
-                    className={cx(
-                      "border px-3 py-1 text-[11px] transition",
-                      snapToGrid
-                        ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                        : "border-white/10 bg-white/[0.03] text-white/70"
-                    )}
-                  >
-                    Snap {snapToGrid ? "on" : "off"}
-                  </button>
-                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
-                    Music {formatPercent(project.musicBedLevel)}
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={project.musicBedLevel}
-                      onChange={(event) =>
-                        setProject((prev) => ({
-                          ...prev,
-                          musicBedLevel: clamp01(Number(event.target.value || prev.musicBedLevel)),
-                        }))
-                      }
-                      className="w-24 accent-white"
-                    />
-                  </label>
-                  <label className="flex items-center gap-2 border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
-                    Playhead {formatSeconds(playhead)}
-                    <input
-                      type="range"
-                      min={0}
-                      max={timelineSeconds}
-                      step={0.01}
-                      value={playhead}
-                      onChange={(event) => setPlayhead(clamp(Number(event.target.value || 0), 0, timelineSeconds))}
-                      className="w-40 accent-white"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="mb-2 text-[10px] text-white/45">
-                Shortcuts: Space play/pause, Arrows nudge playhead, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop mode.
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="text-xs text-white/60">Timeline</div>
+                <div className="text-[11px] text-white/55">Length {formatSeconds(timelineSeconds)}</div>
               </div>
 
               {selectedItem && selected ? (
-                <div className="mb-3 grid gap-2 border border-white/10 bg-white/[0.03] p-3 lg:grid-cols-[minmax(0,1fr)_120px_120px_auto_auto]">
+                <div className="mb-2 grid gap-1.5 border border-white/10 bg-white/[0.03] p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
-                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
                   />
                   <input
                     type="number"
@@ -2212,7 +2241,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     step={0.01}
                     value={selectedItem.start}
                     onChange={(event) => updateSelected({ start: clamp(snapTimeValue(Number(event.target.value || 0)), 0, 600) })}
-                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
                   />
                   <input
                     type="number"
@@ -2220,7 +2249,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     step={0.01}
                     value={selectedItem.duration}
                     onChange={(event) => updateSelected({ duration: clamp(Number(event.target.value || 1), 0.2, 600) })}
-                    className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
                   />
                   <button type="button" onClick={duplicateSelected} className="btn-ghost px-3 py-2 text-[12px]">
                     Duplicate
@@ -2240,12 +2269,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       rows={2}
                       value={selectedItem.text || ""}
                       onChange={(event) => updateSelected({ text: event.target.value })}
-                      className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-sm text-white/92 outline-none focus:border-white/25 lg:col-span-5"
+                      className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/92 outline-none focus:border-white/25 lg:col-span-5"
                     />
                   ) : null}
                 </div>
               ) : (
-                <div className="mb-3 border border-dashed border-white/15 bg-white/[0.02] p-3 text-[12px] text-white/55">
+                <div className="mb-2 border border-dashed border-white/15 bg-white/[0.02] p-2 text-[11px] text-white/55">
                   Select a timeline block to edit timing in milliseconds.
                 </div>
               )}
