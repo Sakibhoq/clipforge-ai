@@ -1384,7 +1384,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         : 0;
     const lensTop =
       lensActive && timelineHoverLens
-        ? Math.max(6, timelineHoverLens.displayY - lensSize - 18)
+        ? timelineHoverLens.displayY - lensSize - 18
         : 0;
 
     return (
@@ -2295,7 +2295,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className={cx("overflow-hidden rounded-3xl border border-transparent", surfacePrimaryClass)}>
+              <div className={cx("overflow-visible rounded-3xl border border-transparent", surfacePrimaryClass)}>
                 <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
