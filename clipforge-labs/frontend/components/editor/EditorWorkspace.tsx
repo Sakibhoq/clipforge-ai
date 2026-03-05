@@ -491,8 +491,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   }, [project.captions, playhead]);
 
   const previewStageSize = useMemo(() => {
-    const maxWidth = cardMode ? 420 : 480;
-    const maxHeight = cardMode ? 360 : 420;
+    const maxWidth = cardMode ? 820 : 900;
+    const maxHeight = cardMode ? 500 : 560;
     let width = maxWidth;
     let height = width / Math.max(0.2, activeFrameAspect);
     if (height > maxHeight) {
@@ -500,8 +500,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       width = height * activeFrameAspect;
     }
     return {
-      width: Math.max(200, Math.round(width)),
-      height: Math.max(260, Math.round(height)),
+      width: Math.max(360, Math.round(width)),
+      height: Math.max(300, Math.round(height)),
     };
   }, [activeFrameAspect, cardMode]);
 
@@ -1893,162 +1893,162 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             ) : null}
 
             <section className="min-h-0 border-b border-white/10 bg-[#121726] p-2.5 xl:col-start-2">
-              <div className="grid gap-2.5 xl:grid-cols-[minmax(220px,auto)_minmax(0,1fr)]">
+              <div className="grid gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 <div className="rounded-2xl border border-white/10 bg-black/45 p-2.5">
                   <div
                     ref={previewStageRef}
                     className="relative mx-auto overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
                     style={{ width: `${previewStageSize.width}px`, height: `${previewStageSize.height}px` }}
                   >
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
-                  <div className="absolute inset-0 overflow-hidden">
-                    {previewVisual?.type === "image" && previewVisual.url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={previewVisual.url} alt={previewVisual.title} className="absolute" style={cropMediaStyle(previewCrop)} />
-                    ) : previewVisual?.url ? (
-                      <video
-                        ref={previewVideoRef}
-                        src={previewVisual.url}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="absolute"
-                        style={cropMediaStyle(previewCrop)}
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
-                        Open sidepanel media button and add video/image assets to the timeline.
-                      </div>
-                    )}
-                  </div>
-
-                  {activeCaption?.text ? (
-                    <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
-                      {activeCaption.text}
-                    </div>
-                  ) : null}
-
-                  {previewVisual?.crop && !cropMode ? (
-                    <div
-                      className="pointer-events-none absolute z-10 rounded-sm border border-cyan-200/45"
-                      style={{
-                        left: `${previewVisual.crop.x * 100}%`,
-                        top: `${previewVisual.crop.y * 100}%`,
-                        width: `${previewVisual.crop.w * 100}%`,
-                        height: `${previewVisual.crop.h * 100}%`,
-                        boxShadow: "0 0 0 9999px rgba(0,0,0,0.24)",
-                      }}
-                    />
-                  ) : null}
-
-                  {previewVisual && cropMode ? (
-                    <div
-                      className={cx(
-                        "absolute inset-0 z-20 touch-none",
-                        cropTargetItemId === previewVisual.id ? "cursor-crosshair" : "cursor-not-allowed"
-                      )}
-                      onPointerDown={beginCropDraw}
-                    >
-                      {cropDraft && cropTargetItemId === previewVisual.id ? (
-                        <>
-                          <div className="pointer-events-none absolute left-0 right-0 top-0 bg-black/50" style={{ height: `${cropDraft.y * 100}%` }} />
-                          <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50" style={{ height: `${(1 - (cropDraft.y + cropDraft.h)) * 100}%` }} />
-                          <div
-                            className="pointer-events-none absolute left-0 bg-black/50"
-                            style={{ top: `${cropDraft.y * 100}%`, width: `${cropDraft.x * 100}%`, height: `${cropDraft.h * 100}%` }}
-                          />
-                          <div
-                            className="pointer-events-none absolute right-0 bg-black/50"
-                            style={{ top: `${cropDraft.y * 100}%`, width: `${(1 - (cropDraft.x + cropDraft.w)) * 100}%`, height: `${cropDraft.h * 100}%` }}
-                          />
-
-                          <div
-                            className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.24)] cursor-move"
-                            style={{
-                              left: `${cropDraft.x * 100}%`,
-                              top: `${cropDraft.y * 100}%`,
-                              width: `${cropDraft.w * 100}%`,
-                              height: `${cropDraft.h * 100}%`,
-                            }}
-                            onPointerDown={(event) => beginCropDrag(event, "move")}
-                          >
-                            {showCropGrid ? (
-                              <>
-                                <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-cyan-100/40" />
-                                <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-cyan-100/40" />
-                                <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-cyan-100/40" />
-                                <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-cyan-100/40" />
-                              </>
-                            ) : null}
-
-                            <button
-                              type="button"
-                              aria-label="Resize top left"
-                              className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-nw")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize top edge"
-                              className="absolute left-1/2 top-[-7px] h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-n")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize top right"
-                              className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-ne")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize left edge"
-                              className="absolute left-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-w")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize right edge"
-                              className="absolute right-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-e")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize bottom left"
-                              className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-sw")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize bottom edge"
-                              className="absolute bottom-[-7px] left-1/2 h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-s")}
-                            />
-                            <button
-                              type="button"
-                              aria-label="Resize bottom right"
-                              className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
-                              onPointerDown={(event) => beginCropDrag(event, "resize-se")}
-                            />
-                          </div>
-                        </>
-                      ) : null}
-                      <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
-                        Draw, drag, or resize crop. Enter apply, Esc cancel.
-                      </div>
-                      {cropTargetItemId !== previewVisual.id ? (
-                        <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
-                          Move playhead to the selected visual clip to continue cropping.
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
+                    <div className="absolute inset-0 overflow-hidden">
+                      {previewVisual?.type === "image" && previewVisual.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={previewVisual.url} alt={previewVisual.title} className="absolute" style={cropMediaStyle(previewCrop)} />
+                      ) : previewVisual?.url ? (
+                        <video
+                          ref={previewVideoRef}
+                          src={previewVisual.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="absolute"
+                          style={cropMediaStyle(previewCrop)}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
+                          Open sidepanel media button and add video/image assets to the timeline.
                         </div>
-                      ) : null}
+                      )}
                     </div>
-                  ) : null}
 
-                  {project.safeAreaOn ? (
-                    <>
-                      <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
-                    </>
-                  ) : null}
+                    {activeCaption?.text ? (
+                      <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                        {activeCaption.text}
+                      </div>
+                    ) : null}
+
+                    {previewVisual?.crop && !cropMode ? (
+                      <div
+                        className="pointer-events-none absolute z-10 rounded-sm border border-cyan-200/45"
+                        style={{
+                          left: `${previewVisual.crop.x * 100}%`,
+                          top: `${previewVisual.crop.y * 100}%`,
+                          width: `${previewVisual.crop.w * 100}%`,
+                          height: `${previewVisual.crop.h * 100}%`,
+                          boxShadow: "0 0 0 9999px rgba(0,0,0,0.24)",
+                        }}
+                      />
+                    ) : null}
+
+                    {previewVisual && cropMode ? (
+                      <div
+                        className={cx(
+                          "absolute inset-0 z-20 touch-none",
+                          cropTargetItemId === previewVisual.id ? "cursor-crosshair" : "cursor-not-allowed"
+                        )}
+                        onPointerDown={beginCropDraw}
+                      >
+                        {cropDraft && cropTargetItemId === previewVisual.id ? (
+                          <>
+                            <div className="pointer-events-none absolute left-0 right-0 top-0 bg-black/50" style={{ height: `${cropDraft.y * 100}%` }} />
+                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50" style={{ height: `${(1 - (cropDraft.y + cropDraft.h)) * 100}%` }} />
+                            <div
+                              className="pointer-events-none absolute left-0 bg-black/50"
+                              style={{ top: `${cropDraft.y * 100}%`, width: `${cropDraft.x * 100}%`, height: `${cropDraft.h * 100}%` }}
+                            />
+                            <div
+                              className="pointer-events-none absolute right-0 bg-black/50"
+                              style={{ top: `${cropDraft.y * 100}%`, width: `${(1 - (cropDraft.x + cropDraft.w)) * 100}%`, height: `${cropDraft.h * 100}%` }}
+                            />
+
+                            <div
+                              className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.24)] cursor-move"
+                              style={{
+                                left: `${cropDraft.x * 100}%`,
+                                top: `${cropDraft.y * 100}%`,
+                                width: `${cropDraft.w * 100}%`,
+                                height: `${cropDraft.h * 100}%`,
+                              }}
+                              onPointerDown={(event) => beginCropDrag(event, "move")}
+                            >
+                              {showCropGrid ? (
+                                <>
+                                  <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-cyan-100/40" />
+                                  <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-cyan-100/40" />
+                                  <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-cyan-100/40" />
+                                  <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-cyan-100/40" />
+                                </>
+                              ) : null}
+
+                              <button
+                                type="button"
+                                aria-label="Resize top left"
+                                className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-nw")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize top edge"
+                                className="absolute left-1/2 top-[-7px] h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-n")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize top right"
+                                className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-ne")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize left edge"
+                                className="absolute left-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-w")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize right edge"
+                                className="absolute right-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-e")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize bottom left"
+                                className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-sw")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize bottom edge"
+                                className="absolute bottom-[-7px] left-1/2 h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-s")}
+                              />
+                              <button
+                                type="button"
+                                aria-label="Resize bottom right"
+                                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                                onPointerDown={(event) => beginCropDrag(event, "resize-se")}
+                              />
+                            </div>
+                          </>
+                        ) : null}
+                        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+                          Draw, drag, or resize crop. Enter apply, Esc cancel.
+                        </div>
+                        {cropTargetItemId !== previewVisual.id ? (
+                          <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
+                            Move playhead to the selected visual clip to continue cropping.
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {project.safeAreaOn ? (
+                      <>
+                        <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-white/35" style={{ height: `${profile.safeTop * 100}%` }} />
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-white/35" style={{ height: `${profile.safeBottom * 100}%` }} />
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
@@ -2079,17 +2079,18 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
 
-                <div className="grid auto-rows-min gap-2">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="min-w-0 truncate text-[11px] font-semibold text-white/85">
-                        {previewVisual?.title || "No visual clip selected"}
-                      </div>
-                      <div className="rounded-lg border border-white/10 bg-black/35 px-2 py-1 text-[10px] text-white/68">
-                        {profile.label}
-                      </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0 truncate text-[11px] font-semibold text-white/88">
+                      {previewVisual?.title || "No visual clip selected"}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="rounded-lg border border-white/10 bg-black/35 px-2 py-1 text-[10px] text-white/68">
+                      {profile.label}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => {
@@ -2154,13 +2155,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="grid gap-2">
                       <div className="border border-white/10 bg-black/35 px-3 py-1 text-[11px] text-white/70">
                         Length {formatSeconds(timelineSeconds)}
                       </div>
-                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
-                        Zoom {timelineZoom.toFixed(2)}x
+                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        <span>Zoom {timelineZoom.toFixed(2)}x</span>
                         <input
                           type="range"
                           min={1}
@@ -2168,7 +2169,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           step={0.05}
                           value={timelineZoom}
                           onChange={(event) => setTimelineZoom(clamp(Number(event.target.value || 1), 1, 3))}
-                          className="w-20 accent-white"
+                          className="w-24 accent-white"
                         />
                       </label>
                       <button
@@ -2183,8 +2184,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       >
                         Snap {snapToGrid ? "on" : "off"}
                       </button>
-                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
-                        Music {formatPercent(project.musicBedLevel)}
+                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        <span>Music {formatPercent(project.musicBedLevel)}</span>
                         <input
                           type="range"
                           min={0}
@@ -2197,11 +2198,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               musicBedLevel: clamp01(Number(event.target.value || prev.musicBedLevel)),
                             }))
                           }
-                          className="w-20 accent-white"
+                          className="w-24 accent-white"
                         />
                       </label>
-                      <label className="flex items-center gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
-                        Playhead {formatSeconds(playhead)}
+                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                        <span>Playhead {formatSeconds(playhead)}</span>
                         <input
                           type="range"
                           min={0}
@@ -2215,7 +2216,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-white/10 bg-black/35 px-2.5 py-2 text-[10px] text-white/55">
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 text-[10px] text-white/55">
                     Shortcuts: Space play/pause, Arrows nudge, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop.
                   </div>
                 </div>
