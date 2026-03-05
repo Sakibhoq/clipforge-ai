@@ -1521,6 +1521,29 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                 if capacity_hit:
                     last_attempt = attempt_idx >= (len(retry_image_counts) - 1)
                     if last_attempt:
+                        if not strict_provider and allow_demo_fallback:
+                            print(
+                                f"[worker] post image final capacity fallback job_id={job_id} "
+                                f"retry_count={attempt_image_count} using local placeholder scenes"
+                            )
+                            _clear_image_paths()
+                            for idx in range(attempt_image_count):
+                                fd_img, img_path = tempfile.mkstemp(
+                                    prefix=f"cflabs-post-img-fallback-{job_id}-{idx}-",
+                                    suffix=".png",
+                                )
+                                os.close(fd_img)
+                                image_paths.append(img_path)
+                                scene_prompt = (
+                                    f"{visual_prompt}. Scene {idx + 1} of {attempt_image_count},"
+                                    " consistent style, composition, and subject continuity."
+                                )
+                                _run_ffmpeg_text_image(
+                                    prompt=scene_prompt,
+                                    aspect_ratio=aspect_ratio,
+                                    out_path=img_path,
+                                )
+                            break
                         raise RuntimeError("Generation queue is at provider capacity. Retry in a few minutes.")
                     continue
                 break
