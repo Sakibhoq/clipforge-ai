@@ -667,7 +667,7 @@ export default function GenerateClient() {
 
               {mode === "post" ? (
                 <div className="mt-3 rounded-2xl border border-[#ffbe3d55] bg-[#ffbe3d1a] px-4 py-3 text-xs text-amber-100/95">
-                  AI Post builds a 60-second story from generated images plus voiceover narration, then renders it as one ready-to-edit clip.
+                  AI Post builds a 60-second story from generated images plus voiceover narration, then renders it as one ready-to-post clip.
                 </div>
               ) : null}
             </div>
