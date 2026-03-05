@@ -857,19 +857,6 @@ export default function ClipsPage() {
           <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px]" onClick={closeEditor} />
           <div className="absolute inset-0 p-3 sm:p-5">
             <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden rounded-[28px] border border-[#7dd3fc33] bg-[radial-gradient(130%_120%_at_15%_0%,rgba(125,211,252,0.16),transparent_52%),radial-gradient(100%_120%_at_84%_0%,rgba(167,139,250,0.13),transparent_48%),rgba(7,11,21,0.96)] shadow-[0_38px_120px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
-              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <div className="text-[11px] text-white/55">Floating editor card</div>
-                  <div className="truncate text-sm font-semibold text-white/92 sm:text-base">Clipforge Master Editor</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeEditor}
-                  className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 hover:bg-white/[0.08]"
-                >
-                  Close
-                </button>
-              </div>
               <div className="clipforge-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-1">
                 <EditorWorkspace mode="card" onClose={closeEditor} />
               </div>
