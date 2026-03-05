@@ -1572,8 +1572,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2.5">
-              <div className="flex flex-row gap-2.5 xl:flex-col xl:gap-3">
+            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2.5 xl:pl-2 xl:pr-3.5">
+              <div className="flex flex-row gap-2.5 xl:flex-col xl:items-start xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
                   return (
@@ -1582,7 +1582,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
-                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition xl:mx-auto",
+                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
                         active
                           ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
                           : "border-white/12 bg-black/35 hover:border-white/28 hover:bg-white/[0.08]"
