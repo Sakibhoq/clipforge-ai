@@ -520,8 +520,8 @@ export default function GenerateClient() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1100px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <form onSubmit={onGenerate} className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
-          <section className="surface relative overflow-hidden rounded-3xl border border-[#fb560740] p-5 sm:p-6">
+        <form onSubmit={onGenerate} className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
+          <section className="surface relative flex min-h-[760px] flex-col overflow-hidden rounded-3xl border border-[#fb560740] p-5 sm:p-6 xl:min-h-[860px]">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -inset-12 opacity-35 blur-3xl"
@@ -531,7 +531,7 @@ export default function GenerateClient() {
               }}
             />
 
-            <div className="relative">
+            <div className="relative flex h-full flex-col">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Generate Clips</h1>
@@ -579,7 +579,7 @@ export default function GenerateClient() {
                 </div>
               ) : null}
 
-              <div className="mt-4 grid gap-3">
+              <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
                     <label className="text-xs font-medium text-white/70">Visual direction</label>
@@ -607,7 +607,7 @@ export default function GenerateClient() {
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      rows={mode === "voiceover" ? 10 : 8}
+                      rows={mode === "voiceover" ? 12 : 10}
                       placeholder={
                         mode === "voiceover"
                           ? "Write the exact script you want spoken."
