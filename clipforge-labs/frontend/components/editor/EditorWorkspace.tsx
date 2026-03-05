@@ -1395,7 +1395,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
             {trackLabel(track)}
           </div>
-          <div className="mt-0 text-[10px] text-white/50 lg:mt-1.5">{items.length} items</div>
+          {items.length ? <div className="mt-0 text-[10px] text-white/50 lg:mt-1.5">{items.length} items</div> : null}
         </div>
 
         <div>
