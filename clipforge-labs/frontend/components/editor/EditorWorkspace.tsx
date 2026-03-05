@@ -266,7 +266,7 @@ function trackLabel(track: TrackKey) {
 }
 
 function trackTone(track: TrackKey) {
-  if (track === "visual") return "border-cyan-300/40 bg-cyan-400/14 text-cyan-100";
+  if (track === "visual") return "border-[#ffb70366] bg-[#ffb70322] text-amber-100";
   if (track === "voiceover") return "border-emerald-300/40 bg-emerald-400/14 text-emerald-100";
   if (track === "music") return "border-amber-300/40 bg-amber-400/14 text-amber-100";
   return "border-fuchsia-300/40 bg-fuchsia-400/14 text-fuchsia-100";
@@ -1413,7 +1413,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div
                 data-track-lane={track}
-                className={cx("relative overflow-visible rounded-xl bg-[#0d1a34]/62", track === "visual" ? "mt-1" : "mt-0")}
+                className={cx("relative overflow-visible rounded-xl bg-[#0b1222]/62", track === "visual" ? "mt-1" : "mt-0")}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -1446,7 +1446,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {lensActive && timelineHoverLens ? (
                   <div
-                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-2xl border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-2xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                     style={{
                       width: lensSize,
                       height: lensSize,
@@ -1466,7 +1466,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       <div className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
                       {items.map((item) => renderItem(item, false))}
                     </div>
-                    <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
+                    <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-[#ffb70399] bg-[#080b12]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-100">
                       {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
                     </div>
                     <div className="pointer-events-none absolute inset-0 rounded-2xl border border-white/45" />
@@ -1474,7 +1474,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 ) : null}
 
                 {lensActive && track === "visual" ? (
-                  <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-cyan-100/80">
+                  <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-amber-100/80">
                     Magnifier on
                   </div>
                 ) : null}
@@ -1567,12 +1567,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
         <section
           className={cx(
-            "overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(155deg,rgba(8,16,32,0.98)_0%,rgba(12,26,48,0.98)_48%,rgba(26,18,42,0.98)_100%)] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
+            "overflow-hidden rounded-2xl border border-[#fb560740] bg-[linear-gradient(155deg,rgba(10,14,24,0.98)_0%,rgba(13,18,30,0.98)_55%,rgba(26,15,12,0.98)_100%)] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-cyan-300/15 bg-[linear-gradient(180deg,rgba(7,15,30,0.98)_0%,rgba(9,18,35,0.98)_100%)] p-2.5 xl:pl-2 xl:pr-3.5">
+            <nav className="border-r border-[#fb560733] bg-[linear-gradient(180deg,rgba(10,13,23,0.98)_0%,rgba(11,14,24,0.98)_100%)] p-2.5 xl:pl-2 xl:pr-3.5">
               <div className="flex flex-row gap-2.5 xl:flex-col xl:items-start xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
@@ -1584,8 +1584,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       className={cx(
                         "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
                         active
-                          ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
-                          : "border-slate-300/20 bg-[#0b1528]/85 hover:border-cyan-200/45 hover:bg-[#13223c]/95"
+                          ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.2),rgba(251,86,7,0.26),rgba(255,154,60,0.18))] text-white"
+                          : "border-white/14 bg-[#0b101d]/88 hover:border-[#fb5607ad] hover:bg-[#151b2a]/95"
                       )}
                       title={toolLabel(tab)}
                       aria-label={toolLabel(tab)}
@@ -1600,7 +1600,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             {toolTab ? (
               <aside
                 className={cx(
-                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-cyan-300/25 bg-[linear-gradient(160deg,rgba(14,30,56,0.98)_0%,rgba(15,24,42,0.98)_100%)] p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
+                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-[#fb560740] bg-[linear-gradient(160deg,rgba(18,24,40,0.98)_0%,rgba(14,18,31,0.98)_100%)] p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
                   toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
@@ -1896,12 +1896,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className="min-h-0 border-b border-cyan-300/12 bg-[#101a2f]/86 p-2.5 xl:col-start-2">
+            <section className="min-h-0 border-b border-[#fb560730] bg-[#0f1628]/86 p-2.5 xl:col-start-2">
               <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                <div className="rounded-2xl border border-cyan-300/18 bg-[#0a1426]/88 p-2.5">
+                <div className="rounded-2xl border border-[#fb560738] bg-[#0a111f]/90 p-2.5">
                   <div
                     ref={previewStageRef}
-                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#050d1a]"
+                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-[#fb560733] bg-[#050913]"
                     style={{ height: `${previewStageHeight}px` }}
                   >
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
@@ -1934,7 +1934,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                     {previewVisual?.crop && !cropMode ? (
                       <div
-                        className="pointer-events-none absolute z-10 rounded-sm border border-cyan-200/45"
+                        className="pointer-events-none absolute z-10 rounded-sm border border-amber-200/45"
                         style={{
                           left: `${previewVisual.crop.x * 100}%`,
                           top: `${previewVisual.crop.y * 100}%`,
@@ -1967,7 +1967,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             />
 
                             <div
-                              className="absolute border-2 border-cyan-300/90 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(255,255,255,0.24)] cursor-move"
+                              className="absolute border-2 border-[#ffb703d9] bg-[#ffb70322] shadow-[0_0_0_1px_rgba(255,255,255,0.24)] cursor-move"
                               style={{
                                 left: `${cropDraft.x * 100}%`,
                                 top: `${cropDraft.y * 100}%`,
@@ -1978,65 +1978,65 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             >
                               {showCropGrid ? (
                                 <>
-                                  <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-cyan-100/40" />
-                                  <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-cyan-100/40" />
-                                  <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-cyan-100/40" />
-                                  <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-cyan-100/40" />
+                                  <div className="pointer-events-none absolute inset-y-0 left-1/3 w-px bg-amber-100/40" />
+                                  <div className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-amber-100/40" />
+                                  <div className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-amber-100/40" />
+                                  <div className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-amber-100/40" />
                                 </>
                               ) : null}
 
                               <button
                                 type="button"
                                 aria-label="Resize top left"
-                                className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                                className="absolute -left-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-amber-200 shadow cursor-nwse-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-nw")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize top edge"
-                                className="absolute left-1/2 top-[-7px] h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                                className="absolute left-1/2 top-[-7px] h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-amber-200 shadow cursor-ns-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-n")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize top right"
-                                className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                                className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-amber-200 shadow cursor-nesw-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-ne")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize left edge"
-                                className="absolute left-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                                className="absolute left-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-amber-200 shadow cursor-ew-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-w")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize right edge"
-                                className="absolute right-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                                className="absolute right-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-amber-200 shadow cursor-ew-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-e")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize bottom left"
-                                className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
+                                className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-amber-200 shadow cursor-nesw-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-sw")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize bottom edge"
-                                className="absolute bottom-[-7px] left-1/2 h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                                className="absolute bottom-[-7px] left-1/2 h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-amber-200 shadow cursor-ns-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-s")}
                               />
                               <button
                                 type="button"
                                 aria-label="Resize bottom right"
-                                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nwse-resize"
+                                className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border border-white/80 bg-amber-200 shadow cursor-nwse-resize"
                                 onPointerDown={(event) => beginCropDrag(event, "resize-se")}
                               />
                             </div>
                           </>
                         ) : null}
-                        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+                        <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-amber-100">
                           Draw, drag, or resize crop. Enter apply, Esc cancel.
                         </div>
                         {cropTargetItemId !== previewVisual.id ? (
@@ -2083,17 +2083,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-cyan-300/18 bg-[#15233c]/72 p-3">
+                <div className="rounded-xl border border-[#fb560738] bg-[#121a2c]/78 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 truncate text-[11px] font-semibold text-white/88">
                       {previewVisual?.title || "No visual clip selected"}
                     </div>
-                    <div className="rounded-lg border border-cyan-300/20 bg-[#0b162b]/90 px-2 py-1 text-[10px] text-white/72">
+                    <div className="rounded-lg border border-[#fb560733] bg-[#0c1220]/92 px-2 py-1 text-[10px] text-white/72">
                       {profile.label}
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-cyan-300/12 pt-3">
+                  <div className="mt-3 border-t border-[#fb560730] pt-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -2104,7 +2104,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         className={cx(
                           "rounded-lg border px-3 py-1 text-[11px] transition",
                           cropMode
-                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                            ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
                             : "border-white/10 bg-white/[0.03] text-white/72"
                         )}
                       >
@@ -2118,7 +2118,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             className={cx(
                               "rounded-lg border px-3 py-1 text-[11px] transition",
                               lockCropAspect
-                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
                                 : "border-white/10 bg-white/[0.03] text-white/72"
                             )}
                           >
@@ -2130,7 +2130,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             className={cx(
                               "rounded-lg border px-3 py-1 text-[11px] transition",
                               showCropGrid
-                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
                                 : "border-white/10 bg-white/[0.03] text-white/72"
                             )}
                           >
@@ -2142,7 +2142,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             className={cx(
                               "rounded-lg border px-3 py-1 text-[11px] transition",
                               cropSnapGuides
-                                ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
+                                ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
                                 : "border-white/10 bg-white/[0.03] text-white/72"
                             )}
                           >
@@ -2159,12 +2159,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-cyan-300/12 pt-3">
+                  <div className="mt-3 border-t border-[#fb560730] pt-3">
                     <div className="grid gap-2">
-                      <div className="border border-cyan-300/16 bg-[#0b162b]/90 px-3 py-1 text-[11px] text-white/72">
+                      <div className="border border-[#fb560733] bg-[#0c1220]/90 px-3 py-1 text-[11px] text-white/72">
                         Length {formatSeconds(timelineSeconds)}
                       </div>
-                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
+                      <label className="flex items-center justify-between gap-2 border border-[#fb560733] bg-[#0c1220]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Zoom {timelineZoom.toFixed(2)}x</span>
                         <input
                           type="range"
@@ -2182,13 +2182,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         className={cx(
                           "border px-3 py-1 text-[11px] transition",
                           snapToGrid
-                            ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                            : "border-cyan-300/16 bg-[#0b162b]/90 text-white/72"
+                            ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
+                            : "border-[#fb560733] bg-[#0c1220]/90 text-white/72"
                         )}
                       >
                         Snap {snapToGrid ? "on" : "off"}
                       </button>
-                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
+                      <label className="flex items-center justify-between gap-2 border border-[#fb560733] bg-[#0c1220]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Music {formatPercent(project.musicBedLevel)}</span>
                         <input
                           type="range"
@@ -2205,7 +2205,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           className="w-24 accent-white"
                         />
                       </label>
-                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
+                      <label className="flex items-center justify-between gap-2 border border-[#fb560733] bg-[#0c1220]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Playhead {formatSeconds(playhead)}</span>
                         <input
                           type="range"
@@ -2220,21 +2220,21 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-cyan-300/14 bg-[#0b162b]/88 px-2.5 py-2 text-[10px] text-white/60">
+                  <div className="mt-3 rounded-lg border border-[#fb56072a] bg-[#0c1220]/88 px-2.5 py-2 text-[10px] text-white/60">
                     Shortcuts: Space play/pause, Arrows nudge, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop.
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="min-h-0 bg-[#101a2f]/86 p-3 xl:col-span-2">
+            <section className="min-h-0 bg-[#0f1628]/86 p-3 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/60">Timeline</div>
                 <div className="text-[11px] text-white/55">Length {formatSeconds(timelineSeconds)}</div>
               </div>
 
               {selectedItem && selected ? (
-                <div className="mb-2 grid gap-1.5 border border-cyan-300/16 bg-[#15233c]/72 p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
+                <div className="mb-2 grid gap-1.5 border border-[#fb560733] bg-[#121a2c]/72 p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
@@ -2284,7 +2284,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(10,20,38,0.96),rgba(8,17,33,0.96))]">
+              <div className="overflow-hidden rounded-2xl border border-[#fb560740] bg-[linear-gradient(180deg,rgba(11,16,28,0.96),rgba(9,14,24,0.96))]">
                 <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
