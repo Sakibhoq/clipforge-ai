@@ -1572,8 +1572,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-[#fb560733] bg-[linear-gradient(180deg,rgba(10,13,23,0.98)_0%,rgba(11,14,24,0.98)_100%)] p-2.5 xl:pl-2 xl:pr-3.5">
-              <div className="flex flex-row gap-2.5 xl:flex-col xl:items-start xl:gap-3">
+            <nav className="border-r border-[#fb560733] bg-[linear-gradient(180deg,rgba(10,13,23,0.98)_0%,rgba(11,14,24,0.98)_100%)] p-2.5 xl:px-3">
+              <div className="flex flex-row gap-2.5 xl:flex-col xl:items-center xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
                   return (
