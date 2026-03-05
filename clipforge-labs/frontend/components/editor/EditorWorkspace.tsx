@@ -492,20 +492,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     return active || null;
   }, [project.captions, playhead]);
 
-  const previewStageSize = useMemo(() => {
-    const maxWidth = cardMode ? 820 : 900;
-    const maxHeight = cardMode ? 500 : 560;
-    let width = maxWidth;
-    let height = width / Math.max(0.2, activeFrameAspect);
-    if (height > maxHeight) {
-      height = maxHeight;
-      width = height * activeFrameAspect;
-    }
-    return {
-      width: Math.max(360, Math.round(width)),
-      height: Math.max(300, Math.round(height)),
-    };
-  }, [activeFrameAspect, cardMode]);
+  const previewStageHeight = useMemo(() => (cardMode ? 420 : 500), [cardMode]);
 
   function setTrackItems(track: TrackKey, updater: (items: TimelineItem[]) => TimelineItem[]) {
     setProject((prev) => ({ ...prev, [track]: updater(prev[track]) }));
@@ -1583,7 +1570,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
         >
-          <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[minmax(250px,44%)_minmax(0,1fr)]">
+          <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
             <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {TOOL_TABS.map((tab) => {
@@ -1894,12 +1881,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             ) : null}
 
             <section className="min-h-0 border-b border-white/10 bg-[#121726] p-2.5 xl:col-start-2">
-              <div className="grid gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 <div className="rounded-2xl border border-white/10 bg-black/45 p-2.5">
                   <div
                     ref={previewStageRef}
-                    className="relative mx-auto overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
-                    style={{ width: `${previewStageSize.width}px`, height: `${previewStageSize.height}px` }}
+                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
+                    style={{ height: `${previewStageHeight}px` }}
                   >
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
                     <div className="absolute inset-0 overflow-hidden">
