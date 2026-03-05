@@ -140,7 +140,8 @@ function cropMediaStyle(crop?: CropRect): React.CSSProperties {
       inset: 0,
       width: "100%",
       height: "100%",
-      objectFit: "cover",
+      objectFit: "fill",
+      imageRendering: "auto",
     };
   }
 
@@ -151,7 +152,8 @@ function cropMediaStyle(crop?: CropRect): React.CSSProperties {
     height: `${100 / safe.h}%`,
     left: `${(-safe.x / safe.w) * 100}%`,
     top: `${(-safe.y / safe.h) * 100}%`,
-    objectFit: "cover",
+    objectFit: "fill",
+    imageRendering: "auto",
   };
 }
 
@@ -1316,11 +1318,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-white/15">
               {item.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt={item.title} className="h-full w-full object-cover opacity-92" />
+                <img src={item.url} alt={item.title} className="h-full w-full object-fill" />
               ) : (
-                <video src={item.url} muted playsInline preload="metadata" className="h-full w-full object-cover opacity-92" />
+                <video src={item.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-fill" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/10 to-black/30" />
             </div>
           ) : null}
           {!visualItem ? <div className="relative z-10 truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div> : null}
