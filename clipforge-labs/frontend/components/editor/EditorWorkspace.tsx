@@ -1386,11 +1386,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         : 0;
     const lensTop =
       lensActive && timelineHoverLens
-        ? (() => {
-            const above = timelineHoverLens.y - lensSize - 14;
-            if (above >= -12) return above;
-            return timelineHoverLens.y + 14;
-          })()
+        ? timelineHoverLens.y - lensSize - 16
         : 0;
 
     return (
