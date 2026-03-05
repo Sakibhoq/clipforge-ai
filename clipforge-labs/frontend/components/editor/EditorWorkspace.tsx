@@ -18,7 +18,17 @@ type TimelineHoverLens = {
   clientX: number;
   clientY: number;
 };
-type CropDragMode = "draw" | "move" | "resize-se" | "resize-sw" | "resize-ne" | "resize-nw";
+type CropDragMode =
+  | "draw"
+  | "move"
+  | "resize-se"
+  | "resize-sw"
+  | "resize-ne"
+  | "resize-nw"
+  | "resize-n"
+  | "resize-s"
+  | "resize-e"
+  | "resize-w";
 type CropDragState = {
   mode: CropDragMode;
   startX: number;
@@ -262,10 +272,11 @@ function trackTone(track: TrackKey) {
 
 function toolLabel(tab: ToolTab) {
   if (tab === "media") return "Media";
+  if (tab === "project") return "Canvas";
   if (tab === "audio") return "Audio";
   if (tab === "text") return "Text";
-  if (tab === "export") return "Export";
-  return "Project";
+  if (tab === "export") return "Videos";
+  return "Tool";
 }
 
 function profileForFrame(frame: FrameRatio) {
@@ -298,40 +309,45 @@ function ToolbarIcon({ tab }: { tab: ToolTab }) {
   if (tab === "media") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="5" width="18" height="14" rx="2.3" />
-        <path d="M8 5v14" />
-        <path d="M16 5v14" />
+        <path d="M7 16a4 4 0 0 1 .5-8 5.2 5.2 0 0 1 10 1.8A3.2 3.2 0 1 1 18 16H7Z" />
+        <path d="M12 8v7" />
+        <path d="m9.5 10.5 2.5-2.5 2.5 2.5" />
+      </svg>
+    );
+  }
+  if (tab === "project") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="4.5" y="5" width="15" height="14" rx="2" />
         <path d="M8 9h8" />
-        <path d="M8 15h8" />
+        <path d="M8 13h8" />
       </svg>
     );
   }
   if (tab === "audio") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M4 12h2.5" />
-        <path d="M9 9v6" />
-        <path d="M13 6v12" />
-        <path d="M17 8.5v7" />
-        <path d="M20 11h-2.5" />
+        <path d="M12 4v9" />
+        <circle cx="8" cy="16.5" r="2.5" />
+        <circle cx="16" cy="14.5" r="2.5" />
+        <path d="m12 7 6-1v8.5" />
       </svg>
     );
   }
   if (tab === "text") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M4 6h16" />
+        <path d="M5 6h14" />
         <path d="M12 6v12" />
-        <path d="M8 18h8" />
+        <path d="M8.5 18h7" />
       </svg>
     );
   }
   if (tab === "export") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v12" />
-        <path d="m7 10 5 5 5-5" />
-        <path d="M4 20h16" />
+        <rect x="4" y="6" width="16" height="12" rx="2.2" />
+        <path d="m11 10 4 2.2-4 2.2V10Z" />
       </svg>
     );
   }
@@ -343,6 +359,8 @@ function ToolbarIcon({ tab }: { tab: ToolTab }) {
     </svg>
   );
 }
+
+const TOOL_TABS: ToolTab[] = ["media", "project", "text", "audio", "export"];
 
 function IconButton({
   label,
@@ -797,6 +815,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         if (Math.abs(dx) >= Math.abs(dy)) h = w / state.ratio;
         else w = h * state.ratio;
       }
+    } else if (state.mode === "resize-e") {
+      w = state.startRect.w + dx;
+      if (lockCropAspect) {
+        h = Math.max(0.08, w / state.ratio);
+        y = state.startRect.y + (state.startRect.h - h) / 2;
+      }
     } else if (state.mode === "resize-sw") {
       x = state.startRect.x + dx;
       w = state.startRect.w - dx;
@@ -812,6 +836,15 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           x = state.startRect.x + (state.startRect.w - w);
         }
       }
+    } else if (state.mode === "resize-w") {
+      x = state.startRect.x + dx;
+      w = state.startRect.w - dx;
+      if (lockCropAspect) {
+        w = Math.max(0.08, w);
+        h = w / state.ratio;
+        x = state.startRect.x + (state.startRect.w - w);
+        y = state.startRect.y + (state.startRect.h - h) / 2;
+      }
     } else if (state.mode === "resize-ne") {
       y = state.startRect.y + dy;
       h = state.startRect.h - dy;
@@ -826,6 +859,22 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           w = h * state.ratio;
           y = state.startRect.y + (state.startRect.h - h);
         }
+      }
+    } else if (state.mode === "resize-n") {
+      y = state.startRect.y + dy;
+      h = state.startRect.h - dy;
+      if (lockCropAspect) {
+        h = Math.max(0.08, h);
+        w = h * state.ratio;
+        y = state.startRect.y + (state.startRect.h - h);
+        x = state.startRect.x + (state.startRect.w - w) / 2;
+      }
+    } else if (state.mode === "resize-s") {
+      h = state.startRect.h + dy;
+      if (lockCropAspect) {
+        h = Math.max(0.08, h);
+        w = h * state.ratio;
+        x = state.startRect.x + (state.startRect.w - w) / 2;
       }
     } else {
       x = state.startRect.x + dx;
@@ -1224,8 +1273,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const laneHeight = track === "visual" ? 82 : 56;
-    const lensSize = 112;
+    const laneHeight = track === "visual" ? 96 : 44;
+    const lensSize = 104;
     const lensScale = 2.35;
     const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
     const lensActive = Boolean(timelineHoverLens && timelineHoverLens.track === track);
@@ -1241,7 +1290,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const visualItem = track === "visual" && (item.type === "video" || item.type === "image");
       const className = cx(
         "absolute top-1/2 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left transition",
-        track === "visual" ? "h-10" : "h-8",
+        track === "visual" ? "h-14" : "h-7",
         trackTone(track),
         item.type !== "caption" && "cursor-grab active:cursor-grabbing",
         active && "ring-2 ring-white/75 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
@@ -1256,15 +1305,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               ) : (
                 <video src={item.url} muted playsInline preload="metadata" className="h-full w-full object-cover opacity-92" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/25 to-black/72" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/10 to-black/30" />
             </div>
           ) : null}
-          <div className="relative z-10">
-            <div className="truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div>
-            <div className="text-[9px] tabular-nums opacity-90">
-              {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
-            </div>
-          </div>
+          {!visualItem ? <div className="relative z-10 truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div> : null}
           {visualItem && interactive ? (
             <>
               <span
@@ -1342,7 +1386,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         : 0;
 
     return (
-      <div className="grid gap-2.5 px-3 py-3 lg:grid-cols-[132px_minmax(0,1fr)]">
+      <div className={cx("grid gap-2.5 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "py-3" : "py-1.5")}>
         <div className="flex items-center justify-between gap-2 lg:block">
           <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
             {trackLabel(track)}
@@ -1353,17 +1397,19 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         <div>
           <div className="clipforge-scrollbar overflow-x-auto overflow-y-visible pb-2">
             <div className="relative min-w-[760px]" style={{ width: `${timelineWidthPct}%` }}>
-              <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
-                {Array.from({ length: 13 }).map((_, index) => (
-                  <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}>
-                    {formatSeconds((timelineSeconds / 12) * index)}
-                  </span>
-                ))}
-              </div>
+              {track === "visual" ? (
+                <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
+                  {Array.from({ length: 13 }).map((_, index) => (
+                    <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}>
+                      {formatSeconds((timelineSeconds / 12) * index)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               <div
                 data-track-lane={track}
-                className="relative mt-1 overflow-visible rounded-xl border border-white/12 bg-[#0b1020]/92"
+                className={cx("relative overflow-visible rounded-xl border border-white/12 bg-[#0b1020]/92", track === "visual" ? "mt-1" : "mt-0")}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -1396,7 +1442,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {lensActive && timelineHoverLens ? (
                   <div
-                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-full border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-2xl border border-cyan-300/75 bg-[#020914]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                     style={{
                       width: lensSize,
                       height: lensSize,
@@ -1413,17 +1459,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
                       }}
                     >
-                      <div
-                        className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90"
-                        style={{ left: `${playheadPct}%` }}
-                      />
+                      <div className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
                       {items.map((item) => renderItem(item, false))}
                     </div>
                     <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
                       {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
                     </div>
-                    <div className="pointer-events-none absolute inset-0 rounded-full border border-white/45" />
-                    <div className="pointer-events-none absolute -bottom-2 right-2 h-5 w-1 rotate-[-36deg] rounded-full bg-cyan-200/80" />
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl border border-white/45" />
                   </div>
                 ) : null}
 
@@ -1494,17 +1536,19 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       <main
         className={cx(
           "relative",
-          cardMode ? "px-3 pb-4 pt-3 sm:px-4 sm:pt-4" : "mx-auto max-w-[1820px] px-4 pb-16 pt-8 sm:px-6 sm:pt-10"
+          cardMode
+            ? "h-full px-3 pb-2 pt-2 sm:px-4 sm:pt-3"
+            : "mx-auto h-[calc(100vh-78px)] max-w-[1820px] px-3 py-2 sm:px-4"
         )}
       >
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-xs text-white/55">{cardMode ? "• Editor Card" : "• Full Page Editor"}</div>
-            <h1 className={cx("mt-2 font-semibold tracking-tight text-white/95", cardMode ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl")}>
+            <h1 className={cx("mt-1 font-semibold tracking-tight text-white/95", cardMode ? "text-2xl sm:text-3xl" : "text-2xl sm:text-3xl")}>
               Clipforge <span className="grad-text">Master Editor</span>
             </h1>
-            <p className="mt-2 text-sm text-white/66">
-              Production timeline workspace for 1-2 minute AI posts with precise visual, voiceover, music, and captions.
+            <p className="mt-1 text-xs text-white/66 sm:text-sm">
+              Timeline workspace for visual, voiceover, music, and captions.
             </p>
           </div>
 
@@ -1520,11 +1564,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           </div>
         </header>
 
-        <section className="overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-          <div className="relative grid gap-0 xl:grid-cols-[58px_minmax(0,1fr)] xl:grid-rows-[minmax(560px,auto)_auto]">
+        <section className="h-[calc(100%-92px)] overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
+          <div className="relative grid h-full gap-0 xl:grid-cols-[74px_minmax(0,1fr)] xl:grid-rows-[minmax(250px,44%)_minmax(0,1fr)]">
             <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
               <div className="flex flex-row gap-2 xl:flex-col">
-                {(["media", "audio", "text", "export", "project"] as ToolTab[]).map((tab) => {
+                {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
                   return (
                     <button
@@ -1532,7 +1576,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
-                        "inline-flex h-11 w-11 items-center justify-center rounded-xl border text-white/78 transition",
+                        "inline-flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-xl border text-white/78 transition",
                         active
                           ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
                           : "border-white/12 bg-black/35 hover:border-white/28 hover:bg-white/[0.08]"
@@ -1541,6 +1585,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       aria-label={toolLabel(tab)}
                     >
                       <ToolbarIcon tab={tab} />
+                      <span className="text-[9px] font-medium leading-none text-white/75">{toolLabel(tab)}</span>
                     </button>
                   );
                 })}
@@ -1548,7 +1593,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             </nav>
 
             {toolTab ? (
-              <aside className="clipforge-scrollbar pointer-events-auto absolute left-[70px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+              <aside className="clipforge-scrollbar pointer-events-auto absolute left-[86px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
                 {toolTab === "project" ? (
@@ -1831,8 +1876,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className="border-b border-white/10 bg-[#121726] p-4 xl:col-start-2">
-              <div className="mb-3 flex items-center justify-between gap-2">
+            <section className="min-h-0 border-b border-white/10 bg-[#121726] p-3 xl:col-start-2">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Preview Stage</div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
@@ -1901,10 +1946,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/45 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/45 p-3">
                 <div
                   ref={previewStageRef}
-                  className="relative mx-auto w-full max-w-[520px] overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
+                  className="relative mx-auto w-full max-w-[420px] overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
                   style={{ aspectRatio: activeFrameAspect }}
                 >
                   <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
@@ -1996,15 +2041,39 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             />
                             <button
                               type="button"
+                              aria-label="Resize top edge"
+                              className="absolute left-1/2 top-[-7px] h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-n")}
+                            />
+                            <button
+                              type="button"
                               aria-label="Resize top right"
                               className="absolute -right-2 -top-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
                               onPointerDown={(event) => beginCropDrag(event, "resize-ne")}
                             />
                             <button
                               type="button"
+                              aria-label="Resize left edge"
+                              className="absolute left-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-w")}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Resize right edge"
+                              className="absolute right-[-7px] top-1/2 h-6 w-3.5 -translate-y-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ew-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-e")}
+                            />
+                            <button
+                              type="button"
                               aria-label="Resize bottom left"
                               className="absolute -bottom-2 -left-2 h-4 w-4 rounded-full border border-white/80 bg-cyan-200 shadow cursor-nesw-resize"
                               onPointerDown={(event) => beginCropDrag(event, "resize-sw")}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Resize bottom edge"
+                              className="absolute bottom-[-7px] left-1/2 h-3.5 w-6 -translate-x-1/2 rounded border border-white/80 bg-cyan-200 shadow cursor-ns-resize"
+                              onPointerDown={(event) => beginCropDrag(event, "resize-s")}
                             />
                             <button
                               type="button"
@@ -2034,7 +2103,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   ) : null}
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                   <IconButton label="Back 1 second" onClick={() => setPlayhead((prev) => clamp(prev - 1, 0, timelineSeconds))}>
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M11 6 5 12l6 6" />
@@ -2063,8 +2132,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </div>
             </section>
 
-            <section className="bg-[#121726] p-3.5 xl:col-start-2">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <section className="min-h-0 bg-[#121726] p-3 xl:col-start-2">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs text-white/55">• Timeline</div>
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/70">
@@ -2126,7 +2195,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               </div>
 
-              <div className="mb-3 text-[10px] text-white/45">
+              <div className="mb-2 text-[10px] text-white/45">
                 Shortcuts: Space play/pause, Arrows nudge playhead, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop mode.
               </div>
 
@@ -2181,12 +2250,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
-                {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track, index) => (
-                  <div key={track} className={cx(index > 0 && "border-t border-white/10")}>
-                    {renderTrackLane(track)}
-                  </div>
-                ))}
+              <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
+                <div className="clipforge-scrollbar h-full overflow-y-auto">
+                  {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track, index) => (
+                    <div key={track} className={cx(index > 0 && "border-t border-white/10")}>
+                      {renderTrackLane(track)}
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
           </div>
