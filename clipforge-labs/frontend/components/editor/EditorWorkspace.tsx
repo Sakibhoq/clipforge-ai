@@ -1413,7 +1413,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div
                 data-track-lane={track}
-                className={cx("relative overflow-visible rounded-xl border border-white/12 bg-[#0b1020]/92", track === "visual" ? "mt-1" : "mt-0")}
+                className={cx("relative overflow-visible rounded-xl bg-[#0b1020]/52", track === "visual" ? "mt-1" : "mt-0")}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -2286,8 +2286,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
                 <div className="clipforge-scrollbar overflow-y-auto">
-                  {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track, index) => (
-                    <div key={track} className={cx(index > 0 && "border-t border-white/10")}>
+                  {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
+                    <div key={track}>
                       {renderTrackLane(track)}
                     </div>
                   ))}
