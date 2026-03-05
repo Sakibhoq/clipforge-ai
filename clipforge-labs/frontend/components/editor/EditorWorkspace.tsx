@@ -220,7 +220,7 @@ function buildDefaultProject(): ProjectState {
   return {
     name: "Untitled AI Post",
     frame: "9:16",
-    targetDuration: 60,
+    targetDuration: 180,
     musicBedLevel: 0.35,
     safeAreaOn: true,
     visual: [],
@@ -446,7 +446,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       maxEnd(project.music),
       maxEnd(project.captions)
     );
-    return Math.max(project.targetDuration, Math.ceil(trackEnd), 1);
+    return Math.max(project.targetDuration, Math.ceil(trackEnd), 180);
   }, [project]);
 
   const playbackEndSeconds = useMemo(() => {
@@ -1636,7 +1636,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         onChange={(event) =>
                           setProject((prev) => ({
                             ...prev,
-                            targetDuration: Number(event.target.value || 60),
+                            targetDuration: Number(event.target.value || 180),
                           }))
                         }
                         className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
