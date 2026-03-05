@@ -41,7 +41,6 @@ type JobRow = {
 
 const VIDEO_RELAX_CREDITS_PER_SECOND = 10;
 const VIDEO_FAST_CREDITS_PER_SECOND = 12;
-const POST_CREDITS_PER_MINUTE = 15;
 const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
@@ -175,6 +174,15 @@ function speedMultiplierToWpm(multiplier: number): number {
   return Math.max(80, Math.min(330, Math.round(VOICE_BASE_WPM * multiplier)));
 }
 
+function estimateVoiceCredits(textLength: number): number {
+  const usage = Math.ceil(Math.max(1, textLength) / VOICE_CHARS_PER_CREDIT);
+  return Math.max(VOICE_MIN_CREDITS, usage);
+}
+
+function estimatePostCredits(imageCount: number, voiceScriptLength: number): number {
+  return imageCount * IMAGE_CREDITS + estimateVoiceCredits(voiceScriptLength);
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -215,16 +223,15 @@ export default function GenerateClient() {
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      return POST_CREDITS_PER_MINUTE;
+      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postVoiceLength);
     }
     if (mode === "image") return IMAGE_CREDITS;
     if (mode === "voiceover") {
-      const usage = Math.ceil(Math.max(1, textLength) / VOICE_CHARS_PER_CREDIT);
-      return Math.max(VOICE_MIN_CREDITS, usage);
+      return estimateVoiceCredits(textLength);
     }
     const perSecond = videoSpeed === "fast" ? VIDEO_FAST_CREDITS_PER_SECOND : VIDEO_RELAX_CREDITS_PER_SECOND;
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, textLength, duration, videoSpeed]);
+  }, [mode, postVoiceLength, textLength, duration, videoSpeed]);
 
   const fastEligible = useMemo(() => {
     const plan = String(currentPlan || "").trim().toLowerCase();
@@ -657,6 +664,12 @@ export default function GenerateClient() {
                   {submitting ? "Starting generation..." : `Generate ${modeLabel(mode)}`}
                 </button>
               </div>
+
+              {mode === "post" ? (
+                <div className="mt-3 rounded-2xl border border-[#ffbe3d55] bg-[#ffbe3d1a] px-4 py-3 text-xs text-amber-100/95">
+                  AI Post builds a 60-second story from generated images plus voiceover narration, then renders it as one ready-to-edit clip.
+                </div>
+              ) : null}
             </div>
           </section>
 

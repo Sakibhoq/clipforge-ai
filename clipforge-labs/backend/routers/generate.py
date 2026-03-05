@@ -137,10 +137,11 @@ def _voiceover_credits_needed(script: str) -> int:
     return max(min_credits, usage_credits)
 
 
-def _post_credits_needed(duration_seconds: int) -> int:
-    per_minute = _env_int("LABS_POST_CREDITS_PER_MINUTE", 15, min_value=1, max_value=10_000)
-    minutes = max(1, int(math.ceil(float(max(1, int(duration_seconds or 0))) / 60.0)))
-    return minutes * per_minute
+def _post_credits_needed(image_count: int, voice_script: str) -> int:
+    safe_images = max(1, int(image_count or POST_DEFAULT_IMAGE_COUNT))
+    image_credits = safe_images * _image_credits_needed()
+    voice_credits = _voiceover_credits_needed(voice_script)
+    return image_credits + voice_credits
 
 
 def _voice_language_code(voice_name: str) -> str:
@@ -639,7 +640,7 @@ def create_post_generation(
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
-    credits_needed = _post_credits_needed(duration_seconds)
+    credits_needed = _post_credits_needed(image_count, voice_script)
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = int(PLAN_MAX_POST_DURATION_SECONDS.get(plan, 60))

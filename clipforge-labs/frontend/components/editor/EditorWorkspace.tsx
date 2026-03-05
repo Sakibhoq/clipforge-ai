@@ -33,6 +33,7 @@ type CropDragState = {
 type TimelineDragState = {
   track: TrackKey;
   itemId: string;
+  mode: "move" | "resize-start" | "resize-end";
   laneWidth: number;
   pointerStartX: number;
   itemStart: number;
@@ -297,19 +298,22 @@ function ToolbarIcon({ tab }: { tab: ToolTab }) {
   if (tab === "media") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="4" width="18" height="15" rx="2" />
-        <path d="m8 13 2.8-2.8a1.2 1.2 0 0 1 1.7 0l2.3 2.3" />
-        <circle cx="9" cy="8" r="1.2" />
+        <rect x="3" y="5" width="18" height="14" rx="2.3" />
+        <path d="M8 5v14" />
+        <path d="M16 5v14" />
+        <path d="M8 9h8" />
+        <path d="M8 15h8" />
       </svg>
     );
   }
   if (tab === "audio") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 4v9" />
-        <circle cx="8" cy="16" r="2.5" />
-        <circle cx="16" cy="14" r="2.5" />
-        <path d="M12 7.5 18 6v8" />
+        <path d="M4 12h2.5" />
+        <path d="M9 9v6" />
+        <path d="M13 6v12" />
+        <path d="M17 8.5v7" />
+        <path d="M20 11h-2.5" />
       </svg>
     );
   }
@@ -397,6 +401,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const localMusicInputRef = useRef<HTMLInputElement | null>(null);
   const localMusicObjectUrlsRef = useRef<string[]>([]);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const cropDragRef = useRef<CropDragState | null>(null);
   const clearCropDragListenersRef = useRef<(() => void) | null>(null);
   const cropDraftRef = useRef<CropRect | null>(null);
@@ -423,6 +428,19 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     );
     return Math.max(project.targetDuration, Math.ceil(trackEnd), 1);
   }, [project]);
+
+  const playbackEndSeconds = useMemo(() => {
+    const maxEnd = (items: TimelineItem[]) =>
+      items.reduce((largest, item) => Math.max(largest, item.start + item.duration), 0);
+    const contentEnd = Math.max(
+      maxEnd(project.visual),
+      maxEnd(project.voiceover),
+      maxEnd(project.music),
+      maxEnd(project.captions)
+    );
+    if (contentEnd > 0.01) return Math.max(0.01, contentEnd);
+    return Math.max(0.01, timelineSeconds);
+  }, [project.visual, project.voiceover, project.music, project.captions, timelineSeconds]);
 
   const selectedItem = useMemo(() => {
     if (!selected) return null;
@@ -548,12 +566,25 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setSelected(null);
   }
 
+  function togglePlayback() {
+    setPlaying((prev) => {
+      if (prev) return false;
+      setPlayhead((current) => (current >= playbackEndSeconds - 0.05 ? 0 : current));
+      return true;
+    });
+  }
+
   function snapTimeValue(value: number) {
     if (!snapToGrid) return value;
     return Math.round(value * 4) / 4;
   }
 
-  function startTimelineItemDrag(track: TrackKey, item: TimelineItem, event: React.MouseEvent<HTMLButtonElement>) {
+  function startTimelineItemDrag(
+    track: TrackKey,
+    item: TimelineItem,
+    event: React.MouseEvent<HTMLElement>,
+    mode: "move" | "resize-start" | "resize-end" = "move"
+  ) {
     if (event.button !== 0 || item.type === "caption") return;
     const laneEl = event.currentTarget.closest("[data-track-lane]") as HTMLElement | null;
     if (!laneEl) return;
@@ -571,6 +602,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     timelineDragRef.current = {
       track,
       itemId: item.id,
+      mode,
       laneWidth: laneRect.width,
       pointerStartX: event.clientX,
       itemStart: item.start,
@@ -584,15 +616,41 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const deltaPx = moveEvent.clientX - drag.pointerStartX;
       if (Math.abs(deltaPx) > 2) drag.moved = true;
       const deltaSec = (deltaPx / Math.max(1, drag.laneWidth)) * timelineSeconds;
-      const maxStart = Math.max(0, timelineSeconds - drag.itemDuration);
-      const nextStart = clamp(snapTimeValue(drag.itemStart + deltaSec), 0, maxStart);
+      if (drag.mode === "move") {
+        const maxStart = Math.max(0, timelineSeconds - drag.itemDuration);
+        const nextStart = clamp(snapTimeValue(drag.itemStart + deltaSec), 0, maxStart);
+        setTrackItems(drag.track, (items) =>
+          items.map((laneItem) =>
+            laneItem.id === drag.itemId ? { ...laneItem, start: nextStart } : laneItem
+          )
+        );
+        setPlayhead(nextStart);
+        return;
+      }
 
+      const minDuration = 0.2;
+      const itemEnd = drag.itemStart + drag.itemDuration;
+      if (drag.mode === "resize-start") {
+        const nextStart = clamp(snapTimeValue(drag.itemStart + deltaSec), 0, itemEnd - minDuration);
+        const nextDuration = Math.max(minDuration, itemEnd - nextStart);
+        setTrackItems(drag.track, (items) =>
+          items.map((laneItem) =>
+            laneItem.id === drag.itemId
+              ? { ...laneItem, start: nextStart, duration: nextDuration }
+              : laneItem
+          )
+        );
+        setPlayhead(nextStart);
+        return;
+      }
+
+      const maxDuration = Math.max(minDuration, 600 - drag.itemStart);
+      const nextDuration = clamp(snapTimeValue(drag.itemDuration + deltaSec), minDuration, maxDuration);
       setTrackItems(drag.track, (items) =>
         items.map((laneItem) =>
-          laneItem.id === drag.itemId ? { ...laneItem, start: nextStart } : laneItem
+          laneItem.id === drag.itemId ? { ...laneItem, duration: nextDuration } : laneItem
         )
       );
-      setPlayhead(nextStart);
     };
 
     const cleanup = () => {
@@ -1045,15 +1103,44 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     const timer = window.setInterval(() => {
       setPlayhead((prev) => {
         const next = prev + 0.1;
-        if (next >= timelineSeconds) {
+        if (next >= playbackEndSeconds) {
           setPlaying(false);
-          return timelineSeconds;
+          return playbackEndSeconds;
         }
         return next;
       });
     }, 100);
     return () => window.clearInterval(timer);
-  }, [playing, timelineSeconds]);
+  }, [playing, playbackEndSeconds]);
+
+  useEffect(() => {
+    const el = previewVideoRef.current;
+    if (!el) return;
+    if (previewVisual?.type !== "video") {
+      el.pause();
+      return;
+    }
+
+    const localOffset = clamp(playhead - previewVisual.start, 0, Math.max(0, previewVisual.duration));
+    const mediaDuration = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : previewVisual.duration;
+    const targetTime = clamp(localOffset, 0, Math.max(0, mediaDuration - 0.05));
+    const drift = Math.abs((el.currentTime || 0) - targetTime);
+    if (drift > 0.25) {
+      try {
+        el.currentTime = targetTime;
+      } catch {
+        // ignore seek errors while metadata is still loading
+      }
+    }
+
+    if (playing && playhead < playbackEndSeconds - 0.05) {
+      void el.play().catch(() => {
+        // ignore autoplay rejection in locked browser contexts
+      });
+    } else {
+      el.pause();
+    }
+  }, [playhead, playing, playbackEndSeconds, previewVisual]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1061,7 +1148,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
       if (event.key === " ") {
         event.preventDefault();
-        setPlaying((prev) => !prev);
+        togglePlayback();
         return;
       }
 
@@ -1106,7 +1193,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     return () => window.removeEventListener("keydown", onKeyDown);
     // Intentionally avoid function deps here; state deps keep handlers fresh without recreating callbacks across every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, selectedItem, timelineSeconds, cropMode, selectedVisualItem, previewVisual]);
+  }, [selected, selectedItem, timelineSeconds, playbackEndSeconds, cropMode, selectedVisualItem, previewVisual]);
 
   useEffect(() => {
     if (!cropMode) return;
@@ -1137,29 +1224,72 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
   function renderTrackLane(track: TrackKey) {
     const items = sortTrack(project[track]);
-    const laneHeight = 72;
-    const lensSize = 128;
+    const laneHeight = track === "visual" ? 82 : 56;
+    const lensSize = 112;
     const lensScale = 2.35;
     const playheadPct = clamp((playhead / Math.max(1, timelineSeconds)) * 100, 0, 100);
     const lensActive = Boolean(timelineHoverLens && timelineHoverLens.track === track);
 
     function renderItem(item: TimelineItem, interactive: boolean) {
       const leftPct = clamp((item.start / Math.max(1, timelineSeconds)) * 100, 0, 100);
-      const widthPct = clamp((item.duration / Math.max(1, timelineSeconds)) * 100, 1.1, 100 - leftPct);
+      const widthPct = clamp(
+        (item.duration / Math.max(1, timelineSeconds)) * 100,
+        track === "visual" ? 2.2 : 1.1,
+        100 - leftPct
+      );
       const active = selected?.track === track && selected?.itemId === item.id;
+      const visualItem = track === "visual" && (item.type === "video" || item.type === "image");
       const className = cx(
-        "absolute top-1/2 h-10 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left transition",
+        "absolute top-1/2 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left transition",
+        track === "visual" ? "h-10" : "h-8",
         trackTone(track),
         item.type !== "caption" && "cursor-grab active:cursor-grabbing",
         active && "ring-2 ring-white/75 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
       );
       const itemBody = (
-        <>
-          <div className="truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div>
-          <div className="text-[9px] tabular-nums opacity-90">
-            {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
+        <div className="relative h-full">
+          {visualItem && item.url ? (
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-white/15">
+              {item.type === "image" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.url} alt={item.title} className="h-full w-full object-cover opacity-92" />
+              ) : (
+                <video src={item.url} muted playsInline preload="metadata" className="h-full w-full object-cover opacity-92" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/5 via-black/25 to-black/72" />
+            </div>
+          ) : null}
+          <div className="relative z-10">
+            <div className="truncate text-[10px] font-semibold tracking-[0.01em]">{item.title}</div>
+            <div className="text-[9px] tabular-nums opacity-90">
+              {formatSeconds(item.start)} - {formatSeconds(item.start + item.duration)}
+            </div>
           </div>
-        </>
+          {visualItem && interactive ? (
+            <>
+              <span
+                data-resize-handle="start"
+                aria-hidden="true"
+                className="absolute -left-1 top-1/2 h-5 w-2.5 -translate-y-1/2 rounded bg-white/90"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  startTimelineItemDrag(track, item, event, "resize-start");
+                }}
+              />
+              <span
+                data-resize-handle="end"
+                aria-hidden="true"
+                className="absolute -right-1 top-1/2 h-5 w-2.5 -translate-y-1/2 rounded bg-white/90"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  startTimelineItemDrag(track, item, event, "resize-end");
+                }}
+              />
+            </>
+          ) : null}
+        </div>
       );
 
       if (!interactive) {
@@ -1183,7 +1313,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             setSelected({ track, itemId: item.id });
             setPlayhead(item.start);
           }}
-          onMouseDown={(event) => startTimelineItemDrag(track, item, event)}
+          onMouseDown={(event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest("[data-resize-handle]")) return;
+            startTimelineItemDrag(track, item, event, "move");
+          }}
           className={className}
           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
         >
@@ -1541,14 +1675,29 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                                 onClick={() => addClipToTrack("voiceover", clip)}
                                 className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
                               >
-                                To Voice
+                                <span className="inline-flex items-center gap-1">
+                                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <rect x="9" y="4" width="6" height="10" rx="3" />
+                                    <path d="M6 10a6 6 0 1 0 12 0" />
+                                    <path d="M12 17v3" />
+                                  </svg>
+                                  Voice
+                                </span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => addClipToTrack("music", clip)}
                                 className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
                               >
-                                To Music
+                                <span className="inline-flex items-center gap-1">
+                                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M12 4v9" />
+                                    <circle cx="8" cy="16.5" r="2.5" />
+                                    <circle cx="16" cy="14.5" r="2.5" />
+                                    <path d="m12 7 6-1v8.5" />
+                                  </svg>
+                                  Music
+                                </span>
                               </button>
                             </div>
                           </div>
@@ -1571,7 +1720,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         disabled={uploadingMusic}
                         className={cx("btn-ghost w-full px-3 py-2 text-[12px]", uploadingMusic && "cursor-not-allowed opacity-60")}
                       >
-                        {uploadingMusic ? "Uploading..." : "Upload local audio"}
+                        <span className="inline-flex items-center gap-1.5">
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 15V5" />
+                            <path d="m7.5 9.5 4.5-4.5 4.5 4.5" />
+                            <path d="M4 19h16" />
+                          </svg>
+                          {uploadingMusic ? "Uploading..." : "Upload music file"}
+                        </span>
                       </button>
                       {localMusicAssets.length ? (
                         <div className="clipforge-scrollbar mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
@@ -1757,7 +1913,15 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={previewVisual.url} alt={previewVisual.title} className="absolute" style={cropMediaStyle(previewCrop)} />
                     ) : previewVisual?.url ? (
-                      <video src={previewVisual.url} muted autoPlay loop playsInline preload="metadata" className="absolute" style={cropMediaStyle(previewCrop)} />
+                      <video
+                        ref={previewVideoRef}
+                        src={previewVisual.url}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="absolute"
+                        style={cropMediaStyle(previewCrop)}
+                      />
                     ) : (
                       <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/52">
                         Open sidepanel media button and add video/image assets to the timeline.
@@ -1877,7 +2041,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       <path d="M19 6v12" />
                     </svg>
                   </IconButton>
-                  <IconButton label={playing ? "Pause" : "Play"} onClick={() => setPlaying((prev) => !prev)}>
+                  <IconButton label={playing ? "Pause" : "Play"} onClick={togglePlayback}>
                     {playing ? (
                       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
                         <rect x="7" y="5" width="3.8" height="14" rx="1" />
