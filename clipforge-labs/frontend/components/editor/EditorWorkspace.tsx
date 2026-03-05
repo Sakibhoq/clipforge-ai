@@ -268,7 +268,7 @@ function trackLabel(track: TrackKey) {
 function trackTone(track: TrackKey) {
   if (track === "visual") return "border-[#ffb70366] bg-[#ffb70322] text-amber-100";
   if (track === "voiceover") return "border-emerald-300/40 bg-emerald-400/14 text-emerald-100";
-  if (track === "music") return "border-[#fb560780] bg-[#fb560726] text-orange-100";
+  if (track === "music") return "border-transparent bg-[#fb560726] text-orange-100";
   return "border-fuchsia-300/40 bg-fuchsia-400/14 text-fuchsia-100";
 }
 
@@ -380,7 +380,7 @@ function IconButton({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-white/85 transition hover:border-white/30 hover:bg-white/[0.12]"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-transparent bg-white/[0.05] text-white/85 transition hover:border-transparent hover:bg-white/[0.12]"
     >
       {children}
     </button>
@@ -1298,7 +1298,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const active = selected?.track === track && selected?.itemId === item.id;
       const visualItem = track === "visual" && (item.type === "video" || item.type === "image");
       const className = cx(
-        "absolute rounded-lg border text-left transition",
+        "absolute rounded-xl border text-left transition",
         track === "visual" ? "inset-y-1 px-1 py-1" : "top-1/2 h-7 -translate-y-1/2 px-2 py-1.5",
         trackTone(track),
         item.type !== "caption" && "cursor-grab active:cursor-grabbing",
@@ -1307,7 +1307,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const itemBody = (
         <div className="relative h-full">
           {visualItem && item.url ? (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-white/15 bg-black/70">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-transparent bg-black/70">
               {item.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.url} alt={item.title} className="h-full w-full object-contain" />
@@ -1417,7 +1417,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div
                 data-track-lane={track}
-                className={cx("relative overflow-visible rounded-xl", laneSurfaceClass, track === "visual" ? "mt-1" : "mt-0")}
+                className={cx("relative overflow-visible rounded-2xl", laneSurfaceClass, track === "visual" ? "mt-1" : "mt-0")}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -1450,7 +1450,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {lensActive && timelineHoverLens ? (
                   <div
-                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-2xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                     style={{
                       width: lensSize,
                       height: lensSize,
@@ -1473,7 +1473,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-[#ffb70399] bg-[#080b12]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-100">
                       {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
                     </div>
-                    <div className="pointer-events-none absolute inset-0 rounded-2xl border border-white/45" />
+                    <div className="pointer-events-none absolute inset-0 rounded-3xl border border-white/45" />
                   </div>
                 ) : null}
 
@@ -1506,8 +1506,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   if (!isDesktop) {
     return (
       <main className={cx(cardMode ? "px-2 py-2" : "mx-auto max-w-lg px-5 pb-16 pt-10 sm:px-6")}>
-        <section className="surface-soft rounded-3xl border border-[#fb56074f] p-6 sm:p-7">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.04] text-white/85">
+        <section className="surface-soft rounded-3xl border border-transparent p-6 sm:p-7">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-3xl border border-transparent bg-white/[0.04] text-white/85">
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <rect x="3" y="4" width="18" height="12" rx="2" />
               <path d="M8 20h8" />
@@ -1571,7 +1571,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
         <section
           className={cx(
-            "relative overflow-hidden rounded-2xl border border-[#fb560740] backdrop-blur-[2px] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
+            "relative overflow-hidden rounded-3xl border border-transparent backdrop-blur-[2px] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
             surfaceSoftClass,
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
@@ -1581,7 +1581,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           </div>
 
           <div className="relative z-10 grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className={cx("border-r border-[#fb560733] backdrop-blur-sm p-2.5 xl:px-3", surfaceInsetClass)}>
+            <nav className={cx("border-r border-transparent backdrop-blur-sm p-2.5 xl:px-3", surfaceInsetClass)}>
               <div className="flex flex-row gap-2.5 xl:flex-col xl:items-center xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
@@ -1591,10 +1591,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
-                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
+                        "inline-flex h-12 w-12 items-center justify-center rounded-2xl border text-white/78 transition",
                         active
-                          ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.2),rgba(251,86,7,0.26),rgba(255,154,60,0.18))] text-white"
-                          : "border-white/14 bg-[linear-gradient(145deg,rgba(12,16,29,0.9),rgba(8,12,22,0.88),rgba(8,19,18,0.84))] hover:border-[#fb5607ad] hover:bg-[linear-gradient(145deg,rgba(21,27,42,0.95),rgba(15,21,35,0.92),rgba(13,28,26,0.88))]"
+                          ? "border-transparent bg-[linear-gradient(140deg,rgba(255,183,3,0.2),rgba(251,86,7,0.26),rgba(255,154,60,0.18))] text-white"
+                          : "border-transparent bg-[linear-gradient(145deg,rgba(12,16,29,0.9),rgba(8,12,22,0.88),rgba(8,19,18,0.84))] hover:border-transparent hover:bg-[linear-gradient(145deg,rgba(21,27,42,0.95),rgba(15,21,35,0.92),rgba(13,28,26,0.88))]"
                       )}
                       title={toolLabel(tab)}
                       aria-label={toolLabel(tab)}
@@ -1609,7 +1609,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             {toolTab ? (
               <aside
                 className={cx(
-                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-[#fb560740] backdrop-blur-md p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
+                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-2xl border border-transparent backdrop-blur-md p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
                   surfacePrimaryClass,
                   toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
@@ -1623,7 +1623,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       <input
                         value={project.name}
                         onChange={(event) => setProject((prev) => ({ ...prev, name: event.target.value }))}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                        className="h-10 rounded-2xl border border-transparent bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-transparent"
                       />
                     </div>
                     <div className="grid gap-2">
@@ -1631,7 +1631,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       <select
                         value={project.frame}
                         onChange={(event) => setProject((prev) => ({ ...prev, frame: event.target.value as FrameRatio }))}
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                        className="h-10 rounded-2xl border border-transparent bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-transparent"
                       >
                         {EXPORT_PROFILES.map((option) => (
                           <option key={option.id} value={option.frame}>
@@ -1650,7 +1650,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             targetDuration: Number(event.target.value || 180),
                           }))
                         }
-                        className="h-10 rounded-xl border border-white/10 bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-white/25"
+                        className="h-10 rounded-2xl border border-transparent bg-black/45 px-3 text-sm text-white/92 outline-none focus:border-transparent"
                       >
                         <option value={60}>1 minute</option>
                         <option value={120}>2 minutes</option>
@@ -1673,7 +1673,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setMediaMenuOpen((prev) => !prev)}
                       className={cx(
-                        "inline-flex w-full items-center justify-between rounded-xl border border-white/12 px-3 py-2.5 text-[12px] font-semibold text-white/90 transition hover:bg-white/[0.1]",
+                        "inline-flex w-full items-center justify-between rounded-2xl border border-transparent px-3 py-2.5 text-[12px] font-semibold text-white/90 transition hover:bg-white/[0.1]",
                         surfaceSoftClass
                       )}
                     >
@@ -1682,7 +1682,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </button>
 
                     {mediaMenuOpen ? (
-                      <div className={cx("rounded-2xl border border-white/10 p-3", surfaceInsetClass)}>
+                      <div className={cx("rounded-3xl border border-transparent p-3", surfaceInsetClass)}>
                         <div>
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
                           <div className="grid gap-2">
@@ -1695,7 +1695,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                                   setMediaMenuOpen(false);
                                 }}
                                 className={cx(
-                                  "rounded-xl border border-white/10 px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
+                                  "rounded-2xl border border-transparent px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
                                   surfaceSoftClass
                                 )}
                               >
@@ -1717,7 +1717,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                                   setMediaMenuOpen(false);
                                 }}
                                 className={cx(
-                                  "rounded-xl border border-white/10 px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
+                                  "rounded-2xl border border-transparent px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
                                   surfaceSoftClass
                                 )}
                               >
@@ -1729,7 +1729,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         </div>
                       </div>
                     ) : (
-                      <div className={cx("rounded-2xl border border-dashed border-white/15 p-3 text-[12px] text-white/55", surfaceInsetClass)}>
+                      <div className={cx("rounded-3xl border border-dashed border-transparent p-3 text-[12px] text-white/55", surfaceInsetClass)}>
                         Click to open your media menu.
                       </div>
                     )}
@@ -1738,11 +1738,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {toolTab === "audio" ? (
                   <div className="grid gap-3.5">
-                    <div className={cx("rounded-2xl border border-white/10 p-3", surfaceSoftClass)}>
+                    <div className={cx("rounded-3xl border border-transparent p-3", surfaceSoftClass)}>
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
                       <div className="grid gap-2.5">
                         {audios.length ? audios.map((clip) => (
-                          <div key={clip.id} className={cx("rounded-xl border border-white/10 p-2.5", surfaceInsetClass)}>
+                          <div key={clip.id} className={cx("rounded-2xl border border-transparent p-2.5", surfaceInsetClass)}>
                             <div className="overflow-hidden text-[11px] font-semibold leading-4 text-white/88 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                               {clip.title || `Audio #${clip.id}`}
                             </div>
@@ -1753,7 +1753,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               <button
                                 type="button"
                                 onClick={() => addClipToTrack("voiceover", clip)}
-                                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
+                                className="rounded-xl border border-transparent bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
                               >
                                 <span className="inline-flex items-center gap-1">
                                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1767,7 +1767,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               <button
                                 type="button"
                                 onClick={() => addClipToTrack("music", clip)}
-                                className="rounded-lg border border-[#fb560770] bg-[#fb560720] px-2 py-1.5 text-[11px] text-orange-100 hover:bg-[#fb560734]"
+                                className="rounded-xl border border-transparent bg-[#fb560720] px-2 py-1.5 text-[11px] text-orange-100 hover:bg-[#fb560734]"
                               >
                                 <span className="inline-flex items-center gap-1">
                                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1782,13 +1782,13 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             </div>
                           </div>
                         )) : (
-                          <div className={cx("rounded-xl border border-dashed border-white/15 p-3 text-[11px] text-white/55", surfaceInsetClass)}>
+                          <div className={cx("rounded-2xl border border-dashed border-transparent p-3 text-[11px] text-white/55", surfaceInsetClass)}>
                             No audio in library yet.
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className={cx("rounded-2xl border border-white/10 p-3.5", surfaceSoftClass)}>
+                    <div className={cx("rounded-3xl border border-transparent p-3.5", surfaceSoftClass)}>
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Upload music</div>
                       <input
                         ref={localMusicInputRef}
@@ -1816,7 +1816,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       {localMusicAssets.length ? (
                         <div className="mt-3 grid gap-2">
                           {localMusicAssets.map((asset) => (
-                            <div key={asset.id} className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
+                            <div key={asset.id} className="rounded-2xl border border-transparent bg-black/45 px-3 py-2">
                               <div className="truncate text-[11px] font-semibold text-white/90">{asset.name}</div>
                               <div className="text-[10px] text-white/52">
                                 {formatSeconds(asset.duration)} • {formatBytes(asset.size)}
@@ -1825,14 +1825,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                                 <button
                                   type="button"
                                   onClick={() => addUploadedMusic(asset)}
-                                  className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1.5 text-[10px] text-white/90"
+                                  className="rounded-xl border border-transparent bg-white/[0.08] px-2 py-1.5 text-[10px] text-white/90"
                                 >
                                   Add
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => removeLocalMusic(asset.id)}
-                                  className="rounded-lg border border-white/10 bg-black/45 px-2 py-1.5 text-[10px] text-white/76"
+                                  className="rounded-xl border border-transparent bg-black/45 px-2 py-1.5 text-[10px] text-white/76"
                                 >
                                   Remove
                                 </button>
@@ -1860,7 +1860,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               setSelected({ track: "captions", itemId: item.id });
                               setPlayhead(item.start);
                             }}
-                            className={cx("rounded-xl border border-white/10 px-3 py-2 text-left", surfaceInsetClass)}
+                            className={cx("rounded-2xl border border-transparent px-3 py-2 text-left", surfaceInsetClass)}
                           >
                             <div className="truncate text-[12px] font-semibold text-white/90">{item.title}</div>
                             <div className="text-[10px] text-white/52">
@@ -1875,7 +1875,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {toolTab === "export" ? (
                   <div className="grid gap-3">
-                    <div className={cx("rounded-2xl border border-white/10 p-3 text-[12px] text-white/72", surfaceSoftClass)}>
+                    <div className={cx("rounded-3xl border border-transparent p-3 text-[12px] text-white/72", surfaceSoftClass)}>
                       Export saves the selected visual video block as a new clip in your library. Use the Clips page to download or post it.
                     </div>
                     <button
@@ -1895,7 +1895,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       Save + Download
                     </button>
                     {lastExportClipId ? (
-                      <div className="rounded-2xl border border-emerald-300/25 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
+                      <div className="rounded-3xl border border-emerald-300/25 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
                         Clip exported to library (ID #{lastExportClipId}).
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Link href="/app/clips" className="btn-ghost px-3 py-1.5 text-[11px]">
@@ -1915,12 +1915,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className={cx("min-h-0 border-b border-[#fb560730] p-2.5 xl:col-start-2", surfaceSoftClass)}>
+            <section className={cx("min-h-0 border-b border-transparent p-2.5 xl:col-start-2", surfaceSoftClass)}>
               <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                <div className={cx("rounded-2xl border border-[#fb560738] p-2.5", surfacePrimaryClass)}>
+                <div className={cx("rounded-3xl border border-transparent p-2.5", surfacePrimaryClass)}>
                   <div
                     ref={previewStageRef}
-                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-[#fb560733] bg-[linear-gradient(145deg,rgba(6,10,19,0.98),rgba(9,14,24,0.95),rgba(10,18,18,0.92))]"
+                    className="relative mx-auto w-full overflow-hidden rounded-3xl border border-transparent bg-[linear-gradient(145deg,rgba(6,10,19,0.98),rgba(9,14,24,0.95),rgba(10,18,18,0.92))]"
                     style={{ height: `${previewStageHeight}px` }}
                   >
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
@@ -1946,7 +1946,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
 
                     {activeCaption?.text ? (
-                      <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-lg bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                      <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-xl bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
                         {activeCaption.text}
                       </div>
                     ) : null}
@@ -2059,7 +2059,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           Draw, drag, or resize crop. Enter apply, Esc cancel.
                         </div>
                         {cropTargetItemId !== previewVisual.id ? (
-                          <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
+                          <div className="pointer-events-none absolute bottom-3 left-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-2.5 py-1.5 text-[10px] text-amber-100">
                             Move playhead to the selected visual clip to continue cropping.
                           </div>
                         ) : null}
@@ -2102,17 +2102,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
 
-                <div className={cx("rounded-xl border border-[#fb560738] p-3", surfacePrimaryClass)}>
+                <div className={cx("rounded-2xl border border-transparent p-3", surfacePrimaryClass)}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 truncate text-[11px] font-semibold text-white/88">
                       {previewVisual?.title || "No visual clip selected"}
                     </div>
-                    <div className={cx("rounded-lg border border-[#fb560733] px-2 py-1 text-[10px] text-white/72", surfaceInsetClass)}>
+                    <div className={cx("rounded-xl border border-transparent px-2 py-1 text-[10px] text-white/72", surfaceInsetClass)}>
                       {profile.label}
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-[#fb560730] pt-3">
+                  <div className="mt-3 border-t border-transparent pt-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -2121,10 +2121,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           else startCropMode();
                         }}
                         className={cx(
-                          "rounded-lg border px-3 py-1 text-[11px] transition",
+                          "rounded-xl border px-3 py-1 text-[11px] transition",
                           cropMode
                             ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                            : cx("border-white/10 text-white/72", surfaceInsetClass)
+                            : cx("border-transparent text-white/72", surfaceInsetClass)
                         )}
                       >
                         {cropMode ? "Crop mode on" : "Crop"}
@@ -2135,10 +2135,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             type="button"
                             onClick={() => setLockCropAspect((prev) => !prev)}
                             className={cx(
-                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              "rounded-xl border px-3 py-1 text-[11px] transition",
                               lockCropAspect
                                 ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                                : cx("border-white/10 text-white/72", surfaceInsetClass)
+                                : cx("border-transparent text-white/72", surfaceInsetClass)
                             )}
                           >
                             Aspect {lockCropAspect ? "lock" : "free"}
@@ -2147,10 +2147,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             type="button"
                             onClick={() => setShowCropGrid((prev) => !prev)}
                             className={cx(
-                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              "rounded-xl border px-3 py-1 text-[11px] transition",
                               showCropGrid
                                 ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                                : cx("border-white/10 text-white/72", surfaceInsetClass)
+                                : cx("border-transparent text-white/72", surfaceInsetClass)
                             )}
                           >
                             Grid {showCropGrid ? "on" : "off"}
@@ -2159,18 +2159,18 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                             type="button"
                             onClick={() => setCropSnapGuides((prev) => !prev)}
                             className={cx(
-                              "rounded-lg border px-3 py-1 text-[11px] transition",
+                              "rounded-xl border px-3 py-1 text-[11px] transition",
                               cropSnapGuides
                                 ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                                : cx("border-white/10 text-white/72", surfaceInsetClass)
+                                : cx("border-transparent text-white/72", surfaceInsetClass)
                             )}
                           >
                             Snap {cropSnapGuides ? "on" : "off"}
                           </button>
-                          <button type="button" onClick={applyCropDraft} className="rounded-lg border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
+                          <button type="button" onClick={applyCropDraft} className="rounded-xl border border-emerald-300/35 bg-emerald-400/12 px-3 py-1 text-[11px] text-emerald-100 transition">
                             Apply crop
                           </button>
-                          <button type="button" onClick={cancelCropMode} className={cx("rounded-lg border border-white/10 px-3 py-1 text-[11px] text-white/72 transition", surfaceInsetClass)}>
+                          <button type="button" onClick={cancelCropMode} className={cx("rounded-xl border border-transparent px-3 py-1 text-[11px] text-white/72 transition", surfaceInsetClass)}>
                             Cancel
                           </button>
                         </>
@@ -2178,12 +2178,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-[#fb560730] pt-3">
+                  <div className="mt-3 border-t border-transparent pt-3">
                     <div className="grid gap-2">
-                      <div className={cx("border border-[#fb560733] px-3 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
+                      <div className={cx("border border-transparent px-3 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
                         Length {formatSeconds(timelineSeconds)}
                       </div>
-                      <label className={cx("flex items-center justify-between gap-2 border border-[#fb560733] px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
                         <span>Zoom {timelineZoom.toFixed(2)}x</span>
                         <input
                           type="range"
@@ -2202,12 +2202,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           "border px-3 py-1 text-[11px] transition",
                           snapToGrid
                             ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                            : cx("border-[#fb560733] text-white/72", surfaceInsetClass)
+                            : cx("border-transparent text-white/72", surfaceInsetClass)
                         )}
                       >
                         Snap {snapToGrid ? "on" : "off"}
                       </button>
-                      <label className={cx("flex items-center justify-between gap-2 border border-[#fb560733] px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
                         <span>Music {formatPercent(project.musicBedLevel)}</span>
                         <input
                           type="range"
@@ -2224,7 +2224,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           className="w-24 accent-white"
                         />
                       </label>
-                      <label className={cx("flex items-center justify-between gap-2 border border-[#fb560733] px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
                         <span>Playhead {formatSeconds(playhead)}</span>
                         <input
                           type="range"
@@ -2239,7 +2239,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className={cx("mt-3 rounded-lg border border-[#fb56072a] px-2.5 py-2 text-[10px] text-white/60", surfaceInsetClass)}>
+                  <div className={cx("mt-3 rounded-xl border border-transparent px-2.5 py-2 text-[10px] text-white/60", surfaceInsetClass)}>
                     Shortcuts: Space play/pause, Arrows nudge, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop.
                   </div>
                 </div>
@@ -2253,11 +2253,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </div>
 
               {selectedItem && selected ? (
-                <div className={cx("mb-2 grid gap-1.5 border border-[#fb560733] p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]", surfacePrimaryClass)}>
+                <div className={cx("mb-2 grid gap-1.5 border border-transparent p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]", surfacePrimaryClass)}>
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
-                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-2xl border border-transparent bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-transparent"
                   />
                   <input
                     type="number"
@@ -2265,7 +2265,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     step={0.01}
                     value={selectedItem.start}
                     onChange={(event) => updateSelected({ start: clamp(snapTimeValue(Number(event.target.value || 0)), 0, 600) })}
-                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-2xl border border-transparent bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-transparent"
                   />
                   <input
                     type="number"
@@ -2273,7 +2273,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     step={0.01}
                     value={selectedItem.duration}
                     onChange={(event) => updateSelected({ duration: clamp(Number(event.target.value || 1), 0.2, 600) })}
-                    className="h-9 rounded-xl border border-white/10 bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-white/25"
+                    className="h-9 rounded-2xl border border-transparent bg-black/45 px-3 text-xs text-white/92 outline-none focus:border-transparent"
                   />
                   <button type="button" onClick={duplicateSelected} className="btn-ghost px-3 py-2 text-[12px]">
                     Duplicate
@@ -2293,17 +2293,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       rows={2}
                       value={selectedItem.text || ""}
                       onChange={(event) => updateSelected({ text: event.target.value })}
-                      className="rounded-xl border border-white/10 bg-black/45 px-3 py-2 text-xs text-white/92 outline-none focus:border-white/25 lg:col-span-5"
+                      className="rounded-2xl border border-transparent bg-black/45 px-3 py-2 text-xs text-white/92 outline-none focus:border-transparent lg:col-span-5"
                     />
                   ) : null}
                 </div>
               ) : (
-                <div className={cx("mb-2 border border-dashed border-white/15 p-2 text-[11px] text-white/55", surfaceInsetClass)}>
+                <div className={cx("mb-2 border border-dashed border-transparent p-2 text-[11px] text-white/55", surfaceInsetClass)}>
                   Select a timeline block to edit timing in milliseconds.
                 </div>
               )}
 
-              <div className={cx("overflow-hidden rounded-2xl border border-[#fb560740]", surfacePrimaryClass)}>
+              <div className={cx("overflow-hidden rounded-3xl border border-transparent", surfacePrimaryClass)}>
                 <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
@@ -2317,7 +2317,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         </section>
 
         {error ? (
-          <div className="mt-4 rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
             {error}
           </div>
         ) : null}
