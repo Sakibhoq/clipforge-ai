@@ -1571,7 +1571,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
         >
-          <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
+          <div className="relative grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
             <nav className="border-r border-white/10 bg-[#0b0f1a] p-2.5 xl:pl-2 xl:pr-3.5">
               <div className="flex flex-row gap-2.5 xl:flex-col xl:items-start xl:gap-3">
                 {TOOL_TABS.map((tab) => {
@@ -1600,7 +1600,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             {toolTab ? (
               <aside
                 className={cx(
-                  "clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
+                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
                   toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
