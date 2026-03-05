@@ -4,6 +4,7 @@ import base64
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -642,6 +643,21 @@ def _clip_dimensions(aspect_ratio: str) -> tuple[int, int]:
     return 1080, 1920  # default 9:16
 
 
+def _compact_overlay_text(prompt: str, *, max_chars: int = 180) -> str:
+    raw = (prompt or "").replace("\r", "").strip()
+    if not raw:
+        return "Generated media"
+    if "Visual style:" in raw:
+        raw = raw.split("Visual style:", 1)[0].strip()
+    raw = re.sub(r"\s+", " ", raw).strip()
+    m = re.search(r'(?:called|titled)\s+["“](.+?)["”]', raw, flags=re.IGNORECASE)
+    if m and m.group(1).strip():
+        raw = m.group(1).strip()
+    if len(raw) > max_chars:
+        raw = raw[: max_chars - 3].rstrip() + "..."
+    return raw or "Generated media"
+
+
 def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out_path: str) -> None:
     w, h = _clip_dimensions(aspect_ratio)
     safe_duration = max(2, min(int(duration or 6), 20))
@@ -650,7 +666,7 @@ def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out
     os.close(fd)
     try:
         with open(txt_path, "w", encoding="utf-8") as f:
-            f.write((prompt or "").strip()[:1200])
+            f.write(_compact_overlay_text(prompt, max_chars=140))
 
         fontfile = _env(
             "WORKER_DRAWTEXT_FONTFILE",
@@ -702,7 +718,7 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
     os.close(fd)
     try:
         with open(txt_path, "w", encoding="utf-8") as f:
-            f.write((prompt or "").strip()[:1200])
+            f.write(_compact_overlay_text(prompt, max_chars=120))
 
         fontfile = _env(
             "WORKER_DRAWTEXT_FONTFILE",
