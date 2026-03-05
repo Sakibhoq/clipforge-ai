@@ -189,6 +189,10 @@ function filterLabel(filter: AssetFilter) {
   return "All";
 }
 
+const clipsSurfacePrimaryClass = "bg-[linear-gradient(145deg,rgba(22,28,44,0.96),rgba(14,20,34,0.93),rgba(10,30,27,0.9))]";
+const clipsSurfaceSoftClass = "bg-[linear-gradient(145deg,rgba(17,22,37,0.92),rgba(12,18,30,0.88),rgba(9,24,22,0.84))]";
+const clipsSurfaceInsetClass = "bg-[linear-gradient(145deg,rgba(11,16,28,0.95),rgba(8,13,23,0.92),rgba(8,19,18,0.88))]";
+
 function ActionGlyph({ icon }: { icon: ActionIconName }) {
   if (icon === "download") {
     return (
@@ -637,7 +641,7 @@ export default function ClipsPage() {
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1520px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden rounded-[30px] border border-[#fb560740] p-5 sm:p-7">
+        <section className={cx("surface relative overflow-hidden rounded-[30px] border border-[#fb560740] p-5 sm:p-7", clipsSurfaceSoftClass)}>
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -inset-16 opacity-60 blur-3xl"
@@ -677,10 +681,7 @@ export default function ClipsPage() {
                 { label: "Audio Tracks", value: counts.audio },
                 { label: "Connected Channels", value: connectedSocialCount },
               ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-[#fb560738] bg-[linear-gradient(140deg,rgba(9,15,29,0.94),rgba(8,10,18,0.9))] px-4 py-3"
-                >
+                <div key={item.label} className={cx("rounded-2xl border border-[#fb560738] px-4 py-3", clipsSurfacePrimaryClass)}>
                   <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{item.label}</div>
                   <div className="mt-1 text-lg font-semibold text-white/92">{item.value}</div>
                 </div>
@@ -689,7 +690,7 @@ export default function ClipsPage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-[28px] border border-[#fb560733] bg-[#090f1c]/92 p-4 sm:p-5">
+        <section className={cx("mt-6 rounded-[28px] border border-[#fb560733] p-4 sm:p-5", clipsSurfaceSoftClass)}>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <input
@@ -698,7 +699,7 @@ export default function ClipsPage() {
                 placeholder="Search titles or hooks..."
                 className="h-11 w-full rounded-2xl border border-white/10 bg-black/40 px-4 text-sm text-white/90 outline-none placeholder:text-white/45 focus:border-white/25"
               />
-              <div className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-2 text-[12px] text-white/72">
+              <div className={cx("rounded-full border border-white/12 px-3 py-2 text-[12px] text-white/72", clipsSurfaceInsetClass)}>
                 {loading ? "Loading..." : `${filtered.length} result${filtered.length === 1 ? "" : "s"}`}
               </div>
             </div>
@@ -713,7 +714,7 @@ export default function ClipsPage() {
                     "rounded-full border px-3 py-2 text-[11px] font-semibold transition",
                     assetFilter === filter
                       ? "border-[#fb560782] bg-[linear-gradient(120deg,rgba(255,183,3,0.16),rgba(251,86,7,0.2),rgba(58,134,255,0.18))] text-white"
-                      : "border-white/10 bg-black/35 text-white/70 hover:bg-white/10"
+                      : cx("border-white/10 text-white/70 hover:bg-white/10", clipsSurfaceInsetClass)
                   )}
                 >
                   {filterLabel(filter)}
@@ -756,7 +757,7 @@ export default function ClipsPage() {
                 return (
                   <article
                     key={c.id}
-                    className="surface-soft group overflow-hidden rounded-[20px] border border-[#fb560740] bg-[#090f1d]/95 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
+                    className={cx("surface-soft group overflow-hidden rounded-[20px] border border-[#fb560740] shadow-[0_16px_40px_rgba(0,0,0,0.36)]", clipsSurfacePrimaryClass)}
                   >
                     <div className="relative aspect-[9/12] bg-black/50">
                       {assetType === "image" ? (
@@ -805,7 +806,10 @@ export default function ClipsPage() {
               {audioRows.map((c) => (
                 <article
                   key={c.id}
-                  className="surface-soft relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#fb560740] bg-[#090f1d]/95 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
+                  className={cx(
+                    "surface-soft relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[20px] border border-[#fb560740] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.36)]",
+                    clipsSurfacePrimaryClass
+                  )}
                 >
                   <div
                     aria-hidden="true"
@@ -828,12 +832,12 @@ export default function ClipsPage() {
                     <div className="mt-3 truncate text-[14px] font-semibold text-white/94">{c.title || `Audio #${c.id}`}</div>
                     <div className="mt-1 text-[11px] text-white/58">Storage: {clip(c.storage_key || "", 36)}</div>
 
-                    <div className="mt-3 rounded-2xl border border-white/12 bg-black/35 p-3">
+                    <div className={cx("mt-3 rounded-2xl border border-white/12 p-3", clipsSurfaceInsetClass)}>
                       <audio src={c.url} controls preload="metadata" className="w-full" />
                     </div>
 
                     <div className="mt-auto pt-4">
-                      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/35 p-2">
+                      <div className={cx("flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 p-2", clipsSurfaceInsetClass)}>
                         <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
                         <ActionIconButton href={c.url} icon="play" label="Open preview" />
                       </div>
@@ -846,7 +850,7 @@ export default function ClipsPage() {
         ) : null}
 
         {!visualRows.length && !audioRows.length ? (
-          <section className="mt-6 surface-soft rounded-3xl p-7 text-sm text-white/60">
+          <section className={cx("mt-6 surface-soft rounded-3xl p-7 text-sm text-white/60", clipsSurfaceSoftClass)}>
             {loading ? "Loading assets..." : "No assets yet. Generate your first one from Generator."}
           </section>
         ) : null}
