@@ -242,7 +242,7 @@ function normalizeLoadedProject(raw: any): ProjectState {
     ...raw,
     name: String(raw?.name || base.name),
     frame: frame === "9:16" || frame === "1:1" || frame === "16:9" ? frame : base.frame,
-    targetDuration: target === 60 || target === 120 ? target : base.targetDuration,
+    targetDuration: target === 60 || target === 120 || target === 180 ? target : base.targetDuration,
     musicBedLevel: clamp01(Number(raw?.musicBedLevel ?? base.musicBedLevel)),
     safeAreaOn: Boolean(raw?.safeAreaOn ?? base.safeAreaOn),
     visual: safeArray(raw?.visual),
@@ -1597,7 +1597,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             </nav>
 
             {toolTab ? (
-              <aside className="clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 w-[320px] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]">
+              <aside
+                className={cx(
+                  "clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
+                  toolTab === "audio" ? "w-[360px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
+                )}
+              >
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
 
                 {toolTab === "project" ? (
@@ -1638,6 +1643,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       >
                         <option value={60}>1 minute</option>
                         <option value={120}>2 minutes</option>
+                        <option value={180}>3 minutes</option>
                       </select>
                     </div>
                     <button
@@ -1714,7 +1720,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   <div className="grid gap-3">
                     <div>
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
-                      <div className="clipforge-scrollbar grid max-h-40 gap-2 overflow-auto pr-1">
+                      <div className="grid gap-2">
                         {audios.map((clip) => (
                           <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
                             <div className="truncate text-[11px] font-semibold text-white/88">{clip.title || `Audio #${clip.id}`}</div>
@@ -1779,7 +1785,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         </span>
                       </button>
                       {localMusicAssets.length ? (
-                        <div className="clipforge-scrollbar mt-3 grid max-h-36 gap-2 overflow-auto pr-1">
+                        <div className="mt-3 grid gap-2">
                           {localMusicAssets.map((asset) => (
                             <div key={asset.id} className="rounded-xl border border-white/10 bg-black/45 px-3 py-2">
                               <div className="truncate text-[11px] font-semibold text-white/90">{asset.name}</div>
