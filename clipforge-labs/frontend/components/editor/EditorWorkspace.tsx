@@ -1572,8 +1572,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2">
-              <div className="flex flex-row gap-2 xl:flex-col">
+            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2.5">
+              <div className="flex flex-row gap-2.5 xl:flex-col xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
                   return (
@@ -1582,7 +1582,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                       type="button"
                       onClick={() => setToolTab((prev) => (prev === tab ? null : tab))}
                       className={cx(
-                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
+                        "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition xl:mx-auto",
                         active
                           ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
                           : "border-white/12 bg-black/35 hover:border-white/28 hover:bg-white/[0.08]"
@@ -1601,7 +1601,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               <aside
                 className={cx(
                   "clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
-                  toolTab === "audio" ? "w-[384px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
+                  toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
@@ -1669,10 +1669,10 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </button>
 
                     {mediaMenuOpen ? (
-                      <div className="rounded-2xl border border-white/10 bg-black/35 p-2.5">
+                      <div className="rounded-2xl border border-white/10 bg-black/35 p-3">
                         <div>
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
-                          <div className="clipforge-scrollbar grid max-h-36 gap-2 overflow-auto pr-1">
+                          <div className="grid gap-2">
                             {videos.map((clip) => (
                               <button
                                 key={clip.id}
@@ -1691,7 +1691,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         </div>
                         <div className="mt-3">
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
-                          <div className="clipforge-scrollbar grid max-h-36 gap-2 overflow-auto pr-1">
+                          <div className="grid gap-2">
                             {images.map((clip) => (
                               <button
                                 key={clip.id}
