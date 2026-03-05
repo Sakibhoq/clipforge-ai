@@ -1293,8 +1293,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const active = selected?.track === track && selected?.itemId === item.id;
       const visualItem = track === "visual" && (item.type === "video" || item.type === "image");
       const className = cx(
-        "absolute top-1/2 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left transition",
-        track === "visual" ? "h-14" : "h-7",
+        "absolute rounded-lg border text-left transition",
+        track === "visual" ? "inset-y-1 px-1 py-1" : "top-1/2 h-7 -translate-y-1/2 px-2 py-1.5",
         trackTone(track),
         item.type !== "caption" && "cursor-grab active:cursor-grabbing",
         active && "ring-2 ring-white/75 shadow-[0_8px_20px_rgba(0,0,0,0.35)]"
