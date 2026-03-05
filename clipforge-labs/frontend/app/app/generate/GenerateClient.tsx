@@ -572,7 +572,7 @@ export default function GenerateClient() {
                     <textarea
                       value={postVisualPrompt}
                       onChange={(e) => setPostVisualPrompt(e.target.value)}
-                      rows={7}
+                      rows={10}
                       placeholder="Describe shots, scene style, camera behavior, and pacing."
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
@@ -586,25 +586,6 @@ export default function GenerateClient() {
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
                     <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
-
-                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] text-amber-100/90">
-                      Need longer than 1 minute? Use Image mode and complete timing/transitions in editor.
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setMode("image")}
-                          className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
-                        >
-                          Switch to Image mode
-                        </button>
-                        <Link
-                          href="/app/clips?editor=1"
-                          className="rounded-lg border border-amber-200/25 bg-black/35 px-2.5 py-1 font-semibold text-amber-100/90 hover:bg-black/45"
-                        >
-                          Open editor
-                        </Link>
-                      </div>
-                    </div>
                   </>
                 ) : (
                   <>
@@ -703,9 +684,6 @@ export default function GenerateClient() {
 
                 {mode === "post" ? (
                   <>
-                    <div className="rounded-2xl border border-amber-300/25 bg-amber-500/10 p-3 text-[11px] text-amber-100/90">
-                      AI Post is fixed to 1 minute. Backend retries automatically with 10 → 8 → 6 scenes when capacity is tight.
-                    </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Caption style</label>
                       <select
@@ -722,9 +700,6 @@ export default function GenerateClient() {
                       <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
                     </div>
                     {renderVoiceSelector()}
-                    <div className="rounded-2xl border border-white/12 bg-black/35 p-3 text-[11px] text-white/65">
-                      Voice speed is auto-calculated to match 60-second delivery.
-                    </div>
                   </>
                 ) : null}
 
