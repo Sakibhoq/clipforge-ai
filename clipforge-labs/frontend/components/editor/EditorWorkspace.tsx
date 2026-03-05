@@ -15,8 +15,6 @@ type TimelineHoverLens = {
   y: number;
   laneWidth: number;
   laneHeight: number;
-  clientX: number;
-  clientY: number;
 };
 type CropDragMode =
   | "draw"
@@ -409,7 +407,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const [lastExportClipId, setLastExportClipId] = useState<number | null>(null);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
   const [timelineZoom, setTimelineZoom] = useState(1);
-  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [snapToGrid] = useState(true);
   const [cropMode, setCropMode] = useState(false);
   const [cropTargetItemId, setCropTargetItemId] = useState<string | null>(null);
   const [cropDraft, setCropDraft] = useState<CropRect | null>(null);
@@ -1378,18 +1376,20 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       );
     }
 
-    const viewportW = typeof window !== "undefined" ? window.innerWidth : 1440;
-    const viewportH = typeof window !== "undefined" ? window.innerHeight : 900;
     const lensLeft =
       lensActive && timelineHoverLens
-        ? clamp(timelineHoverLens.clientX, lensSize / 2 + 10, Math.max(lensSize / 2 + 10, viewportW - lensSize / 2 - 10))
+        ? clamp(
+            timelineHoverLens.x,
+            lensSize / 2 + 8,
+            Math.max(lensSize / 2 + 8, timelineHoverLens.laneWidth - lensSize / 2 - 8)
+          )
         : 0;
     const lensTop =
       lensActive && timelineHoverLens
         ? (() => {
-            const above = timelineHoverLens.clientY - lensSize - 22;
-            if (above >= 10) return above;
-            return Math.min(viewportH - lensSize - 10, timelineHoverLens.clientY + 22);
+            const above = timelineHoverLens.y - lensSize - 14;
+            if (above >= -12) return above;
+            return timelineHoverLens.y + 14;
           })()
         : 0;
 
@@ -1429,8 +1429,6 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     y,
                     laneWidth: rect.width,
                     laneHeight,
-                    clientX: event.clientX,
-                    clientY: event.clientY,
                   });
                 }}
                 onMouseLeave={() => {
@@ -1450,7 +1448,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
                 {lensActive && timelineHoverLens ? (
                   <div
-                    className="pointer-events-none fixed z-[120] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+                    className="pointer-events-none absolute left-0 top-0 z-[120] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
                     style={{
                       width: lensSize,
                       height: lensSize,
@@ -2195,18 +2193,6 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           className="w-24 accent-white"
                         />
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setSnapToGrid((prev) => !prev)}
-                        className={cx(
-                          "border px-3 py-1 text-[11px] transition",
-                          snapToGrid
-                            ? "border-[#ffb70380] bg-[#ffb70322] text-amber-100"
-                            : cx("border-transparent text-white/72", surfaceInsetClass)
-                        )}
-                      >
-                        Snap {snapToGrid ? "on" : "off"}
-                      </button>
                       <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72", surfaceInsetClass)}>
                         <span>Music {formatPercent(project.musicBedLevel)}</span>
                         <input
