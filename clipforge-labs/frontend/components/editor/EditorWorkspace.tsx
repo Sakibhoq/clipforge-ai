@@ -2268,8 +2268,8 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="h-full min-h-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
-                <div className="clipforge-scrollbar h-full overflow-y-auto">
+              <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
+                <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track, index) => (
                     <div key={track} className={cx(index > 0 && "border-t border-white/10")}>
                       {renderTrackLane(track)}
