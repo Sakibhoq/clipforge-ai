@@ -1571,7 +1571,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[60px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2 xl:row-span-2">
+            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2">
               <div className="flex flex-row gap-2 xl:flex-col">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
@@ -2226,7 +2226,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </div>
             </section>
 
-            <section className="min-h-0 bg-[#121726] p-3 xl:col-start-2">
+            <section className="min-h-0 bg-[#121726] p-3 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/60">Timeline</div>
                 <div className="text-[11px] text-white/55">Length {formatSeconds(timelineSeconds)}</div>
