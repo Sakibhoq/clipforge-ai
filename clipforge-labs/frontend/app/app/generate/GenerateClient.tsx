@@ -45,6 +45,7 @@ const IMAGE_CREDITS = 4;
 const VOICE_CHARS_PER_CREDIT = 250;
 const VOICE_MIN_CREDITS = 1;
 const VOICE_BASE_WPM = 165;
+const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 10;
 const VOICE_SPEED_OPTIONS = [
@@ -183,6 +184,25 @@ function estimatePostCredits(imageCount: number, voiceScriptLength: number): num
   return imageCount * IMAGE_CREDITS + estimateVoiceCredits(voiceScriptLength);
 }
 
+function countWords(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function estimateSpeechSeconds(words: number, wpm: number): number {
+  if (!words || !wpm) return 0;
+  return (words / wpm) * 60;
+}
+
+function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.round(seconds));
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -220,6 +240,22 @@ export default function GenerateClient() {
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
   const voiceSpeedWpm = useMemo(() => speedMultiplierToWpm(voiceSpeedMultiplier), [voiceSpeedMultiplier]);
+  const postWordCount = useMemo(() => countWords(postVoiceScript), [postVoiceScript]);
+  const postEstimateAt1xSeconds = useMemo(
+    () => estimateSpeechSeconds(postWordCount, VOICE_BASE_WPM),
+    [postWordCount]
+  );
+  const postAutoSpeedWpm = useMemo(() => {
+    if (postEstimateAt1xSeconds <= POST_DURATION_SECONDS) return VOICE_BASE_WPM;
+    const required = Math.ceil((postWordCount * 60) / POST_DURATION_SECONDS);
+    return Math.max(VOICE_BASE_WPM, Math.min(POST_MAX_AUTO_WPM, required));
+  }, [postWordCount, postEstimateAt1xSeconds]);
+  const postEstimateAppliedSeconds = useMemo(
+    () => estimateSpeechSeconds(postWordCount, postAutoSpeedWpm),
+    [postWordCount, postAutoSpeedWpm]
+  );
+  const postNeedsMoreWords = useMemo(() => postEstimateAt1xSeconds > 0 && postEstimateAt1xSeconds < 48, [postEstimateAt1xSeconds]);
+  const postWillAutoSpeed = useMemo(() => postAutoSpeedWpm > VOICE_BASE_WPM, [postAutoSpeedWpm]);
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
@@ -251,8 +287,8 @@ export default function GenerateClient() {
     return `${targetVoice}::${targetSpeedWpm}`;
   }
 
-  async function playVoicePreview(targetVoice: string) {
-    const key = voicePreviewKey(targetVoice, voiceSpeedWpm);
+  async function playVoicePreview(targetVoice: string, targetSpeedWpm: number) {
+    const key = voicePreviewKey(targetVoice, targetSpeedWpm);
     setVoicePreviewError(null);
 
     try {
@@ -262,7 +298,7 @@ export default function GenerateClient() {
           method: "POST",
           body: {
             voice_name: targetVoice,
-            speed_wpm: voiceSpeedWpm,
+            speed_wpm: targetSpeedWpm,
           },
         });
         src = `data:${payload.content_type || "audio/mpeg"};base64,${payload.audio_base64 || ""}`;
@@ -283,8 +319,8 @@ export default function GenerateClient() {
     }
   }
 
-  function renderVoiceSelector() {
-    const activePreviewKey = voicePreviewKey(voiceName, voiceSpeedWpm);
+  function renderVoiceSelector(previewSpeedWpm: number) {
+    const activePreviewKey = voicePreviewKey(voiceName, previewSpeedWpm);
     const previewLoading = voicePreviewPlayingKey === activePreviewKey;
 
     return (
@@ -308,7 +344,7 @@ export default function GenerateClient() {
             </select>
             <button
               type="button"
-              onClick={() => playVoicePreview(voiceName)}
+              onClick={() => playVoicePreview(voiceName, previewSpeedWpm)}
               className={cx(
                 "h-10 rounded-xl border px-3 text-[11px] font-semibold transition sm:min-w-[92px]",
                 previewLoading
@@ -607,6 +643,29 @@ export default function GenerateClient() {
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
                     <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
+                    <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-white/72">
+                      <div>
+                        Estimated voice at 1x:{" "}
+                        <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
+                      </div>
+                      {postNeedsMoreWords ? (
+                        <div className="mt-1 text-amber-100/90">
+                          Script is short for a full minute. Add more words for longer narration.
+                        </div>
+                      ) : null}
+                      {postWillAutoSpeed ? (
+                        <div className="mt-1 text-amber-100/90">
+                          Script is long; auto speed will raise to about{" "}
+                          <span className="font-semibold">{(postAutoSpeedWpm / VOICE_BASE_WPM).toFixed(2)}x</span>{" "}
+                          ({postAutoSpeedWpm} WPM) to target 1 minute.
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-emerald-100/85">Voice pacing stays at 1x for this script.</div>
+                      )}
+                      <div className="mt-1 text-white/55">
+                        Estimated output voice length: {formatDuration(postEstimateAppliedSeconds)}
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -726,7 +785,10 @@ export default function GenerateClient() {
                       </select>
                       <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
                     </div>
-                    {renderVoiceSelector()}
+                    {renderVoiceSelector(VOICE_BASE_WPM)}
+                    <div className="text-[11px] text-white/55">
+                      AI Post voice uses 1x by default and auto-speeds only when script exceeds 60 seconds.
+                    </div>
                   </>
                 ) : null}
 
@@ -783,7 +845,7 @@ export default function GenerateClient() {
 
                 {mode === "voiceover" ? (
                   <>
-                    {renderVoiceSelector()}
+                    {renderVoiceSelector(voiceSpeedWpm)}
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Speed</label>
                       <select

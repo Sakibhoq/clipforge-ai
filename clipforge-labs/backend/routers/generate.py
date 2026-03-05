@@ -32,6 +32,8 @@ ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {4, 6, 8}
 POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 10
+POST_BASE_VOICE_WPM = 165
+POST_MAX_AUTO_VOICE_WPM = 210
 
 PLAN_MAX_DURATION_SECONDS = {
     "free": 4,
@@ -135,6 +137,10 @@ def _voiceover_credits_needed(script: str) -> int:
     length = max(0, len((script or "").strip()))
     usage_credits = int(math.ceil(float(length) / float(chars_per_credit))) if length > 0 else 0
     return max(min_credits, usage_credits)
+
+
+def _script_word_count(script: str) -> int:
+    return len([word for word in (script or "").split() if word.strip()])
 
 
 def _post_credits_needed(image_count: int, voice_script: str) -> int:
@@ -378,7 +384,7 @@ class GenerateVoiceoverRequest(BaseModel):
     script: str = Field(min_length=3, max_length=6000)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int = Field(default=165, ge=80, le=330)
+    speed_wpm: int = Field(default=POST_BASE_VOICE_WPM, ge=80, le=330)
 
 
 class GeneratePostRequest(BaseModel):
@@ -406,7 +412,7 @@ class GenerateResponse(BaseModel):
 
 class VoicePreviewRequest(BaseModel):
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
-    speed_wpm: int = Field(default=165, ge=80, le=330)
+    speed_wpm: int = Field(default=POST_BASE_VOICE_WPM, ge=80, le=330)
     text: str | None = Field(default=None, max_length=240)
 
 
@@ -428,7 +434,7 @@ def voice_preview(
     sample_text = (payload.text or "").strip()[:240] or "This is a quick voice preview for your next post."
     content_type, audio_bytes = _synthesize_voice_preview(
         voice_name=selected_voice,
-        speed_wpm=int(payload.speed_wpm or 165),
+        speed_wpm=int(payload.speed_wpm or POST_BASE_VOICE_WPM),
         text=sample_text,
     )
     return VoicePreviewResponse(
@@ -566,7 +572,7 @@ def create_voiceover_generation(
     model = _check_model_supported(payload.model)
     credits_needed = _voiceover_credits_needed(script)
     text_length = len(script)
-    safe_speed = max(80, min(330, int(payload.speed_wpm or 165)))
+    safe_speed = max(80, min(330, int(payload.speed_wpm or POST_BASE_VOICE_WPM)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
 
     def _plan_guard(plan: str) -> None:
@@ -632,11 +638,15 @@ def create_post_generation(
     image_count = max(6, min(10, int(payload.image_count or POST_DEFAULT_IMAGE_COUNT)))
     model = _check_model_supported(payload.model)
     text_length = len(voice_script)
+    words = _script_word_count(voice_script)
     if payload.speed_wpm is None:
-        # Auto pace to keep script delivery natural for 60-second posts.
-        words = max(1, len([w for w in voice_script.split() if w.strip()]))
-        target_wpm = int(round((words / (duration_seconds / 60.0)) * 1.08))
-        safe_speed = max(130, min(210, target_wpm))
+        # Keep true 1x pacing by default; only speed up when script would exceed 60s.
+        target_wpm = POST_BASE_VOICE_WPM
+        estimated_seconds_at_base = (float(words) / float(POST_BASE_VOICE_WPM)) * 60.0 if words > 0 else 0.0
+        if estimated_seconds_at_base > float(duration_seconds):
+            required_wpm = int(math.ceil(float(words) * 60.0 / float(duration_seconds)))
+            target_wpm = max(POST_BASE_VOICE_WPM, min(POST_MAX_AUTO_VOICE_WPM, required_wpm))
+        safe_speed = target_wpm
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
