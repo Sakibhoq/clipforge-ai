@@ -268,7 +268,7 @@ function trackLabel(track: TrackKey) {
 function trackTone(track: TrackKey) {
   if (track === "visual") return "border-[#ffb70366] bg-[#ffb70322] text-amber-100";
   if (track === "voiceover") return "border-emerald-300/40 bg-emerald-400/14 text-emerald-100";
-  if (track === "music") return "border-amber-300/40 bg-amber-400/14 text-amber-100";
+  if (track === "music") return "border-[#fb560780] bg-[#fb560726] text-orange-100";
   return "border-fuchsia-300/40 bg-fuchsia-400/14 text-fuchsia-100";
 }
 
@@ -1748,7 +1748,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               <button
                                 type="button"
                                 onClick={() => addClipToTrack("music", clip)}
-                                className="rounded-lg border border-white/10 bg-black/40 px-2 py-1.5 text-[11px] text-white/84 hover:bg-white/[0.08]"
+                                className="rounded-lg border border-[#fb560770] bg-[#fb560720] px-2 py-1.5 text-[11px] text-orange-100 hover:bg-[#fb560734]"
                               >
                                 <span className="inline-flex items-center gap-1">
                                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
