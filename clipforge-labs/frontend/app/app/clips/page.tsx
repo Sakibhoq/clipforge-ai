@@ -756,7 +756,7 @@ export default function ClipsPage() {
                 return (
                   <article
                     key={c.id}
-                    className="group overflow-hidden rounded-[24px] border border-[#fb560740] bg-[#070d1a] shadow-[0_18px_44px_rgba(0,0,0,0.38)]"
+                    className="surface-soft group overflow-hidden rounded-[20px] border border-[#fb560740] bg-[#090f1d]/95 shadow-[0_16px_40px_rgba(0,0,0,0.36)]"
                   >
                     <div className="relative aspect-[9/12] bg-black/50">
                       {assetType === "image" ? (
