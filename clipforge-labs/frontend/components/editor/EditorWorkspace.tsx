@@ -274,10 +274,10 @@ function trackTone(track: TrackKey) {
 
 function toolLabel(tab: ToolTab) {
   if (tab === "media") return "Media";
-  if (tab === "project") return "Canvas";
+  if (tab === "project") return "Project";
   if (tab === "audio") return "Audio";
   if (tab === "text") return "Text";
-  if (tab === "export") return "Videos";
+  if (tab === "export") return "Export";
   return "Tool";
 }
 
@@ -348,8 +348,9 @@ function ToolbarIcon({ tab }: { tab: ToolTab }) {
   if (tab === "export") {
     return (
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="6" width="16" height="12" rx="2.2" />
-        <path d="m11 10 4 2.2-4 2.2V10Z" />
+        <path d="M12 14V4" />
+        <path d="m8.5 7.5 3.5-3.5 3.5 3.5" />
+        <rect x="4" y="14" width="16" height="6" rx="1.8" />
       </svg>
     );
   }
