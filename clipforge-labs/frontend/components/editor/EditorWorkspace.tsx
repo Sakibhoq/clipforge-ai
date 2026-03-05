@@ -140,7 +140,7 @@ function cropMediaStyle(crop?: CropRect): React.CSSProperties {
       inset: 0,
       width: "100%",
       height: "100%",
-      objectFit: "fill",
+      objectFit: "contain",
       imageRendering: "auto",
     };
   }
@@ -152,7 +152,7 @@ function cropMediaStyle(crop?: CropRect): React.CSSProperties {
     height: `${100 / safe.h}%`,
     left: `${(-safe.x / safe.w) * 100}%`,
     top: `${(-safe.y / safe.h) * 100}%`,
-    objectFit: "fill",
+    objectFit: "cover",
     imageRendering: "auto",
   };
 }
@@ -1302,12 +1302,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       const itemBody = (
         <div className="relative h-full">
           {visualItem && item.url ? (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-white/15">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-md border border-white/15 bg-black/70">
               {item.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt={item.title} className="h-full w-full object-fill" />
+                <img src={item.url} alt={item.title} className="h-full w-full object-contain" />
               ) : (
-                <video src={item.url} muted autoPlay loop playsInline preload="metadata" className="h-full w-full object-fill" />
+                <video src={item.url} muted playsInline preload="metadata" className="h-full w-full object-contain" />
               )}
             </div>
           ) : null}
