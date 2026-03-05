@@ -13,6 +13,8 @@ type TimelineHoverLens = {
   track: TrackKey;
   x: number;
   y: number;
+  displayX: number;
+  displayY: number;
   laneWidth: number;
   laneHeight: number;
 };
@@ -1378,15 +1380,15 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
     const lensLeft =
       lensActive && timelineHoverLens
-        ? clamp(
-            timelineHoverLens.x,
-            lensSize / 2 + 8,
-            Math.max(lensSize / 2 + 8, timelineHoverLens.laneWidth - lensSize / 2 - 8)
-          )
+        ? timelineHoverLens.displayX
         : 0;
     const lensTop =
       lensActive && timelineHoverLens
-        ? timelineHoverLens.y - lensSize - 16
+        ? (() => {
+            const above = timelineHoverLens.displayY - lensSize - 16;
+            if (above >= 6) return above;
+            return timelineHoverLens.displayY + 16;
+          })()
         : 0;
 
     return (
@@ -1398,7 +1400,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           {items.length ? <div className="mt-0 text-[10px] text-white/50 lg:mt-1.5">{items.length} items</div> : null}
         </div>
 
-        <div>
+        <div data-track-wrap className="relative overflow-visible">
           <div className={cx("clipforge-scrollbar overflow-x-auto overflow-y-visible", track === "visual" ? "pb-1.5" : "pb-0")}>
             <div className="relative min-w-[560px]" style={{ width: `${timelineWidthPct}%` }}>
               {track === "visual" ? (
@@ -1423,6 +1425,18 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     track,
                     x,
                     y,
+                    displayX: (() => {
+                      const wrap = event.currentTarget.closest("[data-track-wrap]") as HTMLElement | null;
+                      if (!wrap) return x;
+                      const wrapRect = wrap.getBoundingClientRect();
+                      return clamp(event.clientX - wrapRect.left, 0, wrapRect.width);
+                    })(),
+                    displayY: (() => {
+                      const wrap = event.currentTarget.closest("[data-track-wrap]") as HTMLElement | null;
+                      if (!wrap) return y;
+                      const wrapRect = wrap.getBoundingClientRect();
+                      return clamp(event.clientY - wrapRect.top, 0, wrapRect.height);
+                    })(),
                     laneWidth: rect.width,
                     laneHeight,
                   });
@@ -1442,35 +1456,6 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   <div className="flex h-full items-center justify-center text-[12px] text-white/45">No items yet.</div>
                 )}
 
-                {lensActive && timelineHoverLens ? (
-                  <div
-                    className="pointer-events-none absolute left-0 top-0 z-[120] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
-                    style={{
-                      width: lensSize,
-                      height: lensSize,
-                      left: lensLeft,
-                      top: lensTop,
-                    }}
-                  >
-                    <div
-                      className="absolute left-0 top-0"
-                      style={{
-                        width: timelineHoverLens.laneWidth,
-                        height: timelineHoverLens.laneHeight,
-                        transformOrigin: "top left",
-                        transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
-                      }}
-                    >
-                      <div className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
-                      {items.map((item) => renderItem(item, false))}
-                    </div>
-                    <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-[#ffb70399] bg-[#080b12]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-100">
-                      {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 rounded-3xl border border-white/45" />
-                  </div>
-                ) : null}
-
                 {lensActive && track === "visual" ? (
                   <div className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-amber-100/80">
                     Magnifier on
@@ -1485,6 +1470,35 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </div>
             </div>
           </div>
+
+          {lensActive && timelineHoverLens ? (
+            <div
+              className="pointer-events-none absolute left-0 top-0 z-[120] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+              style={{
+                width: lensSize,
+                height: lensSize,
+                left: lensLeft,
+                top: lensTop,
+              }}
+            >
+              <div
+                className="absolute left-0 top-0"
+                style={{
+                  width: timelineHoverLens.laneWidth,
+                  height: timelineHoverLens.laneHeight,
+                  transformOrigin: "top left",
+                  transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
+                }}
+              >
+                <div className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
+                {items.map((item) => renderItem(item, false))}
+              </div>
+              <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-[#ffb70399] bg-[#080b12]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-100">
+                {formatSecondsMs((timelineHoverLens.x / Math.max(1, timelineHoverLens.laneWidth)) * timelineSeconds)}
+              </div>
+              <div className="pointer-events-none absolute inset-0 rounded-3xl border border-white/45" />
+            </div>
+          ) : null}
         </div>
       </div>
     );
