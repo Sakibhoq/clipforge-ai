@@ -1402,9 +1402,9 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
           <div className={cx("clipforge-scrollbar overflow-x-auto overflow-y-visible", track === "visual" ? "pb-1.5" : "pb-0")}>
             <div className="relative min-w-[560px]" style={{ width: `${timelineWidthPct}%` }}>
               {track === "visual" ? (
-                <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
+                <div className="flex h-4 items-center justify-between gap-1 text-[9px] text-white/38">
                   {Array.from({ length: 13 }).map((_, index) => (
-                    <span key={`${track}-tick-${index}`} className={cx("tabular-nums", index === 12 && "text-right")}>
+                    <span key={`${track}-tick-${index}`} className="tabular-nums">
                       {formatSeconds((timelineSeconds / 12) * index)}
                     </span>
                   ))}
