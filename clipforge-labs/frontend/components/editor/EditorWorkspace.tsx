@@ -13,8 +13,8 @@ type TimelineHoverLens = {
   track: TrackKey;
   x: number;
   y: number;
-  clientX: number;
-  clientY: number;
+  displayX: number;
+  displayY: number;
   laneWidth: number;
   laneHeight: number;
 };
@@ -1380,11 +1380,11 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
     const lensLeft =
       lensActive && timelineHoverLens
-        ? timelineHoverLens.clientX
+        ? timelineHoverLens.displayX
         : 0;
     const lensTop =
       lensActive && timelineHoverLens
-        ? Math.max(8, timelineHoverLens.clientY - lensSize - 18)
+        ? timelineHoverLens.displayY - lensSize - 18
         : 0;
 
     return (
@@ -1421,8 +1421,18 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     track,
                     x,
                     y,
-                    clientX: event.clientX,
-                    clientY: event.clientY,
+                    displayX: (() => {
+                      const wrap = event.currentTarget.closest("[data-track-wrap]") as HTMLElement | null;
+                      if (!wrap) return x;
+                      const wrapRect = wrap.getBoundingClientRect();
+                      return clamp(event.clientX - wrapRect.left, 0, wrapRect.width);
+                    })(),
+                    displayY: (() => {
+                      const wrap = event.currentTarget.closest("[data-track-wrap]") as HTMLElement | null;
+                      if (!wrap) return y;
+                      const wrapRect = wrap.getBoundingClientRect();
+                      return clamp(event.clientY - wrapRect.top, -lensSize, wrapRect.height);
+                    })(),
                     laneWidth: rect.width,
                     laneHeight,
                   });
@@ -1459,7 +1469,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
           {lensActive && timelineHoverLens ? (
             <div
-              className="pointer-events-none fixed left-0 top-0 z-[220] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
+              className="pointer-events-none absolute left-0 top-0 z-[220] -translate-x-1/2 overflow-hidden rounded-3xl border border-[#ffb703b8] bg-[#080b12]/95 shadow-[0_20px_40px_rgba(0,0,0,0.58)]"
               style={{
                 width: lensSize,
                 height: lensSize,
@@ -2286,7 +2296,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               )}
 
               <div className={cx("overflow-visible rounded-3xl border border-transparent", surfacePrimaryClass)}>
-                <div className="clipforge-scrollbar overflow-y-auto">
+                <div className="clipforge-scrollbar overflow-y-visible">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
                       {renderTrackLane(track)}
