@@ -1600,7 +1600,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               <aside
                 className={cx(
                   "clipforge-scrollbar pointer-events-auto absolute left-[72px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
-                  toolTab === "audio" ? "w-[360px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
+                  toolTab === "audio" ? "w-[384px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
@@ -1717,14 +1717,19 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 ) : null}
 
                 {toolTab === "audio" ? (
-                  <div className="grid gap-3">
-                    <div>
+                  <div className="grid gap-3.5">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Library Audio ({audios.length})</div>
-                      <div className="grid gap-2">
-                        {audios.map((clip) => (
-                          <div key={clip.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                            <div className="truncate text-[11px] font-semibold text-white/88">{clip.title || `Audio #${clip.id}`}</div>
-                            <div className="mt-1 grid grid-cols-2 gap-2">
+                      <div className="grid gap-2.5">
+                        {audios.length ? audios.map((clip) => (
+                          <div key={clip.id} className="rounded-xl border border-white/10 bg-black/35 p-2.5">
+                            <div className="overflow-hidden text-[11px] font-semibold leading-4 text-white/88 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                              {clip.title || `Audio #${clip.id}`}
+                            </div>
+                            {Number(clip.duration || 0) > 0 ? (
+                              <div className="mt-1 text-[10px] text-white/52">{formatSeconds(Number(clip.duration || 0))}</div>
+                            ) : null}
+                            <div className="mt-2 grid grid-cols-2 gap-2">
                               <button
                                 type="button"
                                 onClick={() => addClipToTrack("voiceover", clip)}
@@ -1756,10 +1761,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                               </button>
                             </div>
                           </div>
-                        ))}
+                        )) : (
+                          <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-3 text-[11px] text-white/55">
+                            No audio in library yet.
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5">
                       <div className="mb-2 text-[12px] font-semibold text-white/85">Upload music</div>
                       <input
                         ref={localMusicInputRef}
