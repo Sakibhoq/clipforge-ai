@@ -1413,7 +1413,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
               <div
                 data-track-lane={track}
-                className={cx("relative overflow-visible rounded-xl bg-[#0b1020]/52", track === "visual" ? "mt-1" : "mt-0")}
+                className={cx("relative overflow-visible rounded-xl bg-[#0d1a34]/62", track === "visual" ? "mt-1" : "mt-0")}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
@@ -1567,12 +1567,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
         <section
           className={cx(
-            "overflow-hidden rounded-2xl border border-white/12 bg-[#0f1320] shadow-[0_30px_90px_rgba(0,0,0,0.5)]",
+            "overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(155deg,rgba(8,16,32,0.98)_0%,rgba(12,26,48,0.98)_48%,rgba(26,18,42,0.98)_100%)] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
         >
           <div className="relative grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-white/10 bg-[#0b0f1a] p-2.5 xl:pl-2 xl:pr-3.5">
+            <nav className="border-r border-cyan-300/15 bg-[linear-gradient(180deg,rgba(7,15,30,0.98)_0%,rgba(9,18,35,0.98)_100%)] p-2.5 xl:pl-2 xl:pr-3.5">
               <div className="flex flex-row gap-2.5 xl:flex-col xl:items-start xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
@@ -1585,7 +1585,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         "inline-flex h-12 w-12 items-center justify-center rounded-xl border text-white/78 transition",
                         active
                           ? "border-[#fb560786] bg-[linear-gradient(140deg,rgba(255,183,3,0.18),rgba(251,86,7,0.24),rgba(58,134,255,0.18))] text-white"
-                          : "border-white/12 bg-black/35 hover:border-white/28 hover:bg-white/[0.08]"
+                          : "border-slate-300/20 bg-[#0b1528]/85 hover:border-cyan-200/45 hover:bg-[#13223c]/95"
                       )}
                       title={toolLabel(tab)}
                       aria-label={toolLabel(tab)}
@@ -1600,7 +1600,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             {toolTab ? (
               <aside
                 className={cx(
-                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-white/12 bg-[#10192b]/98 p-3 shadow-[0_25px_50px_rgba(0,0,0,0.55)]",
+                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-cyan-300/25 bg-[linear-gradient(160deg,rgba(14,30,56,0.98)_0%,rgba(15,24,42,0.98)_100%)] p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
                   toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
@@ -1896,12 +1896,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className="min-h-0 border-b border-white/10 bg-[#121726] p-2.5 xl:col-start-2">
+            <section className="min-h-0 border-b border-cyan-300/12 bg-[#101a2f]/86 p-2.5 xl:col-start-2">
               <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                <div className="rounded-2xl border border-white/10 bg-black/45 p-2.5">
+                <div className="rounded-2xl border border-cyan-300/18 bg-[#0a1426]/88 p-2.5">
                   <div
                     ref={previewStageRef}
-                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-white/12 bg-[#060b16]"
+                    className="relative mx-auto w-full overflow-hidden rounded-2xl border border-cyan-300/20 bg-[#050d1a]"
                     style={{ height: `${previewStageHeight}px` }}
                   >
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(58,134,255,0.18),transparent_50%),radial-gradient(circle_at_78%_72%,rgba(251,86,7,0.16),transparent_56%)]" />
@@ -2083,17 +2083,17 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="rounded-xl border border-cyan-300/18 bg-[#15233c]/72 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 truncate text-[11px] font-semibold text-white/88">
                       {previewVisual?.title || "No visual clip selected"}
                     </div>
-                    <div className="rounded-lg border border-white/10 bg-black/35 px-2 py-1 text-[10px] text-white/68">
+                    <div className="rounded-lg border border-cyan-300/20 bg-[#0b162b]/90 px-2 py-1 text-[10px] text-white/72">
                       {profile.label}
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-white/10 pt-3">
+                  <div className="mt-3 border-t border-cyan-300/12 pt-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -2159,12 +2159,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-white/10 pt-3">
+                  <div className="mt-3 border-t border-cyan-300/12 pt-3">
                     <div className="grid gap-2">
-                      <div className="border border-white/10 bg-black/35 px-3 py-1 text-[11px] text-white/70">
+                      <div className="border border-cyan-300/16 bg-[#0b162b]/90 px-3 py-1 text-[11px] text-white/72">
                         Length {formatSeconds(timelineSeconds)}
                       </div>
-                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Zoom {timelineZoom.toFixed(2)}x</span>
                         <input
                           type="range"
@@ -2183,12 +2183,12 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           "border px-3 py-1 text-[11px] transition",
                           snapToGrid
                             ? "border-cyan-300/35 bg-cyan-400/12 text-cyan-100"
-                            : "border-white/10 bg-black/35 text-white/70"
+                            : "border-cyan-300/16 bg-[#0b162b]/90 text-white/72"
                         )}
                       >
                         Snap {snapToGrid ? "on" : "off"}
                       </button>
-                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Music {formatPercent(project.musicBedLevel)}</span>
                         <input
                           type="range"
@@ -2205,7 +2205,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                           className="w-24 accent-white"
                         />
                       </label>
-                      <label className="flex items-center justify-between gap-2 border border-white/10 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                      <label className="flex items-center justify-between gap-2 border border-cyan-300/16 bg-[#0b162b]/90 px-2.5 py-1 text-[11px] text-white/72">
                         <span>Playhead {formatSeconds(playhead)}</span>
                         <input
                           type="range"
@@ -2220,21 +2220,21 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-white/10 bg-black/35 px-2.5 py-2 text-[10px] text-white/55">
+                  <div className="mt-3 rounded-lg border border-cyan-300/14 bg-[#0b162b]/88 px-2.5 py-2 text-[10px] text-white/60">
                     Shortcuts: Space play/pause, Arrows nudge, Shift+Arrows jump 2s, Ctrl/Cmd+D duplicate, Delete remove, C crop.
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="min-h-0 bg-[#121726] p-3 xl:col-span-2">
+            <section className="min-h-0 bg-[#101a2f]/86 p-3 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/60">Timeline</div>
                 <div className="text-[11px] text-white/55">Length {formatSeconds(timelineSeconds)}</div>
               </div>
 
               {selectedItem && selected ? (
-                <div className="mb-2 grid gap-1.5 border border-white/10 bg-white/[0.03] p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
+                <div className="mb-2 grid gap-1.5 border border-cyan-300/16 bg-[#15233c]/72 p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
@@ -2284,7 +2284,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-white/12 bg-[#0d1425]/88">
+              <div className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(10,20,38,0.96),rgba(8,17,33,0.96))]">
                 <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
