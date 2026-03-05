@@ -1567,12 +1567,16 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
 
         <section
           className={cx(
-            "overflow-hidden rounded-2xl border border-[#fb560740] bg-[linear-gradient(155deg,rgba(10,14,24,0.98)_0%,rgba(13,18,30,0.98)_55%,rgba(26,15,12,0.98)_100%)] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
+            "relative overflow-hidden rounded-2xl border border-[#fb560740] bg-[#090f1d]/90 backdrop-blur-[2px] shadow-[0_34px_95px_rgba(0,0,0,0.55)]",
             cardMode ? "h-[calc(100%-44px)]" : "h-[calc(100%-92px)]"
           )}
         >
-          <div className="relative grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-            <nav className="border-r border-[#fb560733] bg-[linear-gradient(180deg,rgba(10,13,23,0.98)_0%,rgba(11,14,24,0.98)_100%)] p-2.5 xl:px-3">
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="aurora opacity-[0.55]" />
+          </div>
+
+          <div className="relative z-10 grid h-full gap-0 xl:grid-cols-[76px_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
+            <nav className="border-r border-[#fb560733] bg-[#0d1422]/78 backdrop-blur-sm p-2.5 xl:px-3">
               <div className="flex flex-row gap-2.5 xl:flex-col xl:items-center xl:gap-3">
                 {TOOL_TABS.map((tab) => {
                   const active = toolTab === tab;
@@ -1600,7 +1604,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
             {toolTab ? (
               <aside
                 className={cx(
-                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-[#fb560740] bg-[linear-gradient(160deg,rgba(18,24,40,0.98)_0%,rgba(14,18,31,0.98)_100%)] p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
+                  "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-xl border border-[#fb560740] bg-[#0f1728]/84 backdrop-blur-md p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
                   toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
@@ -1896,9 +1900,9 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </aside>
             ) : null}
 
-            <section className="min-h-0 border-b border-[#fb560730] bg-[#0f1628]/86 p-2.5 xl:col-start-2">
+            <section className="min-h-0 border-b border-[#fb560730] bg-[#090f1d]/70 p-2.5 xl:col-start-2">
               <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                <div className="rounded-2xl border border-[#fb560738] bg-[#0a111f]/90 p-2.5">
+                <div className="rounded-2xl border border-[#fb560738] bg-[#090f1d]/95 p-2.5">
                   <div
                     ref={previewStageRef}
                     className="relative mx-auto w-full overflow-hidden rounded-2xl border border-[#fb560733] bg-[#050913]"
@@ -2083,7 +2087,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#fb560738] bg-[#121a2c]/78 p-3">
+                <div className="rounded-xl border border-[#fb560738] bg-[#090f1d]/95 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 truncate text-[11px] font-semibold text-white/88">
                       {previewVisual?.title || "No visual clip selected"}
@@ -2227,14 +2231,14 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
               </div>
             </section>
 
-            <section className="min-h-0 bg-[#0f1628]/86 p-3 xl:col-span-2">
+            <section className="min-h-0 bg-[#090f1d]/70 p-3 xl:col-span-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="text-xs text-white/60">Timeline</div>
                 <div className="text-[11px] text-white/55">Length {formatSeconds(timelineSeconds)}</div>
               </div>
 
               {selectedItem && selected ? (
-                <div className="mb-2 grid gap-1.5 border border-[#fb560733] bg-[#121a2c]/72 p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
+                <div className="mb-2 grid gap-1.5 border border-[#fb560733] bg-[#090f1d]/95 p-2 lg:grid-cols-[minmax(0,1fr)_100px_100px_auto_auto]">
                   <input
                     value={selectedItem.title}
                     onChange={(event) => updateSelected({ title: event.target.value })}
@@ -2284,7 +2288,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 </div>
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-[#fb560740] bg-[linear-gradient(180deg,rgba(11,16,28,0.96),rgba(9,14,24,0.96))]">
+              <div className="overflow-hidden rounded-2xl border border-[#fb560740] bg-[#090f1d]/95">
                 <div className="clipforge-scrollbar overflow-y-auto">
                   {(["visual", "voiceover", "music", "captions"] as TrackKey[]).map((track) => (
                     <div key={track}>
