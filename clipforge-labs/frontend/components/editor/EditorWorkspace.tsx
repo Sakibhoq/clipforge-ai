@@ -1390,7 +1390,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         : 0;
 
     return (
-      <div className={cx("grid gap-2.5 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "py-3" : "py-1.5")}>
+      <div className={cx("grid gap-x-2.5 gap-y-0 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "pb-1 pt-2.5" : "py-0")}>
         <div className="flex items-center justify-between gap-2 lg:block">
           <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
             {trackLabel(track)}
@@ -1399,7 +1399,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
         </div>
 
         <div>
-          <div className="clipforge-scrollbar overflow-x-auto overflow-y-visible pb-2">
+          <div className={cx("clipforge-scrollbar overflow-x-auto overflow-y-visible", track === "visual" ? "pb-1.5" : "pb-0")}>
             <div className="relative min-w-[560px]" style={{ width: `${timelineWidthPct}%` }}>
               {track === "visual" ? (
                 <div className="grid h-4 grid-cols-12 text-[9px] text-white/38">
@@ -1434,7 +1434,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                 }}
               >
                 <div
-                  className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/85"
+                  className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90"
                   style={{ left: `${playheadPct}%` }}
                 />
 
@@ -1463,7 +1463,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
                         transform: `translate(${lensSize / 2 - timelineHoverLens.x * lensScale}px, ${lensSize / 2 - timelineHoverLens.y * lensScale}px) scale(${lensScale})`,
                       }}
                     >
-                      <div className="pointer-events-none absolute inset-y-1 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
+                      <div className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90" style={{ left: `${playheadPct}%` }} />
                       {items.map((item) => renderItem(item, false))}
                     </div>
                     <div className="pointer-events-none absolute left-1/2 top-1.5 z-40 -translate-x-1/2 rounded-full border border-cyan-300/60 bg-[#020914]/95 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-cyan-100">
