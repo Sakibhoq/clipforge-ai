@@ -24,6 +24,7 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "cflabs-3";
   const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${v}`);
+  const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${v}`;
 
   const markWrapClass = inApp ? "h-11 w-11" : "h-11 w-11";
   const markImgSize = inApp ? 36 : 34;
@@ -68,6 +69,12 @@ function Logo() {
           alt={`${BRAND.name} logo`}
           width={markImgSize}
           height={markImgSize}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.dataset.logoFallback === "1") return;
+            img.dataset.logoFallback = "1";
+            img.src = logoFallbackSrc;
+          }}
           style={{ display: "block" }}
         />
       </span>

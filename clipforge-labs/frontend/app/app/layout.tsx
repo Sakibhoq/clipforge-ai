@@ -187,6 +187,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "cflabs-3";
   const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
+  const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${logoV}`;
 
   return (
     <div
@@ -234,6 +235,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   alt={`${BRAND.product} logo`}
                   width={34}
                   height={34}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.logoFallback === "1") return;
+                    img.dataset.logoFallback = "1";
+                    img.src = logoFallbackSrc;
+                  }}
                   style={{ display: "block" }}
                 />
               </span>
