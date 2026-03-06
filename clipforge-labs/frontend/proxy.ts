@@ -48,13 +48,6 @@ function stripBasePath(pathname: string): string {
   return pathname;
 }
 
-function withBasePath(pathname: string): string {
-  if (!BASE_PATH) return pathname;
-  if (pathname === "/") return BASE_PATH;
-  if (pathname.startsWith(BASE_PATH)) return pathname;
-  return `${BASE_PATH}${pathname}`;
-}
-
 function applySecurityHeaders(
   res: NextResponse,
   opts: { production: boolean; https: boolean },
@@ -144,7 +137,9 @@ export function proxy(req: NextRequest) {
   // Normalize to /login so bridge-login flow runs consistently.
   if (routePath === "/" && req.nextUrl.searchParams.has("bridge_token")) {
     const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = withBasePath("/login");
+    // In Next middleware, pathname should be base-path agnostic.
+    // Next will apply basePath automatically when sending the redirect.
+    loginUrl.pathname = "/login";
     if (!loginUrl.searchParams.has("next")) {
       loginUrl.searchParams.set("next", "/app");
     }
@@ -160,7 +155,8 @@ export function proxy(req: NextRequest) {
   // If logged in, keep auth pages clean
   if (authed && isAuthPage(routePath)) {
     const url = req.nextUrl.clone();
-    url.pathname = withBasePath("/app");
+    // Keep redirect targets base-path agnostic to avoid duplicate prefixes.
+    url.pathname = "/app";
     url.search = "";
     return applySecurityHeaders(NextResponse.redirect(url), {
       production: isProduction,
@@ -171,7 +167,8 @@ export function proxy(req: NextRequest) {
   // Protected paths require auth
   if (isProtectedPath(routePath) && !authed) {
     const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = withBasePath("/login");
+    // Keep redirect targets base-path agnostic to avoid duplicate prefixes.
+    loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", routePath);
     return applySecurityHeaders(NextResponse.redirect(loginUrl), {
       production: isProduction,
