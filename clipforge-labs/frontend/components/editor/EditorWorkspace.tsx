@@ -1702,7 +1702,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           </div>
           <h1 className="text-2xl font-semibold text-white/92">Editor Is Desktop-Only</h1>
           <p className="mt-2 text-sm text-white/68">
-            Clipforge Editor is available only on desktop browser for timeline precision and stable preview controls.
+            Orbito Labs Editor is available only on desktop browser for timeline precision and stable preview controls.
             Open this page from a laptop or desktop browser.
           </p>
 
@@ -1738,7 +1738,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
         <header className="mb-2 flex items-center justify-between gap-2">
           <div>
             <h1 className={cx("font-semibold tracking-tight text-white/95", cardMode ? "text-lg" : "text-2xl sm:text-3xl")}>
-              Clipforge <span className="grad-text">Master Editor</span>
+              Orbito Labs <span className="grad-text">Master Editor</span>
             </h1>
             {!cardMode ? <p className="mt-1 text-xs text-white/66 sm:text-sm">Timeline workspace for visual, voiceover, music, and captions.</p> : null}
           </div>

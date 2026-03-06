@@ -15,10 +15,10 @@ export default function UploadPage() {
         <div className="relative">
           <div className="text-xs text-white/55">• Uploads</div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
-            Clipforge Labs is prompt-first.
+            Orbito Labs is prompt-first.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65">
-            Clipforge Labs focuses on AI video generation. If you want to clip existing long videos into shorts, use our
+            Orbito Labs focuses on AI video generation. If you want to clip existing long videos into shorts, use our
             clipping app instead.
           </p>
 

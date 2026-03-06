@@ -150,7 +150,7 @@ export default function Page() {
             <div className="w-full rounded-3xl border border-white/14 bg-[linear-gradient(155deg,rgba(9,13,24,0.98),rgba(7,10,18,0.96))] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.55)] sm:p-8">
               <div className="text-xs text-white/58">• Notice</div>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/96 sm:text-3xl">
-                Clipforge is still in development
+                Orbito Labs is still in development
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-white/72 sm:text-base">
                 You are viewing the live development build. Some features are still being tuned and may change rapidly.
@@ -428,7 +428,7 @@ export default function Page() {
                 Have long videos? Clip them with Orbito.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Orbito is Clipforge&apos;s sister site for AI video clipping. Turn long-form into share-ready clips with smart
+                Orbito is the clipping app paired with Orbito Labs. Turn long-form into share-ready clips with smart
                 reframing, captions, and scheduling.
               </p>
 

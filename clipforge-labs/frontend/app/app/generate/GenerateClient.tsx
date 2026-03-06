@@ -1006,7 +1006,7 @@ export default function GenerateClient() {
                               Don&apos;t have a prompt? Just tell me what you&apos;re thinking.
                             </div>
                             <p className="mt-1 text-xs text-white/68">
-                              You type the idea. Clipforge returns a ready-to-paste visual direction and matching voiceover script.
+                              You type the idea. Orbito Labs returns a ready-to-paste visual direction and matching voiceover script.
                             </p>
                           </div>
                           <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
@@ -1195,7 +1195,7 @@ export default function GenerateClient() {
                       className="h-4 w-4 accent-orange-500"
                     />
                     <span className="text-xs text-white/80">
-                      Add Clipforge watermark
+                      Add Orbito Labs watermark
                       {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
                     </span>
                   </label>

@@ -53,7 +53,7 @@ export default function DevNotice() {
                 <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[rgba(255,183,3,0.95)] shadow-[0_0_0_3px_rgba(255,183,3,0.14)]" />
                 <div className="text-sm text-white/80">
                   <span className="font-semibold text-white/92">Notice:</span>{" "}
-                  <span>Clipforge is in development. Come back soon.</span>
+                  <span>Orbito Labs is in development. Come back soon.</span>
                 </div>
               </div>
 

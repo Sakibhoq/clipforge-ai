@@ -708,7 +708,7 @@ export default function ClipsPage() {
               <div>
                 <div className="text-xs text-white/55">• Asset Command Center</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Clipforge <span className="grad-text">Media Library</span>
+                  Orbito Labs <span className="grad-text">Media Library</span>
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
                   Manage published-ready visuals and audio in one workspace designed for fast review and posting.

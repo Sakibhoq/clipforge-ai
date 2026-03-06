@@ -497,7 +497,7 @@ export default function ContactPage() {
               {/* LEFT */}
               <div>
                 <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Need help with <span className="grad-text">Clipforge Labs</span>?
+                  Need help with <span className="grad-text">Orbito Labs</span>?
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">

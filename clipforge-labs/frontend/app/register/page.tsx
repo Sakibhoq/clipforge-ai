@@ -441,7 +441,7 @@ function RegisterPageInner() {
               {/* LEFT */}
               <div className="lg:col-span-5">
                 <h1 className="text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-4xl md:text-5xl">
-                  Join <span className="grad-text">Clipforge Labs</span>.
+                  Join <span className="grad-text">Orbito Labs</span>.
                 </h1>
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/65 md:text-[15px]">
                   Sign up with a provider or email, then start generating clips right away.
