@@ -10,7 +10,7 @@ from models.job import Job
 from models.upload import Upload
 from models.user import User
 
-from routers.auth import get_current_user
+from routers.auth import adjust_orbito_entitlements, get_current_user, orbito_entitlements_enabled
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -167,7 +167,20 @@ def cancel_job(
                 .first()
             )
             if user_row:
-                user_row.credits = int(user_row.credits or 0) + reserved
+                if orbito_entitlements_enabled():
+                    updated_credits = adjust_orbito_entitlements(
+                        email=str(current_user.email),
+                        delta=reserved,
+                        reason="job_cancel_refund",
+                        reference=f"labs:job:{int(job.id)}:cancel_refund",
+                        strict=True,
+                    )
+                    if updated_credits is not None:
+                        user_row.credits = int(updated_credits)
+                    else:
+                        user_row.credits = int(user_row.credits or 0) + reserved
+                else:
+                    user_row.credits = int(user_row.credits or 0) + reserved
                 job.credits_refunded = True
                 refunded = reserved
 

@@ -18,7 +18,11 @@ from core.database import get_db
 from models.job import Job
 from models.upload import Upload
 from models.user import User
-from routers.auth import get_current_user
+from routers.auth import (
+    adjust_orbito_entitlements,
+    get_current_user,
+    orbito_entitlements_enabled,
+)
 
 router = APIRouter(prefix="/labs", tags=["labs"])
 
@@ -937,6 +941,10 @@ def _create_generation_job(
     job = None
 
     meta_key = f"generations/meta/{uuid.uuid4().hex}.json"
+    remote_adjust_applied = False
+    remote_adjust_email = ""
+    remote_adjust_reference = ""
+    remote_adjust_amount = 0
 
     try:
         with db.begin():
@@ -981,15 +989,7 @@ def _create_generation_job(
                     ),
                 )
 
-            have_credits = int(user_row.credits or 0)
             need_credits = int(credits_needed or 0)
-            if have_credits < need_credits:
-                raise HTTPException(
-                    status_code=402,
-                    detail=f"Insufficient credits (need {need_credits}, have {have_credits})",
-                )
-
-            user_row.credits = have_credits - need_credits
 
             upload = Upload(
                 user_id=user_row.id,
@@ -1019,9 +1019,55 @@ def _create_generation_job(
             job.credits_reserved = need_credits
             db.add(job)
             db.flush()
+
+            if orbito_entitlements_enabled():
+                remote_adjust_email = str(user_row.email)
+                remote_adjust_amount = need_credits
+                remote_adjust_reference = f"labs:job:{int(job.id)}:reserve"
+                updated_credits = adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=-need_credits,
+                    reason=f"{kind}_reserve",
+                    reference=remote_adjust_reference,
+                    strict=True,
+                )
+                if updated_credits is None:
+                    raise HTTPException(status_code=503, detail="Entitlements bridge adjustment returned no balance")
+                user_row.credits = int(updated_credits)
+                remote_adjust_applied = True
+            else:
+                have_credits = int(user_row.credits or 0)
+                if have_credits < need_credits:
+                    raise HTTPException(
+                        status_code=402,
+                        detail=f"Insufficient credits (need {need_credits}, have {have_credits})",
+                    )
+                user_row.credits = have_credits - need_credits
     except HTTPException:
+        if remote_adjust_applied and remote_adjust_email and remote_adjust_amount > 0:
+            try:
+                adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=remote_adjust_amount,
+                    reason=f"{kind}_reserve_rollback",
+                    reference=f"{remote_adjust_reference}:rollback",
+                    strict=False,
+                )
+            except Exception:
+                pass
         raise
     except Exception:
+        if remote_adjust_applied and remote_adjust_email and remote_adjust_amount > 0:
+            try:
+                adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=remote_adjust_amount,
+                    reason=f"{kind}_reserve_rollback",
+                    reference=f"{remote_adjust_reference}:rollback",
+                    strict=False,
+                )
+            except Exception:
+                pass
         raise HTTPException(status_code=500, detail="Failed to start generation")
 
     if not upload or not job:

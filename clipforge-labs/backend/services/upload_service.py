@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from models.upload import Upload
 from models.job import Job
 from models.user import User
+from routers.auth import adjust_orbito_entitlements, orbito_entitlements_enabled
 from storage import get_storage
 
 
@@ -61,6 +62,10 @@ def register_upload_for_user(
     create_new_job: bool = False,
 ) -> dict:
     storage = get_storage()
+    remote_adjust_applied = False
+    remote_adjust_email = ""
+    remote_adjust_reference = ""
+    remote_adjust_amount = 0
 
     if not storage_key:
         raise HTTPException(422, "storage_key is required")
@@ -127,14 +132,14 @@ def register_upload_for_user(
                         "credits_reserved": int(existing_job.credits_reserved),
                     }
 
-            # Check credits
-            if int(user.credits or 0) < credits_needed:
-                raise HTTPException(
-                    status_code=402,
-                    detail=f"Insufficient credits (need {credits_needed}, have {int(user.credits or 0)})",
-                )
-
-            user.credits = int(user.credits or 0) - credits_needed
+            if not orbito_entitlements_enabled():
+                # Check credits in local mode
+                if int(user.credits or 0) < credits_needed:
+                    raise HTTPException(
+                        status_code=402,
+                        detail=f"Insufficient credits (need {credits_needed}, have {int(user.credits or 0)})",
+                    )
+                user.credits = int(user.credits or 0) - credits_needed
 
             # Create upload if needed
             if not upload:
@@ -159,6 +164,22 @@ def register_upload_for_user(
             if int(job.credits_reserved or 0) != credits_needed:
                 raise HTTPException(500, "credits_reserved failed to persist")
 
+            if orbito_entitlements_enabled():
+                remote_adjust_email = str(user.email)
+                remote_adjust_amount = int(credits_needed)
+                remote_adjust_reference = f"labs:job:{int(job.id)}:reserve"
+                updated_credits = adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=-credits_needed,
+                    reason="upload_reserve",
+                    reference=remote_adjust_reference,
+                    strict=True,
+                )
+                if updated_credits is None:
+                    raise HTTPException(status_code=503, detail="Entitlements bridge adjustment returned no balance")
+                user.credits = int(updated_credits)
+                remote_adjust_applied = True
+
             return {
                 "upload_id": upload.id,
                 "job_id": job.id,
@@ -168,6 +189,28 @@ def register_upload_for_user(
             }
 
     except HTTPException:
+        if remote_adjust_applied and remote_adjust_email and remote_adjust_amount > 0:
+            try:
+                adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=remote_adjust_amount,
+                    reason="upload_reserve_rollback",
+                    reference=f"{remote_adjust_reference}:rollback",
+                    strict=False,
+                )
+            except Exception:
+                pass
         raise
     except Exception:
+        if remote_adjust_applied and remote_adjust_email and remote_adjust_amount > 0:
+            try:
+                adjust_orbito_entitlements(
+                    email=remote_adjust_email,
+                    delta=remote_adjust_amount,
+                    reason="upload_reserve_rollback",
+                    reference=f"{remote_adjust_reference}:rollback",
+                    strict=False,
+                )
+            except Exception:
+                pass
         raise HTTPException(500, "Failed to register upload")

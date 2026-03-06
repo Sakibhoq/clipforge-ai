@@ -21,6 +21,7 @@ RUN pip install --upgrade pip && \
       sqlalchemy \
       psycopg2-binary \
       boto3 \
-      requests
+      requests \
+      PyJWT
 
 CMD ["python", "worker.py"]

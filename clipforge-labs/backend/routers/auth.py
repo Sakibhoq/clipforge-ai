@@ -9,6 +9,7 @@ import re
 import secrets
 import time
 import jwt
+import requests
 
 from email_validator import EmailNotValidError, validate_email
 
@@ -26,6 +27,8 @@ TOKEN_TTL_DAYS = 7
 PASSWORD_MIN_LENGTH = 8
 
 LEGACY_SYNTHETIC_EMAIL_DOMAIN = "oauth.orbito.local"
+ENTITLEMENTS_CACHE_TTL_SECONDS = 15
+_ENTITLEMENTS_CACHE: dict[str, tuple[float, str, int]] = {}
 
 
 def _synthetic_email_domain() -> str:
@@ -132,6 +135,212 @@ def _bridge_secret() -> str:
         or settings.SECRET_KEY
         or ""
     )
+
+
+def orbito_entitlements_enabled() -> bool:
+    return (os.getenv("LABS_USE_ORBITO_ENTITLEMENTS") or "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _orbito_entitlements_strict() -> bool:
+    return (os.getenv("LABS_USE_ORBITO_ENTITLEMENTS_STRICT") or "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _orbi_api_base() -> str:
+    base = (
+        os.getenv("ORBITO_API_BASE")
+        or os.getenv("LABS_ORBITO_API_BASE")
+        or ""
+    ).strip()
+    return base.rstrip("/")
+
+
+def _build_entitlements_token(*, email: str, issuer: str) -> str:
+    secret = _bridge_secret()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Entitlements bridge secret is not configured")
+    now = int(time.time())
+    payload = {
+        "iss": issuer,
+        "aud": "orbi-api-labs-entitlements",
+        "email": str(email or "").strip().lower(),
+        "iat": now,
+        "exp": now + 120,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _extract_error_detail(response: requests.Response) -> str:
+    try:
+        body = response.json()
+        detail = body.get("detail") if isinstance(body, dict) else None
+        if isinstance(detail, str) and detail.strip():
+            return detail.strip()
+    except Exception:
+        pass
+    txt = (response.text or "").strip()
+    if txt:
+        return txt[:280]
+    return f"status={response.status_code}"
+
+
+def _cached_entitlements(email: str) -> tuple[str, int] | None:
+    key = (email or "").strip().lower()
+    if not key:
+        return None
+    row = _ENTITLEMENTS_CACHE.get(key)
+    if not row:
+        return None
+    exp_ts, plan, credits = row
+    if time.time() >= exp_ts:
+        _ENTITLEMENTS_CACHE.pop(key, None)
+        return None
+    return (plan, int(credits))
+
+
+def _set_cached_entitlements(email: str, plan: str, credits: int) -> None:
+    key = (email or "").strip().lower()
+    if not key:
+        return
+    _ENTITLEMENTS_CACHE[key] = (
+        time.time() + int(ENTITLEMENTS_CACHE_TTL_SECONDS),
+        str(plan or "free"),
+        int(credits or 0),
+    )
+
+
+def _fetch_orbito_entitlements(*, email: str, strict: bool) -> tuple[str, int] | None:
+    if not orbito_entitlements_enabled():
+        return None
+
+    cached = _cached_entitlements(email)
+    if cached is not None:
+        return cached
+
+    base = _orbi_api_base()
+    if not base:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="ORBITO_API_BASE is not configured")
+        return None
+
+    token = _build_entitlements_token(email=email, issuer="orbito-labs-api")
+    url = f"{base}/labs/entitlements/snapshot"
+
+    try:
+        resp = requests.post(url, json={"token": token}, timeout=8)
+    except requests.RequestException:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="Orbito entitlement bridge is unavailable")
+        return None
+
+    if resp.status_code >= 400:
+        detail = _extract_error_detail(resp)
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail=f"Orbito entitlement sync failed: {detail}")
+        return None
+
+    try:
+        data = resp.json()
+    except Exception:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="Orbito entitlement response was invalid")
+        return None
+
+    plan = str((data or {}).get("plan") or "free").strip().lower() or "free"
+    credits = max(0, int((data or {}).get("credits") or 0))
+    _set_cached_entitlements(email, plan, credits)
+    return (plan, credits)
+
+
+def sync_user_entitlements_from_orbito(*, db: Session, user: User, strict: bool = False) -> None:
+    """
+    Mirrors Orbito plan/credits onto Labs user row when bridge mode is enabled.
+    """
+    if not orbito_entitlements_enabled():
+        return
+    entitlements = _fetch_orbito_entitlements(email=user.email, strict=strict)
+    if entitlements is None:
+        return
+    plan, credits = entitlements
+    changed = False
+    if str(getattr(user, "plan", "free") or "free") != plan:
+        user.plan = plan
+        changed = True
+    if int(getattr(user, "credits", 0) or 0) != int(credits):
+        user.credits = int(credits)
+        changed = True
+    if changed:
+        db.commit()
+
+
+def adjust_orbito_entitlements(
+    *,
+    email: str,
+    delta: int,
+    reason: str,
+    reference: str,
+    strict: bool = True,
+    issuer: str = "orbito-labs-api",
+) -> int | None:
+    """
+    Adjust credits in Orbito (single source of truth) and return latest credits.
+    Returns None when remote mode is disabled.
+    """
+    if not orbito_entitlements_enabled():
+        return None
+
+    base = _orbi_api_base()
+    if not base:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="ORBITO_API_BASE is not configured")
+        return None
+
+    token = _build_entitlements_token(email=email, issuer=issuer)
+    url = f"{base}/labs/entitlements/adjust"
+    payload = {
+        "token": token,
+        "delta": int(delta),
+        "reason": str(reason or "")[:64] or None,
+        "reference": str(reference or "")[:120] or None,
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=8)
+    except requests.RequestException:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="Orbito entitlement bridge is unavailable")
+        return None
+
+    if resp.status_code == 402:
+        detail = _extract_error_detail(resp)
+        raise HTTPException(status_code=402, detail=detail or "Insufficient credits")
+
+    if resp.status_code >= 400:
+        detail = _extract_error_detail(resp)
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail=f"Orbito entitlement adjust failed: {detail}")
+        return None
+
+    try:
+        data = resp.json()
+    except Exception:
+        if strict or _orbito_entitlements_strict():
+            raise HTTPException(status_code=503, detail="Orbito entitlement response was invalid")
+        return None
+
+    plan = str((data or {}).get("plan") or "free").strip().lower() or "free"
+    credits = max(0, int((data or {}).get("credits") or 0))
+    _set_cached_entitlements(email, plan, credits)
+    return credits
 
 
 def decode_bridge_token(token: str) -> dict[str, Any]:
@@ -422,6 +631,9 @@ def get_current_user(
     if not getattr(user, "is_active", True):
         raise HTTPException(status_code=401, detail="Account disabled")
 
+    # Optional bridge mode: keep Labs entitlements mirrored from Orbito.
+    sync_user_entitlements_from_orbito(db=db, user=user, strict=False)
+
     return user
 
 
@@ -491,6 +703,7 @@ def bridge_login(
 ):
     payload = decode_bridge_token(data.bridge_token)
     user = _sync_bridge_user(db, payload)
+    sync_user_entitlements_from_orbito(db=db, user=user, strict=False)
 
     token = create_token(user.email)
     set_auth_cookie(response, request, token)

@@ -14,6 +14,8 @@ from typing import Any
 from urllib.parse import quote
 
 from dotenv import load_dotenv
+import jwt
+import requests
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -58,6 +60,90 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if not raw:
         return default
     return raw.lower() in {"1", "true", "yes", "on"}
+
+
+def _orbito_entitlements_enabled() -> bool:
+    return _env_bool("LABS_USE_ORBITO_ENTITLEMENTS", False)
+
+
+def _orbito_entitlements_strict() -> bool:
+    return _env_bool("LABS_USE_ORBITO_ENTITLEMENTS_STRICT", False)
+
+
+def _bridge_secret() -> str:
+    return (
+        _env("LABS_BRIDGE_SECRET", "")
+        or _env("LABS_BRIDGE_TOKEN_SECRET", "")
+        or _env("SECRET_KEY", "")
+    ).strip()
+
+
+def _orbi_api_base() -> str:
+    return (
+        _env("ORBITO_API_BASE", "")
+        or _env("LABS_ORBITO_API_BASE", "")
+    ).strip().rstrip("/")
+
+
+def _entitlements_token(*, email: str, issuer: str) -> str:
+    secret = _bridge_secret()
+    if not secret:
+        raise RuntimeError("Entitlements bridge secret is not configured")
+    now = int(time.time())
+    payload = {
+        "iss": issuer,
+        "aud": "orbi-api-labs-entitlements",
+        "email": str(email or "").strip().lower(),
+        "iat": now,
+        "exp": now + 120,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _orbito_adjust_credits(*, email: str, delta: int, reason: str, reference: str) -> int | None:
+    if not _orbito_entitlements_enabled():
+        return None
+
+    base = _orbi_api_base()
+    if not base:
+        if _orbito_entitlements_strict():
+            raise RuntimeError("ORBITO_API_BASE is not configured")
+        return None
+
+    payload = {
+        "token": _entitlements_token(email=email, issuer="orbito-labs-worker"),
+        "delta": int(delta),
+        "reason": str(reason or "")[:64] or None,
+        "reference": str(reference or "")[:120] or None,
+    }
+
+    try:
+        resp = requests.post(f"{base}/labs/entitlements/adjust", json=payload, timeout=8)
+    except requests.RequestException as exc:
+        if _orbito_entitlements_strict():
+            raise RuntimeError("Orbito entitlement bridge is unavailable") from exc
+        return None
+
+    if resp.status_code >= 400:
+        detail = ""
+        try:
+            data = resp.json()
+            if isinstance(data, dict):
+                detail = str(data.get("detail") or "")
+        except Exception:
+            detail = (resp.text or "").strip()
+        if _orbito_entitlements_strict():
+            raise RuntimeError(f"Orbito entitlement adjust failed: {detail or resp.status_code}")
+        return None
+
+    try:
+        data = resp.json()
+    except Exception as exc:
+        if _orbito_entitlements_strict():
+            raise RuntimeError("Orbito entitlement response was invalid") from exc
+        return None
+
+    return int((data or {}).get("credits") or 0)
 
 
 def _db_url() -> str:
@@ -1988,9 +2074,11 @@ def _refund_reserved_credits(db, job_id: int) -> int:
             SELECT
               COALESCE(j.credits_reserved, 0) AS reserved,
               COALESCE(j.credits_refunded, 0) AS refunded,
-              COALESCE(u.user_id, 0) AS user_id
+              COALESCE(u.user_id, 0) AS user_id,
+              COALESCE(us.email, '') AS user_email
             FROM jobs j
             JOIN uploads u ON u.id = j.upload_id
+            LEFT JOIN users us ON us.id = u.user_id
             WHERE j.id = :id
             LIMIT 1
             """
@@ -2010,11 +2098,32 @@ def _refund_reserved_credits(db, job_id: int) -> int:
     user_id = int(row.get("user_id") or 0)
     if user_id <= 0:
         return 0
+    user_email = str(row.get("user_email") or "").strip().lower()
 
-    db.execute(
-        text("UPDATE users SET credits = COALESCE(credits, 0) + :r WHERE id = :uid"),
-        {"r": reserved, "uid": user_id},
-    )
+    remote_credits = None
+    if user_email and _orbito_entitlements_enabled():
+        try:
+            remote_credits = _orbito_adjust_credits(
+                email=user_email,
+                delta=reserved,
+                reason="job_failed_refund",
+                reference=f"labs:job:{int(job_id)}:failed_refund",
+            )
+        except Exception as exc:
+            # Keep worker stable: if remote refund fails, fall back to local refund.
+            print(f"[worker] remote entitlement refund failed for job_id={job_id}: {exc}")
+            remote_credits = None
+
+    if remote_credits is None:
+        db.execute(
+            text("UPDATE users SET credits = COALESCE(credits, 0) + :r WHERE id = :uid"),
+            {"r": reserved, "uid": user_id},
+        )
+    else:
+        db.execute(
+            text("UPDATE users SET credits = :credits WHERE id = :uid"),
+            {"credits": int(remote_credits), "uid": user_id},
+        )
     db.execute(
         text("UPDATE jobs SET credits_refunded = 1 WHERE id = :id"),
         {"id": int(job_id)},

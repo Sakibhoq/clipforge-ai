@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import Any, List
 from urllib.parse import quote
 
 import jwt
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -95,6 +95,24 @@ class LabsLaunchResponse(BaseModel):
     expires_at_utc: str
 
 
+class LabsEntitlementsSnapshotRequest(BaseModel):
+    token: str
+
+
+class LabsEntitlementsAdjustRequest(BaseModel):
+    token: str
+    delta: int
+    reason: str | None = None
+    reference: str | None = None
+
+
+class LabsEntitlementsResponse(BaseModel):
+    ok: bool
+    email: str
+    plan: str
+    credits: int
+
+
 @router.get("/health", response_model=LabsHealthResponse)
 def labs_health():
     return LabsHealthResponse(
@@ -121,6 +139,55 @@ def _build_bridge_token(user: User) -> str:
         "exp": int(exp.timestamp()),
     }
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def _decode_entitlements_token(token: str) -> dict[str, Any]:
+    secret = _bridge_secret()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Labs entitlement bridge is not configured")
+
+    allowed_issuers = {
+        "orbito-labs-api",
+        "orbito-labs-worker",
+    }
+    extra_issuers = (os.getenv("LABS_ENTITLEMENTS_ALLOWED_ISSUERS") or "").strip()
+    if extra_issuers:
+        for issuer in extra_issuers.split(","):
+            v = issuer.strip()
+            if v:
+                allowed_issuers.add(v)
+
+    try:
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            audience="orbi-api-labs-entitlements",
+            options={"require": ["exp", "iat", "iss", "aud", "email"]},
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Entitlement token expired")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid entitlement token")
+
+    issuer = str(payload.get("iss") or "").strip()
+    if issuer not in allowed_issuers:
+        raise HTTPException(status_code=401, detail="Unauthorized entitlement issuer")
+    return payload
+
+
+def _user_by_entitlements_token(db: Session, token: str) -> User:
+    payload = _decode_entitlements_token(token)
+    email = str(payload.get("email") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=401, detail="Entitlement token missing email")
+
+    user = db.query(User).filter(User.email == email).with_for_update().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found for entitlements bridge")
+    if not getattr(user, "is_active", True):
+        raise HTTPException(status_code=403, detail="Account disabled")
+    return user
 
 
 @router.get("/status", response_model=LabsStatusResponse)
@@ -173,4 +240,53 @@ def labs_launch(
         mode=mode,
         ttl_seconds=ttl_seconds,
         expires_at_utc=expires_at.isoformat(),
+    )
+
+
+@router.post("/entitlements/snapshot", response_model=LabsEntitlementsResponse)
+def labs_entitlements_snapshot(
+    payload: LabsEntitlementsSnapshotRequest,
+    db: Session = Depends(get_db),
+):
+    user = _user_by_entitlements_token(db, payload.token)
+    return LabsEntitlementsResponse(
+        ok=True,
+        email=str(user.email),
+        plan=str(getattr(user, "plan", "free") or "free"),
+        credits=int(getattr(user, "credits", 0) or 0),
+    )
+
+
+@router.post("/entitlements/adjust", response_model=LabsEntitlementsResponse)
+def labs_entitlements_adjust(
+    payload: LabsEntitlementsAdjustRequest,
+    db: Session = Depends(get_db),
+):
+    user = _user_by_entitlements_token(db, payload.token)
+
+    delta = int(payload.delta or 0)
+    if delta == 0:
+        return LabsEntitlementsResponse(
+            ok=True,
+            email=str(user.email),
+            plan=str(getattr(user, "plan", "free") or "free"),
+            credits=int(getattr(user, "credits", 0) or 0),
+        )
+
+    before = int(getattr(user, "credits", 0) or 0)
+    after = before + delta
+    if after < 0:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient credits (need {abs(delta)}, have {before})",
+        )
+
+    user.credits = after
+    db.commit()
+
+    return LabsEntitlementsResponse(
+        ok=True,
+        email=str(user.email),
+        plan=str(getattr(user, "plan", "free") or "free"),
+        credits=int(user.credits or 0),
     )
