@@ -9,12 +9,21 @@ import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
 import DevNotice from "@/components/DevNotice";
 
+function withBasePath(path: string) {
+  const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+  if (!raw) return path.startsWith("/") ? path : `/${path}`;
+  const base = `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${clean}`;
+}
+
 function Logo() {
   const pathname = usePathname();
   const inApp = pathname?.startsWith("/app");
 
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "cflabs-3";
+  const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${v}`);
 
   const markWrapClass = inApp ? "h-11 w-11" : "h-11 w-11";
   const markImgSize = inApp ? 36 : 34;
@@ -55,7 +64,7 @@ function Logo() {
         {/* Primary mark */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/clipforge-labs-mark.svg?v=${v}`}
+          src={logoSrc}
           alt={`${BRAND.name} logo`}
           width={markImgSize}
           height={markImgSize}

@@ -42,6 +42,14 @@ function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function withBasePath(path: string) {
+  const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+  if (!raw) return path.startsWith("/") ? path : `/${path}`;
+  const base = `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${clean}`;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathnameRaw = usePathname();
@@ -175,6 +183,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "cflabs-3";
+  const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
 
   return (
     <div
@@ -218,7 +227,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/clipforge-labs-mark.svg?v=${logoV}`}
+                  src={logoSrc}
                   alt={`${BRAND.product} logo`}
                   width={34}
                   height={34}
