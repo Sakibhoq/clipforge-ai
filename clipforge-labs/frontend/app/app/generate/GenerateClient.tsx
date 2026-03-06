@@ -281,7 +281,17 @@ function estimateVoiceCredits(wordCount: number): number {
   return Math.max(VOICE_MIN_CREDITS, usage);
 }
 
-function estimatePostCredits(imageCount: number, voiceWordCount: number, stylePreset: StylePreset): number {
+function estimatePostCredits(
+  imageCount: number,
+  voiceWordCount: number,
+  stylePreset: StylePreset,
+  durationSeconds: number
+): number {
+  if (isLowCostStyle(stylePreset)) {
+    const safeDuration = Math.max(60, Math.min(120, Number(durationSeconds || POST_DURATION_SECONDS)));
+    const videoCreditsPerSecond = estimateVideoCreditsPerSecond("relax", stylePreset);
+    return Math.round(safeDuration * videoCreditsPerSecond) + estimateVoiceCredits(voiceWordCount);
+  }
   return imageCount * estimateImageCredits(stylePreset) + estimateVoiceCredits(voiceWordCount);
 }
 
@@ -402,7 +412,7 @@ export default function GenerateClient() {
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postWordCount, stylePreset);
+      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postWordCount, stylePreset, postDurationSeconds);
     }
     if (mode === "image") return estimateImageCredits(stylePreset);
     if (mode === "voiceover") {
@@ -410,7 +420,7 @@ export default function GenerateClient() {
     }
     const perSecond = estimateVideoCreditsPerSecond(videoSpeed, stylePreset);
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed]);
+  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds]);
 
   const fastEligible = useMemo(() => {
     const plan = String(currentPlan || "").trim().toLowerCase();
@@ -1105,7 +1115,7 @@ export default function GenerateClient() {
                     : postDurationSeconds === 90
                       ? "90-second"
                       : "2-minute"}{" "}
-                  story from generated images and voiceover, then renders one ready-to-post clip.
+                  story from {lowCostStyleSelected ? "generated video scenes" : "generated images"} and voiceover, then renders one ready-to-post clip.
                 </div>
               ) : null}
             </div>

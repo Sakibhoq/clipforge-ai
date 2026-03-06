@@ -407,10 +407,26 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
     return " ".join(words).strip()
 
 
-def _post_credits_needed(image_count: int, voice_script: str, style_preset: str | None) -> int:
+def _post_credits_needed(
+    image_count: int,
+    voice_script: str,
+    style_preset: str | None,
+    duration_seconds: int = POST_DEFAULT_DURATION_SECONDS,
+) -> int:
+    voice_credits = _voiceover_credits_needed(voice_script)
+    if _is_low_cost_style(style_preset):
+        safe_duration = max(60, min(120, int(duration_seconds or POST_DEFAULT_DURATION_SECONDS)))
+        default_video_credits_per_second = _video_credits_per_second("relax", style_preset)
+        post_video_credits_per_second = _env_int(
+            "LABS_POST_LOW_COST_VIDEO_CREDITS_PER_SECOND",
+            default_video_credits_per_second,
+            min_value=1,
+            max_value=10_000,
+        )
+        return (safe_duration * post_video_credits_per_second) + voice_credits
+
     safe_images = max(1, int(image_count or POST_DEFAULT_IMAGE_COUNT))
     image_credits = safe_images * _image_credits_needed(style_preset)
-    voice_credits = _voiceover_credits_needed(voice_script)
     return image_credits + voice_credits
 
 
@@ -1109,7 +1125,7 @@ def create_post_generation(
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
-    credits_needed = _post_credits_needed(image_count, voice_script, style_preset)
+    credits_needed = _post_credits_needed(image_count, voice_script, style_preset, duration_seconds)
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = int(PLAN_MAX_POST_DURATION_SECONDS.get(plan, 60))
