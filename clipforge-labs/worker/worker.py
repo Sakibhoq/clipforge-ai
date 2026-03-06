@@ -945,17 +945,40 @@ def _normalize_post_line(line: str) -> str:
     return value
 
 
+def _parse_post_prompt_metadata(raw_visual_prompt: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for raw_line in (raw_visual_prompt or "").replace("\r", "\n").split("\n"):
+        line = raw_line.strip()
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key_norm = re.sub(r"\s+", " ", key).strip().lower()
+        val_norm = re.sub(r"\s+", " ", value).strip()
+        if not val_norm:
+            continue
+        if key_norm in {"title", "concept", "aspect ratio", "duration", "visual style", "style"}:
+            out[key_norm] = val_norm
+    return out
+
+
+def _is_post_metadata_line(line: str) -> bool:
+    lower = (line or "").strip().lower()
+    return lower.startswith(("title:", "concept:", "aspect ratio:", "duration:", "visual style:", "style:"))
+
+
 def _extract_post_scene_beats(raw_visual_prompt: str) -> list[str]:
     prompt = _strip_style_suffix(raw_visual_prompt)
     if not prompt:
         return []
 
-    lines = [_normalize_post_line(line) for line in prompt.replace("\r", "\n").split("\n")]
+    source_lines = [line.strip() for line in prompt.replace("\r", "\n").split("\n")]
+    source_lines = [line for line in source_lines if line and not _is_post_metadata_line(line)]
+    lines = [_normalize_post_line(line) for line in source_lines]
     line_beats = [line for line in lines if len(line) >= 8]
     if len(line_beats) >= 2:
         return line_beats
 
-    text_value = re.sub(r"\s+", " ", prompt).strip()
+    text_value = re.sub(r"\s+", " ", " ".join(source_lines)).strip()
     if not text_value:
         return []
 
@@ -988,7 +1011,13 @@ def _build_post_scene_prompt(
     scene_index: int,
     scene_count: int,
 ) -> str:
-    story_summary = _normalize_post_line(_strip_style_suffix(raw_visual_prompt))
+    metadata = _parse_post_prompt_metadata(raw_visual_prompt)
+    story_title = metadata.get("title", "")
+    story_concept = metadata.get("concept", "")
+    story_visual_style = metadata.get("visual style", "") or metadata.get("style", "")
+
+    story_summary_source = story_concept or _strip_style_suffix(raw_visual_prompt)
+    story_summary = _normalize_post_line(story_summary_source)
     if len(story_summary) > 260:
         story_summary = story_summary[:257].rstrip() + "..."
 
@@ -1001,16 +1030,32 @@ def _build_post_scene_prompt(
 
     pieces: list[str] = [
         f"Scene {scene_index + 1} of {scene_count} for a vertical short-form video frame.",
-        f"Primary scene direction: {scene_beat}.",
     ]
+    if story_title:
+        pieces.append(f"Story title: {story_title}.")
+    if story_concept:
+        pieces.append(f"Core story premise: {story_concept}.")
+    pieces.append(f"Primary scene direction: {scene_beat}.")
     if story_summary and scene_beat.lower() not in story_summary.lower():
         pieces.append(f"Overall story context: {story_summary}.")
     if style_hint:
         pieces.append(f"Visual style: {style_hint}.")
+    elif story_visual_style:
+        pieces.append(f"Visual style: {story_visual_style}.")
+    if scene_index == 0:
+        pieces.append(
+            "Define the protagonist look clearly in this first scene so the same person can be reused exactly."
+        )
+    else:
+        pieces.append("Match the protagonist from Scene 1 exactly, with no character swap.")
     pieces.append(
-        "Keep the same subject identity and environment continuity as neighboring scenes,"
-        " with clean framing and natural detail. Avoid unintended text artifacts, subtitles, logos, and watermarks"
-        " unless the scene explicitly asks for visible text."
+        "Continuity lock (critical): keep one single protagonist across all scenes with the exact same face,"
+        " hair color/style, age range, body type, outfit palette, and art style."
+        " Keep the setting family consistent unless this beat explicitly changes location."
+        " Do not switch character, gender, or era."
+    )
+    pieces.append(
+        "Avoid unintended text artifacts, subtitles, logos, and watermarks unless the scene explicitly asks for visible text."
     )
 
     composed = " ".join(piece.strip() for piece in pieces if piece.strip())
@@ -1174,25 +1219,31 @@ def _apply_video_overlays(
     logo_path = _watermark_logo_path() if (watermark_enabled and allow_logo) else ""
     watermark_text = _env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs"
     draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    _, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+    wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
+    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
+    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 10, min_value=2, max_value=40)
+    wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
+    wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
     label = "[0:v]"
     graph_parts: list[str] = []
     if subtitles_path:
+        _, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
         force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
         sub_path = _ff_path_escape(subtitles_path)
         graph_parts.append(f"[0:v]subtitles='{sub_path}':force_style='{force_style}'[vsub]")
         label = "[vsub]"
     if watermark_enabled and logo_path:
         logo_label = "[wm]"
-        graph_parts.append(f"[1:v]scale=84:-1{logo_label}")
-        graph_parts.append(f"{label}{logo_label}overlay=x=24:y=24:format=auto[vw]")
+        graph_parts.append(f"[1:v]scale={wm_logo_width}:-1{logo_label}")
+        graph_parts.append(f"{label}{logo_label}overlay=x={wm_margin}:y={wm_margin}:format=auto[vw]")
         label = "[vw]"
     if watermark_enabled:
         text_escaped = _ff_drawtext_escape(watermark_text)
         graph_parts.append(
             f"{label}drawtext=fontfile={draw_font}:text='{text_escaped}':"
-            "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
-            "x=24:y=24+88[vout]"
+            f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
+            f"x={wm_margin}:y={wm_text_y}[vout]"
         )
         label = "[vout]"
     if not graph_parts:
@@ -1249,6 +1300,12 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
     logo_path = _watermark_logo_path()
     draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     text_escaped = _ff_drawtext_escape(_env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs")
+    wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
+    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
+    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 10, min_value=2, max_value=40)
+    wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
+    wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
     try:
         if logo_path:
             cmd = [
@@ -1259,10 +1316,10 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 "-i",
                 logo_path,
                 "-filter_complex",
-                "[1:v]scale=84:-1[wm];[0:v][wm]overlay=x=24:y=24:format=auto[v1];"
+                f"[1:v]scale={wm_logo_width}:-1[wm];[0:v][wm]overlay=x={wm_margin}:y={wm_margin}:format=auto[v1];"
                 f"[v1]drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
-                "x=24:y=24+88[vout]",
+                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
+                f"x={wm_margin}:y={wm_text_y}[vout]",
                 "-map",
                 "[vout]",
                 "-frames:v",
@@ -1277,8 +1334,8 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 image_path,
                 "-vf",
                 f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
-                "x=24:y=24",
+                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
+                f"x={wm_margin}:y={wm_margin}",
                 "-frames:v",
                 "1",
                 tmp_path,
@@ -1292,8 +1349,8 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 image_path,
                 "-vf",
                 f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
-                "x=24:y=24",
+                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
+                f"x={wm_margin}:y={wm_margin}",
                 "-frames:v",
                 "1",
                 tmp_path,
@@ -2588,21 +2645,9 @@ def _process_job(job: dict) -> dict[str, Any]:
                 extra_clips: list[dict[str, Any]] = []
                 voice_key = f"assets/post-voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
                 _upload_file(audio_path, voice_key, content_type="audio/mpeg")
-                voice_duration = _probe_audio_duration(audio_path) or final_duration or target_duration
-                extra_clips.append(
-                    {
-                        "storage_key": voice_key,
-                        "duration_seconds": float(voice_duration),
-                        "start_time": 0.0,
-                        "title": f"{base_title} · Voiceover",
-                        "hook": None,
-                    }
-                )
 
                 scene_keys: list[str] = []
                 scene_count = max(1, len(scene_video_paths))
-                scene_duration = max(0.2, float(final_duration or target_duration) / float(scene_count))
-                scene_beats_for_meta = _extract_post_scene_beats(raw_visual_prompt)
                 for idx, scene_path in enumerate(scene_video_paths):
                     upload_scene_path = scene_path
                     scene_tmp_copy = ""
@@ -2624,20 +2669,6 @@ def _process_job(job: dict) -> dict[str, Any]:
                     scene_key = f"assets/post-scenes-video/{job_id}-{idx + 1:02d}-{uuid.uuid4().hex}.mp4"
                     _upload_file(upload_scene_path, scene_key, content_type="video/mp4")
                     scene_keys.append(scene_key)
-                    scene_hook = _post_scene_beat_for_index(
-                        scene_beats=scene_beats_for_meta,
-                        scene_index=idx,
-                        scene_count=scene_count,
-                    )
-                    extra_clips.append(
-                        {
-                            "storage_key": scene_key,
-                            "duration_seconds": float(scene_duration),
-                            "start_time": float(idx) * float(scene_duration),
-                            "title": f"{base_title} · Scene {idx + 1}",
-                            "hook": scene_hook,
-                        }
-                    )
                     if scene_tmp_copy:
                         try:
                             os.unlink(scene_tmp_copy)
@@ -2885,21 +2916,9 @@ def _process_job(job: dict) -> dict[str, Any]:
             extra_clips: list[dict[str, Any]] = []
             voice_key = f"assets/post-voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
             _upload_file(audio_path, voice_key, content_type="audio/mpeg")
-            voice_duration = _probe_audio_duration(audio_path) or final_duration or target_duration
-            extra_clips.append(
-                {
-                    "storage_key": voice_key,
-                    "duration_seconds": float(voice_duration),
-                    "start_time": 0.0,
-                    "title": f"{base_title} · Voiceover",
-                    "hook": None,
-                }
-            )
 
             scene_keys: list[str] = []
             scene_count = max(1, len(image_paths))
-            scene_duration = max(0.2, float(final_duration or target_duration) / float(scene_count))
-            scene_beats_for_meta = _extract_post_scene_beats(raw_visual_prompt)
             for idx, scene_path in enumerate(image_paths):
                 upload_scene_path = scene_path
                 scene_tmp_copy = ""
@@ -2915,20 +2934,6 @@ def _process_job(job: dict) -> dict[str, Any]:
                 scene_key = f"assets/post-scenes/{job_id}-{idx + 1:02d}-{uuid.uuid4().hex}.png"
                 _upload_file(upload_scene_path, scene_key, content_type="image/png")
                 scene_keys.append(scene_key)
-                scene_hook = _post_scene_beat_for_index(
-                    scene_beats=scene_beats_for_meta,
-                    scene_index=idx,
-                    scene_count=scene_count,
-                )
-                extra_clips.append(
-                    {
-                        "storage_key": scene_key,
-                        "duration_seconds": float(scene_duration),
-                        "start_time": float(idx) * float(scene_duration),
-                        "title": f"{base_title} · Scene {idx + 1}",
-                        "hook": scene_hook,
-                    }
-                )
                 if scene_tmp_copy:
                     try:
                         os.unlink(scene_tmp_copy)
