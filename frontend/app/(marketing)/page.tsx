@@ -387,7 +387,7 @@ export default function Page() {
         id: "export",
         t: (
           <>
-            Share anywhere
+            Share anywhere directly from orbito.
           </>
         ),
         d: (
