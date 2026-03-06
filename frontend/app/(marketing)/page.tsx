@@ -640,10 +640,10 @@ export default function Page() {
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Orbito + Orbito Labs. One smooth workflow.
+                Want to generate AI clips? Visit Orbito Labs.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Use Orbito for clipping and publishing. Use Labs as the AI generation engine. Same account, shared publish connections, and one premium product surface.
+                Orbito Labs is the AI video generation workspace. One login, shared connections, and one place to create prompt-to-clip content.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -665,9 +665,6 @@ export default function Page() {
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href="/app" className="btn-orbito-cta">
-                  Open Orbito
-                </Link>
                 <Link href={BRAND.clipforgeUrl} className="btn-clipforge">
                   Go to Orbito Labs
                 </Link>
