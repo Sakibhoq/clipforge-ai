@@ -21,6 +21,7 @@ JOB_KIND_VIDEO = "generate"
 JOB_KIND_IMAGE = "generate_image"
 JOB_KIND_VOICEOVER = "generate_voiceover"
 JOB_KIND_POST = "generate_post"
+LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 
 
 def _env(name: str, default: str = "") -> str:
@@ -211,6 +212,47 @@ def _model_prefers_google(model: str | None) -> bool:
     return _labs_generation_provider() == "google"
 
 
+def _is_low_cost_style(style_preset: str | None) -> bool:
+    style = (style_preset or "").strip().lower()
+    if style not in LOW_COST_STYLE_PRESETS:
+        return False
+    return _env_bool("GOOGLE_USE_LOW_COST_MODELS_FOR_STYLIZED", True)
+
+
+def _resolve_google_image_model_id(style_preset: str | None) -> str:
+    default_model = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    if not _is_low_cost_style(style_preset):
+        return default_model
+    low_cost_default = _env("GOOGLE_IMAGE_FAST_MODEL_ID", "imagen-3.0-fast-generate-001")
+    return _env("GOOGLE_IMAGE_LOW_COST_MODEL_ID", low_cost_default)
+
+
+def _resolve_google_video_model_id(style_preset: str | None) -> str:
+    default_model = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    if not _is_low_cost_style(style_preset):
+        return default_model
+    low_cost_model = _env("GOOGLE_VIDEO_LOW_COST_MODEL_ID", "")
+    return low_cost_model or default_model
+
+
+def _is_model_unavailable_error(exc: Exception | str | None) -> bool:
+    msg = str(exc or "").strip().lower()
+    if not msg:
+        return False
+    markers = (
+        "not found",
+        "unsupported",
+        "invalid model",
+        "invalid argument",
+        "permission denied",
+        "does not have permission",
+        "failed precondition",
+        "model does not exist",
+        "publisher model",
+    )
+    return any(marker in msg for marker in markers)
+
+
 def _resolve_provider_url(raw_url: str) -> str:
     url = (raw_url or "").strip()
     if not url:
@@ -374,10 +416,13 @@ def _run_google_vertex_video_generation(
     negative_prompt: str,
     aspect_ratio: str,
     duration_seconds: int,
+    style_preset: str | None = None,
+    _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
-    model_id = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    default_model_id = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    model_id = _resolve_google_video_model_id(style_preset)
     headers = _google_auth_headers()
 
     endpoint_base = (
@@ -411,69 +456,90 @@ def _run_google_vertex_video_generation(
         "instances": [{"prompt": (prompt or "").strip()[:1200]}],
         "parameters": params,
     }
-    status, _, data, _ = _http_post_json_custom(start_url, payload, headers=headers)
-    if status >= 400:
-        detail = ""
-        if isinstance(data, dict):
-            err = data.get("error")
-            if isinstance(err, dict):
-                detail = str(err.get("message") or "")
-            elif err:
-                detail = str(err)
-        raise RuntimeError(f"Vertex Veo start failed: {status} {detail}".strip())
-
-    op_name = _find_first_string_by_keys(data, {"name"})
-    if not op_name:
-        raise RuntimeError("Vertex Veo start response missing operation name")
-
-    timeout_seconds = _env_int("GOOGLE_VIDEO_TIMEOUT_SECONDS", 420, min_value=30, max_value=3600)
-    poll_seconds = _env_int("GOOGLE_VIDEO_POLL_SECONDS", 8, min_value=2, max_value=60)
-    deadline = time.time() + timeout_seconds
-    final_payload: dict[str, Any] | None = None
-
-    while time.time() < deadline:
-        poll_status, _, poll_data, _ = _http_post_json_custom(
-            fetch_url,
-            {"operationName": op_name},
-            headers=headers,
-        )
-        if poll_status >= 400:
+    try:
+        status, _, data, _ = _http_post_json_custom(start_url, payload, headers=headers)
+        if status >= 400:
             detail = ""
-            if isinstance(poll_data, dict):
-                err = poll_data.get("error")
+            if isinstance(data, dict):
+                err = data.get("error")
                 if isinstance(err, dict):
                     detail = str(err.get("message") or "")
                 elif err:
                     detail = str(err)
-            raise RuntimeError(f"Vertex Veo poll failed: {poll_status} {detail}".strip())
+            raise RuntimeError(f"Vertex Veo start failed: {status} {detail}".strip())
 
-        if isinstance(poll_data, dict) and poll_data.get("done") is True:
-            final_payload = poll_data
-            break
-        time.sleep(poll_seconds)
+        op_name = _find_first_string_by_keys(data, {"name"})
+        if not op_name:
+            raise RuntimeError("Vertex Veo start response missing operation name")
 
-    if not final_payload:
-        raise RuntimeError("Vertex Veo operation timed out")
+        timeout_seconds = _env_int("GOOGLE_VIDEO_TIMEOUT_SECONDS", 420, min_value=30, max_value=3600)
+        poll_seconds = _env_int("GOOGLE_VIDEO_POLL_SECONDS", 8, min_value=2, max_value=60)
+        deadline = time.time() + timeout_seconds
+        final_payload: dict[str, Any] | None = None
 
-    op_error = (final_payload or {}).get("error")
-    if isinstance(op_error, dict):
-        msg = str(op_error.get("message") or "").strip()
-        if msg:
-            raise RuntimeError(f"Vertex Veo operation failed: {msg}")
+        while time.time() < deadline:
+            poll_status, _, poll_data, _ = _http_post_json_custom(
+                fetch_url,
+                {"operationName": op_name},
+                headers=headers,
+            )
+            if poll_status >= 400:
+                detail = ""
+                if isinstance(poll_data, dict):
+                    err = poll_data.get("error")
+                    if isinstance(err, dict):
+                        detail = str(err.get("message") or "")
+                    elif err:
+                        detail = str(err)
+                raise RuntimeError(f"Vertex Veo poll failed: {poll_status} {detail}".strip())
 
-    response_obj = (final_payload or {}).get("response") if isinstance(final_payload, dict) else None
-    result_obj = response_obj if isinstance(response_obj, (dict, list)) else final_payload
+            if isinstance(poll_data, dict) and poll_data.get("done") is True:
+                final_payload = poll_data
+                break
+            time.sleep(poll_seconds)
 
-    b64_val = _find_first_string_by_keys(result_obj, {"bytesBase64Encoded"})
-    if b64_val:
-        return _decode_base64_payload(b64_val), "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+        if not final_payload:
+            raise RuntimeError("Vertex Veo operation timed out")
 
-    gcs_uri = _find_first_string_by_keys(result_obj, {"gcsUri"})
-    if gcs_uri:
-        media = _download_gcs_uri_bytes(gcs_uri, headers=headers)
-        return media, "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+        op_error = (final_payload or {}).get("error")
+        if isinstance(op_error, dict):
+            msg = str(op_error.get("message") or "").strip()
+            if msg:
+                raise RuntimeError(f"Vertex Veo operation failed: {msg}")
 
-    raise RuntimeError("Vertex Veo operation completed without video payload")
+        response_obj = (final_payload or {}).get("response") if isinstance(final_payload, dict) else None
+        result_obj = response_obj if isinstance(response_obj, (dict, list)) else final_payload
+
+        b64_val = _find_first_string_by_keys(result_obj, {"bytesBase64Encoded"})
+        if b64_val:
+            return _decode_base64_payload(b64_val), "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+
+        gcs_uri = _find_first_string_by_keys(result_obj, {"gcsUri"})
+        if gcs_uri:
+            media = _download_gcs_uri_bytes(gcs_uri, headers=headers)
+            return media, "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+
+        raise RuntimeError("Vertex Veo operation completed without video payload")
+    except Exception as exc:
+        should_retry_default = (
+            _allow_model_fallback
+            and model_id != default_model_id
+            and _is_model_unavailable_error(exc)
+        )
+        if should_retry_default:
+            print(
+                f"[worker] low-cost video model unavailable model_id={model_id}; "
+                f"retrying with default model_id={default_model_id}"
+            )
+            return _run_google_vertex_video_generation(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                aspect_ratio=aspect_ratio,
+                duration_seconds=duration_seconds,
+                style_preset=None,
+                _allow_model_fallback=False,
+            )
+        raise
 
 
 def _run_google_vertex_image_generation(
@@ -481,10 +547,13 @@ def _run_google_vertex_image_generation(
     prompt: str,
     negative_prompt: str,
     aspect_ratio: str,
+    style_preset: str | None = None,
+    _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
-    model_id = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    default_model_id = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    model_id = _resolve_google_image_model_id(style_preset)
     headers = _google_auth_headers()
 
     endpoint = (
@@ -503,38 +572,58 @@ def _run_google_vertex_image_generation(
     if negative_prompt:
         payload["parameters"]["negativePrompt"] = negative_prompt[:1200]
 
-    status, content_type, data, raw_bytes = _http_post_json_custom(endpoint, payload, headers=headers)
-    if status >= 400:
-        detail = ""
-        if isinstance(data, dict):
-            err = data.get("error")
-            if isinstance(err, dict):
-                detail = str(err.get("message") or "")
-            elif err:
-                detail = str(err)
-        raise RuntimeError(f"Vertex Imagen failed: {status} {detail}".strip())
+    try:
+        status, content_type, data, raw_bytes = _http_post_json_custom(endpoint, payload, headers=headers)
+        if status >= 400:
+            detail = ""
+            if isinstance(data, dict):
+                err = data.get("error")
+                if isinstance(err, dict):
+                    detail = str(err.get("message") or "")
+                elif err:
+                    detail = str(err)
+            raise RuntimeError(f"Vertex Imagen failed: {status} {detail}".strip())
 
-    parsed = _extract_remote_result(data)
-    media_bytes = parsed.get("bytes")
-    media_url = parsed.get("url")
-    media_type = (
-        (parsed.get("content_type") if isinstance(parsed.get("content_type"), str) else None)
-        or content_type
-        or "image/png"
-    )
+        parsed = _extract_remote_result(data)
+        media_bytes = parsed.get("bytes")
+        media_url = parsed.get("url")
+        media_type = (
+            (parsed.get("content_type") if isinstance(parsed.get("content_type"), str) else None)
+            or content_type
+            or "image/png"
+        )
 
-    if not media_bytes and isinstance(media_url, str) and media_url.strip():
-        media_bytes, downloaded_type = _http_get_bytes(media_url.strip())
-        if downloaded_type:
-            media_type = downloaded_type
+        if not media_bytes and isinstance(media_url, str) and media_url.strip():
+            media_bytes, downloaded_type = _http_get_bytes(media_url.strip())
+            if downloaded_type:
+                media_type = downloaded_type
 
-    if not media_bytes and raw_bytes and not content_type.startswith("application/json"):
-        media_bytes = raw_bytes
+        if not media_bytes and raw_bytes and not content_type.startswith("application/json"):
+            media_bytes = raw_bytes
 
-    if not media_bytes:
-        raise RuntimeError("Vertex Imagen response missing image payload")
+        if not media_bytes:
+            raise RuntimeError("Vertex Imagen response missing image payload")
 
-    return media_bytes, media_type, None, _title_from_prompt(prompt)
+        return media_bytes, media_type, None, _title_from_prompt(prompt)
+    except Exception as exc:
+        should_retry_default = (
+            _allow_model_fallback
+            and model_id != default_model_id
+            and _is_model_unavailable_error(exc)
+        )
+        if should_retry_default:
+            print(
+                f"[worker] low-cost image model unavailable model_id={model_id}; "
+                f"retrying with default model_id={default_model_id}"
+            )
+            return _run_google_vertex_image_generation(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                aspect_ratio=aspect_ratio,
+                style_preset=None,
+                _allow_model_fallback=False,
+            )
+        raise
 
 
 def _http_post_json(url: str, payload: dict[str, Any]) -> tuple[int, str, dict[str, Any] | None, bytes]:
@@ -1894,6 +1983,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             prompt=styled_prompt,
                             negative_prompt=negative_prompt,
                             aspect_ratio=aspect_ratio,
+                            style_preset=style_preset,
                         )
                     _write_bytes(out_path, media_bytes)
                     if (remote_type or "").startswith("image/"):
@@ -2141,6 +2231,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                         prompt=scene_prompt,
                                         negative_prompt=negative_prompt,
                                         aspect_ratio=aspect_ratio,
+                                        style_preset=style_preset,
                                     )
                                 _write_bytes(img_path, media_bytes)
                                 break
@@ -2424,6 +2515,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         negative_prompt=negative_prompt,
                         aspect_ratio=aspect_ratio,
                         duration_seconds=duration,
+                        style_preset=style_preset,
                     )
                 _write_bytes(out_path, media_bytes)
                 if (remote_type or "").startswith("video/"):
