@@ -136,6 +136,48 @@ PROMPT_HELPER_STOP_WORDS = {
     "very",
     "more",
     "less",
+    "want",
+    "need",
+    "make",
+    "create",
+    "generate",
+    "write",
+    "small",
+    "short",
+    "minute",
+    "minutes",
+    "second",
+    "seconds",
+    "story",
+    "clip",
+    "video",
+    "main",
+    "character",
+}
+
+PROMPT_HELPER_STYLE_HINTS: dict[str, tuple[str, ...]] = {
+    "anime": ("anime", "manga", "isekai", "shonen", "shoujo", "otaku", "reincarnat"),
+    "cartoon": ("cartoon", "toon", "pixar", "disney", "stylized 2d", "kids show"),
+    "comic": ("comic", "comic-book", "graphic novel", "panel", "inked", "superhero"),
+    "real": ("realistic", "photoreal", "photorealistic", "live action", "cinematic"),
+}
+
+PROMPT_HELPER_TITLE_MAP = {
+    "main": "hero",
+    "character": "hero",
+    "mc": "hero",
+    "protagonist": "hero",
+    "op": "overpowered",
+}
+
+PROMPT_HELPER_TITLE_STOP_WORDS = PROMPT_HELPER_STOP_WORDS | {
+    "just",
+    "tell",
+    "thinking",
+    "about",
+    "small",
+    "quick",
+    "simple",
 }
 
 
@@ -259,6 +301,131 @@ def _clean_spaces(value: str) -> str:
     return " ".join((value or "").strip().split())
 
 
+def _truncate_words(value: str, max_words: int) -> str:
+    words = [w for w in (value or "").strip().split() if w]
+    if not words:
+        return ""
+    return " ".join(words[:max_words])
+
+
+def _word_count(value: str) -> int:
+    return len([w for w in (value or "").split() if w.strip()])
+
+
+def _strip_prompt_lead_in(idea: str) -> str:
+    text = _clean_spaces(idea)
+    if not text:
+        return ""
+
+    patterns = [
+        r"^(?:i|we)\s+(?:want|need|would\s+like|wanna|am\s+looking\s+for)\s+",
+        r"^(?:can\s+you|please)\s+",
+        r"^(?:make|create|generate|write)\s+",
+        r"^(?:me\s+)?(?:a|an)\s+",
+    ]
+    out = text
+    for pattern in patterns:
+        out = re.sub(pattern, "", out, flags=re.IGNORECASE).strip(" ,.-:")
+
+    out = re.sub(r"\b(?:one|1)\s*minute\b", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b(?:sixty|60)\s*seconds?\b", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b(?:small|short|quick)\s+\b", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\b(?:story|clip|video)\s+about\b", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\babout\b", "", out, count=1, flags=re.IGNORECASE)
+    out = _clean_spaces(out.strip(" ,.-:"))
+    return out or text
+
+
+def _infer_style_from_idea(idea: str) -> str | None:
+    lower = (idea or "").strip().lower()
+    if not lower:
+        return None
+
+    best_style: str | None = None
+    best_index: int | None = None
+    for style, hints in PROMPT_HELPER_STYLE_HINTS.items():
+        for hint in hints:
+            idx = lower.find(hint)
+            if idx < 0:
+                continue
+            if best_index is None or idx < best_index:
+                best_index = idx
+                best_style = style
+    return best_style
+
+
+def _select_prompt_helper_style(requested_style: str | None, idea: str) -> str:
+    style = _normalize_style_preset(requested_style)
+    if style not in {"real", "anime", "cartoon", "comic"}:
+        style = "real"
+
+    inferred = _infer_style_from_idea(idea)
+    if inferred and style == "real":
+        return inferred
+    return style
+
+
+def _core_idea_phrase(idea: str) -> str:
+    base = _strip_prompt_lead_in(idea)
+    if not base:
+        return ""
+    without_style = re.sub(
+        r"\b(?:anime|cartoon|comic|manga|photorealistic|photoreal|realistic|live\s*action)\b",
+        "",
+        base,
+        flags=re.IGNORECASE,
+    )
+    without_style = re.sub(r"\bmain\s+character\b", "hero", without_style, flags=re.IGNORECASE)
+    without_style = _clean_spaces(without_style.strip(" ,.-:"))
+    return without_style or base
+
+
+def _extract_subject_and_trait(idea: str) -> tuple[str, str]:
+    concept = _core_idea_phrase(idea)
+    if not concept:
+        return ("protagonist", "a hidden edge")
+
+    subject = concept
+    trait = ""
+
+    who_match = re.search(r"(.+?)\s+(?:who|that)\s+(?:is|has|can|with)\s+(.+)$", concept, flags=re.IGNORECASE)
+    if who_match:
+        subject = who_match.group(1).strip(" ,.-:")
+        trait = who_match.group(2).strip(" ,.-:")
+    else:
+        with_match = re.search(r"(.+?)\s+with\s+(.+)$", concept, flags=re.IGNORECASE)
+        if with_match:
+            subject = with_match.group(1).strip(" ,.-:")
+            trait = with_match.group(2).strip(" ,.-:")
+
+    subject = re.sub(r"^(?:a|an|the)\s+", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"\bmain\s+character\b", "hero", subject, flags=re.IGNORECASE)
+    subject = _truncate_words(_clean_spaces(subject), 6) or "protagonist"
+    trait = _truncate_words(_clean_spaces(trait), 7) or "a hidden edge"
+    return (subject, trait)
+
+
+def _trait_display(trait: str) -> str:
+    clean = _clean_spaces(trait).lower()
+    if not clean:
+        return "a hidden edge"
+    if clean in {"op", "overpowered", "over power", "over-power"}:
+        return "overwhelming power"
+    if clean.startswith(("a ", "an ", "the ")):
+        return clean
+    return clean
+
+
+def _subject_narration(subject: str) -> str:
+    clean = _clean_spaces(subject)
+    if not clean:
+        return "the hero"
+    lower = clean.lower()
+    if lower.startswith(("a ", "an ", "the ")):
+        return lower
+    return f"the {lower}"
+
+
 def _idea_keywords(idea: str, limit: int = 5) -> list[str]:
     tokens = [t.strip("'") for t in re.findall(r"[A-Za-z0-9']+", (idea or "").lower())]
     out: list[str] = []
@@ -280,14 +447,35 @@ def _idea_keywords(idea: str, limit: int = 5) -> list[str]:
     return fallback or ["focus", "progress", "clarity"]
 
 
-def _idea_title(idea: str) -> str:
-    clean = _clean_spaces(idea)
-    if not clean:
+def _idea_title(idea: str, style_preset: str | None = None) -> str:
+    concept = _core_idea_phrase(idea)
+    if not concept:
         return "Untitled Concept"
-    words = clean.split()
-    title_words = words[:6]
-    titled = " ".join([w[:1].upper() + w[1:] if w else "" for w in title_words]).strip()
-    return titled or "Untitled Concept"
+
+    lowered = concept.lower()
+    if ("reincarnat" in lowered or "reborn" in lowered) and ("overpowered" in lowered or "op" in lowered):
+        return "Reborn Overpowered Hero"
+
+    subject, trait = _extract_subject_and_trait(concept)
+    tokens: list[str] = []
+    for token in _idea_keywords(f"{subject} {trait}", limit=8):
+        mapped = PROMPT_HELPER_TITLE_MAP.get(token, token)
+        if mapped in PROMPT_HELPER_TITLE_STOP_WORDS:
+            continue
+        if mapped not in tokens:
+            tokens.append(mapped)
+
+    if not tokens:
+        tokens = _idea_keywords(concept, limit=4)
+
+    words = [w.title() for w in tokens[:5] if w]
+    if not words:
+        return "Untitled Concept"
+    title = " ".join(words)
+    style = _normalize_style_preset(style_preset)
+    if style in {"anime", "cartoon", "comic"} and len(words) <= 2:
+        return f"{style.title()} {title}"
+    return title
 
 
 def _style_label(style_preset: str | None) -> str:
@@ -318,33 +506,79 @@ def _scene_ranges(duration_seconds: int, scene_count: int) -> list[tuple[int, in
 
 
 def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_ratio: str, duration_seconds: int) -> str:
-    keywords = _idea_keywords(idea, limit=5)
-    title = _idea_title(idea)
+    concept = _core_idea_phrase(idea) or _clean_spaces(idea)
+    subject, trait = _extract_subject_and_trait(concept)
+    trait_display = _trait_display(trait)
+    title = _idea_title(concept, style_preset)
     style_text = _style_label(style_preset)
+    style = _normalize_style_preset(style_preset)
     scene_count = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
     ranges = _scene_ranges(duration_seconds, scene_count)
 
-    scene_templates = [
-        "Hook shot introducing {k1} with strong motion and clear subject.",
-        "Context shot with {k2}, environment detail, and smooth camera move.",
-        "Close-up showing tactile action around {k3}.",
-        "Medium shot highlighting progression, confidence, and momentum.",
-        "Montage beat with faster cuts, clean transitions, and depth.",
-        "Reaction beat showing a visible shift in emotion and control.",
-        "Result shot proving progress with practical detail in frame.",
-        "Final frame with bold text overlay and clear takeaway.",
-        "Optional extension beat with extra texture and visual variety.",
-        "Optional extension beat with a stronger payoff shot.",
-        "Optional extension beat with secondary angle and rhythm.",
-        "Outro shot to hold brand-safe framing before end.",
-    ]
+    if style == "anime":
+        scene_templates = [
+            "Hook: dynamic close-up of {subject}, wind and motion lines framing the face.",
+            "World setup: establish a high-stakes setting with layered depth and dramatic perspective.",
+            "Inciting conflict: a visible threat enters frame and pressure spikes instantly.",
+            "Power reveal: {subject} counters with {trait}; bright aura and shockwave reaction.",
+            "Escalation: rapid action montage, clean cuts, and camera pushes on impact moments.",
+            "Control beat: tempo slows; {subject} stays calm while the world reacts.",
+            "Payoff: threat is neutralized with a decisive, cinematic finishing moment.",
+            "Final frame: bold title card and confident pose to close the story arc.",
+            "Extension beat: aftermath shot with subtle particles and emotional reset.",
+            "Extension beat: secondary angle that reinforces scale and dominance.",
+            "Extension beat: team or crowd reaction to the outcome.",
+            "Outro: hold a clean branded frame for one final second.",
+        ]
+    elif style == "cartoon":
+        scene_templates = [
+            "Hook: bright, expressive intro shot of {subject} with strong silhouette.",
+            "Setup: playful environment reveal with readable props and color contrast.",
+            "Conflict: challenge appears fast and creates immediate visual tension.",
+            "Reveal: {subject} uses {trait} in a bold, stylized action beat.",
+            "Escalation: rhythmic montage with snappy transitions and squash-and-stretch motion.",
+            "Reaction: comedic pause, then a confident reset before the final push.",
+            "Payoff: challenge solved in one clear, satisfying visual move.",
+            "Final frame: upbeat end card with strong composition and takeaway text.",
+            "Extension beat: add a reaction gag or secondary character response.",
+            "Extension beat: polished hold shot with subtle camera drift.",
+            "Extension beat: reinforce the core message with icon-driven visuals.",
+            "Outro: finish with clean framing ready for captions.",
+        ]
+    elif style == "comic":
+        scene_templates = [
+            "Hook: high-contrast opener with inked outlines and dramatic negative space.",
+            "Setup: panel-like world reveal with foreground, midground, and background layers.",
+            "Conflict: threat enters like a splash panel and sets the stakes.",
+            "Reveal: {subject} unleashes {trait} with punchy impact framing.",
+            "Escalation: rapid panel montage, angled composition, and halftone texture cues.",
+            "Reaction: tight facial close-up to emphasize emotional control.",
+            "Payoff: final strike lands in a hero-frame composition.",
+            "Final frame: clean title overlay, iconic pose, and story resolution.",
+            "Extension beat: aftermath panel with environmental detail.",
+            "Extension beat: secondary angle for scale and continuity.",
+            "Extension beat: visual callback to the opening hook.",
+            "Outro: linger on a polished final panel for platform-safe posting.",
+        ]
+    else:
+        scene_templates = [
+            "Hook: cinematic opener on {subject} with clear intent and motion.",
+            "Setup: environment establishing shot with practical detail and depth.",
+            "Conflict: pressure rises as a clear obstacle enters the scene.",
+            "Reveal: {subject} leverages {trait} to shift momentum.",
+            "Escalation: focused montage with motivated camera movement and continuity.",
+            "Reaction: brief emotional beat to humanize the turning point.",
+            "Payoff: obstacle is resolved in a grounded, believable action.",
+            "Final frame: clean close with bold text and memorable composition.",
+            "Extension beat: aftermath detail that reinforces progress.",
+            "Extension beat: secondary angle to improve visual variety.",
+            "Extension beat: quick callback to the opening hook.",
+            "Outro: hold a stable ending frame for captions and branding.",
+        ]
 
-    k1 = keywords[0] if len(keywords) > 0 else "focus"
-    k2 = keywords[1] if len(keywords) > 1 else k1
-    k3 = keywords[2] if len(keywords) > 2 else k2
     lines = [
         f"Title: {title}",
-        f"Concept: {idea}",
+        f"Concept: {concept}",
         f"Aspect ratio: {aspect_ratio}",
         f"Duration: {duration_seconds}s",
         f"Visual style: {style_text}",
@@ -352,59 +586,100 @@ def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_rat
     ]
     for idx, (start, end) in enumerate(ranges):
         template = scene_templates[idx] if idx < len(scene_templates) else scene_templates[-1]
-        beat = template.format(k1=k1, k2=k2, k3=k3)
+        beat = template.format(subject=subject, trait=trait_display)
         lines.append(f"{start}-{end}s: {beat}")
     return "\n".join(lines).strip()
 
 
 def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_seconds: int) -> str:
-    keywords = _idea_keywords(idea, limit=5)
-    k1 = keywords[0] if len(keywords) > 0 else "focus"
-    k2 = keywords[1] if len(keywords) > 1 else "clarity"
-    k3 = keywords[2] if len(keywords) > 2 else "momentum"
-    style_name = _normalize_style_preset(style_preset).capitalize()
-    target_words = max(95, min(260, int(round(float(duration_seconds) * 2.2))))
+    concept = _core_idea_phrase(idea) or _clean_spaces(idea)
+    subject, trait = _extract_subject_and_trait(concept)
+    subject_narration = _subject_narration(subject)
+    trait_display = _trait_display(trait)
+    style = _normalize_style_preset(style_preset)
+    target_words = max(105, min(260, int(round(float(duration_seconds) * 2.2))))
 
-    sentences = [
-        f"Here is the reset you need when {k1} feels messy and your attention keeps drifting.",
-        f"Start by removing one distraction, then give your next task a single clear objective.",
-        f"Use a short timer, lock in on the first step, and let your actions create momentum.",
-        f"While you work, keep your breathing steady and your posture grounded so your mind stays calm.",
-        f"Track visible wins, even tiny ones, because progress compounds faster than motivation alone.",
-        f"When you hit resistance, pause, reset, and return with intention instead of rushing.",
-        f"This is your {style_name.lower()} story of {k2}, {k3}, and practical consistency.",
-        "Finish strong with one simple promise to yourself: do the next right step before switching.",
-    ]
+    if style == "anime":
+        sentences = [
+            f"In a world that ranks everyone by strength, {subject_narration} gets a second life.",
+            "At first, nobody sees the danger coming, and the city moves like nothing changed.",
+            f"Then the first attack hits, and {subject_narration} answers with {trait_display}.",
+            "One move turns panic into silence, and every eye locks on the new reality.",
+            "The threat escalates, faster and louder, but the hero stays calm and precise.",
+            "Every clash reveals more control, more confidence, and zero hesitation.",
+            "By the final beat, the strongest enemy is already out of options.",
+            "This is not luck or hype. This is preparation meeting power at the perfect moment.",
+            "When the dust settles, one truth remains: calm focus wins, even under impossible pressure.",
+        ]
+    elif style == "cartoon":
+        sentences = [
+            f"Meet {subject_narration}, dropped into a chaotic world and expected to fail instantly.",
+            f"Instead, the first challenge gets flipped with {trait_display} and perfect timing.",
+            "The pace jumps fast, with big reactions, tight turns, and playful confidence.",
+            "Every beat raises the stakes, but the hero keeps solving problems one step at a time.",
+            "What starts as noise becomes a clean pattern, and momentum starts compounding.",
+            "By the final stretch, the crowd that doubted is now fully on board.",
+            "The ending lands with clarity: simple choices, steady execution, strong results.",
+            "Keep moving, keep adapting, and finish what you start.",
+        ]
+    elif style == "comic":
+        sentences = [
+            f"The frame opens on {subject_narration}, underestimated and outnumbered.",
+            "Pressure builds fast, shadows stretch, and the threat fills the panel.",
+            f"Then the pivot hits: {trait_display}, executed with absolute control.",
+            "Impact after impact, the momentum shifts and never swings back.",
+            "Close-ups show calm focus while the world around the hero breaks formation.",
+            "The final exchange lands like a headline moment, clean and undeniable.",
+            "When the scene resolves, the message is clear: discipline creates power.",
+            "One minute, one arc, one result that speaks for itself.",
+        ]
+    else:
+        sentences = [
+            f"This one-minute story follows {subject_narration} as pressure rises fast.",
+            "The opening looks unstable, but the intent is clear from the first decision.",
+            f"When conflict arrives, {subject_narration} responds with {trait_display} and steady execution.",
+            "Each sequence tightens the focus, removes noise, and builds real momentum.",
+            "The midpoint turns hard, then the strategy locks in and the pace improves.",
+            "By the final section, progress is visible, measurable, and impossible to ignore.",
+            "The close is simple: clear priorities, clean action, and a strong finish.",
+            "Do the next right step, then repeat until the result is undeniable.",
+        ]
 
     if duration_seconds >= 90:
         sentences.extend(
             [
-                f"Layer your routine: capture ideas quickly, prioritize clearly, then execute one block at a time.",
-                "The goal is not perfect energy; the goal is repeatable progress you can trust every day.",
+                "The extended arc adds one more test, then a sharper response under pressure.",
+                "Consistency wins because the process stays clear even when stakes rise.",
             ]
         )
     if duration_seconds >= 120:
         sentences.extend(
             [
-                "As your system gets cleaner, your output gets sharper, faster, and easier to sustain.",
-                "Small systems create big results, and today is where that change starts.",
+                "Every extra beat reinforces the same rule: precision scales better than chaos.",
+                "End with intent, reset fast, and carry that momentum into the next run.",
             ]
         )
 
-    words = " ".join(sentences).split()
-    if len(words) > target_words:
-        words = words[:target_words]
-        if words and not words[-1].endswith((".", "!", "?")):
-            words[-1] = f"{words[-1].rstrip(',;:')}."
-    elif len(words) < target_words:
-        fill = " Keep it simple, stay present, and stack one clean win at a time."
-        while len(words) < target_words:
-            words.extend(fill.strip().split())
-        words = words[:target_words]
-        if words and not words[-1].endswith((".", "!", "?")):
-            words[-1] = f"{words[-1].rstrip(',;:')}."
+    final_sentences = list(sentences)
+    while _word_count(" ".join(final_sentences)) > target_words and len(final_sentences) > 1:
+        final_sentences.pop()
 
-    return " ".join(words).strip()
+    words_now = _word_count(" ".join(final_sentences))
+    if words_now < (target_words - 12):
+        fillers = [
+            "Keep the tempo steady and commit to each move before switching.",
+            "Small disciplined steps create bigger outcomes than random bursts.",
+            "Hold focus, finish strong, and let your actions speak clearly.",
+        ]
+        idx = 0
+        while _word_count(" ".join(final_sentences)) < (target_words - 6):
+            final_sentences.append(fillers[idx % len(fillers)])
+            idx += 1
+
+    script = " ".join(final_sentences).strip()
+    if script and script[-1] not in ".!?":
+        script = f"{script}."
+    return script
 
 
 def _post_credits_needed(
@@ -848,9 +1123,7 @@ def prompt_helper(
     if len(idea) < 3:
         raise HTTPException(status_code=400, detail="Idea is required")
 
-    style = _normalize_style_preset(payload.style_preset)
-    if style not in {"real", "anime", "cartoon", "comic"}:
-        style = "real"
+    style = _select_prompt_helper_style(payload.style_preset, idea)
 
     aspect = (payload.aspect_ratio or "9:16").strip()
     if aspect not in ALLOWED_ASPECT_RATIOS:
@@ -872,7 +1145,7 @@ def prompt_helper(
         duration_seconds=duration_seconds,
     )
     return PromptHelperResponse(
-        title=_idea_title(idea),
+        title=_idea_title(idea, style),
         visual_prompt=visual_prompt,
         voice_script=voice_script,
         aspect_ratio=aspect,
