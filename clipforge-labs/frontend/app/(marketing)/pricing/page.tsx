@@ -9,7 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { SocialBrandRow } from "@/components/SocialBrand";
 
 /* =========================================================
-   Clipforge Labs — Pricing Page (Marketing)
+   Orbito Labs — Pricing Page (Marketing)
 
    FIXES:
    - Sticky navbar compatibility:

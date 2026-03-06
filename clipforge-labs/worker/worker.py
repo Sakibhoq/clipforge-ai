@@ -786,6 +786,16 @@ def _clip_dimensions(aspect_ratio: str) -> tuple[int, int]:
     return 1080, 1920  # default 9:16
 
 
+def _brand_text_env(key: str, default: str = "Orbito Labs") -> str:
+    raw = (_env(key, default) or "").strip()
+    if not raw:
+        return default
+    normalized = re.sub(r"\s+", " ", raw).strip().lower()
+    if normalized in {"clipforge", "clipforge labs"}:
+        return default
+    return raw
+
+
 def _compact_overlay_text(prompt: str, *, max_chars: int = 180) -> str:
     raw = (prompt or "").replace("\r", "").strip()
     if not raw:
@@ -815,7 +825,7 @@ def _run_ffmpeg_text_video(*, prompt: str, duration: int, aspect_ratio: str, out
             "WORKER_DRAWTEXT_FONTFILE",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         )
-        brand = _env("WORKER_BRAND_TEXT", "Clipforge Labs")
+        brand = _brand_text_env("WORKER_BRAND_TEXT")
 
         vf = (
             f"scale={w}:{h},"
@@ -867,7 +877,7 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
             "WORKER_DRAWTEXT_FONTFILE",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         )
-        brand = _env("WORKER_BRAND_TEXT", "Clipforge Labs")
+        brand = _brand_text_env("WORKER_BRAND_TEXT")
 
         font_size = 38 if h >= 1600 else 34
         vf = (
@@ -1217,7 +1227,7 @@ def _apply_video_overlays(
     allow_logo: bool = True,
 ) -> None:
     logo_path = _watermark_logo_path() if (watermark_enabled and allow_logo) else ""
-    watermark_text = _env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs"
+    watermark_text = _brand_text_env("WORKER_WATERMARK_TEXT")
     draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
     wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
@@ -1299,7 +1309,7 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
     os.close(fd)
     logo_path = _watermark_logo_path()
     draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-    text_escaped = _ff_drawtext_escape(_env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs")
+    text_escaped = _ff_drawtext_escape(_brand_text_env("WORKER_WATERMARK_TEXT"))
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
     wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
     wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
@@ -3083,7 +3093,7 @@ def main() -> None:
     engine = _connect_engine()
     Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-    print("[worker] clipforge-labs generation worker starting")
+    print("[worker] orbito-labs generation worker starting")
 
     while True:
         with Session() as db:

@@ -1,4 +1,4 @@
-# Clipforge Labs Launch Runbook (Step-by-Step)
+# Orbito Labs Launch Runbook (Step-by-Step)
 
 This runbook is the shortest safe path to launch `clipforge.us` with the current codebase.
 
@@ -195,4 +195,4 @@ Immediate triggers for action:
 
 ---
 
-When all steps above are complete and smoke tests pass, Clipforge Labs is launch-ready for controlled public traffic.
+When all steps above are complete and smoke tests pass, Orbito Labs is launch-ready for controlled public traffic.

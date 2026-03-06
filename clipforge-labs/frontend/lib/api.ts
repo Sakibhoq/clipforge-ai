@@ -1,7 +1,7 @@
 "use client";
 
 /* =========================================================
-   Clipforge Labs — API helper (cookie auth, Codespaces-safe)
+   Orbito Labs — API helper (cookie auth, Codespaces-safe)
 
    - Backend auth uses HttpOnly cookie: cf_token
    - Therefore ALL requests must include:

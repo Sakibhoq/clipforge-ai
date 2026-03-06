@@ -117,7 +117,7 @@ def _get_user_from_session(db: Session, session_obj: dict) -> Optional[User]:
 
 def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     """
-    Clipforge Labs pricing model:
+    Orbito Labs pricing model:
     - 1 credit ~= $0.10 value
     - Video generation: about $1.00/sec -> 10 credits/sec
     - Premium video+audio workflow: about $1.20/sec -> 12 credits/sec

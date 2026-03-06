@@ -63,7 +63,7 @@ def _default_no_reply_email() -> str:
 
 
 def _from_header() -> str:
-    name = (os.getenv("EMAIL_FROM_NAME") or "Clipforge Labs").strip()
+    name = (os.getenv("EMAIL_FROM_NAME") or "Orbito Labs").strip()
     sender = _default_no_reply_email()
     if name and sender:
         return f"{name} <{sender}>"
@@ -94,7 +94,7 @@ def send_email(
         return False
 
     msg = EmailMessage()
-    msg["Subject"] = (subject or "").strip()[:200] or "Clipforge Labs notification"
+    msg["Subject"] = (subject or "").strip()[:200] or "Orbito Labs notification"
     msg["From"] = (from_header or _from_header()).strip()
     msg["To"] = (to_email or "").strip()
     if reply_to:
@@ -136,10 +136,10 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
         [
             f"Hi {first},",
             "",
-            "Welcome to Clipforge Labs.",
+            "Welcome to Orbito Labs.",
             "Your account is ready. You can now generate videos and publish to connected platforms.",
             "",
-            f"Open Clipforge Labs: {app_url}",
+            f"Open Orbito Labs: {app_url}",
             "",
             "This is an automated message from an unmonitored inbox. Please do not reply to this email.",
             f"For help, contact {support}.",
@@ -160,8 +160,8 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #2b3348;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="Clipforge Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Welcome to Clipforge Labs</div>
+                <img src="{esc_logo_url}" alt="Orbito Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Welcome to Orbito Labs</div>
               </td>
             </tr>
             <tr>
@@ -172,7 +172,7 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
             </tr>
             <tr>
               <td align="center" style="padding:20px 24px 16px 24px;">
-                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#f97316;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Clipforge Labs</a>
+                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#f97316;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Orbito Labs</a>
               </td>
             </tr>
             <tr>
@@ -190,7 +190,7 @@ def send_welcome_email(to_email: str, name: str | None = None) -> bool:
 """.strip()
     return send_email(
         to_email=to_email,
-        subject="Welcome to Clipforge Labs",
+        subject="Welcome to Orbito Labs",
         text_body=body,
         html_body=html_body,
         reply_to=_reply_to_email(),
@@ -220,7 +220,7 @@ def send_billing_confirmation_email(
 
     body = "\n".join(
         [
-            "Your Clipforge Labs billing update is complete.",
+            "Your Orbito Labs billing update is complete.",
             "",
             f"Plan: {plan.capitalize()} ({interval_label})",
             f"Credits added: {int(credits_granted)}",
@@ -248,13 +248,13 @@ def send_billing_confirmation_email(
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #2b3348;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="Clipforge Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <img src="{esc_logo_url}" alt="Orbito Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">Billing confirmation</div>
               </td>
             </tr>
             <tr>
               <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.7;">
-                Your Clipforge Labs billing update is complete.<br /><br />
+                Your Orbito Labs billing update is complete.<br /><br />
                 <span style="color:#9fb0c7;">Plan:</span> {esc_plan} ({esc_interval})<br />
                 <span style="color:#9fb0c7;">Credits added:</span> {esc_credits_granted}<br />
                 <span style="color:#9fb0c7;">Balance:</span> {esc_balance}
@@ -262,7 +262,7 @@ def send_billing_confirmation_email(
             </tr>
             <tr>
               <td align="center" style="padding:20px 24px 16px 24px;">
-                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#f97316;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Clipforge Labs</a>
+                <a href="{esc_app_url}" style="display:inline-block;padding:11px 18px;background:#f97316;border-radius:10px;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;">Open Orbito Labs</a>
               </td>
             </tr>
             <tr>
@@ -280,7 +280,7 @@ def send_billing_confirmation_email(
 """.strip()
     return send_email(
         to_email=to_email,
-        subject="Clipforge Labs billing confirmation",
+        subject="Orbito Labs billing confirmation",
         text_body=body,
         html_body=html_body,
         reply_to=_reply_to_email(),
@@ -305,7 +305,7 @@ def send_contact_autoreply(
         [
             f"Hi {first},",
             "",
-            "Thanks for contacting Clipforge Labs.",
+            "Thanks for contacting Orbito Labs.",
             "We received your message and our team will review it shortly.",
             f"Subject: {subject.strip() if subject else 'General inquiry'}",
             "",
@@ -329,14 +329,14 @@ def send_contact_autoreply(
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#0b0f19;border:1px solid #2b3348;border-radius:14px;overflow:hidden;">
             <tr>
               <td style="padding:24px 24px 8px 24px;text-align:center;">
-                <img src="{esc_logo_url}" alt="Clipforge Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
+                <img src="{esc_logo_url}" alt="Orbito Labs" width="56" height="56" style="display:block;margin:0 auto 12px auto;" />
                 <div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:1.3;font-weight:700;color:#ffffff;">We received your message</div>
               </td>
             </tr>
             <tr>
               <td style="padding:8px 24px 0 24px;font-family:Arial,Helvetica,sans-serif;color:#d8e2f1;font-size:14px;line-height:1.6;">
                 Hi {esc_first},<br /><br />
-                Thanks for contacting Clipforge Labs. Our team has received your message and will review it shortly.<br /><br />
+                Thanks for contacting Orbito Labs. Our team has received your message and will review it shortly.<br /><br />
                 <span style="color:#9fb0c7;">Subject:</span> {esc_subject}
               </td>
             </tr>
@@ -360,7 +360,7 @@ def send_contact_autoreply(
 """.strip()
     return send_email(
         to_email=to_email,
-        subject="Clipforge Labs — We received your message",
+        subject="Orbito Labs — We received your message",
         text_body=body,
         html_body=html_body,
         reply_to=_reply_to_email(),

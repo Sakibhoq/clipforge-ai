@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge Labs — Change Password (Wired, Launch-Ready)
+   Orbito Labs — Change Password (Wired, Launch-Ready)
    - Calls POST /auth/password (cookie auth)
    - Real-time password rules:
      ✅ >= 8 chars

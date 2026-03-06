@@ -89,7 +89,7 @@ def _check_ports() -> None:
 
 
 def main() -> int:
-    print("Clipforge Labs doctor — quick checks\n")
+    print("Orbito Labs doctor — quick checks\n")
 
     ok = True
 

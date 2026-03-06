@@ -11,7 +11,7 @@ class Job(Base):
 
     # Job kind:
     # - "clip" (legacy Orbito flow)
-    # - "generate" (Clipforge Labs: AI video generation)
+    # - "generate" (Orbito Labs: AI video generation)
     kind = Column(String, nullable=False, default="clip", index=True)
 
     status = Column(String, nullable=False, default="queued", index=True)

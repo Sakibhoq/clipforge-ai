@@ -63,7 +63,7 @@ services:
       SMTP_USE_TLS: "${SMTP_USE_TLS:-1}"
       SMTP_USE_SSL: "${SMTP_USE_SSL:-0}"
       CONTACT_TO_EMAIL: "${CONTACT_TO_EMAIL:-support@clipforge.ai}"
-      EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-Clipforge Labs}"
+      EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-Orbito Labs}"
       EMAIL_FROM_EMAIL: "${EMAIL_FROM_EMAIL:-no-reply@clipforge.ai}"
       EMAIL_REPLY_TO: "${EMAIL_REPLY_TO:-support@clipforge.ai}"
     healthcheck:
@@ -88,5 +88,5 @@ services:
       LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
       S3_BUCKET: "${S3_BUCKET:-}"
-      WORKER_BRAND_TEXT: "${WORKER_BRAND_TEXT:-Clipforge Labs}"
+      WORKER_BRAND_TEXT: "${WORKER_BRAND_TEXT:-Orbito Labs}"
     restart: unless-stopped

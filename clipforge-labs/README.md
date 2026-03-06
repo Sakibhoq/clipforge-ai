@@ -1,6 +1,6 @@
-# Clipforge Labs
+# Orbito Labs
 
-Sister project to Orbito. Clipforge Labs generates short AI videos from a prompt and lets you publish to connected social platforms.
+Sister project to Orbito. Orbito Labs generates short AI videos from a prompt and lets you publish to connected social platforms.
 
 ## Dev (Docker Compose)
 
@@ -38,7 +38,7 @@ Reverse proxy:
 
 ## Object Storage (GCS)
 
-Clipforge Labs supports Google Cloud Storage using the S3-compatible endpoint.
+Orbito Labs supports Google Cloud Storage using the S3-compatible endpoint.
 
 Set in `.env.prod`:
 

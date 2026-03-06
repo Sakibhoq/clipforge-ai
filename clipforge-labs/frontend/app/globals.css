@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* =========================================================
-   Clipforge Labs System UI — globals.css
+   Orbito Labs System UI — globals.css
    Cinematic dark UI (light-leaks + film grain + crisp surfaces)
 ========================================================= */
 
@@ -1274,7 +1274,7 @@ body::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, rgba(255, 183, 3, 0.92), rgba(251, 86, 7, 0.82), rgba(58, 134, 255, 0.78));
 }
 /* =========================================
-   Clipforge Labs — Single scrollbar guard (NO inner scroll)
+   Orbito Labs — Single scrollbar guard (NO inner scroll)
    Put this at the VERY BOTTOM of globals.css
 ========================================= */
 

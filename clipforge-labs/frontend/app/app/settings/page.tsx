@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
-   Clipforge Labs — Settings (Launch-Ready)
+   Orbito Labs — Settings (Launch-Ready)
    - Calm premium app-chrome
    - Local-only preferences (persisted in localStorage)
    - Real logout calls /auth/logout (cookie-auth) + fallback cookie clear

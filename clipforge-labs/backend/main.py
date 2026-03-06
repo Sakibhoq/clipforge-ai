@@ -77,7 +77,7 @@ async def lifespan(_: FastAPI):
         _shutdown_background_workers()
 
 
-app = FastAPI(title="Clipforge Labs API", lifespan=lifespan)
+app = FastAPI(title="Orbito Labs API", lifespan=lifespan)
 
 # ---------------------------------------------------------
 # Optional: YouTube automated ingest (DISABLED by default in prod)

@@ -44,6 +44,6 @@ services:
     environment:
       PYTHONFAULTHANDLER: "1"
       DATABASE_URL: "${DATABASE_URL:-sqlite:////data/app.db}"
-      WORKER_BRAND_TEXT: "${WORKER_BRAND_TEXT:-Clipforge Labs}"
+      WORKER_BRAND_TEXT: "${WORKER_BRAND_TEXT:-Orbito Labs}"
     restart: unless-stopped
 

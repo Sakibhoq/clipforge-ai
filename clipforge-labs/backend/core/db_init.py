@@ -77,7 +77,7 @@ def init_db() -> None:
             "captions_enabled": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
             "watermark_enabled": f"BOOLEAN DEFAULT {_bool(True)} NOT NULL",
             "caption_style_json": f"TEXT",
-            # Clipforge Labs additions (safe additive)
+            # Orbito Labs additions (safe additive)
             "kind": f"TEXT DEFAULT {_str('clip')} NOT NULL",
             "prompt": f"TEXT",
             "negative_prompt": f"TEXT",

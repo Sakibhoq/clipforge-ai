@@ -1,5 +1,5 @@
 [Unit]
-Description=Clipforge Labs (docker compose)
+Description=Orbito Labs (docker compose)
 After=docker.service
 Requires=docker.service
 

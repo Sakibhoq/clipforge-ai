@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, getApiBase } from "@/lib/api";
 
 /* =========================================================
-   Clipforge Labs — Login (Cookie Auth, Production)
+   Orbito Labs — Login (Cookie Auth, Production)
    - Dev/Codespaces: cookie lives on backend origin, middleware can't see it
      -> We do a client-side /auth/me check to redirect if already authed.
    - POST /auth/login sets HttpOnly cf_token cookie (backend origin)

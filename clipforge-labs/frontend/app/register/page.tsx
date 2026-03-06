@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch, getApiBase } from "@/lib/api";
 
 /* =========================================================
-   Clipforge Labs — Register (Cookie Auth, Production)
+   Orbito Labs — Register (Cookie Auth, Production)
    - POST /auth/register (creates user)
    - POST /auth/login (sets HttpOnly cf_token)
    - Redirects to /app after success

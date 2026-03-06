@@ -98,14 +98,14 @@ def send_contact_message(payload: ContactSendRequest, request: Request):
     clean_message = payload.message.strip()
 
     msg = EmailMessage()
-    msg["Subject"] = f"[Clipforge Contact] {clean_subject[:120]}"
-    msg["From"] = formataddr(("Clipforge Contact", from_email))
+    msg["Subject"] = f"[Orbito Labs Contact] {clean_subject[:120]}"
+    msg["From"] = formataddr(("Orbito Labs Contact", from_email))
     msg["To"] = support_to
     msg["Reply-To"] = clean_email
     msg.set_content(
         "\n".join(
             [
-                "New message from clipforge.us contact form",
+                "New message from Orbito Labs contact form",
                 "",
                 f"Name: {clean_name}",
                 f"Email: {clean_email}",

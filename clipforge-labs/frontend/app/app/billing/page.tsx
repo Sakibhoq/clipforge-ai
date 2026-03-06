@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { normalizeAppPlan } from "@/lib/plans";
 
 /* =========================================================
-   Clipforge Labs — Billing
+   Orbito Labs — Billing
    Goals:
    - Users can change plans anytime (upgrade/downgrade)
    - Users can buy more credits when they run out

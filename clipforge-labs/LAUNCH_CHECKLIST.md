@@ -1,4 +1,4 @@
-# Clipforge Labs Launch Checklist
+# Orbito Labs Launch Checklist
 
 This checklist reflects the current codebase and the launch direction selected:
 - Creator-focused short-form generator
