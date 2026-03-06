@@ -263,17 +263,29 @@ function withBasePath(pathname: string) {
 }
 
 function sanitizeNextPath(nextRaw: string | null) {
-  const fallback = withBasePath("/app");
-  if (!nextRaw) return fallback;
-  if (!nextRaw.startsWith("/")) return fallback;
-  if (nextRaw.startsWith("//")) return fallback;
-  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return fallback;
-  return nextRaw;
+  const fallback = "/app";
+  const raw = (nextRaw || "").trim();
+  if (!raw) return fallback;
+  if (!raw.startsWith("/")) return fallback;
+  if (raw.startsWith("//")) return fallback;
+
+  let nextPath = raw;
+  const base = appBasePath();
+  if (base) {
+    // Normalize duplicated base path segments (e.g. /app/labs/app/labs/app -> /app).
+    while (nextPath === base || nextPath.startsWith(`${base}/`)) {
+      nextPath = nextPath.slice(base.length) || "/";
+    }
+  }
+
+  if (nextPath === "/") return fallback;
+  if (nextPath.startsWith("/login") || nextPath.startsWith("/register")) return fallback;
+  return nextPath;
 }
 
 function RegisterPageInner() {
   const searchParams = useSearchParams();
-  const nextPath = sanitizeNextPath(searchParams?.get("next") || withBasePath("/app"));
+  const nextPath = sanitizeNextPath(searchParams?.get("next") || "/app");
 
   const [mode, setMode] = useState<"social" | "email">("social");
 
@@ -414,7 +426,7 @@ function RegisterPageInner() {
         body: { email: em, password },
       });
 
-      window.location.replace(nextPath);
+      window.location.replace(withBasePath(nextPath));
     } catch (err: any) {
       setFormError(errToMessage(err));
     } finally {

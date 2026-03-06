@@ -305,18 +305,30 @@ function withBasePath(pathname: string) {
 }
 
 function sanitizeNextPath(nextRaw: string | null) {
-  const fallback = withBasePath("/app");
-  if (!nextRaw) return fallback;
-  if (!nextRaw.startsWith("/")) return fallback;
-  if (nextRaw.startsWith("//")) return fallback;
-  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return fallback;
-  return nextRaw;
+  const fallback = "/app";
+  const raw = (nextRaw || "").trim();
+  if (!raw) return fallback;
+  if (!raw.startsWith("/")) return fallback;
+  if (raw.startsWith("//")) return fallback;
+
+  let nextPath = raw;
+  const base = appBasePath();
+  if (base) {
+    // Normalize duplicated base path segments (e.g. /app/labs/app/labs/app -> /app).
+    while (nextPath === base || nextPath.startsWith(`${base}/`)) {
+      nextPath = nextPath.slice(base.length) || "/";
+    }
+  }
+
+  if (nextPath === "/") return fallback;
+  if (nextPath.startsWith("/login") || nextPath.startsWith("/register")) return fallback;
+  return nextPath;
 }
 
 function LoginPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextRaw = sp.get("next") || withBasePath("/app");
+  const nextRaw = sp.get("next") || "/app";
   const bridgeToken = sp.get("bridge_token") || null;
   const nextPath = useMemo(() => sanitizeNextPath(nextRaw), [nextRaw]);
 
@@ -367,7 +379,7 @@ function LoginPageInner() {
         if (!mounted || resolved) return;
         resolved = true;
         const nextTarget = sanitizeNextPath(result?.next || nextPath);
-        window.location.replace(nextTarget);
+        window.location.replace(withBasePath(nextTarget));
       } catch (err: any) {
         if (!mounted || resolved) return;
         setChecking(false);
@@ -408,7 +420,7 @@ function LoginPageInner() {
       try {
         await apiFetch<MeResponse>("/auth/me", { signal: controller.signal });
         if (!mounted) return;
-        window.location.replace(nextPath);
+        window.location.replace(withBasePath(nextPath));
       } catch {
         if (!mounted) return;
         setChecking(false);
@@ -534,7 +546,7 @@ function LoginPageInner() {
       await new Promise((r) => setTimeout(r, 60));
       await apiFetch<MeResponse>("/auth/me");
 
-      window.location.replace(nextPath);
+      window.location.replace(withBasePath(nextPath));
     } catch (err: any) {
       setFormError(errToHelpfulMessage(err));
     } finally {
