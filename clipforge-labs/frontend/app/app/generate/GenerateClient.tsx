@@ -929,33 +929,79 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
-                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3">
-                      <div className="text-xs font-semibold text-amber-100">Don't have a prompt? Just tell me what you're thinking.</div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-                        <input
-                          value={postIdeaSeed}
-                          onChange={(e) => {
-                            setPostIdeaSeed(e.target.value);
-                            if (postIdeaError) setPostIdeaError(null);
-                          }}
-                          placeholder="Example: I want a motivational gym comeback story with anime style."
-                          className="h-11 w-full rounded-xl border border-white/12 bg-black/45 px-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
-                        />
-                        <button
-                          type="button"
-                          onClick={generatePostPromptPack}
-                          disabled={postIdeaLoading}
-                          className={cx(
-                            "h-11 rounded-xl border px-4 text-xs font-semibold transition",
-                            postIdeaLoading
-                              ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                              : "border-amber-300/35 bg-amber-500/14 text-amber-100 hover:bg-amber-500/22"
-                          )}
-                        >
-                          {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
-                        </button>
+                    <div className="group relative overflow-hidden rounded-3xl border border-[#fb56075f] bg-black/35 p-4 sm:p-5">
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
+                        style={{ background: "radial-gradient(circle, rgba(251,86,7,0.45) 0%, rgba(251,86,7,0) 72%)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
+                        style={{ background: "radial-gradient(circle, rgba(58,134,255,0.33) 0%, rgba(58,134,255,0) 74%)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(138deg, rgba(251,86,7,0.10) 0%, rgba(255,183,3,0.07) 32%, rgba(58,134,255,0.07) 64%, rgba(2,8,23,0.60) 100%)",
+                        }}
+                      />
+
+                      <div className="relative">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Assistant</div>
+                            <div className="mt-1 text-base font-semibold text-white sm:text-lg">
+                              Don&apos;t have a prompt? Just tell me what you&apos;re thinking.
+                            </div>
+                            <p className="mt-1 text-xs text-white/68">
+                              You type the idea. Clipforge returns a ready-to-paste visual direction and matching voiceover script.
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
+                            AI
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-2">
+                          <label className="text-xs font-medium text-white/72">Idea brief</label>
+                          <textarea
+                            value={postIdeaSeed}
+                            onChange={(e) => {
+                              setPostIdeaSeed(e.target.value);
+                              if (postIdeaError) setPostIdeaError(null);
+                            }}
+                            rows={4}
+                            placeholder="Example: I want a motivational gym comeback story with anime style and strong scene-by-scene pacing."
+                            className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
+                          />
+                        </div>
+
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-[11px] text-white/58">
+                            {postIdeaSeed.trim().length.toLocaleString()} chars
+                            <span className="mx-2 text-white/30">•</span>
+                            Optimized for AI Post
+                          </div>
+                          <button
+                            type="button"
+                            onClick={generatePostPromptPack}
+                            disabled={postIdeaLoading}
+                            className={cx(
+                              "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
+                              postIdeaLoading
+                                ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                                : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
+                            )}
+                          >
+                            {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
+                          </button>
+                        </div>
+
+                        {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
                       </div>
-                      {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
                     </div>
 
                     <label className="text-xs font-medium text-white/70">Visual direction</label>
