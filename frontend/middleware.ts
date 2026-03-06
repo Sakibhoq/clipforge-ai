@@ -14,6 +14,10 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
+function hostWithoutPort(host: string) {
+  return host.split(":")[0]?.toLowerCase() || host.toLowerCase();
+}
+
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
@@ -47,11 +51,21 @@ function applySecurityHeaders(
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const host = (req.headers.get("host") || req.nextUrl.host || "").toLowerCase();
+  const hostHeader = req.headers.get("host") || req.nextUrl.host || "";
+  const host = hostWithoutPort(hostHeader);
   const xfProto = (req.headers.get("x-forwarded-proto") || "")
     .split(",")[0]
     .trim()
     .toLowerCase();
+  const canonicalApexHost = (
+    process.env.CANONICAL_HOST ||
+    process.env.NEXT_PUBLIC_CANONICAL_HOST ||
+    "orbito.cc"
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, "");
+  const canonicalWwwHost = `www.${canonicalApexHost}`;
   const isHttps = req.nextUrl.protocol === "https:" || xfProto === "https";
   const isCodespaces =
     host.includes(".app.github.dev") || host.includes(".githubpreview.dev");
@@ -77,6 +91,18 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
     return applySecurityHeaders(NextResponse.redirect(url), {
+      production: isProduction,
+      https: true,
+    });
+  }
+
+  // Keep crawl/index signals on the apex host.
+  // This avoids duplicate host indexing between www and non-www.
+  if (isProduction && !isCodespaces && !isLocal && host === canonicalWwwHost) {
+    const url = req.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = canonicalApexHost;
+    return applySecurityHeaders(NextResponse.redirect(url, 308), {
       production: isProduction,
       https: true,
     });
