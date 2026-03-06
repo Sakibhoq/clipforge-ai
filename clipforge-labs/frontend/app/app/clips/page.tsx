@@ -124,6 +124,25 @@ function detectAssetType(row: ClipRow): "video" | "image" | "audio" {
   return "video";
 }
 
+function isLegacyPostComponent(row: ClipRow): boolean {
+  const key = String(row.storage_key || "").toLowerCase();
+  const title = String(row.title || "").toLowerCase();
+  const hook = String(row.hook || "").toLowerCase();
+
+  const keyLooksLegacy =
+    key.includes("assets/post-scenes/") ||
+    key.includes("assets/post-scenes-video/") ||
+    key.includes("assets/post-voiceovers/");
+
+  const titleLooksLegacy =
+    title.includes(" · scene ") ||
+    title.endsWith(" · scene") ||
+    title.includes(" · voiceover") ||
+    hook.includes("scene ");
+
+  return keyLooksLegacy || titleLooksLegacy;
+}
+
 function socialLabel(p: string) {
   const s = (p || "").toLowerCase();
   if (s === "youtube") return "YouTube";
@@ -321,7 +340,10 @@ export default function ClipsPage() {
     setError(null);
     try {
       const data = (await apiFetch<ClipRow[]>("/clips?grouped=false", { method: "GET" })) || [];
-      setRows(Array.isArray(data) ? data : []);
+      const normalized = Array.isArray(data) ? data : [];
+      // Hide legacy AI Post component assets (scene fragments + voice stems) from old jobs.
+      const cleaned = normalized.filter((row) => !isLegacyPostComponent(row));
+      setRows(cleaned);
     } catch (err: any) {
       setRows([]);
       setError(err?.detail || "Could not load clips right now.");

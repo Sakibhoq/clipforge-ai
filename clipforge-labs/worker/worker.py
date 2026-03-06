@@ -2303,6 +2303,8 @@ def _process_job(job: dict) -> dict[str, Any]:
         image_paths: list[str] = []
         scene_video_paths: list[str] = []
         try:
+            # AI Post always ships with burned captions in current product UX.
+            captions_enabled = True
             raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
             scene_beats = _extract_post_scene_beats(raw_visual_prompt)
