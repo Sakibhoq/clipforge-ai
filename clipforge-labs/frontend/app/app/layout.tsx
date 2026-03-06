@@ -204,9 +204,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
         >
           {/* Brand */}
-          <div className="flex min-w-0 items-center gap-2">
-            <Link href="/" className="group inline-flex min-w-0 items-center gap-2">
-              <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <Link href="/" className="group inline-flex min-w-0 items-center gap-1.5">
+              <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute -inset-5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -220,8 +220,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <img
                   src={`/clipforge-labs-mark.svg?v=${logoV}`}
                   alt={`${BRAND.product} logo`}
-                  width={28}
-                  height={28}
+                  width={34}
+                  height={34}
                   style={{ display: "block" }}
                 />
               </span>
