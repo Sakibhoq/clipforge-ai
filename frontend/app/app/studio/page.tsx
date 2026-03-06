@@ -190,7 +190,7 @@ export default function StudioPage() {
                 Social <span className="grad-text">Studio</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Connect your social accounts, manage status, and publish clips from one place.
+                Shared publish hub for Orbito and Orbito Labs. Connect once, then schedule and post from one place.
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -232,7 +232,7 @@ export default function StudioPage() {
               <div>
                 <h2 className="text-lg font-semibold text-white/90">Connections</h2>
                 <p className="mt-1 text-sm text-white/65">
-                  Connect each platform once. Free Trial: 0 channels, Starter: 2 channels, Creator+: full access.
+                  One connection stack for both products. Free Trial: 0 channels, Starter: 2 channels, Creator+: full access.
                 </p>
               </div>
               <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/65">

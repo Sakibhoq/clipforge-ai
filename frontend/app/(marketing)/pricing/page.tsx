@@ -693,12 +693,12 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="text-xs text-white/50">• Pricing</div>
+            <div className="text-xs text-white/50">• Orbito + Labs pricing</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Credit-based. <span className="grad-text">Scale when it works.</span>
+              One product, two engines. <span className="grad-text">Scale smoothly.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Start free, test real outputs, then scale when your workflow proves itself.
+              Choose Orbito, Labs, or Full Access. Credits stay separate unless you move to a full-access bundle.
             </p>
             <div className="mt-3">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -711,6 +711,44 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
           <Toggle mode={mode} setMode={setMode} discountLabel={discountLabel} />
         </div>
+
+        <section className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="surface-soft rounded-2xl p-5">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-white/50">Orbito Core</div>
+            <div className="mt-2 text-lg font-semibold text-white/90">Clipping + Publishing</div>
+            <p className="mt-2 text-sm text-white/65">
+              Upload long videos, extract clips, and publish/schedule from Orbito.
+            </p>
+            <div className="mt-3 text-xs text-white/55">Uses Orbito credits.</div>
+            <Link href="/app/billing" className="btn-ghost mt-4 inline-flex px-4 py-2 text-xs">
+              Open Orbito billing
+            </Link>
+          </div>
+
+          <div className="surface-soft rounded-2xl p-5">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-white/50">Labs Add-on</div>
+            <div className="mt-2 text-lg font-semibold text-white/90">AI Generation</div>
+            <p className="mt-2 text-sm text-white/65">
+              Prompt-to-video, prompt-to-image, and AI post workflows inside Orbito Labs.
+            </p>
+            <div className="mt-3 text-xs text-white/55">Uses Labs credits.</div>
+            <Link href="/app/labs" className="btn-ghost mt-4 inline-flex px-4 py-2 text-xs">
+              Open Labs access
+            </Link>
+          </div>
+
+          <div className="surface-soft rounded-2xl border border-white/20 bg-white/[0.05] p-5">
+            <div className="text-[11px] uppercase tracking-[0.12em] text-white/50">Full Access</div>
+            <div className="mt-2 text-lg font-semibold text-white/92">Orbito + Labs Bundle</div>
+            <p className="mt-2 text-sm text-white/68">
+              One combined plan with access to both products and bundled credit strategy.
+            </p>
+            <div className="mt-3 text-xs text-white/55">Combines both access tiers.</div>
+            <Link href="/contact" className="btn-orbito-cta mt-4 inline-flex px-4 py-2 text-xs">
+              Request full access
+            </Link>
+          </div>
+        </section>
 
         <PacksBar pack={pack} setPack={setPack} />
 

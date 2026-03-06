@@ -992,7 +992,7 @@ export default function ClipsPage() {
                     </>
                   ) : (
                     <>
-                      No connected platforms yet. Connect accounts in <Link href="/app/connections" className="underline underline-offset-2">Publish</Link>.
+                      No connected platforms yet. Connect accounts in <a href="/app/studio" className="underline underline-offset-2">Publish</a>.
                     </>
                   )}
                 </div>

@@ -431,7 +431,7 @@ export default function Page() {
                 </h1>
 
                 <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                  {BRAND.name} helps you go from upload to post in minutes, with captions and clean framing built in.
+                  One account, one workflow: clip long-form content in Orbito, then generate new AI clips in Orbito Labs.
                 </p>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -450,7 +450,7 @@ export default function Page() {
                   </span>{" "}
                   → pick clips → post
                   <span className="text-white/35"> • </span>
-                  <span className="text-white/70">best clips can become your next payout.</span>
+                  <span className="text-white/70">or open Labs for prompt-to-clip generation.</span>
                 </div>
               </div>
 
@@ -640,10 +640,10 @@ export default function Page() {
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Want to generate AI clips? Visit Orbito Labs.
+                Orbito + Orbito Labs. One smooth workflow.
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Orbito Labs is the AI video generation workspace. One login, shared connections, and one place to create prompt-to-clip content.
+                Use Orbito for clipping and publishing. Use Labs as the AI generation engine. Same account, shared publish connections, and one premium product surface.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -665,6 +665,9 @@ export default function Page() {
               </div>
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link href="/app" className="btn-orbito-cta">
+                  Open Orbito
+                </Link>
                 <Link href={BRAND.clipforgeUrl} className="btn-clipforge">
                   Go to Orbito Labs
                 </Link>

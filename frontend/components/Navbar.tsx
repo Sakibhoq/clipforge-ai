@@ -382,6 +382,7 @@ export default function Navbar() {
   const marketingLinks = useMemo(
     () => [
       { href: "/#how-it-works", label: "How it works" },
+      { href: "/app/labs", label: "Labs" },
       { href: "/pricing", label: "Pricing" },
       { href: "/contact", label: "Contact" },
     ],
@@ -391,7 +392,7 @@ export default function Navbar() {
   const appLinks = useMemo(
     () => [
       { href: "/app", label: "Overview" },
-      { href: "/app/studio", label: "Connections" },
+      { href: "/app/studio", label: "Publish" },
       { href: "/app/billing", label: "Billing" },
       { href: "/app/settings", label: "Settings" },
     ],

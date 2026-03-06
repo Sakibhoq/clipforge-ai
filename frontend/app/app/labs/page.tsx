@@ -99,8 +99,7 @@ export default function LabsPage() {
                 Orbito <span className="grad-text">Labs</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Orbito and Labs are running on one account framework. Social links and entitlements are shared while the Labs
-                workspace migrates into the main product.
+                Labs is now an extra feature inside Orbito: one account, one publish stack, separate editors by source, and separate credits unless you move to full access.
               </p>
             </div>
 
@@ -164,7 +163,7 @@ export default function LabsPage() {
         <section className="mt-6 surface-soft rounded-2xl p-5">
           <div className="text-xs text-white/50">Workspace</div>
           <div className="mt-2 text-sm text-white/70">
-            Open the shared Labs workspace from this account. In current mode this keeps your social providers and auth session aligned.
+            Open Labs for AI-generated clips. Use Orbito Publish for connections and scheduling across both products.
           </div>
           {launch?.mode ? <div className="mt-2 text-xs text-white/50">Bridge mode: {launch.mode}</div> : null}
           {launchError ? <div className="mt-2 text-xs text-rose-200/85">{launchError}</div> : null}
@@ -177,6 +176,15 @@ export default function LabsPage() {
             >
               Open Orbito Labs
             </a>
+            <Link href="/app/clips?source=orbito" className="btn-ghost text-xs">
+              Open Orbito Clips
+            </Link>
+            <Link href="/app/clips?source=labs" className="btn-ghost text-xs">
+              Open Labs Clips
+            </Link>
+            <Link href="/app/studio" className="btn-ghost text-xs">
+              Open Publish Connections
+            </Link>
             <Link href="/app" className="btn-ghost text-xs">
               Back to Overview
             </Link>

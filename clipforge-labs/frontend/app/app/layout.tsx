@@ -42,6 +42,9 @@ function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+const externalNavPillClass =
+  "rounded-xl px-3 py-2 text-sm transition border outline-none border-transparent text-white/70 hover:text-white hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-0";
+
 function withBasePath(path: string) {
   const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
   if (!raw) return path.startsWith("/") ? path : `/${path}`;
@@ -252,7 +255,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app/generate", "Generator")}
             {navItem("/app/clips", "Clips")}
-            {navItem("/app/connections", "Publish")}
+            <a href="/app/studio" className={externalNavPillClass}>
+              Publish
+            </a>
             {navItem("/app/settings", "Settings")}
           </nav>
 
@@ -317,7 +322,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {navItem("/app/generate", "Generator", true)}
               {navItem("/app/clips", "Clips", true)}
-              {navItem("/app/connections", "Publish", true)}
+              <a href="/app/studio" className={cx(externalNavPillClass, "w-full text-left")}>
+                Publish
+              </a>
               {navItem("/app/settings", "Settings", true)}
 
               <div className="mt-3 h-px bg-white/10" />
