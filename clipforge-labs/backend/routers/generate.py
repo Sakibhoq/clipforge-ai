@@ -4,6 +4,7 @@ import base64
 import json
 import math
 import os
+import re
 import uuid
 from typing import Callable
 
@@ -160,6 +161,97 @@ def _voice_language_code(voice_name: str) -> str:
     return (os.getenv("GOOGLE_TTS_LANGUAGE_CODE") or "en-US").strip() or "en-US"
 
 
+def _xml_escape(value: str) -> str:
+    return (
+        (value or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _split_tts_sentences(script: str) -> list[str]:
+    compact = " ".join((script or "").split()).strip()
+    if not compact:
+        return []
+    chunks = [chunk.strip() for chunk in re.split(r"(?<=[.!?])\s+|;\s+", compact) if chunk.strip()]
+    if len(chunks) <= 1:
+        chunks = [chunk.strip() for chunk in re.split(r",\s+", compact) if chunk.strip()]
+    if len(chunks) <= 1:
+        words = compact.split()
+        step = 14
+        chunks = [" ".join(words[i : i + step]).strip() for i in range(0, len(words), step)]
+    return [chunk for chunk in chunks if chunk]
+
+
+def _build_expressive_tts_ssml(script: str) -> str:
+    sentences = _split_tts_sentences(script)
+    if not sentences:
+        return "<speak>This is a quick voice preview.</speak>"
+
+    pause_ms_raw = (os.getenv("GOOGLE_TTS_SENTENCE_BREAK_MS") or "").strip()
+    phrase_pause_ms_raw = (os.getenv("GOOGLE_TTS_PHRASE_BREAK_MS") or "").strip()
+    try:
+        pause_ms = max(80, min(800, int(pause_ms_raw or "220")))
+    except Exception:
+        pause_ms = 220
+    try:
+        phrase_pause_ms = max(40, min(400, int(phrase_pause_ms_raw or "130")))
+    except Exception:
+        phrase_pause_ms = 130
+
+    parts: list[str] = ["<speak>"]
+    for idx, sentence in enumerate(sentences):
+        escaped = _xml_escape(sentence)
+        if idx == 0:
+            parts.append(f"<emphasis level='moderate'>{escaped}</emphasis>")
+        else:
+            parts.append(escaped)
+        if idx < len(sentences) - 1:
+            parts.append(f"<break time='{pause_ms}ms'/>")
+        elif sentence and not sentence.endswith((".", "!", "?")):
+            parts.append(f"<break time='{phrase_pause_ms}ms'/>")
+    parts.append("</speak>")
+    return "".join(parts)
+
+
+def _tts_audio_config(speaking_rate: float) -> dict[str, float | str]:
+    pitch_raw = (os.getenv("GOOGLE_TTS_PITCH") or "").strip()
+    volume_raw = (os.getenv("GOOGLE_TTS_VOLUME_GAIN_DB") or "").strip()
+    try:
+        pitch = max(-20.0, min(20.0, float(pitch_raw or "1.6")))
+    except Exception:
+        pitch = 1.6
+    try:
+        volume = max(-96.0, min(16.0, float(volume_raw or "1.5")))
+    except Exception:
+        volume = 1.5
+    return {
+        "audioEncoding": "MP3",
+        "speakingRate": speaking_rate,
+        "pitch": pitch,
+        "volumeGainDb": volume,
+    }
+
+
+def _preview_tts_payload(*, text: str, selected_voice: str, speaking_rate: float, use_ssml: bool) -> dict:
+    input_payload = (
+        {"ssml": _build_expressive_tts_ssml(text)}
+        if use_ssml
+        else {"text": (text or "").strip()[:240] or "This is a quick voice preview."}
+    )
+    return {
+        "input": input_payload,
+        "voice": {
+            "languageCode": _voice_language_code(selected_voice),
+            "name": selected_voice,
+        },
+        "audioConfig": _tts_audio_config(speaking_rate),
+    }
+
+
 def _resolve_google_tts_endpoint() -> str:
     raw = (
         os.getenv("GOOGLE_TTS_API_URL")
@@ -189,23 +281,31 @@ def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> 
     selected_voice = (voice_name or "").strip()[:64] or default_voice_name
     if selected_voice.lower() in {"auto", "default", "en-us", "en_us"}:
         selected_voice = default_voice_name
-
-    payload = {
-        "input": {"text": (text or "").strip()[:240] or "This is a quick voice preview."},
-        "voice": {
-            "languageCode": _voice_language_code(selected_voice),
-            "name": selected_voice,
-        },
-        "audioConfig": {
-            "audioEncoding": "MP3",
-            "speakingRate": speaking_rate,
-        },
-    }
+    safe_text = (text or "").strip()[:240] or "This is a quick voice preview."
+    use_ssml = (os.getenv("GOOGLE_TTS_USE_SSML") or "1").strip().lower() in {"1", "true", "yes", "on"}
+    payload = _preview_tts_payload(
+        text=safe_text,
+        selected_voice=selected_voice,
+        speaking_rate=speaking_rate,
+        use_ssml=use_ssml,
+    )
 
     try:
         resp = requests.post(endpoint, json=payload, timeout=20)
     except requests.RequestException:
         raise HTTPException(status_code=502, detail="Voice preview provider request failed.")
+
+    if resp.status_code >= 400 and use_ssml:
+        fallback_payload = _preview_tts_payload(
+            text=safe_text,
+            selected_voice=selected_voice,
+            speaking_rate=speaking_rate,
+            use_ssml=False,
+        )
+        try:
+            resp = requests.post(endpoint, json=fallback_payload, timeout=20)
+        except requests.RequestException:
+            raise HTTPException(status_code=502, detail="Voice preview provider request failed.")
 
     content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
 

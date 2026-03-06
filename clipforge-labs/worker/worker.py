@@ -41,6 +41,17 @@ def _env_int(name: str, default: int, *, min_value: int = 0, max_value: int = 3_
         return default
 
 
+def _env_float(name: str, default: float, *, min_value: float = -1_000.0, max_value: float = 1_000.0) -> float:
+    raw = _env(name, "")
+    if not raw:
+        return default
+    try:
+        val = float(raw)
+    except Exception:
+        return default
+    return max(min_value, min(max_value, val))
+
+
 def _env_bool(name: str, default: bool = False) -> bool:
     raw = _env(name, "")
     if not raw:
@@ -1105,6 +1116,90 @@ def _voice_language_code(voice_name: str) -> str:
     return _env("GOOGLE_TTS_LANGUAGE_CODE", "en-US")
 
 
+def _xml_escape(value: str) -> str:
+    return (
+        (value or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+
+def _split_tts_sentences(script: str) -> list[str]:
+    compact = re.sub(r"\s+", " ", (script or "").strip())
+    if not compact:
+        return []
+    chunks = [chunk.strip() for chunk in re.split(r"(?<=[.!?])\s+|;\s+", compact) if chunk.strip()]
+    if len(chunks) <= 1:
+        chunks = [chunk.strip() for chunk in re.split(r",\s+", compact) if chunk.strip()]
+    if len(chunks) <= 1:
+        words = compact.split()
+        step = 14
+        chunks = [" ".join(words[i : i + step]).strip() for i in range(0, len(words), step)]
+    return [chunk for chunk in chunks if chunk]
+
+
+def _build_expressive_tts_ssml(script: str) -> str:
+    sentences = _split_tts_sentences(script)
+    if not sentences:
+        return "<speak>Untitled voiceover.</speak>"
+
+    pause_ms = _env_int("GOOGLE_TTS_SENTENCE_BREAK_MS", 220, min_value=80, max_value=800)
+    phrase_pause_ms = _env_int("GOOGLE_TTS_PHRASE_BREAK_MS", 130, min_value=40, max_value=400)
+    parts: list[str] = ["<speak>"]
+
+    for idx, sentence in enumerate(sentences):
+        escaped = _xml_escape(sentence)
+        if idx == 0:
+            parts.append(f"<emphasis level='moderate'>{escaped}</emphasis>")
+        else:
+            parts.append(escaped)
+        if idx < len(sentences) - 1:
+            parts.append(f"<break time='{pause_ms}ms'/>")
+        elif sentence and not sentence.endswith((".", "!", "?")):
+            parts.append(f"<break time='{phrase_pause_ms}ms'/>")
+
+    parts.append("</speak>")
+    return "".join(parts)
+
+
+def _google_tts_audio_config(speaking_rate: float) -> dict[str, Any]:
+    pitch = _env_float("GOOGLE_TTS_PITCH", 1.6, min_value=-20.0, max_value=20.0)
+    volume_gain_db = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 1.5, min_value=-96.0, max_value=16.0)
+    return {
+        "audioEncoding": "MP3",
+        "speakingRate": speaking_rate,
+        "pitch": pitch,
+        "volumeGainDb": volume_gain_db,
+    }
+
+
+def _google_tts_payload(
+    *,
+    script: str,
+    selected_voice_name: str,
+    language_code: str,
+    speaking_rate: float,
+    use_ssml: bool,
+) -> dict[str, Any]:
+    input_payload: dict[str, str]
+    if use_ssml:
+        input_payload = {"ssml": _build_expressive_tts_ssml(script)}
+    else:
+        input_payload = {"text": (script or "").strip()[:6000] or "Untitled voiceover."}
+
+    payload: dict[str, Any] = {
+        "input": input_payload,
+        "voice": {"languageCode": language_code},
+        "audioConfig": _google_tts_audio_config(speaking_rate),
+    }
+    if selected_voice_name:
+        payload["voice"]["name"] = selected_voice_name
+    return payload
+
+
 def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
     raw_endpoint = _env("GOOGLE_TTS_API_URL", "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}")
 
@@ -1123,14 +1218,15 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
 
     language_code = _voice_language_code(selected_voice_name)
     speaking_rate = max(0.5, min(2.0, float(speed_wpm or 165) / 165.0))
+    use_ssml = _env_bool("GOOGLE_TTS_USE_SSML", True)
 
-    payload: dict[str, Any] = {
-        "input": {"text": safe_script},
-        "voice": {"languageCode": language_code},
-        "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate},
-    }
-    if selected_voice_name:
-        payload["voice"]["name"] = selected_voice_name
+    payload = _google_tts_payload(
+        script=safe_script,
+        selected_voice_name=selected_voice_name,
+        language_code=language_code,
+        speaking_rate=speaking_rate,
+        use_ssml=use_ssml,
+    )
 
     endpoint = raw_endpoint
     use_google_auth = False
@@ -1157,16 +1253,34 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
         return _http_post_json(endpoint, req_payload)
 
     status, content_type, data, raw_bytes = call_tts(payload)
+    if status >= 400 and use_ssml:
+        plain_payload = _google_tts_payload(
+            script=safe_script,
+            selected_voice_name=selected_voice_name,
+            language_code=language_code,
+            speaking_rate=speaking_rate,
+            use_ssml=False,
+        )
+        status, content_type, data, raw_bytes = call_tts(plain_payload)
     if status >= 400 and selected_voice_name != fallback_voice_name:
-        retry_payload: dict[str, Any] = {
-            "input": {"text": safe_script},
-            "voice": {
-                "languageCode": _voice_language_code(fallback_voice_name),
-                "name": fallback_voice_name,
-            },
-            "audioConfig": {"audioEncoding": "MP3", "speakingRate": speaking_rate},
-        }
+        retry_language = _voice_language_code(fallback_voice_name)
+        retry_payload = _google_tts_payload(
+            script=safe_script,
+            selected_voice_name=fallback_voice_name,
+            language_code=retry_language,
+            speaking_rate=speaking_rate,
+            use_ssml=use_ssml,
+        )
         status, content_type, data, raw_bytes = call_tts(retry_payload)
+        if status >= 400 and use_ssml:
+            retry_plain_payload = _google_tts_payload(
+                script=safe_script,
+                selected_voice_name=fallback_voice_name,
+                language_code=retry_language,
+                speaking_rate=speaking_rate,
+                use_ssml=False,
+            )
+            status, content_type, data, raw_bytes = call_tts(retry_plain_payload)
 
     if status >= 400:
         detail = ""
