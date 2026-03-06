@@ -352,6 +352,10 @@ export default function GenerateClient() {
     const plan = String(currentPlan || "").trim().toLowerCase();
     return plan === "creator" || plan === "studio";
   }, [currentPlan]);
+  const freeTrialWatermarkLocked = useMemo(() => {
+    const plan = String(currentPlan || "").trim().toLowerCase();
+    return plan === "free" || plan === "free_trial" || plan === "trial";
+  }, [currentPlan]);
 
   const canGenerate = useMemo(() => {
     if (submitting) return false;
@@ -381,7 +385,9 @@ export default function GenerateClient() {
     if (voice && VOICE_VALUES.has(voice)) {
       setVoiceName(voice);
     }
-    if (typeof settings.watermark_enabled === "boolean") {
+    if (freeTrialWatermarkLocked) {
+      setWatermarkEnabled(true);
+    } else if (typeof settings.watermark_enabled === "boolean") {
       setWatermarkEnabled(settings.watermark_enabled);
     }
 
@@ -580,6 +586,12 @@ export default function GenerateClient() {
   }, []);
 
   useEffect(() => {
+    if (freeTrialWatermarkLocked) {
+      setWatermarkEnabled(true);
+    }
+  }, [freeTrialWatermarkLocked]);
+
+  useEffect(() => {
     if (hydratedFromQuery.current) return;
     hydratedFromQuery.current = true;
 
@@ -652,7 +664,7 @@ export default function GenerateClient() {
           style_preset: stylePreset,
           caption_style_preset: postCaptionStylePreset,
           captions_enabled: true,
-          watermark_enabled: watermarkEnabled,
+          watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
         };
       } else if (mode === "image") {
         endpoint = "/labs/generate/image";
@@ -661,7 +673,7 @@ export default function GenerateClient() {
           aspect_ratio: aspectRatio,
           model: "google",
           style_preset: stylePreset,
-          watermark_enabled: watermarkEnabled,
+          watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
         };
       } else if (mode === "voiceover") {
         endpoint = "/labs/generate/voiceover";
@@ -680,7 +692,7 @@ export default function GenerateClient() {
           generation_speed: videoSpeed,
           model: "google",
           style_preset: stylePreset,
-          watermark_enabled: watermarkEnabled,
+          watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
         };
       }
 
@@ -950,9 +962,13 @@ export default function GenerateClient() {
                       type="checkbox"
                       checked={watermarkEnabled}
                       onChange={(e) => setWatermarkEnabled(e.target.checked)}
+                      disabled={freeTrialWatermarkLocked}
                       className="h-4 w-4 accent-orange-500"
                     />
-                    <span className="text-xs text-white/80">Add Clipforge watermark (top-left)</span>
+                    <span className="text-xs text-white/80">
+                      Add Clipforge watermark (top-left)
+                      {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
+                    </span>
                   </label>
                 ) : null}
 

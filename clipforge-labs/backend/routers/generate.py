@@ -393,6 +393,13 @@ def _create_generation_job(
             if plan_guard:
                 plan_guard(plan)
 
+            # Free Trial always enforces watermark on generated outputs.
+            effective_watermark_enabled = bool(watermark_enabled)
+            if plan == "free":
+                effective_watermark_enabled = True
+            effective_settings = dict(settings_payload or {})
+            effective_settings["watermark_enabled"] = effective_watermark_enabled
+
             pending_jobs = (
                 db.query(func.count(Job.id))
                 .join(Upload, Job.upload_id == Upload.id)
@@ -442,8 +449,8 @@ def _create_generation_job(
                 status="queued",
                 aspect_ratio=(aspect_ratio or "1:1"),
                 captions_enabled=bool(captions_enabled),
-                watermark_enabled=bool(watermark_enabled),
-                caption_style_json=json.dumps(settings_payload or {}),
+                watermark_enabled=effective_watermark_enabled,
+                caption_style_json=json.dumps(effective_settings),
                 prompt=prompt,
                 negative_prompt=(negative_prompt or None),
                 model=model,
