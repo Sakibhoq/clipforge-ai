@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact, settings
+from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact, settings, labs
 from routers import storage as storage_router
 from routers import upload_register
 from core.db_init import init_db
@@ -21,7 +21,7 @@ from core.db_init import init_db
 # ---------------------------------------------------------
 # App
 # ---------------------------------------------------------
-app = FastAPI(title="Clipforge API")
+app = FastAPI(title="Orbito API")
 _social_dispatch_stop = threading.Event()
 _social_dispatch_thread: threading.Thread | None = None
 
@@ -173,3 +173,4 @@ app.include_router(jobs.router)
 app.include_router(storage_router.router)
 app.include_router(clips.router)
 app.include_router(billing.router)
+app.include_router(labs.router)

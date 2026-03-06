@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import UploadsPage from "@/app/app/upload/page";
 import ClipsPage from "@/app/app/clips/page";
 import { BRAND } from "@/lib/brand";
@@ -60,6 +61,29 @@ export default function OverviewPage() {
             >
               Open <span className="whop-word">Whop</span> monetization
             </a>
+          </div>
+        </section>
+
+        <section className="mt-6 surface-soft relative overflow-hidden rounded-3xl p-5 md:p-6">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-12 opacity-40 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(260px 180px at 20% 30%, rgba(255,178,90,0.24), transparent 70%), radial-gradient(240px 170px at 78% 38%, rgba(255,102,36,0.20), transparent 72%), radial-gradient(240px 170px at 54% 90%, rgba(58,134,255,0.14), transparent 72%)",
+            }}
+          />
+          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-xs text-white/55">• Orbito Labs</div>
+              <div className="mt-1 text-sm font-semibold text-white/90">AI generation workspace now linked to your Orbito account</div>
+              <div className="mt-1 text-sm text-white/65">
+                Use one login and shared connections while Labs tools migrate directly into Orbito.
+              </div>
+            </div>
+            <Link href="/app/labs" className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto text-center">
+              Open Orbito Labs
+            </Link>
           </div>
         </section>
 
