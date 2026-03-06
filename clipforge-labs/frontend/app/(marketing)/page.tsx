@@ -212,7 +212,7 @@ export default function Page() {
             <div className="mt-10 grid gap-3 sm:grid-cols-3">
               <div className="surface-soft p-4">
                 <div className="text-xs text-white/55">Generation lanes</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">Relax + Fast modes</div>
+                <div className="mt-1 text-sm font-semibold text-white/90">HD + 4K modes</div>
                 <div className="mt-1 text-xs text-white/60">Cost-efficient drafts or priority output.</div>
               </div>
               <div className="surface-soft p-4">
@@ -291,7 +291,7 @@ export default function Page() {
                 </div>
 
                 <div className="mt-3 text-xs text-white/50">
-                  Sample preview from the labs gallery. Build your own 1–2 minute post in the generator.
+                  Sample preview from the labs gallery. Build your own ready-to-post clip in the generator.
                 </div>
               </div>
             </div>
@@ -327,12 +327,12 @@ export default function Page() {
               <div className="text-xs text-white/55">Step 2</div>
               <div className="mt-2 text-lg font-semibold text-white/90">Generate variants</div>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Generate a full 1–2 minute image+voice post, then tweak with timeline editing before export.
+                Generate a full image+voice AI post, then tweak with timeline editing before export.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className="chip">9:16</span>
-                <span className="chip">1–2 min</span>
-                <span className="chip">AI Post</span>
+                <span className="chip">AI post</span>
+                <span className="chip">Voiceover</span>
               </div>
             </div>
 

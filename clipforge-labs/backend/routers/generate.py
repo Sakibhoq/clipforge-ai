@@ -28,19 +28,28 @@ JOB_KIND_VOICEOVER = "generate_voiceover"
 JOB_KIND_POST = "generate_post"
 GENERATION_JOB_KINDS = (JOB_KIND_VIDEO, JOB_KIND_IMAGE, JOB_KIND_VOICEOVER, JOB_KIND_POST)
 VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
+LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
-ALLOWED_DURATIONS = {4, 6, 8}
+ALLOWED_DURATIONS = {4, 6, 8, 10, 12}
+POST_ALLOWED_DURATIONS = {60, 90, 120}
 POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 10
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
 
-PLAN_MAX_DURATION_SECONDS = {
+PLAN_MAX_VIDEO_DURATION_SECONDS_HD = {
     "free": 4,
     "starter": 6,
     "creator": 8,
     "studio": 8,
+}
+
+PLAN_MAX_VIDEO_DURATION_SECONDS_EXTENDED = {
+    "free": 4,
+    "starter": 8,
+    "creator": 12,
+    "studio": 12,
 }
 
 PLAN_MAX_PENDING_GENERATE_JOBS = {
@@ -96,47 +105,105 @@ def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int = 1_
         return default
 
 
+def _env_float(name: str, default: float, *, min_value: float = 0.0, max_value: float = 1_000_000.0) -> float:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        parsed = float(raw)
+    except Exception:
+        return default
+    return max(min_value, min(max_value, parsed))
+
+
 def _plan_key(raw_plan: str | None) -> str:
     p = (raw_plan or "free").strip().lower()
-    return p if p in PLAN_MAX_DURATION_SECONDS else "free"
+    return p if p in PLAN_MAX_VIDEO_DURATION_SECONDS_HD else "free"
 
 
 def _video_speed_key(raw_speed: str | None) -> str:
     speed = (raw_speed or "relax").strip().lower()
+    aliases = {
+        "hd": "relax",
+        "standard": "relax",
+        "4k": "fast",
+        "uhd": "fast",
+        "premium": "fast",
+    }
+    speed = aliases.get(speed, speed)
     return speed if speed in VIDEO_GENERATION_SPEEDS else "relax"
 
 
-def _video_credits_per_second(speed: str) -> int:
-    # Product economics:
-    # - Video only: about $1.00 / second
-    # - Premium lane (video + audio workflow): about $1.20 / second
-    # Credits are treated as $0.10-equivalent units.
-    baseline = _env_int("LABS_CREDITS_PER_SECOND", 10, min_value=1, max_value=10_000)
-    if speed == "fast":
-        fast_default = max(12, int(math.ceil(float(baseline) * 1.2)))
-        return _env_int(
-            "LABS_FAST_CREDITS_PER_SECOND",
-            fast_default,
-            min_value=1,
-            max_value=10_000,
-        )
-    return _env_int("LABS_RELAX_CREDITS_PER_SECOND", baseline, min_value=1, max_value=10_000)
+def _normalize_style_preset(style_preset: str | None) -> str:
+    style = (style_preset or "").strip().lower()
+    aliases = {
+        "photo-real": "real",
+        "photoreal": "real",
+        "social-native": "real",
+        "cinematic": "real",
+    }
+    return aliases.get(style, style or "real")
 
 
-def _video_credits_needed(duration_seconds: int, speed: str) -> int:
-    credits_per_second = _video_credits_per_second(speed)
+def _is_low_cost_style(style_preset: str | None) -> bool:
+    return _normalize_style_preset(style_preset) in LOW_COST_STYLE_PRESETS
+
+
+def _credits_from_usd(usd_value: float) -> int:
+    credit_usd = _env_float("LABS_CREDIT_USD_VALUE", 0.10, min_value=0.01, max_value=10.0)
+    return max(1, int(math.ceil(float(max(0.0, usd_value)) / float(credit_usd))))
+
+
+def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
+    low_cost = _is_low_cost_style(style_preset)
+    base_usd = _env_float(
+        "LABS_VIDEO_LOW_COST_USD_PER_SECOND" if low_cost else "LABS_VIDEO_REAL_USD_PER_SECOND",
+        0.10 if low_cost else 0.50,
+        min_value=0.01,
+        max_value=10.0,
+    )
+    markup = _env_float(
+        "LABS_VIDEO_4K_MARKUP" if speed == "fast" else "LABS_VIDEO_HD_MARKUP",
+        3.0 if speed == "fast" else 2.7,
+        min_value=1.0,
+        max_value=20.0,
+    )
+    default_credits = _credits_from_usd(base_usd * markup)
+    if low_cost and speed == "fast":
+        env_name = "LABS_VIDEO_LOW_COST_4K_CREDITS_PER_SECOND"
+    elif low_cost:
+        env_name = "LABS_VIDEO_LOW_COST_HD_CREDITS_PER_SECOND"
+    elif speed == "fast":
+        env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
+    else:
+        env_name = "LABS_VIDEO_REAL_HD_CREDITS_PER_SECOND"
+    return _env_int(env_name, default_credits, min_value=1, max_value=10_000)
+
+
+def _video_credits_needed(duration_seconds: int, speed: str, style_preset: str | None) -> int:
+    credits_per_second = _video_credits_per_second(speed, style_preset)
     return max(1, int(duration_seconds or 0)) * credits_per_second
 
 
-def _image_credits_needed() -> int:
-    return _env_int("LABS_IMAGE_CREDITS", 4, min_value=1, max_value=200)
+def _image_credits_needed(style_preset: str | None) -> int:
+    low_cost = _is_low_cost_style(style_preset)
+    base_usd = _env_float(
+        "LABS_IMAGE_LOW_COST_USD_PER_IMAGE" if low_cost else "LABS_IMAGE_REAL_USD_PER_IMAGE",
+        0.02 if low_cost else 0.04,
+        min_value=0.001,
+        max_value=10.0,
+    )
+    markup = _env_float("LABS_IMAGE_MARKUP", 6.0, min_value=1.0, max_value=25.0)
+    default_credits = _credits_from_usd(base_usd * markup)
+    env_name = "LABS_IMAGE_LOW_COST_CREDITS" if low_cost else "LABS_IMAGE_REAL_CREDITS"
+    return _env_int(env_name, default_credits, min_value=1, max_value=500)
 
 
 def _voiceover_credits_needed(script: str) -> int:
-    chars_per_credit = _env_int("LABS_VOICE_CHARS_PER_CREDIT", 250, min_value=25, max_value=5000)
+    words_per_credit = _env_int("LABS_VOICE_WORDS_PER_CREDIT", 300, min_value=20, max_value=5000)
     min_credits = _env_int("LABS_VOICE_MIN_CREDITS", 1, min_value=1, max_value=200)
-    length = max(0, len((script or "").strip()))
-    usage_credits = int(math.ceil(float(length) / float(chars_per_credit))) if length > 0 else 0
+    words = _script_word_count(script)
+    usage_credits = int(math.ceil(float(words) / float(words_per_credit))) if words > 0 else 0
     return max(min_credits, usage_credits)
 
 
@@ -144,11 +211,17 @@ def _script_word_count(script: str) -> int:
     return len([word for word in (script or "").split() if word.strip()])
 
 
-def _post_credits_needed(image_count: int, voice_script: str) -> int:
+def _post_credits_needed(image_count: int, voice_script: str, style_preset: str | None) -> int:
     safe_images = max(1, int(image_count or POST_DEFAULT_IMAGE_COUNT))
-    image_credits = safe_images * _image_credits_needed()
+    image_credits = safe_images * _image_credits_needed(style_preset)
     voice_credits = _voiceover_credits_needed(voice_script)
     return image_credits + voice_credits
+
+
+def _video_max_duration_seconds(plan: str, *, generation_speed: str, style_preset: str | None) -> int:
+    extended = _is_low_cost_style(style_preset) or generation_speed == "fast"
+    table = PLAN_MAX_VIDEO_DURATION_SECONDS_EXTENDED if extended else PLAN_MAX_VIDEO_DURATION_SECONDS_HD
+    return int(table.get(plan, 4))
 
 
 def _voice_language_code(voice_name: str) -> str:
@@ -473,7 +546,7 @@ class GenerateVideoRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=1200)
     negative_prompt: str | None = Field(default=None, max_length=1200)
     aspect_ratio: str = "9:16"
-    duration_seconds: int = Field(default=6, ge=4, le=8)
+    duration_seconds: int = Field(default=6, ge=4, le=12)
     generation_speed: str = Field(default="relax", max_length=16)
     model: str | None = Field(default="google", max_length=64)
     style_preset: str | None = Field(default="social-native", max_length=64)
@@ -502,7 +575,7 @@ class GeneratePostRequest(BaseModel):
     visual_prompt: str = Field(min_length=3, max_length=1200)
     voice_script: str = Field(min_length=30, max_length=12000)
     aspect_ratio: str = "9:16"
-    duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=60)
+    duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
@@ -573,15 +646,20 @@ def create_video_generation(
 
     duration_seconds = int(payload.duration_seconds or 6)
     if duration_seconds not in ALLOWED_DURATIONS:
-        raise HTTPException(status_code=422, detail="Duration must be one of: 4, 6, 8 seconds")
+        raise HTTPException(status_code=422, detail="Duration must be one of: 4, 6, 8, 10, 12 seconds")
 
     generation_speed = _video_speed_key(payload.generation_speed)
     model = _check_model_supported(payload.model)
     input_image_key = _assert_user_owned_key(current_user.id, payload.input_image_key)
-    credits_needed = _video_credits_needed(duration_seconds, generation_speed)
+    style_preset = (payload.style_preset or "social-native")
+    credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset)
 
     def _plan_guard(plan: str) -> None:
-        plan_max_duration = int(PLAN_MAX_DURATION_SECONDS.get(plan, 4))
+        plan_max_duration = _video_max_duration_seconds(
+            plan,
+            generation_speed=generation_speed,
+            style_preset=style_preset,
+        )
         if duration_seconds > plan_max_duration:
             raise HTTPException(
                 status_code=403,
@@ -589,15 +667,15 @@ def create_video_generation(
             )
         allowed_speeds = PLAN_ALLOWED_VIDEO_SPEEDS.get(plan, {"relax"})
         if generation_speed not in allowed_speeds:
-            detail = f"{plan.capitalize()} plan includes Relax mode only."
+            detail = f"{plan.capitalize()} plan includes HD mode only."
             if "fast" in PLAN_ALLOWED_VIDEO_SPEEDS.get("creator", set()):
-                detail += " Upgrade to Creator to use Fast mode."
+                detail += " Upgrade to Creator to use 4K mode."
             raise HTTPException(status_code=403, detail=detail)
 
     settings_payload = {
         "mode": "video",
         "generation_speed": generation_speed,
-        "style_preset": (payload.style_preset or "social-native"),
+        "style_preset": style_preset,
         "seed": payload.seed,
         "input_image_key": input_image_key,
         "watermark_enabled": bool(payload.watermark_enabled),
@@ -644,10 +722,11 @@ def create_image_generation(
         raise HTTPException(status_code=400, detail="Unsupported aspect ratio")
 
     model = _check_model_supported(payload.model)
-    credits_needed = _image_credits_needed()
+    style_preset = (payload.style_preset or "photo-real")
+    credits_needed = _image_credits_needed(style_preset)
     settings_payload = {
         "mode": "image",
-        "style_preset": (payload.style_preset or "photo-real"),
+        "style_preset": style_preset,
         "seed": payload.seed,
         "watermark_enabled": bool(payload.watermark_enabled),
     }
@@ -748,12 +827,18 @@ def create_post_generation(
     if ar not in ALLOWED_ASPECT_RATIOS:
         raise HTTPException(status_code=400, detail="Unsupported aspect ratio")
 
-    duration_seconds = POST_DEFAULT_DURATION_SECONDS
-    if int(payload.duration_seconds or POST_DEFAULT_DURATION_SECONDS) != POST_DEFAULT_DURATION_SECONDS:
-        raise HTTPException(status_code=422, detail="AI Post duration is fixed at 60 seconds")
+    duration_seconds = int(payload.duration_seconds or POST_DEFAULT_DURATION_SECONDS)
+    if duration_seconds not in POST_ALLOWED_DURATIONS:
+        raise HTTPException(status_code=422, detail="AI Post duration must be 60, 90, or 120 seconds")
 
     image_count = max(6, min(10, int(payload.image_count or POST_DEFAULT_IMAGE_COUNT)))
     model = _check_model_supported(payload.model)
+    style_preset = (payload.style_preset or "social-native")
+    if duration_seconds > 60 and not _is_low_cost_style(style_preset):
+        raise HTTPException(
+            status_code=422,
+            detail="Extended AI Post duration is available for anime, cartoon, and comic styles.",
+        )
     text_length = len(voice_script)
     words = _script_word_count(voice_script)
     if payload.speed_wpm is None:
@@ -767,7 +852,7 @@ def create_post_generation(
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
-    credits_needed = _post_credits_needed(image_count, voice_script)
+    credits_needed = _post_credits_needed(image_count, voice_script, style_preset)
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = int(PLAN_MAX_POST_DURATION_SECONDS.get(plan, 60))
@@ -798,7 +883,7 @@ def create_post_generation(
         "image_count": image_count,
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
-        "style_preset": (payload.style_preset or "social-native"),
+        "style_preset": style_preset,
         "caption_style_preset": (payload.caption_style_preset or "bold_center"),
         "captions_enabled": bool(payload.captions_enabled),
         "watermark_enabled": bool(payload.watermark_enabled),

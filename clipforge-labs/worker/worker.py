@@ -472,7 +472,8 @@ def _run_google_vertex_video_generation(
     start_url = f"{endpoint_base}:predictLongRunning"
     fetch_url = f"{endpoint_base}:fetchPredictOperation"
 
-    safe_duration = max(5, min(int(duration_seconds or 6), 8))
+    max_duration = _env_int("GOOGLE_VIDEO_MAX_DURATION_SECONDS", 12, min_value=4, max_value=120)
+    safe_duration = max(4, min(int(duration_seconds or 6), max_duration))
     safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9"} else "9:16"
 
     output_storage_uri = _env("GOOGLE_VIDEO_OUTPUT_GCS_URI", "")

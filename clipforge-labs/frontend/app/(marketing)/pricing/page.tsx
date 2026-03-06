@@ -88,7 +88,7 @@ function formatMoney(n: number) {
 
 function formatApproxOutput(credits: number) {
   const safe = Math.max(0, Number(credits || 0));
-  const projects = Math.max(1, Math.floor(safe / 15));
+  const projects = Math.max(1, Math.floor(safe / 30));
   return `${projects} x 1-min AI posts`;
 }
 
@@ -338,7 +338,7 @@ function TopMetaRow() {
           </>
         }
       />
-      <MiniPill icon={<ShieldIcon />} label={<>AI post mode: 1–2 min image + voice</>} />
+      <MiniPill icon={<ShieldIcon />} label={<>AI post mode: ready-to-post image + voice</>} />
       <MiniPill icon={<ClockIcon />} label={<>Post consistently, not occasionally</>} />
     </div>
   );
@@ -594,7 +594,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
         mode === "yearly"
           ? `${creatorCredits} credits / year upfront`
           : `${creatorCredits} credits / month`,
-        "AI post + Fast video lanes",
+        "AI post + 4K video lane",
         "Publish to all platforms",
       ],
       studio: [
@@ -613,7 +613,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
   const trialBenefits = useMemo(
     () => [
       "Video, image, and voice generation",
-      "1–2 minute AI post generation",
+      "1-minute AI post generation",
       "Aspect ratio presets (9:16, 1:1, 16:9)",
       "MP4 downloads + project history",
       "Social posting locked on Free Trial",
@@ -626,7 +626,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     () => [
       "Everything in Free Trial",
       "Higher monthly credit allocation",
-      "Relax mode for cost-efficient output",
+      "HD video lane for cost-efficient output",
       "Social posting: Facebook + Instagram",
       "Email support",
     ],
@@ -637,7 +637,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
     () => [
       "Everything in Starter",
       "More credits for daily publishing",
-      "Fast mode for priority generation",
+      "4K video lane for premium output",
       "Top-up packs for peak weeks",
       "Social posting: YouTube, TikTok, Instagram, Facebook",
       mode === "yearly"
@@ -687,7 +687,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               Credits for AI posts. <span className="grad-text">Scale your publishing engine.</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-white/65 sm:text-base">
-              Main workflow: 1–2 minute image+voice AI posts. Upgrade for higher volume, Fast video lane, and full social distribution.
+              Main workflow: ready-to-post AI clips using images + voiceover, plus HD/4K video generation lanes as you scale.
             </p>
             <div className="mt-3">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -980,10 +980,10 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
 
                   <ComparisonRow
                     label="Generation modes"
-                    trial="Relax"
-                    starter="Relax"
-                    creator="Relax + Fast"
-                    studio="Relax + Fast"
+                    trial="HD"
+                    starter="HD"
+                    creator="HD + 4K"
+                    studio="HD + 4K"
                   />
                   <Divider />
 
@@ -1063,13 +1063,13 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
               Answers, <span className="grad-text">no fluff</span>
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-white/65">
-              Credits are your usage unit. AI post mode is tuned for long-form social clips, with optional premium video lanes.
+              Credits are your usage unit. AI post mode combines generated images + voiceover into ready-to-post clips.
             </p>
 
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <FAQItem
                 q="How do credits work?"
-                a="AI post mode (image + voice) uses about 15 credits per minute. Video uses 10 credits/s in Relax and 12 credits/s in Fast."
+                a="AI post pricing combines image credits plus voice credits (1 credit per 300 words). Video pricing uses HD/4K lanes and style-specific costs."
                 open={!!faqOpen.credits}
                 onToggle={() => toggleFaq("credits")}
               />
@@ -1121,7 +1121,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   {BRAND.product} is live. <span className="grad-text">Start generating today.</span>
                 </div>
                 <div className="mt-2 text-sm text-white/65">
-                  Generate premium assets, switch between Relax/Fast lanes, and unlock full multi-platform publishing as you grow.
+                  Generate premium assets, switch between HD/4K lanes, and unlock full multi-platform publishing as you grow.
                 </div>
               </div>
 

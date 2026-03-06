@@ -52,15 +52,23 @@ type JobSettings = {
   captions_enabled?: boolean;
 };
 
-const VIDEO_RELAX_CREDITS_PER_SECOND = 10;
-const VIDEO_FAST_CREDITS_PER_SECOND = 12;
-const IMAGE_CREDITS = 4;
-const VOICE_CHARS_PER_CREDIT = 250;
+const CREDIT_USD_VALUE = 0.10;
+const VIDEO_REAL_USD_PER_SECOND = 0.50;
+const VIDEO_LOW_COST_USD_PER_SECOND = 0.10;
+const VIDEO_HD_MARKUP = 2.7;
+const VIDEO_4K_MARKUP = 3.0;
+const IMAGE_REAL_USD_PER_IMAGE = 0.04;
+const IMAGE_LOW_COST_USD_PER_IMAGE = 0.02;
+const IMAGE_MARKUP = 6.0;
+const VOICE_WORDS_PER_CREDIT = 300;
 const VOICE_MIN_CREDITS = 1;
 const VOICE_BASE_WPM = 165;
 const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 10;
+const VIDEO_DURATION_OPTIONS: number[] = [4, 6, 8, 10, 12];
+const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
+const LOW_COST_STYLES = new Set<StylePreset>(["anime", "cartoon", "comic"]);
 const VOICE_SPEED_OPTIONS = [
   { value: 0.5, label: "0.5x" },
   { value: 0.75, label: "0.75x" },
@@ -154,6 +162,7 @@ function durationPresetLabel(durationSeconds: number | null | undefined): string
   const d = Number(durationSeconds || 0);
   if (!d || d < 1) return "—";
   if (d >= 120) return "2 min";
+  if (d >= 90) return "1.5 min";
   if (d >= 60) return "1 min";
   if (d <= 4) return "Short";
   if (d <= 8) return "Clip";
@@ -239,13 +248,32 @@ function speedMultiplierToWpm(multiplier: number): number {
   return Math.max(80, Math.min(330, Math.round(VOICE_BASE_WPM * multiplier)));
 }
 
-function estimateVoiceCredits(textLength: number): number {
-  const usage = Math.ceil(Math.max(1, textLength) / VOICE_CHARS_PER_CREDIT);
+function creditsFromUsd(usd: number): number {
+  return Math.max(1, Math.ceil(Math.max(0, usd) / CREDIT_USD_VALUE));
+}
+
+function isLowCostStyle(stylePreset: StylePreset): boolean {
+  return LOW_COST_STYLES.has(stylePreset);
+}
+
+function estimateImageCredits(stylePreset: StylePreset): number {
+  const base = isLowCostStyle(stylePreset) ? IMAGE_LOW_COST_USD_PER_IMAGE : IMAGE_REAL_USD_PER_IMAGE;
+  return creditsFromUsd(base * IMAGE_MARKUP);
+}
+
+function estimateVideoCreditsPerSecond(speed: VideoSpeedMode, stylePreset: StylePreset): number {
+  const base = isLowCostStyle(stylePreset) ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND;
+  const markup = speed === "fast" ? VIDEO_4K_MARKUP : VIDEO_HD_MARKUP;
+  return creditsFromUsd(base * markup);
+}
+
+function estimateVoiceCredits(wordCount: number): number {
+  const usage = Math.ceil(Math.max(1, wordCount) / VOICE_WORDS_PER_CREDIT);
   return Math.max(VOICE_MIN_CREDITS, usage);
 }
 
-function estimatePostCredits(imageCount: number, voiceScriptLength: number): number {
-  return imageCount * IMAGE_CREDITS + estimateVoiceCredits(voiceScriptLength);
+function estimatePostCredits(imageCount: number, voiceWordCount: number, stylePreset: StylePreset): number {
+  return imageCount * estimateImageCredits(stylePreset) + estimateVoiceCredits(voiceWordCount);
 }
 
 function countWords(text: string): number {
@@ -295,6 +323,7 @@ export default function GenerateClient() {
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
+  const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
@@ -317,6 +346,7 @@ export default function GenerateClient() {
   const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
+  const voiceWordCount = useMemo(() => countWords(prompt), [prompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
   const voiceSpeedWpm = useMemo(() => speedMultiplierToWpm(voiceSpeedMultiplier), [voiceSpeedMultiplier]);
   const postWordCount = useMemo(() => countWords(postVoiceScript), [postVoiceScript]);
@@ -325,28 +355,50 @@ export default function GenerateClient() {
     [postWordCount]
   );
   const postAutoSpeedWpm = useMemo(() => {
-    if (postEstimateAt1xSeconds <= POST_DURATION_SECONDS) return VOICE_BASE_WPM;
-    const required = Math.ceil((postWordCount * 60) / POST_DURATION_SECONDS);
+    if (postEstimateAt1xSeconds <= postDurationSeconds) return VOICE_BASE_WPM;
+    const required = Math.ceil((postWordCount * 60) / postDurationSeconds);
     return Math.max(VOICE_BASE_WPM, Math.min(POST_MAX_AUTO_WPM, required));
-  }, [postWordCount, postEstimateAt1xSeconds]);
+  }, [postWordCount, postEstimateAt1xSeconds, postDurationSeconds]);
   const postEstimateAppliedSeconds = useMemo(
     () => estimateSpeechSeconds(postWordCount, postAutoSpeedWpm),
     [postWordCount, postAutoSpeedWpm]
   );
-  const postNeedsMoreWords = useMemo(() => postEstimateAt1xSeconds > 0 && postEstimateAt1xSeconds < 48, [postEstimateAt1xSeconds]);
+  const postNeedsMoreWords = useMemo(
+    () => postEstimateAt1xSeconds > 0 && postEstimateAt1xSeconds < postDurationSeconds * 0.8,
+    [postEstimateAt1xSeconds, postDurationSeconds]
+  );
   const postWillAutoSpeed = useMemo(() => postAutoSpeedWpm > VOICE_BASE_WPM, [postAutoSpeedWpm]);
+  const lowCostStyleSelected = useMemo(() => isLowCostStyle(stylePreset), [stylePreset]);
+  const normalizedPlan = useMemo(() => String(currentPlan || "free").trim().toLowerCase(), [currentPlan]);
+  const postPlanMaxDuration = useMemo(() => {
+    const caps: Record<string, number> = { free: 60, free_trial: 60, trial: 60, starter: 120, creator: 120, studio: 120 };
+    return caps[normalizedPlan] ?? 60;
+  }, [normalizedPlan]);
+  const postDurationOptions = useMemo(
+    () => (lowCostStyleSelected ? [...POST_DURATION_OPTIONS] : [POST_DURATION_SECONDS]).filter((value) => value <= postPlanMaxDuration),
+    [lowCostStyleSelected, postPlanMaxDuration]
+  );
+  const maxVideoDuration = useMemo(() => {
+    const extended = lowCostStyleSelected || videoSpeed === "fast";
+    const hdCaps: Record<string, number> = { free: 4, free_trial: 4, trial: 4, starter: 6, creator: 8, studio: 8 };
+    const extendedCaps: Record<string, number> = { free: 4, free_trial: 4, trial: 4, starter: 8, creator: 12, studio: 12 };
+    const fallback = extended ? 4 : 4;
+    const table = extended ? extendedCaps : hdCaps;
+    return table[normalizedPlan] ?? fallback;
+  }, [normalizedPlan, lowCostStyleSelected, videoSpeed]);
+  const videoDurationOptions = useMemo(() => VIDEO_DURATION_OPTIONS.filter((d) => d <= maxVideoDuration), [maxVideoDuration]);
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postVoiceLength);
+      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postWordCount, stylePreset);
     }
-    if (mode === "image") return IMAGE_CREDITS;
+    if (mode === "image") return estimateImageCredits(stylePreset);
     if (mode === "voiceover") {
-      return estimateVoiceCredits(textLength);
+      return estimateVoiceCredits(voiceWordCount);
     }
-    const perSecond = videoSpeed === "fast" ? VIDEO_FAST_CREDITS_PER_SECOND : VIDEO_RELAX_CREDITS_PER_SECOND;
+    const perSecond = estimateVideoCreditsPerSecond(videoSpeed, stylePreset);
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, postVoiceLength, textLength, duration, videoSpeed]);
+  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed]);
 
   const fastEligible = useMemo(() => {
     const plan = String(currentPlan || "").trim().toLowerCase();
@@ -365,6 +417,18 @@ export default function GenerateClient() {
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 12000;
   }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
+
+  useEffect(() => {
+    if (!postDurationOptions.includes(postDurationSeconds)) {
+      setPostDurationSeconds(postDurationOptions[0]);
+    }
+  }, [postDurationOptions, postDurationSeconds]);
+
+  useEffect(() => {
+    if (!videoDurationOptions.includes(duration)) {
+      setDuration(videoDurationOptions[videoDurationOptions.length - 1] || 4);
+    }
+  }, [videoDurationOptions, duration]);
 
   function hydrateFormFromJob(job: JobRow) {
     const kind = String(job?.kind || "").toLowerCase();
@@ -395,6 +459,11 @@ export default function GenerateClient() {
       setMode("post");
       setPostVisualPrompt(typeof settings.visual_prompt === "string" ? settings.visual_prompt : String(job.prompt || ""));
       setPostVoiceScript(typeof settings.voice_script === "string" ? settings.voice_script : "");
+      const postDurationRaw =
+        typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
+      if (Number.isFinite(postDurationRaw) && [60, 90, 120].includes(postDurationRaw)) {
+        setPostDurationSeconds(postDurationRaw);
+      }
 
       const captionPreset = typeof settings.caption_style_preset === "string" ? settings.caption_style_preset : "";
       if (CAPTION_STYLE_VALUES.has(captionPreset as CaptionStylePreset)) {
@@ -426,12 +495,16 @@ export default function GenerateClient() {
     setMode("video");
     const durationSeconds =
       typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
-    if (Number.isFinite(durationSeconds) && [4, 6, 8].includes(durationSeconds)) {
+    if (Number.isFinite(durationSeconds) && [4, 6, 8, 10, 12].includes(durationSeconds)) {
       setDuration(durationSeconds);
     }
     const generationSpeed = typeof settings.generation_speed === "string" ? settings.generation_speed : "";
     if (generationSpeed === "relax" || generationSpeed === "fast") {
       setVideoSpeed(generationSpeed);
+    } else if (generationSpeed === "hd" || generationSpeed === "standard") {
+      setVideoSpeed("relax");
+    } else if (generationSpeed === "4k" || generationSpeed === "uhd") {
+      setVideoSpeed("fast");
     }
   }
 
@@ -610,7 +683,7 @@ export default function GenerateClient() {
     }
 
     const d = dRaw ? Number(dRaw) : NaN;
-    if (Number.isFinite(d) && [4, 6, 8].includes(d)) setDuration(d);
+    if (Number.isFinite(d) && [4, 6, 8, 10, 12].includes(d)) setDuration(d);
 
     const jobId = jobRaw ? Number(jobRaw) : 0;
     const uploadId = uploadRaw ? Number(uploadRaw) : 0;
@@ -657,7 +730,7 @@ export default function GenerateClient() {
           visual_prompt: postPrompt,
           voice_script: postScript,
           aspect_ratio: aspectRatio,
-          duration_seconds: POST_DURATION_SECONDS,
+          duration_seconds: postDurationSeconds,
           image_count: POST_IMAGE_DEFAULT_COUNT,
           model: "google",
           voice_name: voiceName,
@@ -756,9 +829,7 @@ export default function GenerateClient() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Generate Clips</h1>
-                  <p className="mt-1 text-sm text-white/65">
-                    Fast one-minute AI posts. For longer videos, generate images and finish in the editor.
-                  </p>
+                  <p className="mt-1 text-sm text-white/65">Create ready-to-post clips with image, video, and voice generation.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
@@ -833,25 +904,19 @@ export default function GenerateClient() {
                     <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
                     <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-white/72">
                       <div>
-                        Estimated voice at 1x:{" "}
+                        Estimated voice length at 1x:{" "}
                         <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
                       </div>
                       {postNeedsMoreWords ? (
                         <div className="mt-1 text-amber-100/90">
-                          Script is short for a full minute. Add more words for longer narration.
+                          Script is short for this duration. Add more words for fuller narration.
                         </div>
                       ) : null}
                       {postWillAutoSpeed ? (
-                        <div className="mt-1 text-amber-100/90">
-                          Script is long; auto speed will raise to about{" "}
-                          <span className="font-semibold">{(postAutoSpeedWpm / VOICE_BASE_WPM).toFixed(2)}x</span>{" "}
-                          ({postAutoSpeedWpm} WPM) to target 1 minute.
-                        </div>
-                      ) : (
-                        <div className="mt-1 text-emerald-100/85">Voice pacing stays at 1x for this script.</div>
-                      )}
+                        <div className="mt-1 text-amber-100/90">Script is long, so playback speed is auto-adjusted to fit.</div>
+                      ) : null}
                       <div className="mt-1 text-white/55">
-                        Estimated output voice length: {formatDuration(postEstimateAppliedSeconds)}
+                        Estimated output length: {formatDuration(postEstimateAppliedSeconds)}
                       </div>
                     </div>
                   </>
@@ -914,7 +979,13 @@ export default function GenerateClient() {
 
               {mode === "post" ? (
                 <div className="mt-3 rounded-2xl border border-[#ffbe3d55] bg-[#ffbe3d1a] px-4 py-3 text-xs text-amber-100/95">
-                  AI Post builds a 60-second story from generated images plus voiceover narration, then renders it as one ready-to-post clip.
+                  AI Post builds a{" "}
+                  {postDurationSeconds === 60
+                    ? "1-minute"
+                    : postDurationSeconds === 90
+                      ? "90-second"
+                      : "2-minute"}{" "}
+                  story from generated images and voiceover, then renders one ready-to-post clip.
                 </div>
               ) : null}
             </div>
@@ -966,7 +1037,7 @@ export default function GenerateClient() {
                       className="h-4 w-4 accent-orange-500"
                     />
                     <span className="text-xs text-white/80">
-                      Add Clipforge watermark (top-left)
+                      Add Clipforge watermark
                       {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
                     </span>
                   </label>
@@ -974,6 +1045,25 @@ export default function GenerateClient() {
 
                 {mode === "post" ? (
                   <>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Duration</label>
+                      <select
+                        value={postDurationSeconds}
+                        onChange={(e) => setPostDurationSeconds(Number(e.target.value))}
+                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                      >
+                        {postDurationOptions.map((value) => (
+                          <option key={value} value={value}>
+                            {value === 60 ? "1 minute" : value === 90 ? "1.5 minutes" : "2 minutes"}
+                          </option>
+                        ))}
+                      </select>
+                      {!lowCostStyleSelected ? (
+                        <div className="text-[11px] text-white/55">Anime, cartoon, and comic styles unlock 90s and 120s AI posts.</div>
+                      ) : postPlanMaxDuration < 90 ? (
+                        <div className="text-[11px] text-white/55">Upgrade to Starter to unlock 90s and 120s AI posts.</div>
+                      ) : null}
+                    </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Caption style</label>
                       <select
@@ -990,9 +1080,6 @@ export default function GenerateClient() {
                       <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
                     </div>
                     {renderVoiceSelector(VOICE_BASE_WPM)}
-                    <div className="text-[11px] text-white/55">
-                      AI Post voice uses 1x by default and auto-speeds only when script exceeds 60 seconds.
-                    </div>
                   </>
                 ) : null}
 
@@ -1005,13 +1092,15 @@ export default function GenerateClient() {
                         onChange={(e) => setDuration(Number(e.target.value))}
                         className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
                       >
-                        <option value={4}>4 seconds</option>
-                        <option value={6}>6 seconds</option>
-                        <option value={8}>8 seconds</option>
+                        {videoDurationOptions.map((seconds) => (
+                          <option key={seconds} value={seconds}>
+                            {seconds} seconds
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Generation lane</label>
+                      <label className="text-xs font-medium text-white/70">Output quality</label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -1023,7 +1112,7 @@ export default function GenerateClient() {
                               : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
                           )}
                         >
-                          Relax
+                          HD
                         </button>
                         <button
                           type="button"
@@ -1038,11 +1127,12 @@ export default function GenerateClient() {
                               : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
                             !fastEligible && "cursor-not-allowed opacity-55"
                           )}
-                          title={fastEligible ? "Fast lane enabled" : "Upgrade to Creator for Fast lane"}
+                          title={fastEligible ? "4K enabled" : "Upgrade to Creator for 4K"}
                         >
-                          Fast
+                          4K
                         </button>
                       </div>
+                      {!fastEligible ? <div className="text-[11px] text-white/55">Creator or Studio required for 4K.</div> : null}
                     </div>
                   </>
                 ) : null}

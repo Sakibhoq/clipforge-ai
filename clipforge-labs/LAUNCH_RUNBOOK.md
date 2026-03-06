@@ -101,9 +101,15 @@ Use `.env.prod.example` as template and set real values for:
   - Google/Facebook/TikTok client IDs/secrets
   - Exact redirect URIs for each provider
 - Generation:
-  - `LABS_CREDITS_PER_SECOND=1`
-  - `LABS_IMAGE_CREDITS=4`
-  - `LABS_VOICE_CHARS_PER_CREDIT=250`
+  - `LABS_CREDIT_USD_VALUE=0.10`
+  - `LABS_VIDEO_REAL_USD_PER_SECOND=0.50`
+  - `LABS_VIDEO_LOW_COST_USD_PER_SECOND=0.10`
+  - `LABS_VIDEO_HD_MARKUP=2.7`
+  - `LABS_VIDEO_4K_MARKUP=3.0`
+  - `LABS_IMAGE_REAL_USD_PER_IMAGE=0.04`
+  - `LABS_IMAGE_LOW_COST_USD_PER_IMAGE=0.02`
+  - `LABS_IMAGE_MARKUP=6.0`
+  - `LABS_VOICE_WORDS_PER_CREDIT=300`
   - `LABS_VOICE_MIN_CREDITS=1`
   - `LABS_GENERATION_PROVIDER=google` (or `stub` for placeholder mode)
   - `GOOGLE_API_KEY`

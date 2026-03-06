@@ -31,8 +31,8 @@ function formatMoney(n: number) {
 
 function formatProjectEstimate(credits: number): string {
   const safe = Math.max(0, Number(credits || 0));
-  // 1-minute AI post (image + voice) ~= 15 credits
-  return Math.max(1, Math.floor(safe / 15)).toLocaleString();
+  // 1-minute AI post (image + voice) is typically ~30 credits on default pricing.
+  return Math.max(1, Math.floor(safe / 30)).toLocaleString();
 }
 
 type PlanKey = "free_trial" | "starter" | "creator" | "studio";
@@ -397,7 +397,7 @@ function CreditsCard({
         <div>
           <div className="text-sm font-semibold text-white/90">Generation credits balance</div>
           <div className="mt-1 text-sm text-white/60">
-            Credits are usage units. AI post mode is optimized for 1–2 minute image+voice social videos.
+            Credits are usage units. AI post mode is optimized for ready-to-post image+voice social clips.
           </div>
         </div>
         <Badge>Metered</Badge>
@@ -407,9 +407,7 @@ function CreditsCard({
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
           <div className="text-[12px] text-white/55">Estimated projects</div>
           <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{projectDisplay}</div>
-          <div className="mt-1 text-[12px] text-white/45">
-            1-min AI posts <span className="text-white/35">•</span> {creditDisplay} credits
-          </div>
+          <div className="mt-1 text-[12px] text-white/45">~1-min AI posts <span className="text-white/35">•</span> {creditDisplay} credits</div>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4">
@@ -439,8 +437,8 @@ function CreditsCard({
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
         <div className="text-[12px] font-semibold text-white/80">How credits work</div>
         <div className="mt-2 grid gap-2 text-[12px] text-white/55">
-          <div>• AI post (image + voice) costs about 15 credits per minute.</div>
-          <div>• Video generation costs 10 credits/s (Relax) or 12 credits/s (Fast).</div>
+          <div>• AI post uses image credits + voice credits (1 credit per 300 words).</div>
+          <div>• Video generation uses HD or 4K lanes, with style-based pricing.</div>
           <div>• Plans add credits each month.</div>
           <div>• Top-up packs add extra credits on top of Creator.</div>
         </div>
@@ -634,7 +632,7 @@ export default function BillingPage() {
         key: "starter",
         name: "Starter",
         short: "Simple monthly plan",
-        desc: "For consistent 1–2 minute AI post publishing.",
+        desc: "For consistent AI post publishing.",
         priceLabel: `$${formatMoney(starterMonthlyPrice)} / mo`,
         interval: "monthly",
         note: "Includes 390 credits/month. Social posting: Facebook + Instagram.",
@@ -643,7 +641,7 @@ export default function BillingPage() {
         key: "creator",
         name: "Creator",
         short: "Scale credits",
-        desc: "Scale AI post output and unlock the Fast video lane.",
+        desc: "Scale AI post output and unlock the 4K video lane.",
         priceLabel: creatorPrice,
         interval,
         recommended: true,
@@ -671,7 +669,7 @@ export default function BillingPage() {
         packQty: 1,
         credits: base * 1,
         priceLabel: "Scales Creator",
-        valueHint: "Great for steady weekly 1–2 minute posting.",
+        valueHint: "Great for steady weekly publishing.",
       },
       {
         key: "pack_3x",
