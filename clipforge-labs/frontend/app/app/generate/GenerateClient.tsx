@@ -183,7 +183,54 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   if (low.includes("timeout")) {
     return "This request timed out. Retry in a minute.";
   }
+  if (low.includes("insufficient credits")) {
+    return "You don’t have enough credits for this generation.";
+  }
   return msg;
+}
+
+function generationRecoveryAction(raw: string | null | undefined): string {
+  const msg = String(raw || "").trim();
+  const low = msg.toLowerCase();
+
+  if (
+    low.includes("quota exceeded") ||
+    low.includes("resourceexhausted") ||
+    low.includes("too many requests") ||
+    low.includes("429") ||
+    low.includes("provider capacity")
+  ) {
+    return "Wait 2-5 minutes, then retry the same prompt.";
+  }
+  if (
+    low.includes("signaturedoesnotmatch") ||
+    low.includes("putobject") ||
+    low.includes("nocredentialserror")
+  ) {
+    return "Retry in 1 minute. If it repeats, check storage credentials/config.";
+  }
+  if (low.includes("insufficient credits")) {
+    return "Open Pricing, add credits, then run again.";
+  }
+  if (low.includes("timeout")) {
+    return "Retry now. If it repeats, simplify the prompt and try again.";
+  }
+  if (low.includes("voiceover") || low.includes("tts")) {
+    return "Try a different voice or shorten the voiceover script, then retry.";
+  }
+  if (low.includes("unsupported") || low.includes("invalid") || low.includes("must be")) {
+    return "Adjust the requested settings to valid values and retry.";
+  }
+  if (low.includes("canceled")) {
+    return "Start a new generation when ready.";
+  }
+  return "Retry once. If it fails again, slightly simplify prompt details and try again.";
+}
+
+function conciseError(raw: string | null | undefined, maxChars = 170): string {
+  const msg = humanizeGenerationError(raw);
+  if (msg.length <= maxChars) return msg;
+  return `${msg.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
 }
 
 function speedMultiplierToWpm(multiplier: number): number {
@@ -665,6 +712,9 @@ export default function GenerateClient() {
 
   const status = activeJob?.status || "";
   const statusLabel = activeJob ? prettyStatus(activeJob.status) : "";
+  const activeJobFailed = !!activeJob && (status === "failed" || status === "canceled");
+  const activeJobFailureReason = activeJobFailed ? humanizeGenerationError(activeJob?.error || "") : "";
+  const activeJobFailureAction = activeJobFailed ? generationRecoveryAction(activeJob?.error || "") : "";
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -725,6 +775,16 @@ export default function GenerateClient() {
                     {statusLabel}
                   </span>
                   <span className="text-xs text-white/60">Latest job #{activeJob.id}</span>
+                </div>
+              ) : null}
+
+              {activeJobFailed ? (
+                <div className="mt-3 rounded-2xl border border-rose-300/25 bg-rose-500/10 px-4 py-3 text-xs text-rose-100">
+                  <div className="font-semibold text-rose-50">Latest job failed</div>
+                  <div className="mt-1 text-rose-100/95">{activeJobFailureReason}</div>
+                  <div className="mt-2 text-rose-100/90">
+                    What to do: <span className="font-semibold">{activeJobFailureAction}</span>
+                  </div>
                 </div>
               ) : null}
 
@@ -1003,6 +1063,12 @@ export default function GenerateClient() {
                       <div className="mt-1 text-xs text-white/55">
                         {kindLabel(j.kind)} • {durationPresetLabel(j.duration_seconds)}
                       </div>
+                      {(String(j.status || "").toLowerCase() === "failed" || String(j.status || "").toLowerCase() === "canceled") ? (
+                        <div className="mt-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-2.5 py-2 text-[11px] text-rose-100/90">
+                          <div>{conciseError(j.error || "Generation failed.")}</div>
+                          <div className="mt-1 text-rose-100/80">What to do: {generationRecoveryAction(j.error || "")}</div>
+                        </div>
+                      ) : null}
                     </button>
                   ))}
                 </div>
