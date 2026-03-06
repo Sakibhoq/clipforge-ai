@@ -359,6 +359,7 @@ export default function GenerateClient() {
 
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [cancelingJobId, setCancelingJobId] = useState<number | null>(null);
   const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
   const [voicePreviewPlayingKey, setVoicePreviewPlayingKey] = useState<string | null>(null);
   const [voicePreviewSrcByKey, setVoicePreviewSrcByKey] = useState<Record<string, string>>({});
@@ -665,6 +666,29 @@ export default function GenerateClient() {
     pollTimer.current = window.setInterval(tick, 1600);
   }
 
+  async function cancelQueuedJob(jobId: number) {
+    if (!jobId) return;
+    setCancelingJobId(jobId);
+    setError(null);
+    try {
+      await apiFetch(`/jobs/${jobId}/cancel`, { method: "POST" });
+      setActiveJob((prev) =>
+        prev && prev.id === jobId
+          ? {
+              ...prev,
+              status: "canceled",
+              error: prev.error || "Canceled by user",
+            }
+          : prev
+      );
+      await refreshJobs();
+    } catch (err: any) {
+      setError(String(err?.detail || err?.message || "Could not cancel job."));
+    } finally {
+      setCancelingJobId((prev) => (prev === jobId ? null : prev));
+    }
+  }
+
   useEffect(() => {
     const voicePreviewAudio = voicePreviewAudioRef.current;
     refreshJobs();
@@ -923,6 +947,21 @@ export default function GenerateClient() {
                     {statusLabel}
                   </span>
                   <span className="text-xs text-white/60">Latest job #{activeJob.id}</span>
+                  {String(status || "").toLowerCase() === "queued" ? (
+                    <button
+                      type="button"
+                      onClick={() => cancelQueuedJob(activeJob.id)}
+                      disabled={cancelingJobId === activeJob.id}
+                      className={cx(
+                        "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition",
+                        cancelingJobId === activeJob.id
+                          ? "cursor-not-allowed border-rose-300/25 bg-rose-500/10 text-rose-100/60"
+                          : "border-rose-300/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                      )}
+                    >
+                      {cancelingJobId === activeJob.id ? "Canceling..." : "Cancel"}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -1309,19 +1348,38 @@ export default function GenerateClient() {
               {jobs.length ? (
                 <div className="mt-3 grid gap-2">
                   {jobs.slice(0, 4).map((j) => (
-                    <button
+                    <div
                       key={j.id}
-                      type="button"
                       onClick={() => {
                         openJobFromQueue(j);
                       }}
-                      className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.06]"
+                      className="cursor-pointer text-left rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.06]"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 text-sm font-semibold text-white/85">{shortPromptLabel(j.prompt, j.id)}</div>
-                        <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
-                          {prettyStatus(j.status)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
+                            {prettyStatus(j.status)}
+                          </span>
+                          {String(j.status || "").toLowerCase() === "queued" ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelQueuedJob(j.id);
+                              }}
+                              disabled={cancelingJobId === j.id}
+                              className={cx(
+                                "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition",
+                                cancelingJobId === j.id
+                                  ? "cursor-not-allowed border-rose-300/25 bg-rose-500/10 text-rose-100/60"
+                                  : "border-rose-300/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+                              )}
+                            >
+                              {cancelingJobId === j.id ? "Canceling..." : "Cancel"}
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="mt-1 text-xs text-white/55">
                         {kindLabel(j.kind)} • {durationPresetLabel(j.duration_seconds)}
@@ -1332,7 +1390,7 @@ export default function GenerateClient() {
                           <div className="mt-1 text-rose-100/80">What to do: {generationRecoveryAction(j.error || "")}</div>
                         </div>
                       ) : null}
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
