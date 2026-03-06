@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
 
 const ignoreBuildErrors = process.env.NEXT_IGNORE_TYPECHECK === "1";
+const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "").trim();
+const normalizedBasePath = rawBasePath
+  ? `/${rawBasePath.replace(/^\/+/, "").replace(/\/+$/, "")}`
+  : "";
 
 const nextConfig: NextConfig = {
+  basePath: normalizedBasePath || undefined,
   async rewrites() {
     return [
       // Proxy browser calls like /api/auth/login, /api/auth/me, /api/clips, etc.

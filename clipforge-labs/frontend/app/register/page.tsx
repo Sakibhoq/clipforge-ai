@@ -248,9 +248,32 @@ function errToMessage(err: any) {
   return "Unable to create account. Try a different email.";
 }
 
+function appBasePath() {
+  const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+  if (!raw) return "";
+  return `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+}
+
+function withBasePath(pathname: string) {
+  const base = appBasePath();
+  if (!base) return pathname;
+  if (pathname === "/") return base;
+  if (pathname.startsWith(base)) return pathname;
+  return `${base}${pathname}`;
+}
+
+function sanitizeNextPath(nextRaw: string | null) {
+  const fallback = withBasePath("/app");
+  if (!nextRaw) return fallback;
+  if (!nextRaw.startsWith("/")) return fallback;
+  if (nextRaw.startsWith("//")) return fallback;
+  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return fallback;
+  return nextRaw;
+}
+
 function RegisterPageInner() {
   const searchParams = useSearchParams();
-  const nextPath = searchParams?.get("next") || "/app";
+  const nextPath = sanitizeNextPath(searchParams?.get("next") || withBasePath("/app"));
 
   const [mode, setMode] = useState<"social" | "email">("social");
 

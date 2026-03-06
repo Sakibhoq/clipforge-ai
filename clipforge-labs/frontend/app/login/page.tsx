@@ -290,18 +290,33 @@ function errToHelpfulMessage(err: any) {
   return "Unable to sign in. Check email/password.";
 }
 
+function appBasePath() {
+  const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
+  if (!raw) return "";
+  return `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+}
+
+function withBasePath(pathname: string) {
+  const base = appBasePath();
+  if (!base) return pathname;
+  if (pathname === "/") return base;
+  if (pathname.startsWith(base)) return pathname;
+  return `${base}${pathname}`;
+}
+
 function sanitizeNextPath(nextRaw: string | null) {
-  if (!nextRaw) return "/app";
-  if (!nextRaw.startsWith("/")) return "/app";
-  if (nextRaw.startsWith("//")) return "/app";
-  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return "/app";
+  const fallback = withBasePath("/app");
+  if (!nextRaw) return fallback;
+  if (!nextRaw.startsWith("/")) return fallback;
+  if (nextRaw.startsWith("//")) return fallback;
+  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return fallback;
   return nextRaw;
 }
 
 function LoginPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
-  const nextRaw = sp.get("next") || "/app";
+  const nextRaw = sp.get("next") || withBasePath("/app");
   const bridgeToken = sp.get("bridge_token") || null;
   const nextPath = useMemo(() => sanitizeNextPath(nextRaw), [nextRaw]);
 

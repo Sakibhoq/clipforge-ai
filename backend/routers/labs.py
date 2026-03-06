@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, List
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException
@@ -230,8 +230,12 @@ def labs_launch(
     expires_at = now + timedelta(seconds=ttl_seconds)
 
     token = _build_bridge_token(current_user)
+    parsed = urlparse(frontend_url)
+    base_path = (parsed.path or "").rstrip("/")
+    next_target = f"{base_path}/app" if base_path else "/app"
     launch_url = (
-        f"{frontend_url}/login?next=%2Fapp&source=orbitosite&origin=orbitosite&bridge_mode={mode}"
+        f"{frontend_url}/login?next={quote(next_target, safe='')}"
+        f"&source=orbitosite&origin=orbitosite&bridge_mode={mode}"
         f"&bridge_token={quote(token)}"
     )
 
