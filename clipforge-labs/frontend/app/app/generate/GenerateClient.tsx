@@ -1146,17 +1146,6 @@ export default function GenerateClient() {
                 </button>
               </div>
 
-              {mode === "post" ? (
-                <div className="mt-3 rounded-2xl border border-[#ffbe3d55] bg-[#ffbe3d1a] px-4 py-3 text-xs text-amber-100/95">
-                  AI Post builds a{" "}
-                  {postDurationSeconds === 60
-                    ? "1-minute"
-                    : postDurationSeconds === 90
-                      ? "90-second"
-                      : "2-minute"}{" "}
-                  story from {lowCostStyleSelected ? "generated video scenes" : "generated images"} and voiceover, then renders one ready-to-post clip.
-                </div>
-              ) : null}
             </div>
           </section>
 
