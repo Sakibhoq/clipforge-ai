@@ -760,15 +760,118 @@ def _run_ffmpeg_text_image(*, prompt: str, aspect_ratio: str, out_path: str) -> 
 
 
 def _post_scene_fallback_text(*, raw_visual_prompt: str, scene_index: int, scene_count: int) -> str:
-    prompt_value = (raw_visual_prompt or "").strip()
-    if "Visual style:" in prompt_value:
-        prompt_value = prompt_value.split("Visual style:", 1)[0].strip()
-    prompt_value = " ".join(prompt_value.split())
-    if not prompt_value:
-        prompt_value = "Generated visual scene"
+    scene_beats = _extract_post_scene_beats(raw_visual_prompt)
+    scene_text = _post_scene_beat_for_index(
+        scene_beats=scene_beats,
+        scene_index=scene_index,
+        scene_count=scene_count,
+    )
+    prompt_value = " ".join((scene_text or "").split()).strip() or "Generated visual scene"
     if len(prompt_value) > 110:
         prompt_value = prompt_value[:107].rstrip() + "..."
     return f"Scene {scene_index + 1}/{scene_count}\n{prompt_value}"
+
+
+def _strip_style_suffix(prompt: str) -> str:
+    value = (prompt or "").strip()
+    if "Visual style:" in value:
+        value = value.split("Visual style:", 1)[0].strip()
+    return value
+
+
+def _normalize_post_line(line: str) -> str:
+    value = (line or "").strip()
+    if not value:
+        return ""
+    value = re.sub(r"^[\-\*\u2022\u25CF\s]+", "", value).strip()
+    value = re.sub(r"^\(?\s*\d+\s*[\)\].:]\s*", "", value).strip()
+    value = re.sub(
+        r"^\s*\d{1,3}\s*(?:s|sec|secs|seconds)?\s*(?:-|–|to)\s*\d{1,3}\s*(?:s|sec|secs|seconds)?\s*[:\-–]?\s*",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip()
+    value = re.sub(
+        r"^\s*\d{1,3}\s*(?:s|sec|secs|seconds)\s*[:\-–]\s*",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip()
+    value = re.sub(r"^(?:scene|shot)\s*\d+\s*[:\-–]\s*", "", value, flags=re.IGNORECASE).strip()
+    value = re.sub(r"\s+", " ", value).strip(" -–:")
+    return value
+
+
+def _extract_post_scene_beats(raw_visual_prompt: str) -> list[str]:
+    prompt = _strip_style_suffix(raw_visual_prompt)
+    if not prompt:
+        return []
+
+    lines = [_normalize_post_line(line) for line in prompt.replace("\r", "\n").split("\n")]
+    line_beats = [line for line in lines if len(line) >= 8]
+    if len(line_beats) >= 2:
+        return line_beats
+
+    text_value = re.sub(r"\s+", " ", prompt).strip()
+    if not text_value:
+        return []
+
+    sentence_candidates = [
+        _normalize_post_line(chunk)
+        for chunk in re.split(r"(?<=[.!?])\s+|;\s+", text_value)
+    ]
+    sentence_beats = [chunk for chunk in sentence_candidates if len(chunk) >= 12]
+    if sentence_beats:
+        return sentence_beats
+
+    return [text_value]
+
+
+def _post_scene_beat_for_index(*, scene_beats: list[str], scene_index: int, scene_count: int) -> str:
+    if not scene_beats:
+        return "Cinematic social-media frame with clear subject focus and strong composition."
+    count = max(1, int(scene_count or 1))
+    idx = max(0, min(count - 1, int(scene_index or 0)))
+    beat_pos = int(math.floor((idx / float(count)) * len(scene_beats)))
+    beat_pos = max(0, min(len(scene_beats) - 1, beat_pos))
+    return scene_beats[beat_pos]
+
+
+def _build_post_scene_prompt(
+    *,
+    raw_visual_prompt: str,
+    style_preset: str,
+    scene_beats: list[str],
+    scene_index: int,
+    scene_count: int,
+) -> str:
+    story_summary = _normalize_post_line(_strip_style_suffix(raw_visual_prompt))
+    if len(story_summary) > 260:
+        story_summary = story_summary[:257].rstrip() + "..."
+
+    scene_beat = _post_scene_beat_for_index(
+        scene_beats=scene_beats,
+        scene_index=scene_index,
+        scene_count=scene_count,
+    )
+    style_hint = _style_hint(style_preset)
+
+    pieces: list[str] = [
+        f"Scene {scene_index + 1} of {scene_count} for a vertical short-form video frame.",
+        f"Primary scene direction: {scene_beat}.",
+    ]
+    if story_summary and scene_beat.lower() not in story_summary.lower():
+        pieces.append(f"Overall story context: {story_summary}.")
+    if style_hint:
+        pieces.append(f"Visual style: {style_hint}.")
+    pieces.append(
+        "Keep the same subject identity and environment continuity as neighboring scenes,"
+        " with clean framing and natural detail. Avoid unintended text artifacts, subtitles, logos, and watermarks"
+        " unless the scene explicitly asks for visible text."
+    )
+
+    composed = " ".join(piece.strip() for piece in pieces if piece.strip())
+    return composed[:1180].rstrip()
 
 
 def _probe_audio_duration(path: str) -> float:
@@ -1431,6 +1534,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
         try:
             raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
+            scene_beats = _extract_post_scene_beats(raw_visual_prompt)
             voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
@@ -1500,9 +1604,12 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     os.close(fd_img)
                     image_paths.append(img_path)
 
-                    scene_prompt = (
-                        f"{visual_prompt}. Scene {idx + 1} of {attempt_image_count},"
-                        " consistent style, composition, and subject continuity."
+                    scene_prompt = _build_post_scene_prompt(
+                        raw_visual_prompt=raw_visual_prompt,
+                        style_preset=style_preset,
+                        scene_beats=scene_beats,
+                        scene_index=idx,
+                        scene_count=attempt_image_count,
                     )
 
                     if use_google_provider:
@@ -1555,7 +1662,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                         used_placeholder_visuals = True
                         _run_ffmpeg_text_image(
                             prompt=_post_scene_fallback_text(
-                                raw_visual_prompt=raw_visual_prompt,
+                                raw_visual_prompt=visual_prompt,
                                 scene_index=idx,
                                 scene_count=attempt_image_count,
                             ),
@@ -1579,13 +1686,9 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                                 )
                                 os.close(fd_img)
                                 image_paths.append(img_path)
-                                scene_prompt = (
-                                    f"{visual_prompt}. Scene {idx + 1} of {attempt_image_count},"
-                                    " consistent style, composition, and subject continuity."
-                                )
                                 _run_ffmpeg_text_image(
                                     prompt=_post_scene_fallback_text(
-                                        raw_visual_prompt=raw_visual_prompt,
+                                        raw_visual_prompt=visual_prompt,
                                         scene_index=idx,
                                         scene_count=attempt_image_count,
                                     ),
