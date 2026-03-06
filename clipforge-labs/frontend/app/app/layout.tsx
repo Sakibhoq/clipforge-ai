@@ -252,7 +252,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app/generate", "Generator")}
             {navItem("/app/clips", "Clips")}
-            {navItem("/app/connections", "Connections")}
+            {navItem("/app/connections", "Publish")}
             {navItem("/app/settings", "Settings")}
           </nav>
 
@@ -317,7 +317,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {navItem("/app/generate", "Generator", true)}
               {navItem("/app/clips", "Clips", true)}
-              {navItem("/app/connections", "Connections", true)}
+              {navItem("/app/connections", "Publish", true)}
               {navItem("/app/settings", "Settings", true)}
 
               <div className="mt-3 h-px bg-white/10" />

@@ -192,9 +192,6 @@ function PlanCard({
             </button>
           )}
 
-          <Link href="/pricing" className="btn-ghost text-[12px] px-4 py-2 w-full sm:w-auto text-center">
-            Compare plans
-          </Link>
         </div>
 
         <div className="mt-4 h-px w-full bg-white/10" />

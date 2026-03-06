@@ -988,11 +988,11 @@ export default function ClipsPage() {
                 <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-3 text-[12px] text-amber-100/90">
                   {schedulePlatformLimit === 0 ? (
                     <>
-                      Social publishing is locked on Free Trial. <Link href="/pricing" className="underline underline-offset-2">Upgrade plan</Link> to unlock posting.
+                      Social publishing is locked on Free Trial. <Link href="/app/billing" className="underline underline-offset-2">Open billing</Link> to unlock posting.
                     </>
                   ) : (
                     <>
-                      No connected platforms yet. Connect accounts in <Link href="/app/connections" className="underline underline-offset-2">Connections</Link>.
+                      No connected platforms yet. Connect accounts in <Link href="/app/connections" className="underline underline-offset-2">Publish</Link>.
                     </>
                   )}
                 </div>

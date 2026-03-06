@@ -206,6 +206,18 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   if (low.includes("insufficient credits")) {
     return "You don’t have enough credits for this generation.";
   }
+  if (low === "not found" || low.includes("404")) {
+    return "Generation service is not available right now. Please retry in a minute.";
+  }
+  if (
+    low.includes("jailed") ||
+    low.includes("blocked") ||
+    low.includes("safety") ||
+    low.includes("policy") ||
+    low.includes("moderation")
+  ) {
+    return "This prompt was blocked by safety checks. Remove IP names or sensitive terms and retry.";
+  }
   return msg;
 }
 
@@ -230,7 +242,19 @@ function generationRecoveryAction(raw: string | null | undefined): string {
     return "Retry in 1 minute. If it repeats, check storage credentials/config.";
   }
   if (low.includes("insufficient credits")) {
-    return "Open Pricing, add credits, then run again.";
+    return "Open Billing, add credits, then run again.";
+  }
+  if (low === "not found" || low.includes("404")) {
+    return "Retry in 1 minute. If it repeats, switch style or shorten the prompt.";
+  }
+  if (
+    low.includes("jailed") ||
+    low.includes("blocked") ||
+    low.includes("safety") ||
+    low.includes("policy") ||
+    low.includes("moderation")
+  ) {
+    return "Rewrite the prompt with original characters and non-sensitive wording, then retry.";
   }
   if (low.includes("timeout")) {
     return "Retry now. If it repeats, simplify the prompt and try again.";
@@ -836,7 +860,7 @@ export default function GenerateClient() {
       const outOfCredits = err?.status === 402 || low.includes("insufficient credits");
       if (outOfCredits) {
         setNeedsBilling(true);
-        setError("You’re out of credits. Add more from Pricing to continue.");
+        setError("You’re out of credits. Add more from Billing to continue.");
       } else {
         const friendly = humanizeGenerationError(msg);
         setError(friendly);
@@ -1118,10 +1142,13 @@ export default function GenerateClient() {
                 <div className="mt-4 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-xs text-rose-100">
                   <div className="font-semibold text-rose-50">Generation issue</div>
                   <div className="mt-1 whitespace-pre-wrap break-words text-rose-100/95">{error}</div>
+                  <div className="mt-2 text-rose-100/85">
+                    What to do: <span className="font-semibold">{generationRecoveryAction(error)}</span>
+                  </div>
                   {needsBilling ? (
                     <div className="mt-2">
-                      <Link href="/pricing" className="underline decoration-rose-200/30 underline-offset-4">
-                        Open pricing
+                      <Link href="/app/billing" className="underline decoration-rose-200/30 underline-offset-4">
+                        Open billing
                       </Link>
                     </div>
                   ) : null}
