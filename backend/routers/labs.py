@@ -164,7 +164,7 @@ def labs_launch(
 
     token = _build_bridge_token(current_user)
     launch_url = (
-        f"{frontend_url}/?source=orbitosite&origin=orbitosite&bridge_mode={mode}"
+        f"{frontend_url}/login?next=%2Fapp&source=orbitosite&origin=orbitosite&bridge_mode={mode}"
         f"&bridge_token={quote(token)}"
     )
 

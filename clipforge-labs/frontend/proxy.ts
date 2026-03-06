@@ -118,6 +118,21 @@ export function proxy(req: NextRequest) {
     });
   }
 
+  // Bridge fallback:
+  // Older launch links may land on "/" with a bridge token.
+  // Normalize to /login so bridge-login flow runs consistently.
+  if (pathname === "/" && req.nextUrl.searchParams.has("bridge_token")) {
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    if (!loginUrl.searchParams.has("next")) {
+      loginUrl.searchParams.set("next", "/app");
+    }
+    return applySecurityHeaders(NextResponse.redirect(loginUrl), {
+      production: isProduction,
+      https: isHttps,
+    });
+  }
+
   // ✅ PRODUCTION: enforce via cookie on shared domain (e.g. Domain=.clipforge.ai)
   const authed = hasAuthCookie(req);
 
