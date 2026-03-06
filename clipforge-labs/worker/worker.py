@@ -212,26 +212,62 @@ def _model_prefers_google(model: str | None) -> bool:
     return _labs_generation_provider() == "google"
 
 
-def _is_low_cost_style(style_preset: str | None) -> bool:
+def _normalize_style_preset(style_preset: str | None) -> str:
     style = (style_preset or "").strip().lower()
+    alias = {
+        "photo-real": "real",
+        "photoreal": "real",
+        "social-native": "real",
+        "cinematic": "real",
+    }
+    return alias.get(style, style or "real")
+
+
+def _is_low_cost_style(style_preset: str | None) -> bool:
+    style = _normalize_style_preset(style_preset)
     if style not in LOW_COST_STYLE_PRESETS:
         return False
     return _env_bool("GOOGLE_USE_LOW_COST_MODELS_FOR_STYLIZED", True)
 
 
-def _resolve_google_image_model_id(style_preset: str | None) -> str:
+def _style_env_suffix(style_preset: str | None) -> str:
+    return _normalize_style_preset(style_preset).replace("-", "_").upper()
+
+
+def _resolve_google_image_model_id(style_preset: str | None, *, task: str = "image") -> str:
+    task_key = (task or "image").strip().lower()
+    style_suffix = _style_env_suffix(style_preset)
     default_model = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    if task_key == "post":
+        default_model = _env("GOOGLE_POST_IMAGE_MODEL_ID", default_model)
+
+    style_model = ""
+    if task_key == "post":
+        style_model = _env(f"GOOGLE_POST_IMAGE_MODEL_ID_{style_suffix}", "")
+    if not style_model:
+        style_model = _env(f"GOOGLE_IMAGE_MODEL_ID_{style_suffix}", "")
+    if style_model:
+        return style_model
+
     if not _is_low_cost_style(style_preset):
         return default_model
-    low_cost_default = _env("GOOGLE_IMAGE_FAST_MODEL_ID", "imagen-3.0-fast-generate-001")
-    return _env("GOOGLE_IMAGE_LOW_COST_MODEL_ID", low_cost_default)
+    low_cost_default = _env("GOOGLE_IMAGE_FAST_MODEL_ID", "imagen-4.0-fast-generate-001")
+    low_cost_model = _env("GOOGLE_IMAGE_LOW_COST_MODEL_ID", low_cost_default)
+    if task_key == "post":
+        low_cost_model = _env("GOOGLE_POST_IMAGE_LOW_COST_MODEL_ID", low_cost_model)
+    return low_cost_model or default_model
 
 
 def _resolve_google_video_model_id(style_preset: str | None) -> str:
+    style_suffix = _style_env_suffix(style_preset)
     default_model = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    style_model = _env(f"GOOGLE_VIDEO_MODEL_ID_{style_suffix}", "")
+    if style_model:
+        return style_model
     if not _is_low_cost_style(style_preset):
         return default_model
-    low_cost_model = _env("GOOGLE_VIDEO_LOW_COST_MODEL_ID", "")
+    low_cost_default = _env("GOOGLE_VIDEO_FAST_MODEL_ID", "veo-3.1-fast-generate-001")
+    low_cost_model = _env("GOOGLE_VIDEO_LOW_COST_MODEL_ID", low_cost_default)
     return low_cost_model or default_model
 
 
@@ -244,10 +280,14 @@ def _is_model_unavailable_error(exc: Exception | str | None) -> bool:
         "unsupported",
         "invalid model",
         "invalid argument",
+        "invalid_argument",
         "permission denied",
+        "permission_denied",
         "does not have permission",
         "failed precondition",
+        "failed_precondition",
         "model does not exist",
+        "model not found",
         "publisher model",
     )
     return any(marker in msg for marker in markers)
@@ -421,7 +461,7 @@ def _run_google_vertex_video_generation(
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
-    default_model_id = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    default_model_id = _resolve_google_video_model_id("real")
     model_id = _resolve_google_video_model_id(style_preset)
     headers = _google_auth_headers()
 
@@ -536,7 +576,7 @@ def _run_google_vertex_video_generation(
                 negative_prompt=negative_prompt,
                 aspect_ratio=aspect_ratio,
                 duration_seconds=duration_seconds,
-                style_preset=None,
+                style_preset="real",
                 _allow_model_fallback=False,
             )
         raise
@@ -548,12 +588,13 @@ def _run_google_vertex_image_generation(
     negative_prompt: str,
     aspect_ratio: str,
     style_preset: str | None = None,
+    task: str = "image",
     _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
-    default_model_id = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
-    model_id = _resolve_google_image_model_id(style_preset)
+    default_model_id = _resolve_google_image_model_id("real", task=task)
+    model_id = _resolve_google_image_model_id(style_preset, task=task)
     headers = _google_auth_headers()
 
     endpoint = (
@@ -620,7 +661,8 @@ def _run_google_vertex_image_generation(
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 aspect_ratio=aspect_ratio,
-                style_preset=None,
+                style_preset="real",
+                task=task,
                 _allow_model_fallback=False,
             )
         raise
@@ -1963,6 +2005,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             content_type = "image/png"
             provider_title: str | None = None
             provider_capacity_error = False
+            image_model_id = _resolve_google_image_model_id(style_preset, task="image")
 
             if use_google_provider:
                 try:
@@ -1974,6 +2017,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                 "negative_prompt": negative_prompt or None,
                                 "aspect_ratio": aspect_ratio,
                                 "model": model or "google",
+                                "provider_model_id": image_model_id,
                                 "settings": settings,
                                 "kind": JOB_KIND_IMAGE,
                             },
@@ -1984,6 +2028,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             negative_prompt=negative_prompt,
                             aspect_ratio=aspect_ratio,
                             style_preset=style_preset,
+                            task="image",
                         )
                     _write_bytes(out_path, media_bytes)
                     if (remote_type or "").startswith("image/"):
@@ -2078,6 +2123,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
             scene_beats = _extract_post_scene_beats(raw_visual_prompt)
+            post_image_model_id = _resolve_google_image_model_id(style_preset, task="post")
             voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
@@ -2217,6 +2263,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             "negative_prompt": negative_prompt or None,
                                             "aspect_ratio": aspect_ratio,
                                             "model": model or "google",
+                                            "provider_model_id": post_image_model_id,
                                             "settings": {
                                                 **settings,
                                                 "scene_index": idx + 1,
@@ -2232,6 +2279,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                         negative_prompt=negative_prompt,
                                         aspect_ratio=aspect_ratio,
                                         style_preset=style_preset,
+                                        task="post",
                                     )
                                 _write_bytes(img_path, media_bytes)
                                 break
@@ -2495,6 +2543,7 @@ def _process_job(job: dict) -> dict[str, Any]:
 
         if use_google_provider:
             try:
+                video_model_id = _resolve_google_video_model_id(style_preset)
                 if _env("GOOGLE_VIDEO_API_URL", ""):
                     media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
                         endpoint_env="GOOGLE_VIDEO_API_URL",
@@ -2505,6 +2554,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             "duration_seconds": duration,
                             "generation_speed": generation_speed,
                             "model": model or "google",
+                            "provider_model_id": video_model_id,
                             "settings": settings,
                             "kind": JOB_KIND_VIDEO,
                         },
