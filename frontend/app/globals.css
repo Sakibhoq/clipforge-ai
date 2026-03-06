@@ -10,9 +10,23 @@
 ----------------------------- */
 :root {
   color-scheme: dark;
-  --bg: #07090d;
-  --text: rgb(244 244 245);
-  --muted: rgba(244, 244, 245, 0.72);
+  /* Product base palettes */
+  --orbito-bg: #07090d;
+  --orbito-text: rgb(244 244 245);
+  --orbito-muted: rgba(244, 244, 245, 0.72);
+
+  --labs-bg: #06060b;
+  --labs-text: rgb(248 250 252);
+  --labs-muted: rgba(248, 250, 252, 0.68);
+
+  --merge-bg: #06070c;
+  --merge-text: rgb(246 248 252);
+  --merge-muted: rgba(246, 248, 252, 0.70);
+
+  /* Active theme defaults (Orbito in this app) */
+  --bg: var(--orbito-bg);
+  --text: var(--orbito-text);
+  --muted: var(--orbito-muted);
 
   --line: rgba(255, 255, 255, 0.10);
   --line-2: rgba(255, 255, 255, 0.12);
@@ -28,28 +42,125 @@
   --r-md: 16px;
   --r-sm: 12px;
 
-  --a: rgba(155, 140, 255, 1);
-  --b: rgba(70, 215, 255, 1);
-  --c: rgba(53, 242, 166, 1);
+  /* Orbito accents */
+  --orbito-a: rgba(155, 140, 255, 1);
+  --orbito-b: rgba(70, 215, 255, 1);
+  --orbito-c: rgba(53, 242, 166, 1);
+  --orbito-a-soft: rgba(155, 140, 255, 0.22);
+  --orbito-b-soft: rgba(70, 215, 255, 0.18);
+  --orbito-c-soft: rgba(53, 242, 166, 0.14);
+  --orbito-btn-a: rgba(155, 140, 255, 0.42);
+  --orbito-btn-b: rgba(70, 215, 255, 0.38);
+  --orbito-btn-c: rgba(53, 242, 166, 0.34);
+  --orbito-btn-a-dim: rgba(155, 140, 255, 0.12);
+  --orbito-btn-b-dim: rgba(70, 215, 255, 0.11);
+  --orbito-btn-c-dim: rgba(53, 242, 166, 0.10);
 
-  --a-soft: rgba(155, 140, 255, 0.22);
-  --b-soft: rgba(70, 215, 255, 0.18);
-  --c-soft: rgba(53, 242, 166, 0.14);
+  /* Clipforge accents (for merged-mode sections/routes) */
+  --labs-a: rgba(255, 183, 3, 1);
+  --labs-b: rgba(251, 86, 7, 1);
+  --labs-c: rgba(58, 134, 255, 1);
+  --labs-a-soft: rgba(255, 183, 3, 0.18);
+  --labs-b-soft: rgba(251, 86, 7, 0.16);
+  --labs-c-soft: rgba(58, 134, 255, 0.16);
+  --labs-btn-a: rgba(255, 183, 3, 0.44);
+  --labs-btn-b: rgba(251, 86, 7, 0.42);
+  --labs-btn-c: rgba(58, 134, 255, 0.38);
+  --labs-btn-a-dim: rgba(255, 183, 3, 0.12);
+  --labs-btn-b-dim: rgba(251, 86, 7, 0.11);
+  --labs-btn-c-dim: rgba(58, 134, 255, 0.11);
+
+  /* Merged platform accents (hybrid, used in shared shell zones) */
+  --merge-a: rgba(255, 183, 3, 1);
+  --merge-b: rgba(136, 120, 255, 1);
+  --merge-c: rgba(70, 215, 255, 1);
+  --merge-a-soft: rgba(255, 183, 3, 0.19);
+  --merge-b-soft: rgba(136, 120, 255, 0.18);
+  --merge-c-soft: rgba(70, 215, 255, 0.17);
+  --merge-btn-a: rgba(255, 183, 3, 0.44);
+  --merge-btn-b: rgba(136, 120, 255, 0.40);
+  --merge-btn-c: rgba(70, 215, 255, 0.38);
+  --merge-btn-a-dim: rgba(255, 183, 3, 0.12);
+  --merge-btn-b-dim: rgba(136, 120, 255, 0.11);
+  --merge-btn-c-dim: rgba(70, 215, 255, 0.11);
+
+  --a: var(--orbito-a);
+  --b: var(--orbito-b);
+  --c: var(--orbito-c);
+
+  --a-soft: var(--orbito-a-soft);
+  --b-soft: var(--orbito-b-soft);
+  --c-soft: var(--orbito-c-soft);
 
   /* Button-border lighting (same family as aurora, slightly darker) */
-  --btn-a: rgba(155, 140, 255, 0.42);
-  --btn-b: rgba(70, 215, 255, 0.38);
-  --btn-c: rgba(53, 242, 166, 0.34);
+  --btn-a: var(--orbito-btn-a);
+  --btn-b: var(--orbito-btn-b);
+  --btn-c: var(--orbito-btn-c);
 
-  --btn-a-dim: rgba(155, 140, 255, 0.12);
-  --btn-b-dim: rgba(70, 215, 255, 0.11);
-  --btn-c-dim: rgba(53, 242, 166, 0.10);
+  --btn-a-dim: var(--orbito-btn-a-dim);
+  --btn-b-dim: var(--orbito-btn-b-dim);
+  --btn-c-dim: var(--orbito-btn-c-dim);
 
   /* Safe-area helpers (iOS notch) */
   --sat: env(safe-area-inset-top);
   --sar: env(safe-area-inset-right);
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
+}
+
+/* Cross-product theme modes (foundation for Orbito + Labs unification) */
+.theme-orbito {
+  --bg: var(--orbito-bg);
+  --text: var(--orbito-text);
+  --muted: var(--orbito-muted);
+  --a: var(--orbito-a);
+  --b: var(--orbito-b);
+  --c: var(--orbito-c);
+  --a-soft: var(--orbito-a-soft);
+  --b-soft: var(--orbito-b-soft);
+  --c-soft: var(--orbito-c-soft);
+  --btn-a: var(--orbito-btn-a);
+  --btn-b: var(--orbito-btn-b);
+  --btn-c: var(--orbito-btn-c);
+  --btn-a-dim: var(--orbito-btn-a-dim);
+  --btn-b-dim: var(--orbito-btn-b-dim);
+  --btn-c-dim: var(--orbito-btn-c-dim);
+}
+
+.theme-labs {
+  --bg: var(--labs-bg);
+  --text: var(--labs-text);
+  --muted: var(--labs-muted);
+  --a: var(--labs-a);
+  --b: var(--labs-b);
+  --c: var(--labs-c);
+  --a-soft: var(--labs-a-soft);
+  --b-soft: var(--labs-b-soft);
+  --c-soft: var(--labs-c-soft);
+  --btn-a: var(--labs-btn-a);
+  --btn-b: var(--labs-btn-b);
+  --btn-c: var(--labs-btn-c);
+  --btn-a-dim: var(--labs-btn-a-dim);
+  --btn-b-dim: var(--labs-btn-b-dim);
+  --btn-c-dim: var(--labs-btn-c-dim);
+}
+
+.theme-merged {
+  --bg: var(--merge-bg);
+  --text: var(--merge-text);
+  --muted: var(--merge-muted);
+  --a: var(--merge-a);
+  --b: var(--merge-b);
+  --c: var(--merge-c);
+  --a-soft: var(--merge-a-soft);
+  --b-soft: var(--merge-b-soft);
+  --c-soft: var(--merge-c-soft);
+  --btn-a: var(--merge-btn-a);
+  --btn-b: var(--merge-btn-b);
+  --btn-c: var(--merge-btn-c);
+  --btn-a-dim: var(--merge-btn-a-dim);
+  --btn-b-dim: var(--merge-btn-b-dim);
+  --btn-c-dim: var(--merge-btn-c-dim);
 }
 
 /* IMPORTANT:
@@ -399,6 +510,13 @@ textarea {
 ----------------------------- */
 .grad-text {
   background: linear-gradient(90deg, var(--a), var(--b), var(--c));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grad-text-merged {
+  background: linear-gradient(90deg, var(--merge-a), var(--merge-b), var(--merge-c));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

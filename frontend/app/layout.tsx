@@ -44,7 +44,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-system text-white antialiased">
+      <body className="theme-orbito bg-system text-white antialiased">
         {children}
       </body>
     </html>

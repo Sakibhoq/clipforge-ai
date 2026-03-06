@@ -50,7 +50,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fontSans.variable} ${fontMono.variable}`} suppressHydrationWarning>
-      <body className="bg-system text-white antialiased">{children}</body>
+      <body className="theme-labs bg-system text-white antialiased">{children}</body>
     </html>
   );
 }
