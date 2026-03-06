@@ -1586,6 +1586,12 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                 "yes",
                 "on",
             }
+            allow_scene_reuse_on_capacity = _env("LABS_POST_USE_SCENE_REUSE_ON_CAPACITY", "1").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
             used_placeholder_visuals = False
 
             if use_google_provider:
@@ -1728,6 +1734,36 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                             aspect_ratio=aspect_ratio,
                             out_path=img_path,
                         )
+
+                if capacity_hit:
+                    if allow_scene_reuse_on_capacity:
+                        valid_image_paths = [p for p in image_paths if _file_has_data(p)]
+                        if valid_image_paths:
+                            for existing in list(image_paths):
+                                if existing in valid_image_paths:
+                                    continue
+                                try:
+                                    os.unlink(existing)
+                                except Exception:
+                                    pass
+                            image_paths = list(valid_image_paths)
+
+                            missing_count = max(0, attempt_image_count - len(image_paths))
+                            for fill_idx in range(missing_count):
+                                fd_img, img_path = tempfile.mkstemp(
+                                    prefix=f"cflabs-post-img-reuse-{job_id}-{fill_idx}-",
+                                    suffix=".png",
+                                )
+                                os.close(fd_img)
+                                src_path = valid_image_paths[fill_idx % len(valid_image_paths)]
+                                shutil.copyfile(src_path, img_path)
+                                image_paths.append(img_path)
+
+                            print(
+                                f"[worker] post image capacity recovery job_id={job_id} "
+                                f"scene_count={attempt_image_count} reused_frames={missing_count}"
+                            )
+                            capacity_hit = False
 
                 if capacity_hit:
                     last_attempt = attempt_idx >= (len(retry_image_counts) - 1)
