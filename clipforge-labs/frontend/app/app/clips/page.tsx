@@ -272,6 +272,7 @@ export default function ClipsPage() {
   const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorFromQuery, setEditorFromQuery] = useState(false);
+  const [previewClip, setPreviewClip] = useState<ClipRow | null>(null);
 
   const [scheduleClip, setScheduleClip] = useState<ClipRow | null>(null);
   const [scheduleSelectedProviders, setScheduleSelectedProviders] = useState<SupportedSocialProvider[]>([]);
@@ -287,6 +288,15 @@ export default function ClipsPage() {
   function openEditor() {
     setScheduleClip(null);
     setEditorOpen(true);
+  }
+
+  function openPreview(clipRow: ClipRow) {
+    setScheduleClip(null);
+    setPreviewClip(clipRow);
+  }
+
+  function closePreview() {
+    setPreviewClip(null);
   }
 
   function closeEditor() {
@@ -354,6 +364,17 @@ export default function ClipsPage() {
       document.body.style.overflow = prevBodyOverflow;
     };
   }, [editorOpen]);
+
+  useEffect(() => {
+    if (!previewClip) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPreviewClip(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewClip]);
 
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
@@ -783,7 +804,7 @@ export default function ClipsPage() {
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <ActionIconButton onClick={openEditor} icon="edit" label="Open editor" />
                         <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
-                        <ActionIconButton href={c.url} icon="play" label="Open preview" />
+                        <ActionIconButton onClick={() => openPreview(c)} icon="play" label="Open preview" />
                         {assetType === "video" ? (
                           <ActionIconButton onClick={() => openSchedule(c)} icon="schedule" label="Schedule / Post" />
                         ) : null}
@@ -839,7 +860,7 @@ export default function ClipsPage() {
                     <div className="mt-auto pt-4">
                       <div className={cx("flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 p-2", clipsSurfaceInsetClass)}>
                         <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
-                        <ActionIconButton href={c.url} icon="play" label="Open preview" />
+                        <ActionIconButton onClick={() => openPreview(c)} icon="play" label="Open preview" />
                       </div>
                     </div>
                   </div>
@@ -855,6 +876,40 @@ export default function ClipsPage() {
           </section>
         ) : null}
       </main>
+
+      {previewClip ? (
+        <div className="fixed inset-0 z-[85]">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px]" onClick={closePreview} />
+          <div className="absolute inset-0 p-3 sm:p-6">
+            <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[24px] border border-white/20 bg-[#070b16]/95 shadow-[0_38px_120px_rgba(0,0,0,0.7)]">
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div className="min-w-0 truncate text-sm font-semibold text-white/90">
+                  {previewClip.title || `Clip #${previewClip.id}`}
+                </div>
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs text-white/80 transition hover:bg-white/[0.10]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+                {detectAssetType(previewClip) === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewClip.url} alt={previewClip.title || `Image ${previewClip.id}`} className="max-h-full max-w-full rounded-xl object-contain" />
+                ) : detectAssetType(previewClip) === "audio" ? (
+                  <div className={cx("w-full max-w-xl rounded-2xl border border-white/10 p-4", clipsSurfaceInsetClass)}>
+                    <audio src={previewClip.url} controls autoPlay preload="metadata" className="w-full" />
+                  </div>
+                ) : (
+                  <video src={previewClip.url} controls autoPlay playsInline preload="metadata" className="max-h-full max-w-full rounded-xl object-contain" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {editorOpen ? (
         <div className="fixed inset-0 z-[90]">

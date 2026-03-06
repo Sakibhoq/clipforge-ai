@@ -1456,12 +1456,31 @@ def _insert_clip(
 
 
 def _title_from_prompt(prompt: str) -> str | None:
-    s = (prompt or "").strip()
-    if not s:
+    raw = (prompt or "").strip()
+    if not raw:
         return None
-    if len(s) > 64:
-        s = s[:61].rstrip() + "..."
-    return s
+
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    candidate = ""
+
+    for line in lines[:6]:
+        m = re.match(r"^title\s*[:\-]\s*(.+)$", line, flags=re.IGNORECASE)
+        if m and m.group(1).strip():
+            candidate = m.group(1).strip()
+            break
+
+    if not candidate:
+        candidate = lines[0] if lines else raw
+
+    candidate = candidate.replace("\r", " ").replace("\n", " ").strip()
+    if "Visual style:" in candidate:
+        candidate = candidate.split("Visual style:", 1)[0].strip()
+    candidate = re.sub(r"\s+", " ", candidate).strip(" -–:")
+    if not candidate:
+        return None
+    if len(candidate) > 64:
+        candidate = candidate[:61].rstrip() + "..."
+    return candidate
 
 
 def _parse_settings(raw: str) -> dict:
