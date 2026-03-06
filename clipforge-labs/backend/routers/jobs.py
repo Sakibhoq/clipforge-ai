@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -11,6 +13,23 @@ from models.user import User
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+def _parse_job_settings(raw: object) -> dict | None:
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        txt = raw.strip()
+        if not txt:
+            return None
+        try:
+            data = json.loads(txt)
+        except Exception:
+            return None
+        return data if isinstance(data, dict) else None
+    return None
 
 
 # ---------------------------------------------------------
@@ -56,6 +75,7 @@ def list_jobs(
             "prompt": getattr(job, "prompt", None),
             "aspect_ratio": getattr(job, "aspect_ratio", None),
             "duration_seconds": getattr(job, "duration_seconds", None),
+            "settings": _parse_job_settings(getattr(job, "caption_style_json", None)),
             "created_at": job.created_at,
             "updated_at": getattr(job, "updated_at", None),
         }
@@ -98,6 +118,7 @@ def get_job(
         "prompt": getattr(job, "prompt", None),
         "aspect_ratio": getattr(job, "aspect_ratio", None),
         "duration_seconds": getattr(job, "duration_seconds", None),
+        "settings": _parse_job_settings(getattr(job, "caption_style_json", None)),
         "created_at": job.created_at,
         "updated_at": getattr(job, "updated_at", None),
     }

@@ -36,7 +36,18 @@ type JobRow = {
   prompt?: string | null;
   aspect_ratio?: string | null;
   duration_seconds?: number | null;
+  settings?: Record<string, unknown> | null;
   created_at?: string;
+};
+
+type JobSettings = {
+  visual_prompt?: string;
+  voice_script?: string;
+  voice_name?: string;
+  speed_wpm?: number;
+  style_preset?: string;
+  caption_style_preset?: string;
+  generation_speed?: string;
 };
 
 const VIDEO_RELAX_CREDITS_PER_SECOND = 10;
@@ -82,6 +93,10 @@ const VOICE_OPTIONS = [
   { value: "en-AU-Neural2-A", label: "Kai (AU • Natural male)" },
   { value: "en-AU-Standard-B", label: "Levi (AU • Classic male)" },
 ] as const;
+
+const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
+const CAPTION_STYLE_VALUES = new Set<CaptionStylePreset>(CAPTION_STYLE_OPTIONS.map((opt) => opt.value));
+const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -203,6 +218,20 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function wpmToSpeedMultiplier(wpm: number): number {
+  const normalized = Math.max(80, Math.min(330, Number(wpm || VOICE_BASE_WPM))) / VOICE_BASE_WPM;
+  let closest: number = VOICE_SPEED_OPTIONS[0].value;
+  let bestDistance = Math.abs(normalized - closest);
+  for (const opt of VOICE_SPEED_OPTIONS) {
+    const distance = Math.abs(normalized - opt.value);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      closest = opt.value;
+    }
+  }
+  return closest;
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -282,6 +311,83 @@ export default function GenerateClient() {
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 12000;
   }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
+
+  function hydrateFormFromJob(job: JobRow) {
+    const kind = String(job?.kind || "").toLowerCase();
+    const settings: JobSettings =
+      job?.settings && typeof job.settings === "object" ? (job.settings as JobSettings) : {};
+
+    const aspect = typeof job.aspect_ratio === "string" ? job.aspect_ratio : null;
+    if (aspect && ["9:16", "16:9", "1:1"].includes(aspect)) {
+      setAspectRatio(aspect);
+    }
+
+    const stylePreset = typeof settings.style_preset === "string" ? settings.style_preset : "";
+    if (STYLE_PRESET_VALUES.has(stylePreset as StylePreset)) {
+      setStylePreset(stylePreset as StylePreset);
+    }
+
+    const voice = typeof settings.voice_name === "string" ? settings.voice_name : "";
+    if (voice && VOICE_VALUES.has(voice)) {
+      setVoiceName(voice);
+    }
+
+    if (kind === "generate_post") {
+      setMode("post");
+      setPostVisualPrompt(typeof settings.visual_prompt === "string" ? settings.visual_prompt : String(job.prompt || ""));
+      setPostVoiceScript(typeof settings.voice_script === "string" ? settings.voice_script : "");
+
+      const captionPreset = typeof settings.caption_style_preset === "string" ? settings.caption_style_preset : "";
+      if (CAPTION_STYLE_VALUES.has(captionPreset as CaptionStylePreset)) {
+        setPostCaptionStylePreset(captionPreset as CaptionStylePreset);
+      }
+      return;
+    }
+
+    const promptText = String(job.prompt || "");
+    setPrompt(promptText);
+
+    if (kind === "generate_image") {
+      setMode("image");
+      return;
+    }
+
+    if (kind === "generate_voiceover") {
+      setMode("voiceover");
+      const speedWpm =
+        typeof settings.speed_wpm === "number"
+          ? settings.speed_wpm
+          : Number.parseFloat(String(settings.speed_wpm || ""));
+      if (Number.isFinite(speedWpm) && speedWpm > 0) {
+        setVoiceSpeedMultiplier(wpmToSpeedMultiplier(speedWpm));
+      }
+      return;
+    }
+
+    setMode("video");
+    const durationSeconds =
+      typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
+    if (Number.isFinite(durationSeconds) && [4, 6, 8].includes(durationSeconds)) {
+      setDuration(durationSeconds);
+    }
+    const generationSpeed = typeof settings.generation_speed === "string" ? settings.generation_speed : "";
+    if (generationSpeed === "relax" || generationSpeed === "fast") {
+      setVideoSpeed(generationSpeed);
+    }
+  }
+
+  async function openJobFromQueue(summary: JobRow) {
+    setError(null);
+    setNeedsBilling(false);
+    let target = summary;
+    try {
+      target = await apiFetch<JobRow>(`/jobs/${summary.id}`, { method: "GET" });
+    } catch {
+      // keep summary fallback when details fail
+    }
+    hydrateFormFromJob(target);
+    await pollJob(target.id);
+  }
 
   function voicePreviewKey(targetVoice: string, targetSpeedWpm: number) {
     return `${targetVoice}::${targetSpeedWpm}`;
@@ -884,7 +990,7 @@ export default function GenerateClient() {
                       key={j.id}
                       type="button"
                       onClick={() => {
-                        pollJob(j.id);
+                        openJobFromQueue(j);
                       }}
                       className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.06]"
                     >
