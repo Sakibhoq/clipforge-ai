@@ -1422,6 +1422,130 @@ def _render_image_slideshow_video(
     return float(final_duration)
 
 
+def _render_video_scene_montage(
+    *,
+    scene_video_paths: list[str],
+    audio_path: str,
+    aspect_ratio: str,
+    target_duration: float,
+    out_path: str,
+) -> float:
+    if not scene_video_paths:
+        raise RuntimeError("No video scenes were generated for montage render")
+
+    safe_target = max(6.0, float(target_duration or 0.0))
+    w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+
+    normalized_paths: list[str] = []
+    normalized_meta: list[tuple[str, float]] = []
+    fd, list_path = tempfile.mkstemp(prefix="cflabs-post-video-concat-", suffix=".txt")
+    os.close(fd)
+    total_duration = 0.0
+
+    try:
+        for idx, scene_path in enumerate(scene_video_paths):
+            fd_norm, norm_path = tempfile.mkstemp(prefix=f"cflabs-post-video-scene-{idx}-", suffix=".mp4")
+            os.close(fd_norm)
+            normalized_paths.append(norm_path)
+
+            vf = (
+                f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+                f"crop={w}:{h},"
+                "fps=30,"
+                "format=yuv420p"
+            )
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                scene_path,
+                "-vf",
+                vf,
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "20",
+                "-pix_fmt",
+                "yuv420p",
+                norm_path,
+            ]
+            proc = _run_media_cmd(cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+            if proc.returncode != 0:
+                raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg video scene normalize failed").strip()[:500])
+
+            scene_dur = _probe_media_duration(norm_path)
+            if scene_dur <= 0:
+                scene_dur = max(1.0, safe_target / float(len(scene_video_paths)))
+            normalized_meta.append((norm_path, scene_dur))
+            total_duration += scene_dur
+
+        if not normalized_meta:
+            raise RuntimeError("No normalized scene videos available for montage render")
+
+        playlist: list[tuple[str, float]] = list(normalized_meta)
+        loop_idx = 0
+        while total_duration < safe_target and normalized_meta:
+            item = normalized_meta[loop_idx % len(normalized_meta)]
+            playlist.append(item)
+            total_duration += item[1]
+            loop_idx += 1
+
+        with open(list_path, "w", encoding="utf-8") as f:
+            for scene_path, _ in playlist:
+                quoted = scene_path.replace("'", "'\\''")
+                f.write(f"file '{quoted}'\n")
+
+        concat_cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            list_path,
+            "-i",
+            audio_path,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "160k",
+            "-pix_fmt",
+            "yuv420p",
+            "-shortest",
+            "-movflags",
+            "+faststart",
+            out_path,
+        ]
+        proc = _run_media_cmd(concat_cmd, timeout_seconds=max(180, _media_cmd_timeout_seconds()))
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg video concat render failed").strip()[:500])
+    finally:
+        for norm_path in normalized_paths:
+            try:
+                os.unlink(norm_path)
+            except Exception:
+                pass
+        try:
+            os.unlink(list_path)
+        except Exception:
+            pass
+
+    final_duration = _probe_audio_duration(audio_path)
+    if final_duration <= 0:
+        final_duration = safe_target if total_duration <= 0 else min(total_duration, safe_target)
+    return float(final_duration)
+
+
 def _run_fallback_tone_voiceover(*, script: str, out_path: str) -> None:
     # Fallback when espeak is unavailable: duration scales with text length.
     duration = max(2, min(90, int(math.ceil(max(1, len(script or "")) / 13.0))))
@@ -2120,6 +2244,7 @@ def _process_job(job: dict) -> dict[str, Any]:
         os.close(fd_video)
         os.close(fd_audio)
         image_paths: list[str] = []
+        scene_video_paths: list[str] = []
         try:
             raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
@@ -2227,6 +2352,313 @@ def _process_job(job: dict) -> dict[str, Any]:
             audio_duration = _probe_audio_duration(audio_path)
             if audio_duration > target_duration:
                 target_duration = audio_duration
+
+            use_video_scene_mode = _is_low_cost_style(style_preset)
+
+            if use_video_scene_mode:
+                def _clear_scene_video_paths() -> None:
+                    while scene_video_paths:
+                        old_path = scene_video_paths.pop()
+                        try:
+                            os.unlink(old_path)
+                        except Exception:
+                            pass
+
+                retry_scene_counts: list[int] = list(retry_image_counts)
+                for attempt_idx, attempt_scene_count in enumerate(retry_scene_counts):
+                    capacity_hit = False
+                    _clear_scene_video_paths()
+                    scene_video_duration = max(4, min(12, int(round(float(target_duration) / float(max(1, attempt_scene_count))))))
+
+                    for idx in range(attempt_scene_count):
+                        fd_scene, scene_path = tempfile.mkstemp(prefix=f"cflabs-post-video-{job_id}-{idx}-", suffix=".mp4")
+                        os.close(fd_scene)
+                        scene_video_paths.append(scene_path)
+
+                        scene_prompt = _build_post_scene_prompt(
+                            raw_visual_prompt=raw_visual_prompt,
+                            style_preset=style_preset,
+                            scene_beats=scene_beats,
+                            scene_index=idx,
+                            scene_count=attempt_scene_count,
+                        )
+
+                        if use_google_provider:
+                            for scene_try in range(post_scene_capacity_retries + 1):
+                                try:
+                                    if _env("GOOGLE_VIDEO_API_URL", ""):
+                                        media_bytes, _, _, _ = _call_google_generation_endpoint(
+                                            endpoint_env="GOOGLE_VIDEO_API_URL",
+                                            payload={
+                                                "prompt": scene_prompt,
+                                                "negative_prompt": negative_prompt or None,
+                                                "aspect_ratio": aspect_ratio,
+                                                "duration_seconds": scene_video_duration,
+                                                "generation_speed": "relax",
+                                                "model": model or "google",
+                                                "provider_model_id": _resolve_google_video_model_id(style_preset),
+                                                "settings": {
+                                                    **settings,
+                                                    "scene_index": idx + 1,
+                                                    "scene_count": attempt_scene_count,
+                                                    "scene_duration_seconds": scene_video_duration,
+                                                    "mode": "post_video",
+                                                },
+                                                "kind": JOB_KIND_POST,
+                                            },
+                                        )
+                                    else:
+                                        media_bytes, _, _, _ = _run_google_vertex_video_generation(
+                                            prompt=scene_prompt,
+                                            negative_prompt=negative_prompt,
+                                            aspect_ratio=aspect_ratio,
+                                            duration_seconds=scene_video_duration,
+                                            style_preset=style_preset,
+                                        )
+                                    _write_bytes(scene_path, media_bytes)
+                                    break
+                                except Exception as exc:
+                                    if _is_provider_capacity_error(exc):
+                                        last_scene_try = scene_try >= post_scene_capacity_retries
+                                        if not last_scene_try:
+                                            wait_seconds = post_scene_capacity_backoff_seconds * (scene_try + 1)
+                                            print(
+                                                f"[worker] post video capacity retry job_id={job_id} "
+                                                f"scene={idx + 1}/{attempt_scene_count} "
+                                                f"attempt={scene_try + 1}/{post_scene_capacity_retries + 1} "
+                                                f"sleep={wait_seconds}s err={type(exc).__name__}: {exc}"
+                                            )
+                                            time.sleep(wait_seconds)
+                                            continue
+                                        capacity_hit = True
+                                        print(
+                                            f"[worker] post video capacity job_id={job_id} scene={idx + 1}/{attempt_scene_count} "
+                                            f"retry_count={attempt_scene_count} err={type(exc).__name__}: {exc}"
+                                        )
+                                        break
+                                    if strict_provider or not allow_demo_fallback:
+                                        raise RuntimeError(f"Google post video generation failed: {exc}") from exc
+                                    print(
+                                        f"[worker] post video fallback job_id={job_id} scene={idx + 1}/{attempt_scene_count} "
+                                        f"err={type(exc).__name__}: {exc}"
+                                    )
+                                    break
+
+                        if capacity_hit:
+                            break
+
+                        if not _file_has_data(scene_path):
+                            if use_google_provider and not allow_demo_fallback:
+                                raise RuntimeError("Google post video generation returned no media payload")
+                            used_placeholder_visuals = True
+                            _run_ffmpeg_text_video(
+                                prompt=_post_scene_fallback_text(
+                                    raw_visual_prompt=visual_prompt,
+                                    scene_index=idx,
+                                    scene_count=attempt_scene_count,
+                                ),
+                                duration=scene_video_duration,
+                                aspect_ratio=aspect_ratio,
+                                out_path=scene_path,
+                            )
+
+                    if capacity_hit:
+                        if allow_scene_reuse_on_capacity:
+                            valid_scene_paths = [p for p in scene_video_paths if _file_has_data(p)]
+                            if valid_scene_paths:
+                                for existing in list(scene_video_paths):
+                                    if existing in valid_scene_paths:
+                                        continue
+                                    try:
+                                        os.unlink(existing)
+                                    except Exception:
+                                        pass
+                                scene_video_paths = list(valid_scene_paths)
+
+                                missing_count = max(0, attempt_scene_count - len(scene_video_paths))
+                                for fill_idx in range(missing_count):
+                                    fd_scene, dup_scene_path = tempfile.mkstemp(
+                                        prefix=f"cflabs-post-video-reuse-{job_id}-{fill_idx}-",
+                                        suffix=".mp4",
+                                    )
+                                    os.close(fd_scene)
+                                    src_path = valid_scene_paths[fill_idx % len(valid_scene_paths)]
+                                    shutil.copyfile(src_path, dup_scene_path)
+                                    scene_video_paths.append(dup_scene_path)
+
+                                print(
+                                    f"[worker] post video capacity recovery job_id={job_id} "
+                                    f"scene_count={attempt_scene_count} reused_scenes={missing_count}"
+                                )
+                                capacity_hit = False
+
+                    if capacity_hit:
+                        last_attempt = attempt_idx >= (len(retry_scene_counts) - 1)
+                        if last_attempt:
+                            if not strict_provider and allow_demo_fallback:
+                                print(
+                                    f"[worker] post video final capacity fallback job_id={job_id} "
+                                    f"retry_count={attempt_scene_count} using local placeholder scenes"
+                                )
+                                _clear_scene_video_paths()
+                                for idx in range(attempt_scene_count):
+                                    fd_scene, scene_path = tempfile.mkstemp(
+                                        prefix=f"cflabs-post-video-fallback-{job_id}-{idx}-",
+                                        suffix=".mp4",
+                                    )
+                                    os.close(fd_scene)
+                                    scene_video_paths.append(scene_path)
+                                    _run_ffmpeg_text_video(
+                                        prompt=_post_scene_fallback_text(
+                                            raw_visual_prompt=visual_prompt,
+                                            scene_index=idx,
+                                            scene_count=attempt_scene_count,
+                                        ),
+                                        duration=scene_video_duration,
+                                        aspect_ratio=aspect_ratio,
+                                        out_path=scene_path,
+                                    )
+                                used_placeholder_visuals = True
+                                break
+                            raise RuntimeError("Generation queue is at provider capacity. Retry in a few minutes.")
+                        if post_attempt_cooldown_seconds > 0:
+                            print(
+                                f"[worker] post video retry ladder cooldown job_id={job_id} "
+                                f"next_count={retry_scene_counts[min(attempt_idx + 1, len(retry_scene_counts) - 1)]} "
+                                f"sleep={post_attempt_cooldown_seconds}s"
+                            )
+                            time.sleep(post_attempt_cooldown_seconds)
+                        continue
+                    break
+
+                if not scene_video_paths:
+                    raise RuntimeError("Post generation failed before video scene rendering completed.")
+                if used_placeholder_visuals and not allow_placeholder_post_output:
+                    raise RuntimeError(
+                        "Generation queue is at provider capacity. Retry in a few minutes for full visual output."
+                    )
+
+                final_duration = _render_video_scene_montage(
+                    scene_video_paths=scene_video_paths,
+                    audio_path=audio_path,
+                    aspect_ratio=aspect_ratio,
+                    target_duration=target_duration,
+                    out_path=out_path,
+                )
+                base_title = _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
+                caption_style_preset = str(settings.get("caption_style_preset") or "bold_center").strip().lower()
+                word_caption_events: list[dict[str, float | str]] = []
+                if captions_enabled:
+                    word_caption_events = _build_word_caption_events(
+                        voice_script,
+                        final_duration if final_duration > 0 else target_duration,
+                    )
+
+                subtitles_path: str | None = None
+                if captions_enabled and word_caption_events:
+                    subtitles_path = _write_word_by_word_srt(word_caption_events)
+
+                fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
+                os.close(fd_overlay)
+                try:
+                    _apply_video_overlays(
+                        src_path=out_path,
+                        out_path=overlay_path,
+                        watermark_enabled=watermark_enabled,
+                        subtitles_path=subtitles_path,
+                        caption_style_preset=caption_style_preset,
+                        aspect_ratio=aspect_ratio,
+                    )
+                    shutil.move(overlay_path, out_path)
+                finally:
+                    if os.path.exists(overlay_path):
+                        try:
+                            os.unlink(overlay_path)
+                        except Exception:
+                            pass
+                    if subtitles_path:
+                        try:
+                            os.unlink(subtitles_path)
+                        except Exception:
+                            pass
+
+                key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
+                _upload_file(out_path, key, content_type="video/mp4")
+
+                extra_clips: list[dict[str, Any]] = []
+                voice_key = f"assets/post-voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
+                _upload_file(audio_path, voice_key, content_type="audio/mpeg")
+                voice_duration = _probe_audio_duration(audio_path) or final_duration or target_duration
+                extra_clips.append(
+                    {
+                        "storage_key": voice_key,
+                        "duration_seconds": float(voice_duration),
+                        "start_time": 0.0,
+                        "title": f"{base_title} · Voiceover",
+                        "hook": None,
+                    }
+                )
+
+                scene_keys: list[str] = []
+                scene_count = max(1, len(scene_video_paths))
+                scene_duration = max(0.2, float(final_duration or target_duration) / float(scene_count))
+                scene_beats_for_meta = _extract_post_scene_beats(raw_visual_prompt)
+                for idx, scene_path in enumerate(scene_video_paths):
+                    upload_scene_path = scene_path
+                    scene_tmp_copy = ""
+                    if watermark_enabled:
+                        fd_scene_copy, scene_tmp_copy = tempfile.mkstemp(
+                            prefix=f"cflabs-post-scene-wm-{job_id}-{idx}-",
+                            suffix=".mp4",
+                        )
+                        os.close(fd_scene_copy)
+                        _apply_video_overlays(
+                            src_path=scene_path,
+                            out_path=scene_tmp_copy,
+                            watermark_enabled=True,
+                            subtitles_path=None,
+                            caption_style_preset=None,
+                            aspect_ratio=aspect_ratio,
+                        )
+                        upload_scene_path = scene_tmp_copy
+                    scene_key = f"assets/post-scenes-video/{job_id}-{idx + 1:02d}-{uuid.uuid4().hex}.mp4"
+                    _upload_file(upload_scene_path, scene_key, content_type="video/mp4")
+                    scene_keys.append(scene_key)
+                    scene_hook = _post_scene_beat_for_index(
+                        scene_beats=scene_beats_for_meta,
+                        scene_index=idx,
+                        scene_count=scene_count,
+                    )
+                    extra_clips.append(
+                        {
+                            "storage_key": scene_key,
+                            "duration_seconds": float(scene_duration),
+                            "start_time": float(idx) * float(scene_duration),
+                            "title": f"{base_title} · Scene {idx + 1}",
+                            "hook": scene_hook,
+                        }
+                    )
+                    if scene_tmp_copy:
+                        try:
+                            os.unlink(scene_tmp_copy)
+                        except Exception:
+                            pass
+
+                settings_patch: dict[str, Any] = {
+                    "generated_scene_count": int(scene_count),
+                    "generated_scene_storage_keys": scene_keys,
+                    "generated_scene_media_type": "video",
+                    "generated_voiceover_key": voice_key,
+                    "generated_word_captions": word_caption_events,
+                }
+                return {
+                    "storage_key": key,
+                    "content_type": "video/mp4",
+                    "duration_seconds": float(final_duration),
+                    "title": base_title,
+                    "extra_clips": extra_clips,
+                    "settings_patch": settings_patch,
+                }
 
             def _clear_image_paths() -> None:
                 while image_paths:
@@ -2529,6 +2961,11 @@ def _process_job(job: dict) -> dict[str, Any]:
             for img_path in image_paths:
                 try:
                     os.unlink(img_path)
+                except Exception:
+                    pass
+            for scene_path in scene_video_paths:
+                try:
+                    os.unlink(scene_path)
                 except Exception:
                     pass
 
