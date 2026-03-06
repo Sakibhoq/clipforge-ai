@@ -249,6 +249,7 @@ function Divider({ label }: { label: string }) {
 }
 
 type LoginOk = { ok: true };
+type BridgeLoginOk = { ok: true; next?: string | null; email?: string; plan?: string; credits?: number };
 type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
 
 function errToHelpfulMessage(err: any) {
@@ -289,16 +290,20 @@ function errToHelpfulMessage(err: any) {
   return "Unable to sign in. Check email/password.";
 }
 
+function sanitizeNextPath(nextRaw: string | null) {
+  if (!nextRaw) return "/app";
+  if (!nextRaw.startsWith("/")) return "/app";
+  if (nextRaw.startsWith("//")) return "/app";
+  if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return "/app";
+  return nextRaw;
+}
+
 function LoginPageInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const nextRaw = sp.get("next") || "/app";
-  const nextPath = useMemo(() => {
-    if (!nextRaw.startsWith("/")) return "/app";
-    if (nextRaw.startsWith("//")) return "/app";
-    if (nextRaw.startsWith("/login") || nextRaw.startsWith("/register")) return "/app";
-    return nextRaw;
-  }, [nextRaw]);
+  const bridgeToken = sp.get("bridge_token") || null;
+  const nextPath = useMemo(() => sanitizeNextPath(nextRaw), [nextRaw]);
 
   const [checking, setChecking] = useState(true);
   const [checkSlow, setCheckSlow] = useState(false);
@@ -331,8 +336,46 @@ function LoginPageInner() {
     return e.length > 3 && e.includes("@") && password.length >= 6 && !submitting;
   }, [email, password, submitting]);
 
+  useEffect(() => {
+    if (!bridgeToken) return;
+    let mounted = true;
+    let resolved = false;
+    setChecking(true);
+    setCheckSlow(false);
+
+    async function runBridgeLogin() {
+      try {
+        const result = await apiFetch<BridgeLoginOk>("/auth/bridge-login", {
+          method: "POST",
+          body: { bridge_token: bridgeToken, next: nextPath },
+        });
+        if (!mounted || resolved) return;
+        resolved = true;
+        const nextTarget = sanitizeNextPath(result?.next || nextPath);
+        window.location.replace(nextTarget);
+      } catch (err: any) {
+        if (!mounted || resolved) return;
+        setChecking(false);
+        setCheckSlow(false);
+        setFormError(errToHelpfulMessage(err));
+      }
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!mounted || resolved) return;
+      setChecking(false);
+    }, 4200);
+    runBridgeLogin();
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timeout);
+    };
+  }, [bridgeToken, nextPath]);
+
   // ✅ If already authed (cookie exists on backend origin), redirect away from /login
   useEffect(() => {
+    if (bridgeToken) return;
     let mounted = true;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 3500);
@@ -369,7 +412,7 @@ function LoginPageInner() {
       window.clearTimeout(softTimeout);
       window.clearTimeout(hardTimeout);
     };
-  }, [router, nextPath]);
+  }, [router, nextPath, bridgeToken]);
 
   useEffect(() => {
     let mounted = true;

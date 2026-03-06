@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+from typing import Any
 import os
 import re
 import secrets
@@ -101,6 +102,11 @@ class MeResponse(BaseModel):
     credits: int
 
 
+class BridgeLoginRequest(BaseModel):
+    bridge_token: str
+    next: str | None = None
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -117,6 +123,78 @@ def create_token(email: str) -> str:
         "exp": now + timedelta(days=TOKEN_TTL_DAYS),
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+
+def _bridge_secret() -> str:
+    return (
+        os.getenv("LABS_BRIDGE_SECRET")
+        or os.getenv("LABS_BRIDGE_TOKEN_SECRET")
+        or settings.SECRET_KEY
+        or ""
+    )
+
+
+def decode_bridge_token(token: str) -> dict[str, Any]:
+    secret = _bridge_secret()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Bridge authentication is unavailable")
+
+    try:
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            audience="orbito-labs",
+            issuer="orbi-api",
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Bridge token expired")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid bridge token")
+
+    email = str(payload.get("email") or "").strip().lower()
+    if not email:
+        # Defensive fallback if sender omitted email: avoid creating junk accounts.
+        raise HTTPException(status_code=401, detail="Invalid bridge token payload")
+    return payload
+
+
+def _sync_bridge_user(db: Session, payload: dict[str, Any]) -> User:
+    raw_email = str(payload.get("email") or "").strip().lower()
+    if not raw_email:
+        raise HTTPException(status_code=401, detail="Invalid bridge token payload")
+
+    user = db.query(User).filter(User.email == raw_email).first()
+
+    if user is None:
+        user = User(
+            name=(payload.get("name") or None),
+            email=raw_email,
+            hashed_password=pwd_context.hash(secrets.token_urlsafe(24)),
+            plan=str(payload.get("plan") or "free").strip() or "free",
+            credits=max(0, int(payload.get("credits") or 0)),
+        )
+        db.add(user)
+        db.flush()
+    else:
+        incoming_plan = str(payload.get("plan") or user.plan or "free").strip() or user.plan or "free"
+        if incoming_plan and incoming_plan != user.plan:
+            user.plan = incoming_plan
+
+        try:
+            incoming_credits = int(payload.get("credits") or 0)
+            if incoming_credits >= 0 and incoming_credits != user.credits:
+                user.credits = incoming_credits
+        except (TypeError, ValueError):
+            pass
+
+        incoming_name = payload.get("name")
+        if isinstance(incoming_name, str) and incoming_name.strip():
+            user.name = incoming_name.strip()
+
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def decode_token(token: str) -> str:
@@ -402,6 +480,28 @@ def login(
     set_auth_cookie(response, request, token)
 
     return {"ok": True}
+
+
+@router.post("/bridge-login")
+def bridge_login(
+    data: BridgeLoginRequest,
+    response: Response,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    payload = decode_bridge_token(data.bridge_token)
+    user = _sync_bridge_user(db, payload)
+
+    token = create_token(user.email)
+    set_auth_cookie(response, request, token)
+
+    return {
+        "ok": True,
+        "next": data.next or "/app",
+        "email": user.email,
+        "plan": user.plan,
+        "credits": user.credits,
+    }
 
 
 @router.post("/logout")
