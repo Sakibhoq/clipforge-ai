@@ -17,40 +17,67 @@ type LabsStatusResponse = {
   user_credits: number;
 };
 
+type LabsLaunchResponse = {
+  launch_url: string;
+  mode: string;
+  ttl_seconds: number;
+  expires_at_utc: string;
+};
+
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
 export default function LabsPage() {
   const [status, setStatus] = useState<LabsStatusResponse | null>(null);
+  const [launch, setLaunch] = useState<LabsLaunchResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    apiFetch<LabsStatusResponse>("/labs/status", { method: "GET" })
-      .then((data) => {
+
+    const loadStatus = async () => {
+      try {
+        const statusData = await apiFetch<LabsStatusResponse>("/labs/status", { method: "GET" });
         if (!mounted) return;
-        setStatus(data);
-        setError(null);
-      })
-      .catch((e: any) => {
+        setStatus(statusData);
+      } catch (err: any) {
         if (!mounted) return;
-        setError(e?.detail || "Could not load Orbito Labs status.");
-      })
-      .finally(() => {
+        setError(err?.detail || "Could not load Orbito Labs status.");
+      }
+    };
+
+    const loadLaunch = async () => {
+      try {
+        const launchData = await apiFetch<LabsLaunchResponse>("/labs/launch", { method: "GET" });
         if (!mounted) return;
-        setLoading(false);
-      });
+        setLaunch(launchData);
+        setLaunchError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        if (err?.status === 404) {
+          setLaunchError("Bridge launch endpoint is not available in this deployment.");
+        } else {
+          setLaunchError("Bridge launch URL is temporarily unavailable.");
+        }
+      }
+    };
+
+    Promise.all([loadStatus(), loadLaunch()]).finally(() => {
+      if (!mounted) return;
+      setLoading(false);
+    });
+
     return () => {
       mounted = false;
     };
   }, []);
 
   const providers = useMemo(() => status?.connected_providers || [], [status?.connected_providers]);
-  const canLaunch = !!status?.labs_frontend_url;
-  const launchHref = status?.labs_frontend_url || "#";
+  const canLaunch = !!(launch?.launch_url || status?.labs_frontend_url);
+  const launchHref = launch?.launch_url || status?.labs_frontend_url || "#";
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -72,8 +99,8 @@ export default function LabsPage() {
                 Orbito <span className="grad-text">Labs</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Phase 1 is live: unified account + shared social connections. Labs is now accessible from inside your
-                Orbito app while we complete native in-app migration.
+                Orbito and Labs are running on one account framework. Social links and entitlements are shared while the Labs
+                workspace migrates into the main product.
               </p>
             </div>
 
@@ -98,22 +125,20 @@ export default function LabsPage() {
                   Unified auth: <span className="text-white/85">{status.unified_auth ? "Enabled" : "Off"}</span>
                 </div>
                 <div>
-                  Shared connections:{" "}
-                  <span className="text-white/85">{status.unified_connections ? "Enabled" : "Off"}</span>
+                  Shared connections: <span className="text-white/85">{status.unified_connections ? "Enabled" : "Off"}</span>
                 </div>
                 <div>
                   Plan: <span className="text-white/85">{status.user_plan}</span> • Credits:{" "}
                   <span className="text-white/85 tabular-nums">{status.user_credits}</span>
                 </div>
+                <div>API URL: <span className="text-white/85">{status.labs_api_url}</span></div>
               </div>
             )}
           </div>
 
           <div className="surface-soft rounded-2xl p-5">
             <div className="text-xs text-white/50">Connected providers</div>
-            <div className="mt-2 text-sm text-white/85">
-              {loading ? "…" : `${status?.connected_accounts || 0} provider(s)`}
-            </div>
+            <div className="mt-2 text-sm text-white/85">{loading ? "…" : `${status?.connected_accounts || 0} provider(s)`}</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {providers.length > 0 ? (
                 providers.map((p) => (
@@ -139,14 +164,16 @@ export default function LabsPage() {
         <section className="mt-6 surface-soft rounded-2xl p-5">
           <div className="text-xs text-white/50">Workspace</div>
           <div className="mt-2 text-sm text-white/70">
-            Launch the existing Labs workspace while native `/app/labs` tools are being merged into Orbito.
+            Open the shared Labs workspace from this account. In current mode this keeps your social providers and auth session aligned.
           </div>
+          {launch?.mode ? <div className="mt-2 text-xs text-white/50">Bridge mode: {launch.mode}</div> : null}
+          {launchError ? <div className="mt-2 text-xs text-rose-200/85">{launchError}</div> : null}
           <div className="mt-4 flex flex-wrap gap-3">
             <a
               href={launchHref}
               target="_blank"
               rel="noreferrer"
-              className={cx("btn-whop text-xs", !canLaunch && "pointer-events-none opacity-60")}
+              className={cx("btn-clipforge text-xs", !canLaunch && "pointer-events-none opacity-60")}
             >
               Open Orbito Labs
             </a>

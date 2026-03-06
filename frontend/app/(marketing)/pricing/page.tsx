@@ -1138,7 +1138,7 @@ async function startCheckout(plan: "free" | "starter" | "creator") {
                   <span className="grad-text">Start posting today.</span>
                 </div>
                 <div className="mt-2 text-sm text-white/65">
-                  Want AI video generation too? Try Clipforge Labs at clipforge.us.
+                  Want AI video generation too? Open Orbito Labs from your Orbito account.
                 </div>
               </div>
 

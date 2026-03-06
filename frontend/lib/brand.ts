@@ -7,10 +7,10 @@ export const BRAND = {
   metaDescription:
     "Orbito turns long videos into high-performing clips with smart reframing, captions, and a seamless pipeline.",
 
-  // Sister product link
-  clipforgeName: "Clipforge",
-  clipforgeProduct: "Clipforge Labs",
-  clipforgeUrl: "https://clipforge.us",
+  // Merged product link
+  clipforgeName: "Orbito Labs",
+  clipforgeProduct: "Orbito Labs",
+  clipforgeUrl: "/app/labs",
 
   // Monetization partner
   whopName: "Whop",

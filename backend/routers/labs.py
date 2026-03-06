@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 from typing import List
+from urllib.parse import quote
 
+import jwt
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -34,6 +37,38 @@ def _mode() -> str:
     return value or "external_bridge"
 
 
+def _labs_frontend_url() -> str:
+    return _clean_url(
+        os.getenv("LABS_FRONTEND_URL") or "",
+        "https://clipforge.us",
+    )
+
+
+def _labs_api_url() -> str:
+    return _clean_url(
+        os.getenv("LABS_API_URL") or "",
+        "https://api.clipforge.us",
+    )
+
+
+def _bridge_secret() -> str:
+    return (
+        os.getenv("LABS_BRIDGE_SECRET")
+        or os.getenv("LABS_BRIDGE_TOKEN_SECRET")
+        or os.getenv("SECRET_KEY")
+        or ""
+    )
+
+
+def _bridge_ttl_seconds() -> int:
+    raw = os.getenv("LABS_BRIDGE_TOKEN_TTL_SECONDS") or "300"
+    try:
+        value = int(raw.strip())
+    except Exception:
+        value = 300
+    return max(120, min(3600, value))
+
+
 class LabsHealthResponse(BaseModel):
     status: str
     phase: str
@@ -53,6 +88,13 @@ class LabsStatusResponse(BaseModel):
     user_credits: int
 
 
+class LabsLaunchResponse(BaseModel):
+    launch_url: str
+    mode: str
+    ttl_seconds: int
+    expires_at_utc: str
+
+
 @router.get("/health", response_model=LabsHealthResponse)
 def labs_health():
     return LabsHealthResponse(
@@ -62,20 +104,30 @@ def labs_health():
     )
 
 
+def _build_bridge_token(user: User) -> str:
+    secret = _bridge_secret()
+    ttl_seconds = _bridge_ttl_seconds()
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(seconds=ttl_seconds)
+
+    payload = {
+        "iss": "orbi-api",
+        "aud": "orbito-labs",
+        "sub": str(user.id),
+        "email": user.email,
+        "plan": str(getattr(user, "plan", "free")),
+        "credits": int(getattr(user, "credits", 0) or 0),
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp()),
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
 @router.get("/status", response_model=LabsStatusResponse)
 def labs_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    frontend_url = _clean_url(
-        os.getenv("LABS_FRONTEND_URL") or "",
-        "https://clipforge.us",
-    )
-    api_url = _clean_url(
-        os.getenv("LABS_API_URL") or "",
-        "https://api.clipforge.us",
-    )
-
     rows = (
         db.query(SocialAccount.provider)
         .filter(SocialAccount.user_id == current_user.id)
@@ -88,8 +140,8 @@ def labs_status(
     return LabsStatusResponse(
         phase=_phase(),
         mode=_mode(),
-        labs_frontend_url=frontend_url,
-        labs_api_url=api_url,
+        labs_frontend_url=_labs_frontend_url(),
+        labs_api_url=_labs_api_url(),
         unified_auth=True,
         unified_connections=(os.getenv("LABS_SHARE_USE_ORBITO_CONNECTIONS") or "1").strip().lower()
         in {"1", "true", "yes", "on"},
@@ -97,4 +149,28 @@ def labs_status(
         connected_accounts=len(providers),
         user_plan=str(getattr(current_user, "plan", "free")),
         user_credits=int(getattr(current_user, "credits", 0) or 0),
+    )
+
+
+@router.get("/launch", response_model=LabsLaunchResponse)
+def labs_launch(
+    current_user: User = Depends(get_current_user),
+):
+    mode = _mode()
+    frontend_url = _labs_frontend_url().rstrip("/")
+    ttl_seconds = _bridge_ttl_seconds()
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=ttl_seconds)
+
+    token = _build_bridge_token(current_user)
+    launch_url = (
+        f"{frontend_url}/?source=orbitosite&origin=orbitosite&bridge_mode={mode}"
+        f"&bridge_token={quote(token)}"
+    )
+
+    return LabsLaunchResponse(
+        launch_url=launch_url,
+        mode=mode,
+        ttl_seconds=ttl_seconds,
+        expires_at_utc=expires_at.isoformat(),
     )
