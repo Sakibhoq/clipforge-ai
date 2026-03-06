@@ -1446,6 +1446,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             for candidate in (8, 6):
                 if candidate < image_count and candidate not in retry_image_counts:
                     retry_image_counts.append(candidate)
+            allow_placeholder_post_output = _env("LABS_ALLOW_PLACEHOLDER_POST_OUTPUT", "0").strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            used_placeholder_visuals = False
 
             if use_google_provider:
                 try:
@@ -1545,6 +1552,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     if not _file_has_data(img_path):
                         if use_google_provider and not allow_demo_fallback:
                             raise RuntimeError("Google post image generation returned no media payload")
+                        used_placeholder_visuals = True
                         _run_ffmpeg_text_image(
                             prompt=_post_scene_fallback_text(
                                 raw_visual_prompt=raw_visual_prompt,
@@ -1584,6 +1592,7 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                                     aspect_ratio=aspect_ratio,
                                     out_path=img_path,
                                 )
+                            used_placeholder_visuals = True
                             break
                         raise RuntimeError("Generation queue is at provider capacity. Retry in a few minutes.")
                     continue
@@ -1591,6 +1600,10 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
 
             if not image_paths:
                 raise RuntimeError("Post generation failed before image rendering completed.")
+            if used_placeholder_visuals and not allow_placeholder_post_output:
+                raise RuntimeError(
+                    "Generation queue is at provider capacity. Retry in a few minutes for full visual output."
+                )
 
             final_duration = _render_image_slideshow_video(
                 image_paths=image_paths,
