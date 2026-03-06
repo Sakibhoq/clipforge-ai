@@ -369,6 +369,8 @@ def _create_generation_job(
     model: str,
     negative_prompt: str | None,
     settings_payload: dict,
+    captions_enabled: bool = False,
+    watermark_enabled: bool = True,
     plan_guard: Callable[[str], None] | None = None,
 ) -> tuple[Upload, Job]:
     upload = None
@@ -439,8 +441,8 @@ def _create_generation_job(
                 kind=kind,
                 status="queued",
                 aspect_ratio=(aspect_ratio or "1:1"),
-                captions_enabled=False,
-                watermark_enabled=True,
+                captions_enabled=bool(captions_enabled),
+                watermark_enabled=bool(watermark_enabled),
                 caption_style_json=json.dumps(settings_payload or {}),
                 prompt=prompt,
                 negative_prompt=(negative_prompt or None),
@@ -470,6 +472,7 @@ class GenerateVideoRequest(BaseModel):
     style_preset: str | None = Field(default="social-native", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
     input_image_key: str | None = Field(default=None, max_length=512)
+    watermark_enabled: bool = Field(default=True)
 
 
 class GenerateImageRequest(BaseModel):
@@ -478,6 +481,7 @@ class GenerateImageRequest(BaseModel):
     model: str | None = Field(default="google", max_length=64)
     style_preset: str | None = Field(default="photo-real", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
+    watermark_enabled: bool = Field(default=True)
 
 
 class GenerateVoiceoverRequest(BaseModel):
@@ -498,6 +502,8 @@ class GeneratePostRequest(BaseModel):
     speed_wpm: int | None = Field(default=None, ge=80, le=330)
     style_preset: str | None = Field(default="social-native", max_length=64)
     caption_style_preset: str | None = Field(default="bold_center", max_length=64)
+    captions_enabled: bool = Field(default=True)
+    watermark_enabled: bool = Field(default=True)
 
 
 class GenerateResponse(BaseModel):
@@ -587,6 +593,7 @@ def create_video_generation(
         "style_preset": (payload.style_preset or "social-native"),
         "seed": payload.seed,
         "input_image_key": input_image_key,
+        "watermark_enabled": bool(payload.watermark_enabled),
     }
 
     upload, job = _create_generation_job(
@@ -601,6 +608,7 @@ def create_video_generation(
         model=model,
         negative_prompt=(payload.negative_prompt or None),
         settings_payload=settings_payload,
+        watermark_enabled=bool(payload.watermark_enabled),
         plan_guard=_plan_guard,
     )
 
@@ -634,6 +642,7 @@ def create_image_generation(
         "mode": "image",
         "style_preset": (payload.style_preset or "photo-real"),
         "seed": payload.seed,
+        "watermark_enabled": bool(payload.watermark_enabled),
     }
 
     upload, job = _create_generation_job(
@@ -648,6 +657,7 @@ def create_image_generation(
         model=model,
         negative_prompt=None,
         settings_payload=settings_payload,
+        watermark_enabled=bool(payload.watermark_enabled),
     )
 
     return GenerateResponse(
@@ -783,6 +793,8 @@ def create_post_generation(
         "speed_wpm": safe_speed,
         "style_preset": (payload.style_preset or "social-native"),
         "caption_style_preset": (payload.caption_style_preset or "bold_center"),
+        "captions_enabled": bool(payload.captions_enabled),
+        "watermark_enabled": bool(payload.watermark_enabled),
     }
 
     upload, job = _create_generation_job(
@@ -797,6 +809,8 @@ def create_post_generation(
         model=model,
         negative_prompt=None,
         settings_payload=settings_payload,
+        captions_enabled=bool(payload.captions_enabled),
+        watermark_enabled=bool(payload.watermark_enabled),
         plan_guard=_plan_guard,
     )
 

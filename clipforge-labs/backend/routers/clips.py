@@ -170,6 +170,7 @@ def _clip_url(storage, key: str, request: Optional[Request]) -> str:
 def _clip_dict(clip: Clip, storage, request: Optional[Request]):
     return {
         "id": clip.id,
+        "job_id": clip.job_id,
         "upload_id": clip.upload_id,
         "storage_key": clip.storage_key,
         "url": _clip_url(storage, clip.storage_key, request),

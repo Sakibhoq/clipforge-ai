@@ -48,6 +48,8 @@ type JobSettings = {
   style_preset?: string;
   caption_style_preset?: string;
   generation_speed?: string;
+  watermark_enabled?: boolean;
+  captions_enabled?: boolean;
 };
 
 const VIDEO_RELAX_CREDITS_PER_SECOND = 10;
@@ -294,6 +296,7 @@ export default function GenerateClient() {
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
+  const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
   const [voiceSpeedMultiplier, setVoiceSpeedMultiplier] = useState<number>(1);
@@ -377,6 +380,9 @@ export default function GenerateClient() {
     const voice = typeof settings.voice_name === "string" ? settings.voice_name : "";
     if (voice && VOICE_VALUES.has(voice)) {
       setVoiceName(voice);
+    }
+    if (typeof settings.watermark_enabled === "boolean") {
+      setWatermarkEnabled(settings.watermark_enabled);
     }
 
     if (kind === "generate_post") {
@@ -631,7 +637,7 @@ export default function GenerateClient() {
     setSubmitting(true);
     try {
       let endpoint = "/labs/generate";
-      let body: Record<string, string | number> = {};
+      let body: Record<string, string | number | boolean> = {};
 
       if (mode === "post") {
         endpoint = "/labs/generate/post";
@@ -645,6 +651,8 @@ export default function GenerateClient() {
           voice_name: voiceName,
           style_preset: stylePreset,
           caption_style_preset: postCaptionStylePreset,
+          captions_enabled: true,
+          watermark_enabled: watermarkEnabled,
         };
       } else if (mode === "image") {
         endpoint = "/labs/generate/image";
@@ -653,6 +661,7 @@ export default function GenerateClient() {
           aspect_ratio: aspectRatio,
           model: "google",
           style_preset: stylePreset,
+          watermark_enabled: watermarkEnabled,
         };
       } else if (mode === "voiceover") {
         endpoint = "/labs/generate/voiceover";
@@ -671,6 +680,7 @@ export default function GenerateClient() {
           generation_speed: videoSpeed,
           model: "google",
           style_preset: stylePreset,
+          watermark_enabled: watermarkEnabled,
         };
       }
 
@@ -930,8 +940,20 @@ export default function GenerateClient() {
                           {opt.label}
                         </option>
                       ))}
-                    </select>
+                      </select>
                   </div>
+                ) : null}
+
+                {(mode === "post" || mode === "video" || mode === "image") ? (
+                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={watermarkEnabled}
+                      onChange={(e) => setWatermarkEnabled(e.target.checked)}
+                      className="h-4 w-4 accent-orange-500"
+                    />
+                    <span className="text-xs text-white/80">Add Clipforge watermark (top-left)</span>
+                  </label>
                 ) : null}
 
                 {mode === "post" ? (

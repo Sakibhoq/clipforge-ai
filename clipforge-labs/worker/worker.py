@@ -906,6 +906,278 @@ def _probe_audio_duration(path: str) -> float:
         return 0.0
 
 
+def _probe_media_duration(path: str) -> float:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+    ]
+    proc = _run_media_cmd(cmd, timeout_seconds=max(30, _media_cmd_timeout_seconds()))
+    if proc.returncode != 0:
+        return 0.0
+    raw = (proc.stdout or "").strip()
+    try:
+        return max(0.0, float(raw))
+    except Exception:
+        return 0.0
+
+
+def _ff_drawtext_escape(value: str) -> str:
+    return (
+        str(value or "")
+        .replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace("%", "\\%")
+    )
+
+
+def _ff_path_escape(value: str) -> str:
+    return str(value or "").replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+
+def _watermark_logo_path() -> str:
+    candidates = [
+        _env("WORKER_WATERMARK_LOGO_PATH", ""),
+        "/app/assets/clipforge-labs-mark.svg",
+        "/app/assets/clipforge-labs-mark.png",
+        "/app/assets/orbito-mark.png",
+    ]
+    for candidate in candidates:
+        path = (candidate or "").strip()
+        if path and os.path.exists(path):
+            return path
+    return ""
+
+
+def _caption_force_style(preset: str | None, video_h: int) -> str:
+    style = (preset or "").strip().lower()
+    if style == "minimal":
+        font_size = max(32, int(video_h * 0.035))
+        margin_v = max(90, int(video_h * 0.12))
+        return (
+            f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H5A000000,"
+            "BorderStyle=3,Outline=1,Shadow=0,MarginL=36,MarginR=36"
+        )
+    if style == "clean_bottom":
+        font_size = max(38, int(video_h * 0.041))
+        margin_v = max(74, int(video_h * 0.09))
+        return (
+            f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H66000000,"
+            "BorderStyle=3,Outline=1.5,Shadow=0,MarginL=42,MarginR=42"
+        )
+    # default: bold_center
+    font_size = max(42, int(video_h * 0.048))
+    margin_v = max(122, int(video_h * 0.15))
+    return (
+        f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
+        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H78000000,"
+        "BorderStyle=3,Outline=2,Shadow=0,MarginL=44,MarginR=44"
+    )
+
+
+def _format_srt_ts(seconds: float) -> str:
+    safe = max(0.0, float(seconds or 0.0))
+    total_ms = int(round(safe * 1000.0))
+    hh = total_ms // 3_600_000
+    mm = (total_ms % 3_600_000) // 60_000
+    ss = (total_ms % 60_000) // 1000
+    ms = total_ms % 1000
+    return f"{hh:02d}:{mm:02d}:{ss:02d},{ms:03d}"
+
+
+def _build_word_caption_events(script: str, duration_seconds: float) -> list[dict[str, float | str]]:
+    tokens = [tok.strip() for tok in re.findall(r"\S+", script or "") if tok.strip()]
+    if not tokens:
+        return []
+    safe_duration = max(0.6, float(duration_seconds or 0.0))
+    slot = safe_duration / float(len(tokens))
+    events: list[dict[str, float | str]] = []
+    for idx, token in enumerate(tokens):
+        start = round(float(idx) * slot, 3)
+        end = round(float(idx + 1) * slot, 3)
+        if idx == len(tokens) - 1:
+            end = max(end, safe_duration)
+        if end <= start:
+            end = round(start + 0.08, 3)
+        events.append({"word": token, "start": start, "end": end})
+    return events
+
+
+def _write_word_by_word_srt(events: list[dict[str, float | str]]) -> str:
+    fd, path = tempfile.mkstemp(prefix="cflabs-word-captions-", suffix=".srt")
+    os.close(fd)
+    with open(path, "w", encoding="utf-8") as f:
+        for idx, event in enumerate(events, start=1):
+            word = str(event.get("word") or "").strip()
+            if not word:
+                continue
+            start = float(event.get("start") or 0.0)
+            end = float(event.get("end") or 0.0)
+            if end <= start:
+                end = start + 0.08
+            f.write(f"{idx}\n")
+            f.write(f"{_format_srt_ts(start)} --> {_format_srt_ts(end)}\n")
+            f.write(f"{word}\n\n")
+    return path
+
+
+def _apply_video_overlays(
+    *,
+    src_path: str,
+    out_path: str,
+    watermark_enabled: bool,
+    subtitles_path: str | None = None,
+    caption_style_preset: str | None = None,
+    aspect_ratio: str = "9:16",
+    allow_logo: bool = True,
+) -> None:
+    logo_path = _watermark_logo_path() if (watermark_enabled and allow_logo) else ""
+    watermark_text = _env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs"
+    draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    _, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+    label = "[0:v]"
+    graph_parts: list[str] = []
+    if subtitles_path:
+        force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
+        sub_path = _ff_path_escape(subtitles_path)
+        graph_parts.append(f"[0:v]subtitles='{sub_path}':force_style='{force_style}'[vsub]")
+        label = "[vsub]"
+    if watermark_enabled and logo_path:
+        logo_label = "[wm]"
+        graph_parts.append(f"[1:v]scale=84:-1{logo_label}")
+        graph_parts.append(f"{label}{logo_label}overlay=x=24:y=24:format=auto[vw]")
+        label = "[vw]"
+    if watermark_enabled:
+        text_escaped = _ff_drawtext_escape(watermark_text)
+        graph_parts.append(
+            f"{label}drawtext=fontfile={draw_font}:text='{text_escaped}':"
+            "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
+            "x=24:y=24+88[vout]"
+        )
+        label = "[vout]"
+    if not graph_parts:
+        shutil.copyfile(src_path, out_path)
+        return
+
+    cmd: list[str] = ["ffmpeg", "-y", "-i", src_path]
+    if watermark_enabled and logo_path:
+        cmd.extend(["-i", logo_path])
+    cmd.extend(
+        [
+            "-filter_complex",
+            ";".join(graph_parts),
+            "-map",
+            label,
+            "-map",
+            "0:a?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "160k",
+            "-movflags",
+            "+faststart",
+            out_path,
+        ]
+    )
+    proc = _run_media_cmd(cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+    if proc.returncode != 0:
+        if logo_path and allow_logo:
+            _apply_video_overlays(
+                src_path=src_path,
+                out_path=out_path,
+                watermark_enabled=watermark_enabled,
+                subtitles_path=subtitles_path,
+                caption_style_preset=caption_style_preset,
+                aspect_ratio=aspect_ratio,
+                allow_logo=False,
+            )
+            return
+        raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg overlay render failed").strip()[:500])
+
+
+def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
+    if not watermark_enabled:
+        return
+    fd, tmp_path = tempfile.mkstemp(prefix="cflabs-watermark-img-", suffix=".png")
+    os.close(fd)
+    logo_path = _watermark_logo_path()
+    draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    text_escaped = _ff_drawtext_escape(_env("WORKER_WATERMARK_TEXT", "Clipforge Labs").strip() or "Clipforge Labs")
+    try:
+        if logo_path:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                image_path,
+                "-i",
+                logo_path,
+                "-filter_complex",
+                "[1:v]scale=84:-1[wm];[0:v][wm]overlay=x=24:y=24:format=auto[v1];"
+                f"[v1]drawtext=fontfile={draw_font}:text='{text_escaped}':"
+                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
+                "x=24:y=24+88[vout]",
+                "-map",
+                "[vout]",
+                "-frames:v",
+                "1",
+                tmp_path,
+            ]
+        else:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                image_path,
+                "-vf",
+                f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
+                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
+                "x=24:y=24",
+                "-frames:v",
+                "1",
+                tmp_path,
+            ]
+        proc = _run_media_cmd(cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))
+        if proc.returncode != 0 and logo_path:
+            fallback_cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                image_path,
+                "-vf",
+                f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
+                "fontcolor=white@0.86:fontsize=24:box=1:boxcolor=black@0.38:boxborderw=8:"
+                "x=24:y=24",
+                "-frames:v",
+                "1",
+                tmp_path,
+            ]
+            proc = _run_media_cmd(fallback_cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg image watermark failed").strip()[:500])
+        shutil.move(tmp_path, image_path)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
 def _render_image_slideshow_video(
     *,
     image_paths: list[str],
@@ -1365,6 +1637,8 @@ def _next_generate_job(db) -> dict | None:
               COALESCE(model, '') AS model,
               COALESCE(duration_seconds, 6) AS duration_seconds,
               COALESCE(aspect_ratio, '9:16') AS aspect_ratio,
+              COALESCE(captions_enabled, 0) AS captions_enabled,
+              COALESCE(watermark_enabled, 1) AS watermark_enabled,
               COALESCE(caption_style_json, '{}') AS settings_json
             FROM jobs
             WHERE kind IN ('generate', 'generate_image', 'generate_voiceover', 'generate_post')
@@ -1433,8 +1707,12 @@ def _insert_clip(
     storage_key: str,
     duration_seconds: float,
     title: str | None,
+    start_time: float = 0.0,
+    hook: str | None = None,
 ) -> None:
+    safe_start = max(0.0, float(start_time or 0.0))
     safe_duration = max(0.0, float(duration_seconds or 0.0))
+    safe_end = safe_start + safe_duration
     db.execute(
         text(
             """
@@ -1446,11 +1724,11 @@ def _insert_clip(
             "upload_id": int(upload_id),
             "job_id": int(job_id),
             "storage_key": str(storage_key),
-            "start_time": 0.0,
-            "end_time": safe_duration,
+            "start_time": safe_start,
+            "end_time": safe_end,
             "duration": safe_duration,
             "title": (title or None),
-            "hook": None,
+            "hook": (hook or None),
         },
     )
 
@@ -1492,6 +1770,21 @@ def _parse_settings(raw: str) -> dict:
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def _merge_job_settings(db, *, job_id: int, patch: dict[str, Any]) -> None:
+    if not patch:
+        return
+    row = db.execute(
+        text("SELECT COALESCE(caption_style_json, '{}') AS settings_json FROM jobs WHERE id = :id LIMIT 1"),
+        {"id": int(job_id)},
+    ).mappings().first()
+    existing = _parse_settings(str((row or {}).get("settings_json") or "{}"))
+    merged = {**existing, **patch}
+    db.execute(
+        text("UPDATE jobs SET caption_style_json = :settings_json WHERE id = :id"),
+        {"id": int(job_id), "settings_json": json.dumps(merged)},
+    )
 
 
 def _is_provider_capacity_error(exc: Exception | str | None) -> bool:
@@ -1546,10 +1839,17 @@ def _video_mode_prep_delay_seconds(speed: str) -> int:
     return _env_int("WORKER_RELAX_PREP_DELAY_SECONDS", 4, min_value=0, max_value=120)
 
 
-def _process_job(job: dict) -> tuple[str, str, float, str | None]:
+def _process_job(job: dict) -> dict[str, Any]:
     """
     Returns:
-      storage_key, content_type, duration_seconds, title
+      {
+        storage_key: str,
+        content_type: str,
+        duration_seconds: float,
+        title: str | None,
+        extra_clips: list[dict],
+        settings_patch: dict | None,
+      }
     """
     job_id = int(job["id"])
     kind = str(job.get("kind") or JOB_KIND_VIDEO).strip().lower()
@@ -1560,6 +1860,8 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
     model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
     style_preset = str(settings.get("style_preset") or "").strip().lower()
+    watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
+    captions_enabled = bool(settings.get("captions_enabled", bool(job.get("captions_enabled", False))))
     styled_prompt = _apply_style_preset(prompt, style_preset)
     use_google_provider = _model_prefers_google(model)
     strict_provider = _provider_strict_mode()
@@ -1608,10 +1910,21 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     raise RuntimeError("Google image generation returned no media payload")
                 _run_ffmpeg_text_image(prompt=styled_prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
 
+            _apply_image_watermark(image_path=out_path, watermark_enabled=watermark_enabled)
+            if watermark_enabled:
+                content_type = "image/png"
+
             ext = _extension_for_content_type(content_type, ".png")
             key = f"assets/images/{job_id}-{uuid.uuid4().hex}{ext}"
             _upload_file(out_path, key, content_type=content_type)
-            return key, content_type, 0.0, provider_title or _title_from_prompt(styled_prompt) or f"Image {job_id}"
+            return {
+                "storage_key": key,
+                "content_type": content_type,
+                "duration_seconds": 0.0,
+                "title": provider_title or _title_from_prompt(styled_prompt) or f"Image {job_id}",
+                "extra_clips": [],
+                "settings_patch": None,
+            }
         finally:
             try:
                 os.unlink(out_path)
@@ -1651,7 +1964,14 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             key = f"assets/voiceovers/{job_id}-{uuid.uuid4().hex}{ext}"
             _upload_file(out_path, key, content_type=content_type)
             final_duration = dur if dur > 0 else max(2.0, min(90.0, len(prompt) / 12.0))
-            return key, content_type, final_duration, _title_from_prompt(prompt) or f"Voiceover {job_id}"
+            return {
+                "storage_key": key,
+                "content_type": content_type,
+                "duration_seconds": float(final_duration),
+                "title": _title_from_prompt(prompt) or f"Voiceover {job_id}",
+                "extra_clips": [],
+                "settings_patch": None,
+            }
         finally:
             try:
                 os.unlink(out_path)
@@ -1950,9 +2270,113 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                 target_duration=target_duration,
                 out_path=out_path,
             )
+            base_title = _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
+            caption_style_preset = str(settings.get("caption_style_preset") or "bold_center").strip().lower()
+            word_caption_events: list[dict[str, float | str]] = []
+            if captions_enabled:
+                word_caption_events = _build_word_caption_events(
+                    voice_script,
+                    final_duration if final_duration > 0 else target_duration,
+                )
+
+            subtitles_path: str | None = None
+            if captions_enabled and word_caption_events:
+                subtitles_path = _write_word_by_word_srt(word_caption_events)
+
+            fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
+            os.close(fd_overlay)
+            try:
+                _apply_video_overlays(
+                    src_path=out_path,
+                    out_path=overlay_path,
+                    watermark_enabled=watermark_enabled,
+                    subtitles_path=subtitles_path,
+                    caption_style_preset=caption_style_preset,
+                    aspect_ratio=aspect_ratio,
+                )
+                shutil.move(overlay_path, out_path)
+            finally:
+                if os.path.exists(overlay_path):
+                    try:
+                        os.unlink(overlay_path)
+                    except Exception:
+                        pass
+                if subtitles_path:
+                    try:
+                        os.unlink(subtitles_path)
+                    except Exception:
+                        pass
+
             key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
             _upload_file(out_path, key, content_type="video/mp4")
-            return key, "video/mp4", final_duration, _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
+
+            extra_clips: list[dict[str, Any]] = []
+            voice_key = f"assets/post-voiceovers/{job_id}-{uuid.uuid4().hex}.mp3"
+            _upload_file(audio_path, voice_key, content_type="audio/mpeg")
+            voice_duration = _probe_audio_duration(audio_path) or final_duration or target_duration
+            extra_clips.append(
+                {
+                    "storage_key": voice_key,
+                    "duration_seconds": float(voice_duration),
+                    "start_time": 0.0,
+                    "title": f"{base_title} · Voiceover",
+                    "hook": None,
+                }
+            )
+
+            scene_keys: list[str] = []
+            scene_count = max(1, len(image_paths))
+            scene_duration = max(0.2, float(final_duration or target_duration) / float(scene_count))
+            scene_beats_for_meta = _extract_post_scene_beats(raw_visual_prompt)
+            for idx, scene_path in enumerate(image_paths):
+                upload_scene_path = scene_path
+                scene_tmp_copy = ""
+                if watermark_enabled:
+                    fd_scene_copy, scene_tmp_copy = tempfile.mkstemp(
+                        prefix=f"cflabs-post-scene-wm-{job_id}-{idx}-",
+                        suffix=".png",
+                    )
+                    os.close(fd_scene_copy)
+                    shutil.copyfile(scene_path, scene_tmp_copy)
+                    _apply_image_watermark(image_path=scene_tmp_copy, watermark_enabled=True)
+                    upload_scene_path = scene_tmp_copy
+                scene_key = f"assets/post-scenes/{job_id}-{idx + 1:02d}-{uuid.uuid4().hex}.png"
+                _upload_file(upload_scene_path, scene_key, content_type="image/png")
+                scene_keys.append(scene_key)
+                scene_hook = _post_scene_beat_for_index(
+                    scene_beats=scene_beats_for_meta,
+                    scene_index=idx,
+                    scene_count=scene_count,
+                )
+                extra_clips.append(
+                    {
+                        "storage_key": scene_key,
+                        "duration_seconds": float(scene_duration),
+                        "start_time": float(idx) * float(scene_duration),
+                        "title": f"{base_title} · Scene {idx + 1}",
+                        "hook": scene_hook,
+                    }
+                )
+                if scene_tmp_copy:
+                    try:
+                        os.unlink(scene_tmp_copy)
+                    except Exception:
+                        pass
+
+            settings_patch: dict[str, Any] = {
+                "generated_scene_count": int(scene_count),
+                "generated_scene_storage_keys": scene_keys,
+                "generated_voiceover_key": voice_key,
+                "generated_word_captions": word_caption_events,
+            }
+            return {
+                "storage_key": key,
+                "content_type": "video/mp4",
+                "duration_seconds": float(final_duration),
+                "title": base_title,
+                "extra_clips": extra_clips,
+                "settings_patch": settings_patch,
+            }
         finally:
             try:
                 os.unlink(out_path)
@@ -2026,11 +2450,38 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                 out_path=out_path,
             )
 
+        if watermark_enabled:
+            fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-video-overlay-{job_id}-", suffix=".mp4")
+            os.close(fd_overlay)
+            try:
+                _apply_video_overlays(
+                    src_path=out_path,
+                    out_path=overlay_path,
+                    watermark_enabled=True,
+                    subtitles_path=None,
+                    caption_style_preset=None,
+                    aspect_ratio=aspect_ratio,
+                )
+                shutil.move(overlay_path, out_path)
+            finally:
+                if os.path.exists(overlay_path):
+                    try:
+                        os.unlink(overlay_path)
+                    except Exception:
+                        pass
+
         ext = _extension_for_content_type(content_type, ".mp4")
         key = f"clips/generated/{job_id}-{uuid.uuid4().hex}{ext}"
         _upload_file(out_path, key, content_type=content_type)
         final_duration = provider_duration if provider_duration and provider_duration > 0 else float(max(2, duration))
-        return key, content_type, final_duration, provider_title or _title_from_prompt(prompt)
+        return {
+            "storage_key": key,
+            "content_type": content_type,
+            "duration_seconds": float(final_duration),
+            "title": provider_title or _title_from_prompt(prompt),
+            "extra_clips": [],
+            "settings_patch": None,
+        }
     finally:
         try:
             os.unlink(out_path)
@@ -2063,7 +2514,16 @@ def main() -> None:
                 _mark_job_status(db, job_id, "running", None)
                 db.commit()
 
-                key, content_type, duration_seconds, title = _process_job(job)
+                result = _process_job(job)
+                key = str(result.get("storage_key") or "")
+                content_type = str(result.get("content_type") or "application/octet-stream")
+                duration_seconds = float(result.get("duration_seconds") or 0.0)
+                title = result.get("title")
+                extra_clips = result.get("extra_clips") if isinstance(result.get("extra_clips"), list) else []
+                settings_patch = result.get("settings_patch") if isinstance(result.get("settings_patch"), dict) else None
+
+                if not key:
+                    raise RuntimeError("Generation returned no storage key")
 
                 _insert_clip(
                     db,
@@ -2071,8 +2531,26 @@ def main() -> None:
                     job_id=job_id,
                     storage_key=key,
                     duration_seconds=duration_seconds,
-                    title=title,
+                    title=str(title) if isinstance(title, str) else None,
                 )
+                for extra in extra_clips:
+                    if not isinstance(extra, dict):
+                        continue
+                    extra_key = str(extra.get("storage_key") or "").strip()
+                    if not extra_key:
+                        continue
+                    _insert_clip(
+                        db,
+                        upload_id=upload_id,
+                        job_id=job_id,
+                        storage_key=extra_key,
+                        duration_seconds=float(extra.get("duration_seconds") or 0.0),
+                        start_time=float(extra.get("start_time") or 0.0),
+                        title=str(extra.get("title") or "").strip() or None,
+                        hook=str(extra.get("hook") or "").strip() or None,
+                    )
+                if settings_patch:
+                    _merge_job_settings(db, job_id=job_id, patch=settings_patch)
                 _mark_job_status(db, job_id, "done", None)
                 db.commit()
                 print(f"[worker] generated asset kind={kind} job_id={job_id} key={key} content_type={content_type}")

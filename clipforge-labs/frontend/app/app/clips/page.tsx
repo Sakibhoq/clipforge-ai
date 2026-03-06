@@ -9,11 +9,14 @@ import EditorWorkspace from "@/components/editor/EditorWorkspace";
 
 type ClipRow = {
   id: number;
+  job_id: number;
   upload_id: number;
   storage_key: string;
   url: string;
   asset_type?: string;
   mime_type?: string;
+  start_time?: number;
+  end_time?: number;
   duration: number;
   title?: string | null;
   hook?: string | null;
@@ -272,6 +275,7 @@ export default function ClipsPage() {
   const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorFromQuery, setEditorFromQuery] = useState(false);
+  const [editorClipId, setEditorClipId] = useState<number | null>(null);
   const [previewClip, setPreviewClip] = useState<ClipRow | null>(null);
 
   const [scheduleClip, setScheduleClip] = useState<ClipRow | null>(null);
@@ -285,8 +289,9 @@ export default function ClipsPage() {
   const [providerOptionValues, setProviderOptionValues] = useState<Partial<Record<SupportedSocialProvider, Record<string, any>>>>({});
   const [providerOptionLoading, setProviderOptionLoading] = useState<Partial<Record<SupportedSocialProvider, boolean>>>({});
 
-  function openEditor() {
+  function openEditor(clipId?: number) {
     setScheduleClip(null);
+    setEditorClipId(typeof clipId === "number" && clipId > 0 ? clipId : null);
     setEditorOpen(true);
   }
 
@@ -301,9 +306,11 @@ export default function ClipsPage() {
 
   function closeEditor() {
     setEditorOpen(false);
+    setEditorClipId(null);
     if (!editorFromQuery) return;
     const nextQuery = new URLSearchParams(window.location.search);
     nextQuery.delete("editor");
+    nextQuery.delete("clipId");
     const next = nextQuery.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     setEditorFromQuery(false);
@@ -350,6 +357,8 @@ export default function ClipsPage() {
     const query = new URLSearchParams(window.location.search);
     if (query.get("editor") !== "1") return;
     setEditorFromQuery(true);
+    const clipId = Number(query.get("clipId") || 0);
+    setEditorClipId(clipId > 0 ? clipId : null);
     setEditorOpen(true);
   }, []);
 
@@ -688,7 +697,7 @@ export default function ClipsPage() {
                 <Link href="/app/generate" className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Generator
                 </Link>
-                <button type="button" onClick={openEditor} className="btn-aurora px-4 py-2 text-center text-[12px]">
+                <button type="button" onClick={() => openEditor()} className="btn-aurora px-4 py-2 text-center text-[12px]">
                   Open Editor
                 </button>
               </div>
@@ -802,7 +811,7 @@ export default function ClipsPage() {
                       <div className="truncate text-[13px] font-semibold text-white/94">{c.title || `Asset #${c.id}`}</div>
                       <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <ActionIconButton onClick={openEditor} icon="edit" label="Open editor" />
+                        <ActionIconButton onClick={() => openEditor(c.id)} icon="edit" label="Open editor" />
                         <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
                         <ActionIconButton onClick={() => openPreview(c)} icon="play" label="Open preview" />
                         {assetType === "video" ? (
@@ -917,7 +926,7 @@ export default function ClipsPage() {
           <div className="absolute inset-0 p-3 sm:p-5">
             <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col overflow-hidden rounded-[28px] border border-[#7dd3fc33] bg-[radial-gradient(130%_120%_at_15%_0%,rgba(125,211,252,0.16),transparent_52%),radial-gradient(100%_120%_at_84%_0%,rgba(167,139,250,0.13),transparent_48%),rgba(7,11,21,0.96)] shadow-[0_38px_120px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
               <div className="clipforge-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pb-1">
-                <EditorWorkspace mode="card" onClose={closeEditor} />
+                <EditorWorkspace mode="card" onClose={closeEditor} initialClipId={editorClipId || undefined} />
               </div>
             </div>
           </div>

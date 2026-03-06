@@ -53,14 +53,23 @@ type TimelineDragState = {
 
 type ClipRow = {
   id: number;
+  job_id: number;
   upload_id: number;
   storage_key: string;
   url: string;
   asset_type?: string;
   mime_type?: string;
+  start_time?: number;
+  end_time?: number;
   duration: number;
   title?: string | null;
   hook?: string | null;
+};
+
+type WordCaptionEvent = {
+  word: string;
+  start: number;
+  end: number;
 };
 
 type TimelineItem = {
@@ -210,6 +219,53 @@ function readAudioDuration(url: string): Promise<number> {
 
 function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildWordEventsFromScript(script: string, durationSeconds: number): WordCaptionEvent[] {
+  const words = String(script || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return [];
+  const total = Math.max(0.6, Number(durationSeconds || 0.6));
+  const slot = total / words.length;
+  return words.map((word, index) => {
+    const start = Number((index * slot).toFixed(3));
+    const end = Number(((index + 1) * slot).toFixed(3));
+    return {
+      word,
+      start,
+      end: index === words.length - 1 ? Math.max(end, total) : end,
+    };
+  });
+}
+
+function normalizeWordEvents(raw: unknown): WordCaptionEvent[] {
+  if (!Array.isArray(raw)) return [];
+  const out: WordCaptionEvent[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const word = String((item as Record<string, unknown>).word || "").trim();
+    const start = Number((item as Record<string, unknown>).start || 0);
+    const end = Number((item as Record<string, unknown>).end || 0);
+    if (!word) continue;
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    out.push({ word, start: Math.max(0, start), end: Math.max(start + 0.05, end) });
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+
+function captionItemsFromWordEvents(events: WordCaptionEvent[]): TimelineItem[] {
+  return events.map((event) => ({
+    id: newId(),
+    type: "caption" as const,
+    title: "Caption",
+    start: Math.max(0, event.start),
+    duration: Math.max(0.08, event.end - event.start),
+    volume: 1,
+    text: event.word,
+    motion: "none",
+  }));
 }
 
 function cloneProject(project: ProjectState): ProjectState {
@@ -390,9 +446,10 @@ function IconButton({
 type EditorWorkspaceProps = {
   mode?: "page" | "card";
   onClose?: () => void;
+  initialClipId?: number;
 };
 
-export default function EditorWorkspace({ mode = "page", onClose }: EditorWorkspaceProps) {
+export default function EditorWorkspace({ mode = "page", onClose, initialClipId }: EditorWorkspaceProps) {
   const cardMode = mode === "card";
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -423,6 +480,7 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
   const localMusicObjectUrlsRef = useRef<string[]>([]);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const initialClipAppliedRef = useRef<number | null>(null);
   const cropDragRef = useRef<CropDragState | null>(null);
   const clearCropDragListenersRef = useRef<(() => void) | null>(null);
   const cropDraftRef = useRef<CropRect | null>(null);
@@ -566,6 +624,118 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
     setTrackItems("music", (items) => [...items, item]);
     setSelected({ track: "music", itemId: item.id });
     setPlayhead(item.start);
+  }
+
+  function timelineItemFromClip(
+    clip: ClipRow,
+    type: AssetType,
+    fallbackStart: number,
+    fallbackDuration: number,
+    titleFallback: string
+  ): TimelineItem {
+    const rawStart = Number(clip.start_time);
+    const start = Number.isFinite(rawStart) ? Math.max(0, rawStart) : Math.max(0, fallbackStart);
+    const baseDuration =
+      type === "image" ? Math.max(1, Number(clip.duration || fallbackDuration || 6)) : Math.max(0.25, Number(clip.duration || fallbackDuration || 4));
+    return {
+      id: newId(),
+      clipId: clip.id,
+      type,
+      title: clip.title || titleFallback,
+      url: clip.url,
+      start,
+      duration: baseDuration,
+      volume: type === "audio" ? 1 : 1,
+      motion: type === "image" ? "kenburns" : "none",
+    };
+  }
+
+  async function preloadInitialClip(clipId: number) {
+    const target = clips.find((clip) => clip.id === clipId);
+    if (!target) return;
+
+    const targetType = detectAssetType(target);
+    const next = buildDefaultProject();
+    next.name = (target.title || `Asset #${target.id}`).slice(0, 80) || next.name;
+    next.targetDuration = Math.max(180, Math.ceil(Number(target.duration || 0) || 60));
+    next.safeAreaOn = true;
+
+    if (targetType === "image") {
+      next.visual = [timelineItemFromClip(target, "image", 0, 6, `Image #${target.id}`)];
+      setProject(next);
+      setSelected({ track: "visual", itemId: next.visual[0].id });
+      setPlayhead(0);
+      return;
+    }
+
+    if (targetType === "audio") {
+      next.voiceover = [timelineItemFromClip(target, "audio", 0, Number(target.duration || 6), `Audio #${target.id}`)];
+      next.targetDuration = Math.max(180, Math.ceil(next.voiceover[0].duration));
+      setProject(next);
+      setSelected({ track: "voiceover", itemId: next.voiceover[0].id });
+      setPlayhead(0);
+      return;
+    }
+
+    const sameJobAssets = clips
+      .filter((clip) => Number(clip.job_id || 0) > 0 && Number(clip.job_id) === Number(target.job_id || 0))
+      .sort((a, b) => Number(a.id || 0) - Number(b.id || 0));
+    const jobImages = sameJobAssets
+      .filter((clip) => detectAssetType(clip) === "image")
+      .sort((a, b) => (Number(a.start_time || 0) - Number(b.start_time || 0)) || (Number(a.id || 0) - Number(b.id || 0)));
+    const jobAudios = sameJobAssets
+      .filter((clip) => detectAssetType(clip) === "audio")
+      .sort((a, b) => (Number(a.start_time || 0) - Number(b.start_time || 0)) || (Number(a.id || 0) - Number(b.id || 0)));
+
+    if (Number(target.job_id || 0) > 0 && jobImages.length > 0 && jobAudios.length > 0) {
+      const fallbackSceneDuration = Math.max(0.25, Number(target.duration || 60) / Math.max(1, jobImages.length));
+      next.visual = jobImages.map((clip, idx) =>
+        timelineItemFromClip(
+          clip,
+          "image",
+          idx * fallbackSceneDuration,
+          fallbackSceneDuration,
+          `Scene ${idx + 1}`
+        )
+      );
+
+      const voiceClip = jobAudios[0];
+      next.voiceover = [timelineItemFromClip(voiceClip, "audio", Number(voiceClip.start_time || 0), Number(voiceClip.duration || target.duration || 60), "Voiceover")];
+
+      const visualEnd = next.visual.reduce((max, item) => Math.max(max, item.start + item.duration), 0);
+      const voiceEnd = next.voiceover.reduce((max, item) => Math.max(max, item.start + item.duration), 0);
+      const totalDuration = Math.max(Number(target.duration || 0), visualEnd, voiceEnd, 60);
+      next.targetDuration = Math.max(180, Math.ceil(totalDuration));
+
+      try {
+        const job = await apiFetch<{ settings?: Record<string, unknown> | null }>(`/jobs/${target.job_id}`, {
+          method: "GET",
+        });
+        const settings = job?.settings && typeof job.settings === "object" ? job.settings : null;
+        const fromSettings = normalizeWordEvents(settings?.generated_word_captions);
+        const fromScript =
+          fromSettings.length === 0 && typeof settings?.voice_script === "string"
+            ? buildWordEventsFromScript(settings.voice_script, totalDuration)
+            : [];
+        const events = fromSettings.length > 0 ? fromSettings : fromScript;
+        if (events.length > 0) {
+          next.captions = captionItemsFromWordEvents(events);
+        }
+      } catch {
+        // best-effort hydrate from settings
+      }
+
+      setProject(next);
+      setSelected(next.visual[0] ? { track: "visual", itemId: next.visual[0].id } : null);
+      setPlayhead(0);
+      return;
+    }
+
+    next.visual = [timelineItemFromClip(target, "video", 0, Math.max(1, Number(target.duration || 6)), `Video #${target.id}`)];
+    next.targetDuration = Math.max(180, Math.ceil(next.visual[0].duration));
+    setProject(next);
+    setSelected({ track: "visual", itemId: next.visual[0].id });
+    setPlayhead(0);
   }
 
   function updateSelected(patch: Partial<TimelineItem>) {
@@ -1105,6 +1275,18 @@ export default function EditorWorkspace({ mode = "page", onClose }: EditorWorksp
       // ignore malformed local state
     }
   }, []);
+
+  useEffect(() => {
+    if (!initialClipId) {
+      initialClipAppliedRef.current = null;
+      return;
+    }
+    if (!clips.length) return;
+    if (initialClipAppliedRef.current === initialClipId) return;
+    initialClipAppliedRef.current = initialClipId;
+    void preloadInitialClip(initialClipId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialClipId, clips]);
 
   useEffect(() => {
     try {
