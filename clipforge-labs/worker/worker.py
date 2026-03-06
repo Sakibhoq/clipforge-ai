@@ -1539,6 +1539,36 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
             provider_capacity_error_voice = False
+            post_voice_capacity_retries = _env_int(
+                "LABS_POST_VOICE_CAPACITY_RETRIES",
+                2,
+                min_value=0,
+                max_value=8,
+            )
+            post_voice_capacity_backoff_seconds = _env_int(
+                "LABS_POST_VOICE_CAPACITY_BACKOFF_SECONDS",
+                6,
+                min_value=1,
+                max_value=120,
+            )
+            post_scene_capacity_retries = _env_int(
+                "LABS_POST_SCENE_CAPACITY_RETRIES",
+                2,
+                min_value=0,
+                max_value=8,
+            )
+            post_scene_capacity_backoff_seconds = _env_int(
+                "LABS_POST_SCENE_CAPACITY_BACKOFF_SECONDS",
+                6,
+                min_value=1,
+                max_value=120,
+            )
+            post_attempt_cooldown_seconds = _env_int(
+                "LABS_POST_ATTEMPT_COOLDOWN_SECONDS",
+                8,
+                min_value=0,
+                max_value=180,
+            )
 
             image_count_raw = settings.get("image_count")
             try:
@@ -1559,18 +1589,33 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
             used_placeholder_visuals = False
 
             if use_google_provider:
-                try:
-                    _run_google_tts_voiceover(
-                        script=voice_script or "Untitled voiceover",
-                        voice_name=voice_name,
-                        speed_wpm=speed,
-                        out_path=audio_path,
-                    )
-                except Exception as exc:
-                    provider_capacity_error_voice = _is_provider_capacity_error(exc)
-                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error_voice):
-                        raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
-                    print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+                for voice_try in range(post_voice_capacity_retries + 1):
+                    try:
+                        _run_google_tts_voiceover(
+                            script=voice_script or "Untitled voiceover",
+                            voice_name=voice_name,
+                            speed_wpm=speed,
+                            out_path=audio_path,
+                        )
+                        provider_capacity_error_voice = False
+                        break
+                    except Exception as exc:
+                        provider_capacity_error_voice = _is_provider_capacity_error(exc)
+                        if provider_capacity_error_voice:
+                            last_voice_try = voice_try >= post_voice_capacity_retries
+                            if not last_voice_try:
+                                wait_seconds = post_voice_capacity_backoff_seconds * (voice_try + 1)
+                                print(
+                                    f"[worker] post voice capacity retry job_id={job_id} "
+                                    f"attempt={voice_try + 1}/{post_voice_capacity_retries + 1} "
+                                    f"sleep={wait_seconds}s err={type(exc).__name__}: {exc}"
+                                )
+                                time.sleep(wait_seconds)
+                                continue
+                        if strict_provider or (not allow_demo_fallback and not provider_capacity_error_voice):
+                            raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
+                        print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
+                        break
 
             if not _file_has_data(audio_path):
                 if use_google_provider and not allow_demo_fallback and not provider_capacity_error_voice:
@@ -1613,45 +1658,59 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                     )
 
                     if use_google_provider:
-                        try:
-                            if _env("GOOGLE_IMAGE_API_URL", ""):
-                                media_bytes, _, _, _ = _call_google_generation_endpoint(
-                                    endpoint_env="GOOGLE_IMAGE_API_URL",
-                                    payload={
-                                        "prompt": scene_prompt,
-                                        "negative_prompt": negative_prompt or None,
-                                        "aspect_ratio": aspect_ratio,
-                                        "model": model or "google",
-                                        "settings": {
-                                            **settings,
-                                            "scene_index": idx + 1,
-                                            "scene_count": attempt_image_count,
-                                            "mode": "post",
+                        for scene_try in range(post_scene_capacity_retries + 1):
+                            try:
+                                if _env("GOOGLE_IMAGE_API_URL", ""):
+                                    media_bytes, _, _, _ = _call_google_generation_endpoint(
+                                        endpoint_env="GOOGLE_IMAGE_API_URL",
+                                        payload={
+                                            "prompt": scene_prompt,
+                                            "negative_prompt": negative_prompt or None,
+                                            "aspect_ratio": aspect_ratio,
+                                            "model": model or "google",
+                                            "settings": {
+                                                **settings,
+                                                "scene_index": idx + 1,
+                                                "scene_count": attempt_image_count,
+                                                "mode": "post",
+                                            },
+                                            "kind": JOB_KIND_POST,
                                         },
-                                        "kind": JOB_KIND_POST,
-                                    },
-                                )
-                            else:
-                                media_bytes, _, _, _ = _run_google_vertex_image_generation(
-                                    prompt=scene_prompt,
-                                    negative_prompt=negative_prompt,
-                                    aspect_ratio=aspect_ratio,
-                                )
-                            _write_bytes(img_path, media_bytes)
-                        except Exception as exc:
-                            if _is_provider_capacity_error(exc):
-                                capacity_hit = True
+                                    )
+                                else:
+                                    media_bytes, _, _, _ = _run_google_vertex_image_generation(
+                                        prompt=scene_prompt,
+                                        negative_prompt=negative_prompt,
+                                        aspect_ratio=aspect_ratio,
+                                    )
+                                _write_bytes(img_path, media_bytes)
+                                break
+                            except Exception as exc:
+                                if _is_provider_capacity_error(exc):
+                                    last_scene_try = scene_try >= post_scene_capacity_retries
+                                    if not last_scene_try:
+                                        wait_seconds = post_scene_capacity_backoff_seconds * (scene_try + 1)
+                                        print(
+                                            f"[worker] post image capacity retry job_id={job_id} "
+                                            f"scene={idx + 1}/{attempt_image_count} "
+                                            f"attempt={scene_try + 1}/{post_scene_capacity_retries + 1} "
+                                            f"sleep={wait_seconds}s err={type(exc).__name__}: {exc}"
+                                        )
+                                        time.sleep(wait_seconds)
+                                        continue
+                                    capacity_hit = True
+                                    print(
+                                        f"[worker] post image capacity job_id={job_id} scene={idx + 1}/{attempt_image_count} "
+                                        f"retry_count={attempt_image_count} err={type(exc).__name__}: {exc}"
+                                    )
+                                    break
+                                if strict_provider or not allow_demo_fallback:
+                                    raise RuntimeError(f"Google post image generation failed: {exc}") from exc
                                 print(
-                                    f"[worker] post image capacity job_id={job_id} scene={idx + 1}/{attempt_image_count} "
-                                    f"retry_count={attempt_image_count} err={type(exc).__name__}: {exc}"
+                                    f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{attempt_image_count} "
+                                    f"err={type(exc).__name__}: {exc}"
                                 )
                                 break
-                            if strict_provider or not allow_demo_fallback:
-                                raise RuntimeError(f"Google post image generation failed: {exc}") from exc
-                            print(
-                                f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{attempt_image_count} "
-                                f"err={type(exc).__name__}: {exc}"
-                            )
 
                     if capacity_hit:
                         break
@@ -1698,6 +1757,13 @@ def _process_job(job: dict) -> tuple[str, str, float, str | None]:
                             used_placeholder_visuals = True
                             break
                         raise RuntimeError("Generation queue is at provider capacity. Retry in a few minutes.")
+                    if post_attempt_cooldown_seconds > 0:
+                        print(
+                            f"[worker] post retry ladder cooldown job_id={job_id} "
+                            f"next_count={retry_image_counts[min(attempt_idx + 1, len(retry_image_counts) - 1)]} "
+                            f"sleep={post_attempt_cooldown_seconds}s"
+                        )
+                        time.sleep(post_attempt_cooldown_seconds)
                     continue
                 break
 
