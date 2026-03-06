@@ -27,6 +27,15 @@ type VoicePreviewResponse = {
   audio_base64: string;
 };
 
+type PromptHelperResponse = {
+  title: string;
+  visual_prompt: string;
+  voice_script: string;
+  aspect_ratio: string;
+  duration_seconds: number;
+  style_preset: string;
+};
+
 type JobRow = {
   id: number;
   upload_id: number;
@@ -323,6 +332,9 @@ export default function GenerateClient() {
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
+  const [postIdeaSeed, setPostIdeaSeed] = useState("");
+  const [postIdeaLoading, setPostIdeaLoading] = useState(false);
+  const [postIdeaError, setPostIdeaError] = useState<string | null>(null);
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
@@ -800,6 +812,39 @@ export default function GenerateClient() {
     }
   }
 
+  async function generatePostPromptPack() {
+    const idea = postIdeaSeed.trim();
+    if (idea.length < 3) {
+      setPostIdeaError("Share a short idea first.");
+      return;
+    }
+    setPostIdeaLoading(true);
+    setPostIdeaError(null);
+    try {
+      const res = await apiFetch<PromptHelperResponse>("/labs/prompt-helper", {
+        method: "POST",
+        body: {
+          idea,
+          style_preset: stylePreset,
+          aspect_ratio: aspectRatio,
+          duration_seconds: postDurationSeconds,
+        },
+      });
+      const visual = String(res?.visual_prompt || "").trim();
+      const voice = String(res?.voice_script || "").trim();
+      if (!visual || !voice) {
+        throw new Error("Prompt helper returned an empty result.");
+      }
+      setPostVisualPrompt(visual);
+      setPostVoiceScript(voice);
+    } catch (err: any) {
+      const detail = String(err?.detail || err?.message || "Could not generate a prompt pack.");
+      setPostIdeaError(detail);
+    } finally {
+      setPostIdeaLoading(false);
+    }
+  }
+
   async function onGenerate(e: React.FormEvent) {
     e.preventDefault();
     await startGeneration();
@@ -884,6 +929,35 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
+                    <div className="rounded-2xl border border-amber-300/25 bg-amber-400/10 p-3">
+                      <div className="text-xs font-semibold text-amber-100">Don't have a prompt? Just tell me what you're thinking.</div>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <input
+                          value={postIdeaSeed}
+                          onChange={(e) => {
+                            setPostIdeaSeed(e.target.value);
+                            if (postIdeaError) setPostIdeaError(null);
+                          }}
+                          placeholder="Example: I want a motivational gym comeback story with anime style."
+                          className="h-11 w-full rounded-xl border border-white/12 bg-black/45 px-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                        />
+                        <button
+                          type="button"
+                          onClick={generatePostPromptPack}
+                          disabled={postIdeaLoading}
+                          className={cx(
+                            "h-11 rounded-xl border px-4 text-xs font-semibold transition",
+                            postIdeaLoading
+                              ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                              : "border-amber-300/35 bg-amber-500/14 text-amber-100 hover:bg-amber-500/22"
+                          )}
+                        >
+                          {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
+                        </button>
+                      </div>
+                      {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
+                    </div>
+
                     <label className="text-xs font-medium text-white/70">Visual direction</label>
                     <textarea
                       value={postVisualPrompt}

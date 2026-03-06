@@ -94,6 +94,50 @@ PLAN_MAX_POST_SCRIPT_CHARS = {
     "studio": 12000,
 }
 
+PROMPT_HELPER_STOP_WORDS = {
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "if",
+    "then",
+    "when",
+    "while",
+    "for",
+    "from",
+    "to",
+    "of",
+    "in",
+    "on",
+    "at",
+    "by",
+    "with",
+    "without",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "this",
+    "that",
+    "these",
+    "those",
+    "my",
+    "your",
+    "our",
+    "their",
+    "about",
+    "just",
+    "really",
+    "very",
+    "more",
+    "less",
+}
+
 
 def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int = 1_000_000) -> int:
     raw = (os.getenv(name) or "").strip()
@@ -209,6 +253,158 @@ def _voiceover_credits_needed(script: str) -> int:
 
 def _script_word_count(script: str) -> int:
     return len([word for word in (script or "").split() if word.strip()])
+
+
+def _clean_spaces(value: str) -> str:
+    return " ".join((value or "").strip().split())
+
+
+def _idea_keywords(idea: str, limit: int = 5) -> list[str]:
+    tokens = [t.strip("'") for t in re.findall(r"[A-Za-z0-9']+", (idea or "").lower())]
+    out: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        if len(token) < 3:
+            continue
+        if token in PROMPT_HELPER_STOP_WORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        out.append(token)
+        if len(out) >= limit:
+            break
+    if out:
+        return out
+    fallback = [t for t in tokens if t][:limit]
+    return fallback or ["focus", "progress", "clarity"]
+
+
+def _idea_title(idea: str) -> str:
+    clean = _clean_spaces(idea)
+    if not clean:
+        return "Untitled Concept"
+    words = clean.split()
+    title_words = words[:6]
+    titled = " ".join([w[:1].upper() + w[1:] if w else "" for w in title_words]).strip()
+    return titled or "Untitled Concept"
+
+
+def _style_label(style_preset: str | None) -> str:
+    style = _normalize_style_preset(style_preset)
+    if style == "anime":
+        return "anime, expressive linework, cel-shaded lighting, dynamic framing"
+    if style == "cartoon":
+        return "cartoon, clean outlines, bold colors, playful motion"
+    if style == "comic":
+        return "comic-book, inked contours, halftone texture, dramatic contrast"
+    return "photorealistic, natural lighting, cinematic detail"
+
+
+def _scene_ranges(duration_seconds: int, scene_count: int) -> list[tuple[int, int]]:
+    safe_duration = max(30, min(180, int(duration_seconds or 60)))
+    safe_count = max(6, min(14, int(scene_count or 8)))
+    step = float(safe_duration) / float(safe_count)
+    out: list[tuple[int, int]] = []
+    for idx in range(safe_count):
+        start = int(round(idx * step))
+        end = int(round((idx + 1) * step))
+        if idx == safe_count - 1:
+            end = safe_duration
+        if end <= start:
+            end = start + 1
+        out.append((start, end))
+    return out
+
+
+def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_ratio: str, duration_seconds: int) -> str:
+    keywords = _idea_keywords(idea, limit=5)
+    title = _idea_title(idea)
+    style_text = _style_label(style_preset)
+    scene_count = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
+    ranges = _scene_ranges(duration_seconds, scene_count)
+
+    scene_templates = [
+        "Hook shot introducing {k1} with strong motion and clear subject.",
+        "Context shot with {k2}, environment detail, and smooth camera move.",
+        "Close-up showing tactile action around {k3}.",
+        "Medium shot highlighting progression, confidence, and momentum.",
+        "Montage beat with faster cuts, clean transitions, and depth.",
+        "Reaction beat showing a visible shift in emotion and control.",
+        "Result shot proving progress with practical detail in frame.",
+        "Final frame with bold text overlay and clear takeaway.",
+        "Optional extension beat with extra texture and visual variety.",
+        "Optional extension beat with a stronger payoff shot.",
+        "Optional extension beat with secondary angle and rhythm.",
+        "Outro shot to hold brand-safe framing before end.",
+    ]
+
+    k1 = keywords[0] if len(keywords) > 0 else "focus"
+    k2 = keywords[1] if len(keywords) > 1 else k1
+    k3 = keywords[2] if len(keywords) > 2 else k2
+    lines = [
+        f"Title: {title}",
+        f"Concept: {idea}",
+        f"Aspect ratio: {aspect_ratio}",
+        f"Duration: {duration_seconds}s",
+        f"Visual style: {style_text}",
+        "",
+    ]
+    for idx, (start, end) in enumerate(ranges):
+        template = scene_templates[idx] if idx < len(scene_templates) else scene_templates[-1]
+        beat = template.format(k1=k1, k2=k2, k3=k3)
+        lines.append(f"{start}-{end}s: {beat}")
+    return "\n".join(lines).strip()
+
+
+def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_seconds: int) -> str:
+    keywords = _idea_keywords(idea, limit=5)
+    k1 = keywords[0] if len(keywords) > 0 else "focus"
+    k2 = keywords[1] if len(keywords) > 1 else "clarity"
+    k3 = keywords[2] if len(keywords) > 2 else "momentum"
+    style_name = _normalize_style_preset(style_preset).capitalize()
+    target_words = max(95, min(260, int(round(float(duration_seconds) * 2.2))))
+
+    sentences = [
+        f"Here is the reset you need when {k1} feels messy and your attention keeps drifting.",
+        f"Start by removing one distraction, then give your next task a single clear objective.",
+        f"Use a short timer, lock in on the first step, and let your actions create momentum.",
+        f"While you work, keep your breathing steady and your posture grounded so your mind stays calm.",
+        f"Track visible wins, even tiny ones, because progress compounds faster than motivation alone.",
+        f"When you hit resistance, pause, reset, and return with intention instead of rushing.",
+        f"This is your {style_name.lower()} story of {k2}, {k3}, and practical consistency.",
+        "Finish strong with one simple promise to yourself: do the next right step before switching.",
+    ]
+
+    if duration_seconds >= 90:
+        sentences.extend(
+            [
+                f"Layer your routine: capture ideas quickly, prioritize clearly, then execute one block at a time.",
+                "The goal is not perfect energy; the goal is repeatable progress you can trust every day.",
+            ]
+        )
+    if duration_seconds >= 120:
+        sentences.extend(
+            [
+                "As your system gets cleaner, your output gets sharper, faster, and easier to sustain.",
+                "Small systems create big results, and today is where that change starts.",
+            ]
+        )
+
+    words = " ".join(sentences).split()
+    if len(words) > target_words:
+        words = words[:target_words]
+        if words and not words[-1].endswith((".", "!", "?")):
+            words[-1] = f"{words[-1].rstrip(',;:')}."
+    elif len(words) < target_words:
+        fill = " Keep it simple, stay present, and stack one clean win at a time."
+        while len(words) < target_words:
+            words.extend(fill.strip().split())
+        words = words[:target_words]
+        if words and not words[-1].endswith((".", "!", "?")):
+            words[-1] = f"{words[-1].rstrip(',;:')}."
+
+    return " ".join(words).strip()
 
 
 def _post_credits_needed(image_count: int, voice_script: str, style_preset: str | None) -> int:
@@ -596,6 +792,22 @@ class GenerateResponse(BaseModel):
     generation_speed: str | None = None
 
 
+class PromptHelperRequest(BaseModel):
+    idea: str = Field(min_length=3, max_length=600)
+    style_preset: str | None = Field(default="real", max_length=64)
+    aspect_ratio: str = Field(default="9:16", max_length=16)
+    duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
+
+
+class PromptHelperResponse(BaseModel):
+    title: str
+    visual_prompt: str
+    voice_script: str
+    aspect_ratio: str
+    duration_seconds: int
+    style_preset: str
+
+
 class VoicePreviewRequest(BaseModel):
     voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
     speed_wpm: int = Field(default=POST_BASE_VOICE_WPM, ge=80, le=330)
@@ -606,6 +818,51 @@ class VoicePreviewResponse(BaseModel):
     voice_name: str
     content_type: str
     audio_base64: str
+
+
+@router.post("/prompt-helper", response_model=PromptHelperResponse)
+def prompt_helper(
+    payload: PromptHelperRequest,
+    current_user: User = Depends(get_current_user),
+):
+    # Auth guard to avoid anonymous abuse.
+    _ = current_user.id
+
+    idea = _clean_spaces(payload.idea)
+    if len(idea) < 3:
+        raise HTTPException(status_code=400, detail="Idea is required")
+
+    style = _normalize_style_preset(payload.style_preset)
+    if style not in {"real", "anime", "cartoon", "comic"}:
+        style = "real"
+
+    aspect = (payload.aspect_ratio or "9:16").strip()
+    if aspect not in ALLOWED_ASPECT_RATIOS:
+        aspect = "9:16"
+
+    duration_seconds = int(payload.duration_seconds or POST_DEFAULT_DURATION_SECONDS)
+    if duration_seconds not in POST_ALLOWED_DURATIONS:
+        duration_seconds = POST_DEFAULT_DURATION_SECONDS
+
+    visual_prompt = _build_visual_prompt_pack(
+        idea=idea,
+        style_preset=style,
+        aspect_ratio=aspect,
+        duration_seconds=duration_seconds,
+    )
+    voice_script = _build_voice_script_pack(
+        idea=idea,
+        style_preset=style,
+        duration_seconds=duration_seconds,
+    )
+    return PromptHelperResponse(
+        title=_idea_title(idea),
+        visual_prompt=visual_prompt,
+        voice_script=voice_script,
+        aspect_ratio=aspect,
+        duration_seconds=duration_seconds,
+        style_preset=style,
+    )
 
 
 @router.post("/voice-preview", response_model=VoicePreviewResponse)
