@@ -26,6 +26,14 @@ services:
       - "127.0.0.1:8000:8000"
     env_file:
       - .env.prod
+    environment:
+      LABS_FRONTEND_URL: "${LABS_FRONTEND_URL:-https://app.orbito.cc/app/labs}"
+      LABS_API_URL: "${LABS_API_URL:-https://api.orbito.cc}"
+      LABS_MODE: "${LABS_MODE:-external_bridge}"
+      LABS_PHASE: "${LABS_PHASE:-foundation}"
+      LABS_SHARE_USE_ORBITO_CONNECTIONS: "${LABS_SHARE_USE_ORBITO_CONNECTIONS:-1}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_ENTITLEMENTS_ALLOWED_ISSUERS: "${LABS_ENTITLEMENTS_ALLOWED_ISSUERS:-}"
     volumes:
       # Only used if you run sqlite/local storage in production.
       - ./data:/data
@@ -58,3 +66,78 @@ services:
       WORKER_WATERMARK_TEXT: "Orbito"
     restart: unless-stopped
 
+  labs-frontend:
+    build:
+      context: ./clipforge-labs/frontend
+      args:
+        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-https://api.orbito.cc}"
+        NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
+        NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+    ports:
+      - "127.0.0.1:3100:3000"
+    env_file:
+      - .env.prod
+    environment:
+      NODE_ENV: "production"
+      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-https://api.orbito.cc}"
+      NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
+      NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+      INTERNAL_API_ORIGIN: "http://labs-backend:8000"
+      NEXT_PUBLIC_ORBITO_APP_ORIGIN: "${FRONTEND_BASE_URL:-https://app.orbito.cc}"
+    depends_on:
+      labs-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  labs-backend:
+    build: ./clipforge-labs/backend
+    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
+    ports:
+      - "127.0.0.1:8100:8000"
+    env_file:
+      - .env.prod
+    environment:
+      DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
+      FRONTEND_ORIGIN: "${LABS_FRONTEND_ORIGIN:-https://app.orbito.cc}"
+      FRONTEND_BASE_URL: "${LABS_FRONTEND_BASE_URL:-https://app.orbito.cc/app/labs}"
+      PUBLIC_API_BASE: "${LABS_PUBLIC_API_BASE:-https://api.orbito.cc}"
+      LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
+      LABS_USE_ORBITO_ENTITLEMENTS: "${LABS_USE_ORBITO_ENTITLEMENTS:-1}"
+      LABS_USE_ORBITO_ENTITLEMENTS_STRICT: "${LABS_USE_ORBITO_ENTITLEMENTS_STRICT:-1}"
+      ORBITO_API_BASE: "${ORBITO_API_BASE:-http://backend:8000}"
+      LABS_ORBITO_API_BASE: "${LABS_ORBITO_API_BASE:-http://backend:8000}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_BRIDGE_TOKEN_SECRET: "${LABS_BRIDGE_TOKEN_SECRET:-}"
+      EMAIL_FROM_NAME: "${LABS_EMAIL_FROM_NAME:-Orbito Labs}"
+      EMAIL_FROM_EMAIL: "${LABS_EMAIL_FROM_EMAIL:-no-reply@orbito.cc}"
+      EMAIL_REPLY_TO: "${LABS_EMAIL_REPLY_TO:-support@orbito.cc}"
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/ready', timeout=3).raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  labs-worker:
+    build: ./clipforge-labs/worker
+    depends_on:
+      labs-backend:
+        condition: service_healthy
+    env_file:
+      - .env.prod
+    volumes:
+      - ./data:/data
+    environment:
+      PYTHONFAULTHANDLER: "1"
+      DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
+      LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
+      WORKER_BRAND_TEXT: "${LABS_WORKER_BRAND_TEXT:-Orbito Labs}"
+      LABS_USE_ORBITO_ENTITLEMENTS: "${LABS_USE_ORBITO_ENTITLEMENTS:-1}"
+      LABS_USE_ORBITO_ENTITLEMENTS_STRICT: "${LABS_USE_ORBITO_ENTITLEMENTS_STRICT:-1}"
+      ORBITO_API_BASE: "${ORBITO_API_BASE:-http://backend:8000}"
+      LABS_ORBITO_API_BASE: "${LABS_ORBITO_API_BASE:-http://backend:8000}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_BRIDGE_TOKEN_SECRET: "${LABS_BRIDGE_TOKEN_SECRET:-}"
+    restart: unless-stopped

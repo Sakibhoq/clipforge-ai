@@ -396,12 +396,12 @@ def _friendly_publish_error(provider: str, raw_error: str) -> str:
                 "Add this account as a tester or complete TikTok app audit."
             )
         if "scope_not_authorized" in low or "scope" in low and "author" in low:
-            return "TikTok permissions are missing. Reconnect TikTok in Studio and approve all requested scopes."
+            return "TikTok permissions are missing. Reconnect TikTok in Connections and approve all requested scopes."
 
     if p == "facebook":
         if "no permission to publish the video" in low or "\"code\":100" in low:
             return (
-                "Facebook publish permission is missing for this Page. Reconnect Facebook in Studio and approve "
+                "Facebook publish permission is missing for this Page. Reconnect Facebook in Connections and approve "
                 "Page publishing permissions, then retry."
             )
         if "facebook page access token missing" in low:
@@ -410,7 +410,7 @@ def _friendly_publish_error(provider: str, raw_error: str) -> str:
     if p == "instagram":
         if "no permission to publish" in low or "\"code\":100" in low:
             return (
-                "Instagram publish permission is missing. Reconnect Instagram/Facebook in Studio and approve "
+                "Instagram publish permission is missing. Reconnect Instagram/Facebook in Connections and approve "
                 "Instagram publishing permissions."
             )
         if "instagram professional account linked" in low:
@@ -917,7 +917,7 @@ def connect_callback(
     db.commit()
 
     base = (os.getenv("FRONTEND_BASE_URL") or "http://localhost:3000").rstrip("/")
-    response = RedirectResponse(url=f"{base}/app/studio?tab=social")
+    response = RedirectResponse(url=f"{base}/app/connections?tab=social")
     _clear_social_ctx_cookie(response, request)
     return response
 

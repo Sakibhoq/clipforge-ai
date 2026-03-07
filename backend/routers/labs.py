@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, List
+from typing import Any, List, Literal
 from urllib.parse import quote
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -69,6 +69,28 @@ def _bridge_ttl_seconds() -> int:
     return max(120, min(3600, value))
 
 
+def _canonical_plan_token(raw_plan: str | None) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(raw_plan or "").strip()).strip("_")
+
+
+def _has_labs_plan_access(raw_plan: str | None) -> bool:
+    token = _canonical_plan_token(raw_plan)
+    if not token:
+        return False
+    if token in {"labs_starter", "labs_spark", "labs_creator", "labs_velocity"}:
+        return True
+    return "labs" in token or "spark" in token or "velocity" in token
+
+
+def _labs_next_target(target: str) -> str:
+    t = str(target or "app").strip().lower()
+    if t == "generate":
+        return "/app/generate"
+    if t == "clips":
+        return "/app/clips"
+    return "/app"
+
+
 class LabsHealthResponse(BaseModel):
     status: str
     phase: str
@@ -86,6 +108,7 @@ class LabsStatusResponse(BaseModel):
     connected_accounts: int
     user_plan: str
     user_credits: int
+    labs_access: bool
 
 
 class LabsLaunchResponse(BaseModel):
@@ -93,6 +116,7 @@ class LabsLaunchResponse(BaseModel):
     mode: str
     ttl_seconds: int
     expires_at_utc: str
+    target: str
 
 
 class LabsEntitlementsSnapshotRequest(BaseModel):
@@ -216,11 +240,13 @@ def labs_status(
         connected_accounts=len(providers),
         user_plan=str(getattr(current_user, "plan", "free")),
         user_credits=int(getattr(current_user, "credits", 0) or 0),
+        labs_access=_has_labs_plan_access(getattr(current_user, "plan", "free")),
     )
 
 
 @router.get("/launch", response_model=LabsLaunchResponse)
 def labs_launch(
+    target: Literal["app", "generate", "clips"] = Query(default="app"),
     current_user: User = Depends(get_current_user),
 ):
     mode = _mode()
@@ -229,9 +255,15 @@ def labs_launch(
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=ttl_seconds)
 
+    if target in {"generate", "clips"} and not _has_labs_plan_access(getattr(current_user, "plan", "free")):
+        raise HTTPException(
+            status_code=402,
+            detail="Labs plan required. Purchase a Labs plan to unlock Generator and Labs Clips.",
+        )
+
     token = _build_bridge_token(current_user)
     # Keep next target base-path agnostic; Labs frontend applies its own base path.
-    next_target = "/app"
+    next_target = _labs_next_target(target)
     launch_url = (
         f"{frontend_url}/login?next={quote(next_target, safe='')}"
         f"&source=orbitosite&origin=orbitosite&bridge_mode={mode}"
@@ -243,6 +275,7 @@ def labs_launch(
         mode=mode,
         ttl_seconds=ttl_seconds,
         expires_at_utc=expires_at.isoformat(),
+        target=target,
     )
 
 

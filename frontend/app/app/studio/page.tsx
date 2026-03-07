@@ -185,9 +185,9 @@ export default function StudioPage() {
 
           <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-xs text-white/55">• Studio</div>
+              <div className="text-xs text-white/55">• Connection</div>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92">
-                Social <span className="grad-text">Studio</span>
+                Social <span className="grad-text">Connection</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
                 Shared publish hub for Orbito and Orbito Labs. Connect once, then schedule and post from one place.

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
+import { hasLabsPlanAccess } from "@/lib/plans";
 
 type MeResponse = {
   name?: string | null;
@@ -34,7 +35,9 @@ function getAppTabFromPath(pathname: string) {
   if (!p.startsWith("/app/")) return null;
 
   const rest = p.slice("/app/".length);
-  return rest.split("/")[0] || "";
+  const tab = rest.split("/")[0] || "";
+  if (tab === "studio") return "connections";
+  return tab;
 }
 
 function cx(...xs: Array<string | false | null | undefined>) {
@@ -124,7 +127,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const activeTab = useMemo(() => getAppTabFromPath(pathname), [pathname]);
 
   function isActive(href: string) {
-    const h = normalizePath(href);
+    const h = normalizePath(String(href || "").split("?")[0] || "/");
 
     if (h === "/app") return activeTab === "";
     if (h.startsWith("/app/")) {
@@ -157,6 +160,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
+  const labsUnlocked = useMemo(() => hasLabsPlanAccess(me?.plan), [me?.plan]);
+  const generatorHref = labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs";
+  const labsClipsHref = labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs";
+  const generatorLabel = loading || labsUnlocked ? "Generator" : "Generator 🔒";
+  const labsClipsLabel = loading || labsUnlocked ? "Labs Clips" : "Labs Clips 🔒";
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "orb-1";
@@ -224,7 +232,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app", "Overview")}
             {navItem("/app/clips", "Clips")}
-            {navItem("/app/studio", "Publish")}
+            {navItem(generatorHref, generatorLabel)}
+            {navItem(labsClipsHref, labsClipsLabel)}
+            {navItem("/app/connections", "Connection")}
             {navItem("/app/billing", "Billing")}
             {navItem("/app/settings", "Settings")}
           </nav>
@@ -279,7 +289,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {navItem("/app", "Overview", true)}
               {navItem("/app/clips", "Clips", true)}
-              {navItem("/app/studio", "Publish", true)}
+              {navItem(generatorHref, generatorLabel, true)}
+              {navItem(labsClipsHref, labsClipsLabel, true)}
+              {navItem("/app/connections", "Connection", true)}
               {navItem("/app/billing", "Billing", true)}
               {navItem("/app/settings", "Settings", true)}
 

@@ -70,6 +70,13 @@ services:
 
       # URLs
       FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:3000}"
+      LABS_FRONTEND_URL: "${LABS_FRONTEND_URL:-http://localhost:3100/app/labs}"
+      LABS_API_URL: "${LABS_API_URL:-http://localhost:8100}"
+      LABS_MODE: "${LABS_MODE:-external_bridge}"
+      LABS_PHASE: "${LABS_PHASE:-foundation}"
+      LABS_SHARE_USE_ORBITO_CONNECTIONS: "${LABS_SHARE_USE_ORBITO_CONNECTIONS:-1}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_ENTITLEMENTS_ALLOWED_ISSUERS: "${LABS_ENTITLEMENTS_ALLOWED_ISSUERS:-}"
 
       # OAuth (login + social connections)
       OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"
@@ -166,4 +173,118 @@ services:
       # Runtime
       BACKEND_URL: "http://backend:8000"
       AUTOMATION_WEBHOOK_SECRET: "${AUTOMATION_WEBHOOK_SECRET:-}"
+    restart: unless-stopped
+
+
+  labs-frontend:
+    build:
+      context: ./clipforge-labs/frontend
+      args:
+        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+        NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
+        NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+    ports:
+      - "3100:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+      NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
+      NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+      INTERNAL_API_ORIGIN: "http://labs-backend:8000"
+      NEXT_PUBLIC_ORBITO_APP_ORIGIN: "${FRONTEND_BASE_URL:-http://localhost:3000}"
+    depends_on:
+      labs-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+
+  labs-backend:
+    build: ./clipforge-labs/backend
+    command: uvicorn main:app --app-dir /app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./clipforge-labs/backend:/app
+      - ./data:/data
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
+    environment:
+      APP_ENV: "${APP_ENV:-development}"
+      SECRET_KEY: "${SECRET_KEY:-}"
+      DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
+      FRONTEND_ORIGIN: "${LABS_FRONTEND_ORIGIN:-http://localhost:3100}"
+      FRONTEND_BASE_URL: "${LABS_FRONTEND_BASE_URL:-http://localhost:3100/app/labs}"
+      PUBLIC_API_BASE: "${LABS_PUBLIC_API_BASE:-http://localhost:8100}"
+      COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
+
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-}"
+      S3_ADDRESSING_STYLE: "${S3_ADDRESSING_STYLE:-}"
+      S3_SIGNATURE_VERSION: "${S3_SIGNATURE_VERSION:-s3v4}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+
+      OAUTH_ENABLED_PROVIDERS: "${OAUTH_ENABLED_PROVIDERS:-google}"
+      OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"
+      OAUTH_GOOGLE_CLIENT_SECRET: "${OAUTH_GOOGLE_CLIENT_SECRET:-}"
+      OAUTH_TIKTOK_CLIENT_ID: "${OAUTH_TIKTOK_CLIENT_ID:-}"
+      OAUTH_TIKTOK_CLIENT_SECRET: "${OAUTH_TIKTOK_CLIENT_SECRET:-}"
+      OAUTH_FACEBOOK_CLIENT_ID: "${OAUTH_FACEBOOK_CLIENT_ID:-}"
+      OAUTH_FACEBOOK_CLIENT_SECRET: "${OAUTH_FACEBOOK_CLIENT_SECRET:-}"
+      OAUTH_FACEBOOK_CONFIG_ID: "${OAUTH_FACEBOOK_CONFIG_ID:-}"
+      OAUTH_INSTAGRAM_CLIENT_ID: "${OAUTH_INSTAGRAM_CLIENT_ID:-}"
+      OAUTH_INSTAGRAM_CLIENT_SECRET: "${OAUTH_INSTAGRAM_CLIENT_SECRET:-}"
+      OAUTH_INSTAGRAM_CONFIG_ID: "${OAUTH_INSTAGRAM_CONFIG_ID:-}"
+      OAUTH_META_REQUEST_PUBLISH_SCOPES: "${OAUTH_META_REQUEST_PUBLISH_SCOPES:-0}"
+      TIKTOK_DEFAULT_PRIVACY: "${TIKTOK_DEFAULT_PRIVACY:-PUBLIC_TO_EVERYONE}"
+
+      CONTACT_TO_EMAIL: "${CONTACT_TO_EMAIL:-support@orbito.cc}"
+      EMAIL_FROM_NAME: "${LABS_EMAIL_FROM_NAME:-Orbito Labs}"
+      EMAIL_FROM_EMAIL: "${LABS_EMAIL_FROM_EMAIL:-no-reply@orbito.cc}"
+      EMAIL_REPLY_TO: "${LABS_EMAIL_REPLY_TO:-support@orbito.cc}"
+
+      LABS_USE_ORBITO_ENTITLEMENTS: "${LABS_USE_ORBITO_ENTITLEMENTS:-1}"
+      LABS_USE_ORBITO_ENTITLEMENTS_STRICT: "${LABS_USE_ORBITO_ENTITLEMENTS_STRICT:-0}"
+      ORBITO_API_BASE: "${ORBITO_API_BASE:-http://backend:8000}"
+      LABS_ORBITO_API_BASE: "${LABS_ORBITO_API_BASE:-http://backend:8000}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_BRIDGE_TOKEN_SECRET: "${LABS_BRIDGE_TOKEN_SECRET:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/ready', timeout=3).raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+
+  labs-worker:
+    build: ./clipforge-labs/worker
+    depends_on:
+      labs-backend:
+        condition: service_healthy
+    volumes:
+      - ./data:/data
+      - ${AWS_SHARED_CREDENTIALS_DIR:-/home/codespace/.aws}:/root/.aws:ro
+    environment:
+      PYTHONFAULTHANDLER: "1"
+      SECRET_KEY: "${SECRET_KEY:-}"
+      DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
+      S3_ENDPOINT_URL: "${S3_ENDPOINT_URL:-}"
+      S3_ADDRESSING_STYLE: "${S3_ADDRESSING_STYLE:-}"
+      S3_SIGNATURE_VERSION: "${S3_SIGNATURE_VERSION:-s3v4}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      WORKER_BRAND_TEXT: "${LABS_WORKER_BRAND_TEXT:-Orbito Labs}"
+
+      LABS_USE_ORBITO_ENTITLEMENTS: "${LABS_USE_ORBITO_ENTITLEMENTS:-1}"
+      LABS_USE_ORBITO_ENTITLEMENTS_STRICT: "${LABS_USE_ORBITO_ENTITLEMENTS_STRICT:-0}"
+      ORBITO_API_BASE: "${ORBITO_API_BASE:-http://backend:8000}"
+      LABS_ORBITO_API_BASE: "${LABS_ORBITO_API_BASE:-http://backend:8000}"
+      LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
+      LABS_BRIDGE_TOKEN_SECRET: "${LABS_BRIDGE_TOKEN_SECRET:-}"
     restart: unless-stopped

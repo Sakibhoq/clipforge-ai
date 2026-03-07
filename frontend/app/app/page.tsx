@@ -1,12 +1,36 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import UploadsPage from "@/app/app/upload/page";
 import ClipsPage from "@/app/app/clips/page";
 import { BRAND } from "@/lib/brand";
+import { apiFetch } from "@/lib/api";
+import { hasLabsPlanAccess } from "@/lib/plans";
+
+type MeResponse = {
+  plan?: string | null;
+};
 
 export default function OverviewPage() {
+  const [labsUnlocked, setLabsUnlocked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<MeResponse>("/auth/me", { method: "GET" })
+      .then((me) => {
+        if (cancelled) return;
+        setLabsUnlocked(hasLabsPlanAccess(me?.plan));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLabsUnlocked(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
@@ -78,12 +102,23 @@ export default function OverviewPage() {
               <div className="text-xs text-white/55">• Orbito Labs</div>
               <div className="mt-1 text-sm font-semibold text-white/90">AI generation workspace now linked to your Orbito account</div>
               <div className="mt-1 text-sm text-white/65">
-                Use one login and shared connections while Labs tools migrate directly into Orbito.
+                Access Generator and Labs Clips directly from Orbito. These are unlocked on Labs plans only.
               </div>
             </div>
-            <Link href="/app/labs" className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto text-center">
-              Open Orbito Labs
-            </Link>
+            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+              <Link
+                href={labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs"}
+                className="btn-clipforge text-[12px] px-4 py-2 w-full md:w-auto text-center"
+              >
+                {labsUnlocked ? "Open Generator" : "Generator 🔒"}
+              </Link>
+              <Link
+                href={labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs"}
+                className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto text-center"
+              >
+                {labsUnlocked ? "Open Labs Clips" : "Labs Clips 🔒"}
+              </Link>
+            </div>
           </div>
         </section>
 

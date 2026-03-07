@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
+import { hasLabsPlanAccess } from "@/lib/plans";
 
 function Logo() {
   const pathname = usePathname();
@@ -320,6 +321,7 @@ export default function Navbar() {
 
   const authed = !!me;
   const credits = me?.credits ?? null;
+  const labsPlanAccess = hasLabsPlanAccess(me?.plan);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
   const whopLabel = authed ? (
     <span className="whop-word">Whop</span>
@@ -389,13 +391,27 @@ export default function Navbar() {
   );
 
   const appLinks = useMemo(
-    () => [
-      { href: "/app", label: "Overview" },
-      { href: "/app/studio", label: "Publish" },
-      { href: "/app/billing", label: "Billing" },
-      { href: "/app/settings", label: "Settings" },
-    ],
-    []
+    () => {
+      const generatorLocked = authed && !labsPlanAccess;
+      const labsClipsLocked = authed && !labsPlanAccess;
+
+      return [
+        { href: "/app", label: "Overview" },
+        { href: "/app/clips?source=orbito", label: "Clips" },
+        {
+          href: generatorLocked ? "/app/billing?intent=labs" : "/app/labs?target=generate",
+          label: generatorLocked ? "Generator 🔒" : "Generator",
+        },
+        {
+          href: labsClipsLocked ? "/app/billing?intent=labs" : "/app/labs?target=clips",
+          label: labsClipsLocked ? "Labs Clips 🔒" : "Labs Clips",
+        },
+        { href: "/app/connections", label: "Connection" },
+        { href: "/app/billing", label: "Billing" },
+        { href: "/app/settings", label: "Settings" },
+      ];
+    },
+    [authed, labsPlanAccess]
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;

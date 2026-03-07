@@ -2155,14 +2155,14 @@ function LabsClipsPanel() {
       <div className="text-xs text-white/55">Labs Generated Library</div>
       <h2 className="mt-2 text-xl font-semibold text-white/92">Open your Labs-generated clips</h2>
       <p className="mt-2 max-w-2xl text-sm text-white/65">
-        Labs clips and Orbito clips are separated by source. Labs clips are edited in the Labs editor. Publishing is still handled from Orbito Publish.
+        Labs clips and Orbito clips are separated by source. Labs clips are edited in the Labs editor. Publishing is handled from Orbito Connections.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href="/app/labs" className="btn-clipforge px-4 py-2 text-xs">
           Open Labs Library
         </Link>
-        <Link href="/app/studio" className="btn-ghost px-4 py-2 text-xs">
-          Open Publish Connections
+        <Link href="/app/connections" className="btn-ghost px-4 py-2 text-xs">
+          Open Connections
         </Link>
       </div>
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs text-white/60">
@@ -3457,8 +3457,8 @@ function ScheduleForm({
             ) : (
               <>
                 No connected platforms yet. Connect at least one account in{" "}
-                <Link href="/app/studio" className="underline underline-offset-2">
-                  Studio -&gt; Connections
+                <Link href="/app/connections" className="underline underline-offset-2">
+                  Connections
                 </Link>
                 .
               </>

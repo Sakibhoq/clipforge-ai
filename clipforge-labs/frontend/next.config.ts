@@ -5,6 +5,7 @@ const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_
 const normalizedBasePath = rawBasePath
   ? `/${rawBasePath.replace(/^\/+/, "").replace(/\/+$/, "")}`
   : "";
+const internalApiOrigin = (process.env.INTERNAL_API_ORIGIN || "http://backend:8000").trim().replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   basePath: normalizedBasePath || undefined,
@@ -14,13 +15,13 @@ const nextConfig: NextConfig = {
       // This runs inside the frontend container, so "backend:8000" is reachable.
       {
         source: "/api/:path*",
-        destination: "http://backend:8000/:path*",
+        destination: `${internalApiOrigin}/:path*`,
       },
       // Local-storage upload/download helpers returned by /storage/presign in dev.
       // Keep these same-origin so browser PUT/GET can work without CORS issues.
       {
         source: "/storage/:path*",
-        destination: "http://backend:8000/storage/:path*",
+        destination: `${internalApiOrigin}/storage/:path*`,
       },
     ];
   },
