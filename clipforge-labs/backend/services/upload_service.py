@@ -42,7 +42,19 @@ def _credits_needed(duration_seconds: float) -> int:
 
 
 def _is_paid_plan(plan: Optional[str]) -> bool:
-    return (plan or "").lower() in {"starter", "creator", "studio"}
+    token = (
+        str(plan or "")
+        .strip()
+        .lower()
+        .replace("-", "_")
+        .replace("+", "_")
+        .replace(" ", "_")
+    )
+    if token in {"starter", "creator", "studio", "labs_starter", "labs_spark", "labs_creator", "labs_velocity"}:
+        return True
+    if token.startswith(("starter", "creator", "pro", "studio")):
+        return True
+    return False
 
 
 def register_upload_for_user(

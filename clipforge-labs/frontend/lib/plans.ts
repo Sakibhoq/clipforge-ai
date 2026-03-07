@@ -16,8 +16,8 @@ const PLAN_ALIASES: Record<string, AppPlan> = {
   starter: "starter",
   starter_monthly: "starter",
   starter_yearly: "starter",
-  labs_starter: "starter",
-  labs_spark: "starter",
+  labs_starter: "creator",
+  labs_spark: "creator",
   creator: "creator",
   creator_plus: "creator",
   creator_monthly: "creator",
@@ -42,6 +42,7 @@ export function normalizeAppPlan(raw: string | null | undefined): AppPlan {
   if (plan.startsWith("creator") || plan.startsWith("pro")) return "creator";
   if (plan.startsWith("studio")) return "studio";
 
+  if (plan.includes("spark")) return "creator";
   if (plan.includes("starter")) return "starter";
   if (plan.includes("creator")) return "creator";
   if (plan.includes("studio")) return "studio";

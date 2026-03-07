@@ -407,7 +407,7 @@ export default function Navbar() {
   const appLinks = useMemo(
     () => [
       { href: "/app", label: "Generator" },
-      { href: "/app/studio", label: "Publish" },
+      { href: "/app/connections", label: "Connection" },
       { href: "/app/editor", label: "Editor" },
       { href: "/app/settings", label: "Settings" },
     ],
@@ -524,7 +524,7 @@ export default function Navbar() {
                   <>
                     {!inApp && (
                       <Link href="/app" className="btn-ghost text-xs">
-                        Dashboard
+                        Console
                       </Link>
                     )}
 
@@ -655,7 +655,7 @@ export default function Navbar() {
                   <div className="mt-2 grid gap-2 p-2">
                     {!inApp && (
                       <Link href="/app" onClick={() => setOpen(false)} className="btn-ghost text-xs text-center">
-                        Dashboard
+                        Console
                       </Link>
                     )}
 

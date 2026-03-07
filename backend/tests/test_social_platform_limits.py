@@ -127,6 +127,14 @@ def test_creator_plan_is_unlimited(db):
     _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider="facebook")
 
 
+def test_labs_spark_plan_has_creator_level_social_access(db):
+    u = _mk_user(db, plan="labs_spark")
+    clip = _mk_clip(db, user_id=u.id)
+    for provider in ("youtube", "tiktok", "instagram", "facebook"):
+        _enforce_clip_platform_limit(db, user=u, clip_id=clip.id, provider=provider)
+        _enforce_connect_provider_access(user=u, provider=provider)
+
+
 def test_free_plan_cannot_connect_social(db):
     u = _mk_user(db, plan="free")
     with pytest.raises(HTTPException) as e:

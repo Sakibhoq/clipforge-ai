@@ -376,7 +376,7 @@ export default function Page() {
       ],
       labsSpark: [
         "Prompt-to-media generation with Labs credits",
-        "Access to Orbito workspace included",
+        "Includes full Orbito Creator-level access",
         "Good entry point for AI content testing",
       ],
       labsVelocity: [
@@ -414,7 +414,7 @@ export default function Page() {
               <span className="text-white/94">Plans</span>
             </h1>
             <p className="mt-3 max-w-3xl text-sm text-white/66 sm:text-base">
-              Clean pricing, creative workflows, and one upgrade path. All Labs plans include Orbito access by default.
+              Clean pricing, creative workflows, and one upgrade path. All Labs plans include full Orbito Creator-level access.
             </p>
             <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -617,7 +617,7 @@ export default function Page() {
                 items={[
                   `${formatInt(labsStarterCredits)} Labs credits / month`,
                   "Prompt-to-image/video/voice generation",
-                  "Includes Orbito access by default",
+                  "Includes full Orbito Creator-level access",
                   "Monthly billing",
                 ]}
               />
@@ -684,7 +684,7 @@ export default function Page() {
               Orbito plans cover clipping + publishing.
             </div>
             <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-4 py-3 text-sm text-amber-100/95">
-              Every Labs plan includes Orbito access.
+              Every Labs plan includes full Orbito Creator-level access.
             </div>
             <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
               Labs Velocity unlocks the highest generation throughput.

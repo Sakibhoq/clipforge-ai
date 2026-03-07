@@ -178,8 +178,8 @@ def _normalized_plan_key(raw_plan: Any) -> str:
         "trialing": "free",
         "starter_monthly": "starter",
         "starter_yearly": "starter",
-        "labs_starter": "starter",
-        "labs_spark": "starter",
+        "labs_starter": "creator",
+        "labs_spark": "creator",
         "creator_plus": "creator",
         "creator_monthly": "creator",
         "creator_yearly": "creator",
@@ -195,6 +195,8 @@ def _normalized_plan_key(raw_plan: Any) -> str:
 
     if token.startswith("starter") or "starter" in token:
         return "starter"
+    if "spark" in token:
+        return "creator"
     if token.startswith("creator") or token.startswith("pro") or "creator" in token:
         return "creator"
     if token.startswith("studio") or "studio" in token:

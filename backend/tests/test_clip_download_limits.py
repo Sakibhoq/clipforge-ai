@@ -90,3 +90,14 @@ def test_creator_downloads_are_unlimited_and_free(db):
 
     db.refresh(u)
     assert int(u.credits or 0) == 7
+
+
+def test_labs_spark_downloads_are_unlimited_and_free(db):
+    u = _mk_user(db, plan="labs_spark", credits=7)
+    u.downloads_used = 500
+    db.commit()
+
+    _consume_download_quota(db, current_user=u)
+
+    db.refresh(u)
+    assert int(u.credits or 0) == 7

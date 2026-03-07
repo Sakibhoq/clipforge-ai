@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { normalizeAppPlan } from "@/lib/plans";
 
 type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
@@ -416,7 +417,7 @@ export default function GenerateClient() {
   );
   const postWillAutoSpeed = useMemo(() => postAutoSpeedWpm > VOICE_BASE_WPM, [postAutoSpeedWpm]);
   const lowCostStyleSelected = useMemo(() => isLowCostStyle(stylePreset), [stylePreset]);
-  const normalizedPlan = useMemo(() => String(currentPlan || "free").trim().toLowerCase(), [currentPlan]);
+  const normalizedPlan = useMemo(() => normalizeAppPlan(currentPlan), [currentPlan]);
   const postPlanMaxDuration = useMemo(() => {
     const caps: Record<string, number> = { free: 60, free_trial: 60, trial: 60, starter: 120, creator: 120, studio: 120 };
     return caps[normalizedPlan] ?? 60;
@@ -448,13 +449,11 @@ export default function GenerateClient() {
   }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds]);
 
   const fastEligible = useMemo(() => {
-    const plan = String(currentPlan || "").trim().toLowerCase();
-    return plan === "creator" || plan === "studio";
-  }, [currentPlan]);
+    return normalizedPlan === "creator" || normalizedPlan === "studio";
+  }, [normalizedPlan]);
   const freeTrialWatermarkLocked = useMemo(() => {
-    const plan = String(currentPlan || "").trim().toLowerCase();
-    return plan === "free" || plan === "free_trial" || plan === "trial";
-  }, [currentPlan]);
+    return normalizedPlan === "free";
+  }, [normalizedPlan]);
 
   const canGenerate = useMemo(() => {
     if (submitting) return false;

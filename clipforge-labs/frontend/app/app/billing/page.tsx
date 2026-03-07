@@ -79,7 +79,7 @@ const PLAN_DEFS: PlanDef[] = [
     key: "labs_spark",
     family: "labs",
     name: "Labs Spark",
-    summary: "Generator + AI clips with Orbito included.",
+    summary: "Generator + AI clips with full Orbito Creator-level access.",
     monthlyPrice: 39,
     monthlyCredits: 390,
     badge: "Labs",
@@ -88,7 +88,7 @@ const PLAN_DEFS: PlanDef[] = [
     key: "labs_velocity",
     family: "labs",
     name: "Labs Velocity",
-    summary: "Higher AI generation and clips throughput.",
+    summary: "Higher AI generation throughput with full Orbito Creator-level access.",
     monthlyPrice: 99,
     monthlyCredits: 990,
     badge: "Labs",
@@ -579,7 +579,7 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/62">
-          All Labs plans include Orbito access. Labs plans are monthly right now.
+          All Labs plans include full Orbito Creator-level access. Labs plans are monthly right now.
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
