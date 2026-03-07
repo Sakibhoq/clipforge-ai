@@ -275,6 +275,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app/generate", "Generator")}
             {navItem("/app/clips", "Clips")}
+            {navItem("/app/editor", "Editor")}
             <a href="/app/studio" className={externalNavPillClass}>
               Publish
             </a>
@@ -340,6 +341,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {navItem("/app/generate", "Generator", true)}
               {navItem("/app/clips", "Clips", true)}
+              {navItem("/app/editor", "Editor", true)}
               <a href="/app/studio" className={cx(externalNavPillClass, "w-full text-left")}>
                 Publish
               </a>
