@@ -7,6 +7,9 @@ const RAW_BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BAS
 const BASE_PATH = RAW_BASE_PATH
   ? `/${RAW_BASE_PATH.replace(/^\/+/, "").replace(/\/+$/, "")}`
   : "";
+const ORBITO_APP_ORIGIN = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc")
+  .trim()
+  .replace(/\/+$/, "");
 
 // Protect authenticated surface in production
 const PROTECTED_PREFIXES = [
@@ -41,6 +44,21 @@ function stripBasePath(pathname: string): string {
     return pathname.slice(BASE_PATH.length) || "/";
   }
   return pathname;
+}
+
+function withBasePath(pathname: string): string {
+  if (!BASE_PATH) return pathname || "/";
+  const clean = (pathname || "/").startsWith("/") ? pathname : `/${pathname}`;
+  if (clean === "/") return BASE_PATH;
+  if (clean.startsWith(BASE_PATH)) return clean;
+  return `${BASE_PATH}${clean}`;
+}
+
+function orbitoLoginRedirect(nextPath: string): URL {
+  const url = new URL("/login", ORBITO_APP_ORIGIN);
+  url.searchParams.set("next", withBasePath(nextPath || "/app"));
+  url.searchParams.set("source", "orbito-labs");
+  return url;
 }
 
 function applySecurityHeaders(
@@ -155,11 +173,7 @@ export function proxy(req: NextRequest) {
 
   // Protected paths require auth
   if (isProtectedPath(routePath) && !authed) {
-    const loginUrl = req.nextUrl.clone();
-    // Keep redirect targets base-path agnostic to avoid duplicate prefixes.
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", routePath);
-    return applySecurityHeaders(NextResponse.redirect(loginUrl), {
+    return applySecurityHeaders(NextResponse.redirect(orbitoLoginRedirect(routePath)), {
       production: isProduction,
       https: isHttps,
     });

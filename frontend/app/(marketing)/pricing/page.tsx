@@ -14,8 +14,7 @@ type BenefitsKey =
   | "orbitoStarter"
   | "orbitoCreator"
   | "labsSpark"
-  | "labsVelocity"
-  | "fullAccess";
+  | "labsVelocity";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -169,7 +168,6 @@ function CompareRow({
   orbitoCreator,
   labsSpark,
   labsVelocity,
-  fullAccess,
 }: {
   label: string;
   trial: string;
@@ -177,17 +175,15 @@ function CompareRow({
   orbitoCreator: string;
   labsSpark: string;
   labsVelocity: string;
-  fullAccess: string;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-3 py-3 text-sm">
+    <div className="grid grid-cols-6 gap-3 py-3 text-sm">
       <div className="text-white/78">{label}</div>
       <div className="text-white/62">{trial}</div>
       <div className="text-white/62">{orbitoStarter}</div>
       <div className="text-white/62">{orbitoCreator}</div>
       <div className="text-white/62">{labsSpark}</div>
       <div className="text-white/62">{labsVelocity}</div>
-      <div className="text-white/62">{fullAccess}</div>
     </div>
   );
 }
@@ -204,7 +200,6 @@ export default function Page() {
     orbitoCreator: false,
     labsSpark: false,
     labsVelocity: false,
-    fullAccess: false,
   });
 
   async function requireAuthOrRedirect(): Promise<boolean> {
@@ -276,9 +271,6 @@ export default function Page() {
   const labsCreatorCredits =
     (mode === "yearly" ? 11880 : 990) * creditScale;
 
-  const fullCreditsMonthly = (300 + 990) * creditScale;
-  const fullCreditsYearly = (3600 + 11880) * creditScale;
-
   const labsStarterHref = "/app/labs/app/billing?source=pricing&plan=starter";
   const labsCreatorHref = `/app/labs/app/billing?source=pricing&plan=creator&interval=${mode}&scale=${creditScale}`;
   const toggleBenefits = (key: BenefitsKey) =>
@@ -310,11 +302,6 @@ export default function Page() {
         "Higher generation throughput and quality lanes",
         "Designed for routine AI post production",
         "Can be scaled with the credit slider",
-      ],
-      fullAccess: [
-        "Single commercial agreement for both products",
-        "Unified credit strategy option",
-        "Onboarding and support priority",
       ],
     }),
     []
@@ -362,7 +349,7 @@ export default function Page() {
             <div>
               <div className="text-sm font-medium text-white/88">Credit scaling system</div>
               <div className="text-xs text-white/56">
-                Scale Creator and Full Access throughput from 1x to 8x without changing your plan structure.
+                Scale Creator and Labs Velocity throughput from 1x to 8x without changing your plan structure.
               </div>
             </div>
             <div className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-sm text-white/82">
@@ -382,22 +369,11 @@ export default function Page() {
               aria-label="Credit scaling multiplier"
             />
           </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-2 text-xs text-cyan-100/95">
-              Orbito Creator: {formatInt(orbitoCreatorCredits)} credits {mode === "yearly" ? "/ year upfront" : "/ month"}
-            </div>
-            <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-3 py-2 text-xs text-amber-100/95">
-              Labs Velocity: {formatInt(labsCreatorCredits)} credits {mode === "yearly" ? "/ year upfront" : "/ month"}
-            </div>
-            <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-3 py-2 text-xs text-indigo-100/95">
-              Full Access pool: {formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} credits
-            </div>
-          </div>
         </div>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <div className="group surface relative overflow-hidden p-5 sm:p-6">
+        <div className="mt-8 -mx-1 overflow-x-auto px-1 pb-1">
+          <div className="flex min-w-[1080px] gap-4">
+          <div className="group surface relative w-[208px] shrink-0 overflow-hidden p-4">
             <div className="relative">
               <FamilyPill label="Unified Trial" tone="neutral" />
               <div className="mt-3 text-xl font-semibold text-white/92">Orbito + Labs Free Trial</div>
@@ -429,7 +405,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-cyan-300/22 p-5 sm:p-6">
+          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-cyan-300/22 p-4">
             <GlowLayer family="orbito" />
             <div className="relative">
               <FamilyPill label="Orbito" tone="orbito" />
@@ -462,7 +438,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-cyan-300/26 p-5 sm:p-6">
+          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-cyan-300/26 p-4">
             <GlowLayer family="orbito" />
             <div className="relative">
               <FamilyPill label="Orbito" tone="orbito" />
@@ -506,7 +482,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/24 p-5 sm:p-6">
+          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-amber-300/24 p-4">
             <GlowLayer family="labs" />
             <div className="relative">
               <FamilyPill label="Orbito Labs" tone="labs" />
@@ -535,7 +511,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/28 p-5 sm:p-6">
+          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-amber-300/28 p-4">
             <GlowLayer family="labs" />
             <div className="relative">
               <FamilyPill label="Orbito Labs" tone="labs" />
@@ -574,7 +550,7 @@ export default function Page() {
               />
             </div>
           </div>
-
+          </div>
         </div>
 
         <section className="mt-10 surface-soft rounded-2xl p-5 sm:p-6">
@@ -588,7 +564,7 @@ export default function Page() {
               Every Labs plan includes Orbito access.
             </div>
             <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
-              Full Access unifies commercial access and credits.
+              Labs Velocity unlocks the highest generation throughput.
             </div>
           </div>
         </section>
@@ -608,15 +584,14 @@ export default function Page() {
           </div>
 
           <div className="mt-6 -mx-3 overflow-x-auto px-3">
-            <div className="min-w-[1200px] rounded-2xl border border-white/10 bg-black/25 p-4">
-              <div className="grid grid-cols-7 gap-3 pb-3 text-xs text-white/52">
+            <div className="min-w-[980px] rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="grid grid-cols-6 gap-3 pb-3 text-xs text-white/52">
                 <div className="text-white/65">Feature</div>
                 <div>Trial</div>
                 <div>Orbito Starter</div>
                 <div>Orbito Creator</div>
                 <div>Labs Spark</div>
                 <div>Labs Velocity</div>
-                <div>Full Access</div>
               </div>
               <div className="h-px bg-white/10" />
 
@@ -627,17 +602,15 @@ export default function Page() {
                 orbitoCreator="Included"
                 labsSpark="Included"
                 labsVelocity="Included"
-                fullAccess="Included"
               />
               <div className="h-px bg-white/10" />
               <CompareRow
                 label="Labs generation"
                 trial="Included"
-                orbitoStarter="Not included"
-                orbitoCreator="Not included"
+                orbitoStarter="-"
+                orbitoCreator="-"
                 labsSpark="Included"
                 labsVelocity="Included"
-                fullAccess="Included"
               />
               <div className="h-px bg-white/10" />
               <CompareRow
@@ -647,37 +620,24 @@ export default function Page() {
                 orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
                 labsSpark="Included access"
                 labsVelocity="Included access"
-                fullAccess="Pooled"
               />
               <div className="h-px bg-white/10" />
               <CompareRow
                 label="Labs credits"
                 trial={`${formatInt(sharedTrialCredits)} shared`}
-                orbitoStarter="Not included"
-                orbitoCreator="Not included"
+                orbitoStarter="-"
+                orbitoCreator="-"
                 labsSpark={`${formatInt(labsStarterCredits)}/mo`}
                 labsVelocity={`${formatInt(labsCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
-                fullAccess={`${formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} pooled`}
               />
               <div className="h-px bg-white/10" />
               <CompareRow
                 label="4K generation lanes"
-                trial="No"
-                orbitoStarter="No"
-                orbitoCreator="No"
-                labsSpark="No"
+                trial="-"
+                orbitoStarter="-"
+                orbitoCreator="-"
+                labsSpark="-"
                 labsVelocity="Yes"
-                fullAccess="Yes"
-              />
-              <div className="h-px bg-white/10" />
-              <CompareRow
-                label="Priority support"
-                trial="No"
-                orbitoStarter="Email"
-                orbitoCreator="Priority email"
-                labsSpark="Email"
-                labsVelocity="Priority email"
-                fullAccess="Priority + onboarding"
               />
             </div>
           </div>

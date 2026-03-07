@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
@@ -53,8 +53,18 @@ function withBasePath(path: string) {
   return `${base}${clean}`;
 }
 
+function orbitoOrigin() {
+  return (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
+}
+
+function orbitoLoginUrl(nextPath: string) {
+  const url = new URL("/login", orbitoOrigin());
+  url.searchParams.set("next", withBasePath(nextPath || "/app"));
+  url.searchParams.set("source", "orbito-labs");
+  return url.toString();
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathnameRaw = usePathname();
   const pathname = normalizePath(pathnameRaw || "/");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -79,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setMe(null);
         emitMeSync(null);
         if (err?.status === 401) {
-          router.replace("/login");
+          window.location.replace(orbitoLoginUrl(pathname || "/app"));
         }
       } finally {
         if (!mounted) return;
@@ -130,8 +140,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMe(null);
     emitMeSync(null);
     setLoading(false);
-    router.push("/login");
-    router.refresh();
+    window.location.assign(orbitoLoginUrl("/app"));
   }
 
   const activeTab = useMemo(() => getAppTabFromPath(pathname), [pathname]);
