@@ -469,19 +469,7 @@ export default function ClipsPage() {
   }
 
   function openSchedule(clipRow: ClipRow) {
-    const defaults =
-      schedulePlatformLimit === null
-        ? [...connectedScheduleProviders]
-        : connectedScheduleProviders.slice(0, schedulePlatformLimit);
-    setScheduleClip(clipRow);
-    setScheduleSelectedProviders(defaults);
-    setScheduleCaption((clipRow.title || clipRow.hook || "").trim() || `New clip #${clipRow.id}`);
-    setScheduleWhen("");
-    setScheduleError(null);
-    setScheduleNotice(null);
-    setProviderOptionCatalog({});
-    setProviderOptionValues({});
-    setProviderOptionLoading({});
+    window.location.assign(`/app/clips?source=orbito&openSchedule=1&clipId=${clipRow.id}`);
   }
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {
@@ -1010,7 +998,7 @@ export default function ClipsPage() {
                     </>
                   ) : (
                     <>
-                      No connected platforms yet. Connect accounts in <a href="/app/studio" className="underline underline-offset-2">Publish</a>.
+                      No connected platforms yet. Connect accounts in <a href="/app/studio" className="underline underline-offset-2">Connections</a>.
                     </>
                   )}
                 </div>

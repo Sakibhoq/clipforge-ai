@@ -611,7 +611,15 @@ export default function SettingsPage() {
   }, [prefsLoading, saveState]);
 
   return (
-    <div className="min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))] grid gap-6">
+    <div className="relative grid min-h-[100svh] gap-6 overflow-x-hidden pb-[max(16px,env(safe-area-inset-bottom))]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(980px 680px at 10% 12%, rgba(255,183,3,0.14), transparent 66%), radial-gradient(940px 680px at 90% 12%, rgba(58,134,255,0.14), transparent 66%), radial-gradient(900px 620px at 18% 88%, rgba(251,86,7,0.12), transparent 68%), radial-gradient(860px 620px at 84% 84%, rgba(155,140,255,0.12), transparent 68%), radial-gradient(820px 560px at 52% 50%, rgba(70,215,255,0.08), transparent 70%)",
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -639,7 +647,7 @@ export default function SettingsPage() {
           className="pointer-events-none absolute -inset-10 opacity-35 blur-2xl"
           style={{
             background:
-              "radial-gradient(260px 160px at 22% 30%, rgba(255,183,3,0.18), transparent 72%), radial-gradient(280px 180px at 78% 40%, rgba(58,134,255,0.16), transparent 72%), radial-gradient(280px 180px at 52% 88%, rgba(251,86,7,0.12), transparent 72%)",
+              "radial-gradient(280px 170px at 22% 30%, rgba(255,183,3,0.18), transparent 72%), radial-gradient(300px 190px at 78% 40%, rgba(58,134,255,0.16), transparent 72%), radial-gradient(280px 180px at 52% 88%, rgba(251,86,7,0.12), transparent 72%), radial-gradient(240px 170px at 28% 72%, rgba(155,140,255,0.13), transparent 74%), radial-gradient(230px 160px at 72% 72%, rgba(70,215,255,0.1), transparent 74%)",
           }}
         />
 
@@ -651,7 +659,7 @@ export default function SettingsPage() {
                 className="pointer-events-none absolute -inset-8 opacity-70 blur-2xl"
                 style={{
                   background:
-                    "radial-gradient(70px 70px at 35% 35%, rgba(255,183,3,0.35), transparent 70%), radial-gradient(80px 80px at 75% 45%, rgba(58,134,255,0.28), transparent 72%), radial-gradient(80px 80px at 55% 85%, rgba(251,86,7,0.18), transparent 72%)",
+                    "radial-gradient(72px 72px at 35% 35%, rgba(255,183,3,0.35), transparent 70%), radial-gradient(82px 82px at 75% 45%, rgba(58,134,255,0.28), transparent 72%), radial-gradient(82px 82px at 55% 85%, rgba(251,86,7,0.18), transparent 72%), radial-gradient(78px 78px at 24% 70%, rgba(155,140,255,0.18), transparent 74%), radial-gradient(76px 76px at 72% 70%, rgba(70,215,255,0.16), transparent 74%)",
                 }}
               />
               <span className="relative text-white/85">

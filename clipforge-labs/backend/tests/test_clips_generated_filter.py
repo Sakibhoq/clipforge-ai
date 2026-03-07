@@ -139,3 +139,27 @@ def test_generated_only_keeps_generate_job_kind_even_without_generated_source_ty
     ids = {int(r["id"]) for r in rows}
     assert ids == {int(generated_by_job_kind.id)}
 
+
+def test_generated_only_excludes_generated_source_without_labs_asset_signature(
+    db, monkeypatch: pytest.MonkeyPatch
+):
+    user = _mk_user(db)
+    _mk_clip(
+        db,
+        user_id=user.id,
+        source_type="generated",
+        job_kind="clip",
+        storage_key=f"users/{user.id}/clips/{uuid.uuid4().hex}.mp4",
+    )
+
+    monkeypatch.setattr(clips_router, "get_storage", lambda: _MockStorage())
+    rows = clips_router.list_clips(
+        upload_id=None,
+        grouped=False,
+        generated_only=True,
+        db=db,
+        current_user=user,
+        request=None,
+    )
+
+    assert rows == []

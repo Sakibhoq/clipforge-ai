@@ -198,7 +198,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "cflabs-4";
+  const logoV = "cflabs-5";
   const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
   const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${logoV}`;
 
@@ -212,12 +212,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     >
       {/* Background: fixed behind everything, never participates in height */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 bg-[#03060f]" />
+        <div
+          className="absolute inset-[-14%] opacity-[0.95]"
+          style={{
+            background:
+              "radial-gradient(1120px 760px at 10% 12%, rgba(255,183,3,0.20), transparent 66%), radial-gradient(980px 700px at 90% 12%, rgba(58,134,255,0.18), transparent 66%), radial-gradient(980px 720px at 16% 82%, rgba(251,86,7,0.17), transparent 67%), radial-gradient(900px 680px at 84% 82%, rgba(155,140,255,0.18), transparent 67%), radial-gradient(860px 620px at 52% 48%, rgba(70,215,255,0.12), transparent 70%)",
+          }}
+        />
+        <div className="absolute inset-0 opacity-[0.24]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(255,183,3,0.16),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(58,134,255,0.14),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(251,86,7,0.12),transparent_65%)] blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.18),rgba(0,0,0,0.52))]" />
       </div>
 
       {/* Top bar */}
@@ -260,10 +266,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {/* Bigger wordmark */}
               <span className="inline-flex min-w-0 items-center gap-1.5">
-                <span className="text-[16px] font-semibold leading-none tracking-[-0.01em] text-white/95 sm:text-[19px]">
+                <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_48%,#3a86ff_100%)] bg-clip-text text-[16px] font-semibold leading-none tracking-[-0.01em] text-transparent sm:text-[19px]">
                   {BRAND.name}
                 </span>
-                <span className="hidden shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-white/70 sm:inline-flex">
+                <span className="hidden shrink-0 rounded-full border border-[#fb56076e] bg-[linear-gradient(90deg,rgba(255,183,3,0.14),rgba(251,86,7,0.18),rgba(58,134,255,0.14))] px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-[#ffd9b5] sm:inline-flex">
                   LABS
                 </span>
               </span>
@@ -277,7 +283,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {navItem("/app/clips", "Clips")}
             {navItem("/app/editor", "Editor")}
             <a href="/app/studio" className={externalNavPillClass}>
-              Publish
+              Connections
             </a>
             {navItem("/app/settings", "Settings")}
           </nav>
@@ -343,7 +349,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {navItem("/app/clips", "Clips", true)}
               {navItem("/app/editor", "Editor", true)}
               <a href="/app/studio" className={cx(externalNavPillClass, "w-full text-left")}>
-                Publish
+                Connections
               </a>
               {navItem("/app/settings", "Settings", true)}
 

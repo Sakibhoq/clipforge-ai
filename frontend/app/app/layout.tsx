@@ -160,7 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   function aiLabButton(mobile = false) {
     const active = isActive("/app/labs");
     const labsHref = "https://app.orbito.cc/app/labs/app/generate";
-    const labsLogoV = "labs-2";
+    const labsLogoV = "labs-3";
 
     return (
       <Link
@@ -200,9 +200,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     >
       {/* Background: fixed behind everything, never participates in height */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-black" />
-        <div className="absolute inset-y-0 left-0 w-[58%] bg-[radial-gradient(980px_620px_at_20%_16%,rgba(155,140,255,0.28),transparent_66%),radial-gradient(900px_560px_at_34%_72%,rgba(70,215,255,0.18),transparent_70%),radial-gradient(760px_520px_at_42%_38%,rgba(53,242,166,0.13),transparent_72%)]" />
-        <div className="absolute inset-y-0 right-0 w-[58%] bg-[radial-gradient(980px_620px_at_80%_16%,rgba(255,183,3,0.24),transparent_66%),radial-gradient(900px_560px_at_66%_72%,rgba(251,86,7,0.18),transparent_70%),radial-gradient(760px_520px_at_58%_38%,rgba(58,134,255,0.13),transparent_72%)]" />
+        <div className="absolute inset-0 bg-[#02050d]" />
+        <div
+          className="absolute inset-[-14%]"
+          style={{
+            background:
+              "radial-gradient(1160px 760px at 10% 12%, rgba(155,140,255,0.2), transparent 66%), radial-gradient(1020px 720px at 90% 12%, rgba(58,134,255,0.2), transparent 66%), radial-gradient(1000px 700px at 18% 84%, rgba(251,86,7,0.17), transparent 67%), radial-gradient(960px 700px at 84% 82%, rgba(255,183,3,0.17), transparent 67%), radial-gradient(860px 620px at 52% 50%, rgba(70,215,255,0.12), transparent 70%)",
+          }}
+        />
         <div className="absolute inset-0 opacity-[0.22]">
           <div className="aurora" />
         </div>

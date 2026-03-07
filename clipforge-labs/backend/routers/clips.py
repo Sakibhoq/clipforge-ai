@@ -84,6 +84,19 @@ def _is_generated_job_kind(kind: str | None) -> bool:
     return str(kind or "").strip().lower() in LABS_GENERATION_JOB_KINDS
 
 
+def _is_labs_generated_clip(clip: Clip | None, job_kind: str | None, source_type: str | None) -> bool:
+    if clip and _is_generated_ai_clip_key(getattr(clip, "storage_key", None)):
+        return True
+    if _is_generated_job_kind(job_kind):
+        return True
+    src = str(source_type or "").strip().lower()
+    if src in {"generated", "ai_generated", "aigc", "labs_generated"}:
+        key = str(getattr(clip, "storage_key", "") or "").strip().lower()
+        if "/generated/" in key or key.startswith("generated/"):
+            return True
+    return False
+
+
 def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:
     cleaned = "".join(ch for ch in (name or "clip.mp4") if ch not in '/\\:*?"<>|').strip()
     if not cleaned:
@@ -464,10 +477,8 @@ def list_clips(
         if upload.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        upload_is_generated = _is_generated_upload(upload)
-
         clip_rows = (
-            db.query(Clip, Job.kind)
+            db.query(Clip, Job.kind, Upload.source_type)
             .join(Upload, Clip.upload_id == Upload.id)
             .join(Job, Clip.job_id == Job.id)
             .filter(Clip.upload_id == upload_id)
@@ -476,7 +487,7 @@ def list_clips(
             .all()
         )
         if generated_only:
-            clip_rows = [row for row in clip_rows if upload_is_generated or _is_generated_job_kind(row[1])]
+            clip_rows = [row for row in clip_rows if _is_labs_generated_clip(row[0], row[1], row[2])]
         clips = [row[0] for row in clip_rows]
         clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
@@ -497,19 +508,15 @@ def list_clips(
     upload_ids = [u.id for u in uploads]
 
     all_clip_rows = (
-        db.query(Clip, Job.kind)
+        db.query(Clip, Job.kind, Upload.source_type)
         .join(Job, Clip.job_id == Job.id)
+        .join(Upload, Clip.upload_id == Upload.id)
         .filter(Clip.upload_id.in_(upload_ids))
         .order_by(Clip.upload_id.desc(), Clip.start_time.asc(), Clip.id.asc())
         .all()
     )
     if generated_only:
-        generated_upload_ids = {u.id for u in uploads if _is_generated_upload(u)}
-        all_clip_rows = [
-            row
-            for row in all_clip_rows
-            if row[0].upload_id in generated_upload_ids or _is_generated_job_kind(row[1])
-        ]
+        all_clip_rows = [row for row in all_clip_rows if _is_labs_generated_clip(row[0], row[1], row[2])]
     all_clips = [row[0] for row in all_clip_rows]
 
     if not grouped:

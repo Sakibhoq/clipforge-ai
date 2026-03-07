@@ -143,6 +143,14 @@ export default function StudioPage() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(900px 620px at 10% 10%, rgba(255,183,3,0.14), transparent 66%), radial-gradient(860px 620px at 90% 14%, rgba(58,134,255,0.14), transparent 66%), radial-gradient(840px 560px at 20% 88%, rgba(251,86,7,0.12), transparent 68%), radial-gradient(820px 560px at 82% 84%, rgba(155,140,255,0.12), transparent 68%), radial-gradient(760px 520px at 50% 48%, rgba(70,215,255,0.08), transparent 70%)",
+        }}
+      />
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
         <section className="surface relative overflow-hidden rounded-3xl p-6 md:p-8">
           <div
@@ -150,7 +158,7 @@ export default function StudioPage() {
             className="pointer-events-none absolute -inset-12 opacity-45 blur-3xl"
             style={{
               background:
-                "radial-gradient(240px 160px at 16% 28%, rgba(255,183,3,0.22), transparent 70%), radial-gradient(280px 200px at 80% 34%, rgba(58,134,255,0.18), transparent 72%), radial-gradient(260px 180px at 58% 90%, rgba(251,86,7,0.14), transparent 72%)",
+                "radial-gradient(260px 170px at 14% 24%, rgba(255,183,3,0.22), transparent 70%), radial-gradient(300px 210px at 82% 28%, rgba(58,134,255,0.2), transparent 72%), radial-gradient(260px 190px at 58% 92%, rgba(251,86,7,0.16), transparent 72%), radial-gradient(250px 170px at 30% 70%, rgba(155,140,255,0.16), transparent 73%), radial-gradient(230px 160px at 72% 72%, rgba(70,215,255,0.14), transparent 74%)",
             }}
           />
 
@@ -200,7 +208,7 @@ export default function StudioPage() {
             className="pointer-events-none absolute -inset-12 opacity-35 blur-2xl"
             style={{
               background:
-                "radial-gradient(220px 150px at 20% 25%, rgba(255,183,3,0.16), transparent 70%), radial-gradient(260px 180px at 74% 38%, rgba(58,134,255,0.13), transparent 72%), radial-gradient(230px 160px at 58% 92%, rgba(251,86,7,0.10), transparent 72%)",
+                "radial-gradient(240px 160px at 18% 24%, rgba(255,183,3,0.18), transparent 70%), radial-gradient(280px 180px at 76% 36%, rgba(58,134,255,0.15), transparent 72%), radial-gradient(240px 170px at 56% 92%, rgba(251,86,7,0.13), transparent 72%), radial-gradient(220px 150px at 26% 74%, rgba(155,140,255,0.12), transparent 74%), radial-gradient(210px 140px at 74% 74%, rgba(70,215,255,0.1), transparent 74%)",
             }}
           />
 

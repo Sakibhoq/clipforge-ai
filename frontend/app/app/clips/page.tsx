@@ -1021,6 +1021,14 @@ function ClipsWorkspace() {
 
   const uploadIdParam = sp.get("upload_id");
   const uploadId = uploadIdParam ? Number(uploadIdParam) : null;
+  const openScheduleParam = String(sp.get("openSchedule") || "").trim().toLowerCase();
+  const scheduleRequested = openScheduleParam === "1" || openScheduleParam === "true" || openScheduleParam === "yes";
+  const scheduleClipParam = Number(sp.get("clipId") || 0);
+  const [scheduleIntentHandled, setScheduleIntentHandled] = useState(false);
+
+  useEffect(() => {
+    setScheduleIntentHandled(false);
+  }, [scheduleRequested, scheduleClipParam]);
 
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
@@ -1028,6 +1036,7 @@ function ClipsWorkspace() {
   const [autoPlayPreviews, setAutoPlayPreviews] = useState(true);
 
   const [loading, setLoading] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -1201,6 +1210,31 @@ function ClipsWorkspace() {
     setProviderOptionValues({});
     setProviderOptionLoading({});
   }
+
+  useEffect(() => {
+    if (!scheduleRequested || scheduleIntentHandled) return;
+    if (!Number.isFinite(scheduleClipParam) || scheduleClipParam <= 0) return;
+    if (!loadedOnce || loading) return;
+
+    const allVisibleClips =
+      clips.length > 0 ? clips : groups.flatMap((group) => (Array.isArray(group.clips) ? group.clips : []));
+    const target = allVisibleClips.find((c) => Number(c.id) === scheduleClipParam) || null;
+    if (target) {
+      openSchedule(target);
+    } else {
+      setActionError(`Clip #${scheduleClipParam} is not available in Orbito Clips. Pick a clip and use Schedule.`);
+    }
+
+    const next = new URLSearchParams(sp.toString());
+    next.delete("openSchedule");
+    next.delete("clipId");
+    if (String(next.get("source") || "").toLowerCase() === "labs") {
+      next.set("source", "orbito");
+    }
+    const qs = next.toString();
+    router.replace(qs ? `/app/clips?${qs}` : "/app/clips", { scroll: false });
+    setScheduleIntentHandled(true);
+  }, [clips, groups, loadedOnce, loading, router, scheduleClipParam, scheduleIntentHandled, scheduleRequested, sp]);
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {
     if (providerOptionLoading[provider]) return;
@@ -1574,7 +1608,10 @@ function ClipsWorkspace() {
         setGroups([]);
         setClips([]);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setLoadedOnce(true);
+        }
       }
     }
 
