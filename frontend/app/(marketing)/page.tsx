@@ -74,6 +74,104 @@ function HoverSheen() {
   );
 }
 
+function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
+  const background =
+    tone === "orbito"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(155,140,255,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(70,215,255,0.22), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(53,242,166,0.16), transparent 72%)"
+      : tone === "labs"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(251,86,7,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(58,134,255,0.16), transparent 72%)"
+      : "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(70,215,255,0.16), transparent 72%)";
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute -inset-12 opacity-75"
+      style={{ background }}
+    />
+  );
+}
+
+function HeroBorderStyles() {
+  return (
+    <style>{`
+      @keyframes heroBorderSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .orbito-hero-border {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        border-radius: var(--r-xl);
+        padding: 3px;
+        box-shadow:
+          0 0 0 1px rgba(255, 255, 255, 0.08),
+          0 0 22px rgba(56, 189, 248, 0.18),
+          0 0 34px rgba(251, 146, 60, 0.12);
+      }
+      .orbito-hero-border::before {
+        content: "";
+        position: absolute;
+        inset: -58%;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 0deg,
+          rgba(37, 99, 235, 1),
+          rgba(56, 189, 248, 1),
+          rgba(45, 212, 191, 1),
+          rgba(251, 146, 60, 1),
+          rgba(129, 140, 248, 1),
+          rgba(167, 139, 250, 1),
+          rgba(37, 99, 235, 1)
+        );
+        animation: heroBorderSpin 4.2s linear infinite;
+        filter: saturate(1.12) brightness(1.06);
+        opacity: 0.98;
+        pointer-events: none;
+        z-index: 0;
+        will-change: transform;
+      }
+      .orbito-hero-border::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 19px;
+        background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
+        box-shadow:
+          0 0 12px rgba(125, 211, 252, 0.18),
+          0 0 20px rgba(167, 139, 250, 0.14);
+        pointer-events: none;
+        z-index: 1;
+      }
+      .orbito-hero-border > .orbito-hero-inner {
+        position: relative;
+        z-index: 2;
+        border-radius: 20px;
+      }
+      @media (max-width: 900px), (pointer: coarse) {
+        .orbito-hero-border {
+          padding: 2px;
+        }
+        .orbito-hero-border::before {
+          inset: -86%;
+          animation: none !important;
+          opacity: 0.74;
+        }
+        .orbito-hero-border::after {
+          inset: 2px;
+          border-radius: 18px;
+          box-shadow:
+            0 0 8px rgba(125, 211, 252, 0.16),
+            0 0 14px rgba(167, 139, 250, 0.12);
+        }
+        .orbito-hero-border > .orbito-hero-inner {
+          border-radius: 18px;
+        }
+      }
+    `}</style>
+  );
+}
+
 /**
  * Brighter, more obvious ambient glows:
  * - FX is fixed (does not affect layout height)
@@ -168,54 +266,6 @@ function AmbientFX() {
           60% { opacity: calc(var(--m-o) * 0.55); }
           100% { opacity: 0; transform: translate3d(0, -12px, 0) scale(1.25); }
         }
-        @keyframes heroBorderSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        .orbito-hero-border {
-          position: relative;
-          overflow: hidden;
-          isolation: isolate;
-          border-radius: var(--r-xl);
-          padding: 4px;
-          box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
-        }
-        .orbito-hero-border::before {
-          content: "";
-          position: absolute;
-          inset: -140%;
-          border-radius: 50%;
-          background: conic-gradient(
-            from 0deg,
-            rgba(37, 99, 235, 1),
-            rgba(56, 189, 248, 1),
-            rgba(45, 212, 191, 1),
-            rgba(129, 140, 248, 1),
-            rgba(167, 139, 250, 1),
-            rgba(37, 99, 235, 1)
-          );
-          animation: heroBorderSpin 3s linear infinite;
-          pointer-events: none;
-          z-index: 0;
-          will-change: transform;
-        }
-        .orbito-hero-border::after {
-          content: "";
-          position: absolute;
-          inset: 4px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
-          box-shadow:
-            0 0 12px rgba(125, 211, 252, 0.18),
-            0 0 20px rgba(167, 139, 250, 0.14);
-          pointer-events: none;
-          z-index: 1;
-        }
-        .orbito-hero-border > .orbito-hero-inner {
-          position: relative;
-          z-index: 2;
-          border-radius: 20px;
-        }
         .orbito-grain {
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
           background-size: 180px 180px;
@@ -227,24 +277,6 @@ function AmbientFX() {
         @media (max-width: 900px), (pointer: coarse) {
           .orbito-fx-heavy {
             display: none !important;
-          }
-          .orbito-hero-border {
-            padding: 2px;
-          }
-          .orbito-hero-border::before {
-            inset: -62%;
-            animation: none !important;
-            opacity: 0.82;
-          }
-          .orbito-hero-border::after {
-            inset: 2px;
-            border-radius: 18px;
-            box-shadow:
-              0 0 8px rgba(125, 211, 252, 0.16),
-              0 0 14px rgba(167, 139, 250, 0.12);
-          }
-          .orbito-hero-border > .orbito-hero-inner {
-            border-radius: 18px;
           }
         }
       `}</style>
@@ -404,101 +436,103 @@ export default function Page() {
   return (
     // IMPORTANT: no overflow-y/scroll containers here — only document scroll
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
+      <HeroBorderStyles />
       {/* Content ABOVE FX */}
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="relative">
           <div data-reveal className="reveal orbito-hero-border">
             <div className="orbito-hero-inner relative overflow-hidden p-5 sm:p-6 md:p-10">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-              <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
-              <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.05),transparent_64%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
-            </div>
-
-            <div className="relative grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                  <span>Long videos in. Short clips out.</span>
-                  <SocialBrandPill platform="youtube" compact />
-                </div>
-
-                <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
-                  Stop editing. Start <H>earning</H>.
-                </h1>
-
-                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                  One account, one workflow: clip long-form content in Orbito, then generate new AI clips in Orbito Labs.
-                </p>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <a href="/start-trial" className="btn-orbito-cta">
-                    Start free
-                  </a>
-                  <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
-                    Get paid with <span className="whop-word">Whop</span>
-                  </a>
-                  <div className="text-xs text-white/50">Less editing. More posting.</div>
-                </div>
-
-                <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
-                  <span className="text-white/75">
-                    Upload once
-                  </span>{" "}
-                  → pick clips → post
-                  <span className="text-white/35"> • </span>
-                  <span className="text-white/70">or open Labs for prompt-to-clip generation.</span>
-                </div>
+              <PricingCardGlow tone="full" />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+                <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
+                <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.05),transparent_64%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
               </div>
 
-              {/* RIGHT PANEL */}
-              <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1">
-                <HoverSheen />
+              <div className="relative grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                    <span>Long videos in. Short clips out.</span>
+                    <SocialBrandPill platform="youtube" compact />
+                  </div>
 
-                <div className="relative">
-                  <div className="flex items-center justify-between text-xs text-white/60">
-                    <div>Your simple workflow</div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                      active
+                  <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
+                    Stop editing. Start <H>earning</H>.
+                  </h1>
+
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
+                    One account, one workflow: clip long-form content in Orbito, then generate new AI clips in Orbito Labs.
+                  </p>
+
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    <a href="/start-trial" className="btn-orbito-cta">
+                      Start free
+                    </a>
+                    <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
+                      Get paid with <span className="whop-word">Whop</span>
+                    </a>
+                    <div className="text-xs text-white/50">Less editing. More posting.</div>
+                  </div>
+
+                  <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
+                    <span className="text-white/75">
+                      Upload once
+                    </span>{" "}
+                    → pick clips → post
+                    <span className="text-white/35"> • </span>
+                    <span className="text-white/70">or open Labs for prompt-to-clip generation.</span>
+                  </div>
+                </div>
+
+                {/* RIGHT PANEL */}
+                <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1">
+                  <HoverSheen />
+
+                  <div className="relative">
+                    <div className="flex items-center justify-between text-xs text-white/60">
+                      <div>Your simple workflow</div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                        active
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {heroSteps.map((x) => (
+                        <div
+                          key={x.id}
+                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
+                        >
+                          <div className="text-sm font-semibold">{x.t}</div>
+                          <div className="mt-1 text-xs text-white/60">{x.d}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
+                      {[
+                        { k: "Start", v: "First clip in minutes" },
+                        { k: "Channels", v: "TikTok • Reels • Shorts" },
+                        { k: "Routine", v: "Post more often" },
+                      ].map((x) => (
+                        <div
+                          key={x.k}
+                          className="group/mini relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
+                        >
+                          <HoverSheen />
+                          <div className="relative">
+                            <div className="text-white/50">{x.k}</div>
+                            <div className="mt-1 text-white/80">{x.v}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="mt-4 space-y-3">
-                    {heroSteps.map((x) => (
-                      <div
-                        key={x.id}
-                        className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
-                      >
-                        <div className="text-sm font-semibold">{x.t}</div>
-                        <div className="mt-1 text-xs text-white/60">{x.d}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
-                  {[
-                    { k: "Start", v: "First clip in minutes" },
-                    { k: "Channels", v: "TikTok • Reels • Shorts" },
-                    { k: "Routine", v: "Post more often" },
-                  ].map((x) => (
-                      <div
-                        key={x.k}
-                        className="group/mini relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
-                      >
-                        <HoverSheen />
-                        <div className="relative">
-                          <div className="text-white/50">{x.k}</div>
-                          <div className="mt-1 text-white/80">{x.v}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
+                {/* /RIGHT PANEL */}
               </div>
-              {/* /RIGHT PANEL */}
-            </div>
             </div>
           </div>
         </section>
@@ -519,6 +553,7 @@ export default function Page() {
               data-reveal
               className="reveal group surface-soft relative overflow-hidden p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
             >
+              <PricingCardGlow tone="orbito" />
               <HoverSheen />
               <div className="relative">
                 <div className="text-xs text-white/50">Flow</div>
