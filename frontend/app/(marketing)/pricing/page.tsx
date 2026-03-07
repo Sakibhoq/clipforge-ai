@@ -381,53 +381,73 @@ export default function Page() {
 
         <div className="mt-8">
           <div className="group surface relative overflow-hidden p-5 sm:p-6">
-            <div className="relative grid gap-5 lg:grid-cols-12 lg:items-start">
-              <div className="lg:col-span-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-60"
+              style={{
+                background:
+                  "radial-gradient(620px 320px at 18% 26%, rgba(70,215,255,0.18), transparent 72%), radial-gradient(640px 340px at 84% 24%, rgba(255,183,3,0.18), transparent 74%), radial-gradient(680px 360px at 52% 98%, rgba(136,120,255,0.14), transparent 74%)",
+              }}
+            />
+            <div className="relative grid gap-6 lg:grid-cols-12 lg:items-stretch">
+              <div className="lg:col-span-8">
                 <FamilyPill label="Free Trial" tone="neutral" />
-                <div className="mt-3 text-2xl font-semibold text-white/92 sm:text-3xl">Free Trial</div>
-                <PriceRow amount="$0" suffix="/trial" />
-                <Bullets
-                  items={[
-                    `Shared trial credits: ${formatInt(sharedTrialCredits)}`,
-                    "Use the same credit pool in Orbito + Labs",
-                    "Test clipping + generation in one account",
-                    "Upgrade when you need production volume",
-                  ]}
-                />
-              </div>
-
-              <div className="grid gap-3 lg:col-span-3 lg:pt-8">
-                <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Shared Credits</div>
-                  <div className="mt-2 text-3xl font-semibold tracking-tight text-white">{formatInt(sharedTrialCredits)}</div>
-                  <div className="mt-1 text-xs text-white/62">Available across Orbito + Labs.</div>
-                </div>
-                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4">
-                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Workspace</div>
-                  <div className="mt-2 text-sm font-semibold text-white/88">One account, two workflows</div>
-                  <div className="mt-1 text-xs leading-relaxed text-white/62">
-                    Validate clipping and generation quality before moving to paid plans.
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Free Trial</div>
+                  <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1 text-xs text-white/75">
+                    {formatInt(sharedTrialCredits)} shared credits
                   </div>
                 </div>
+                <div className="mt-3 flex items-end gap-2">
+                  <div className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">$0</div>
+                  <div className="pb-2 text-sm text-white/55">/trial</div>
+                </div>
+                <p className="mt-3 max-w-2xl text-sm text-white/68 sm:text-base">
+                  Start with one account across Orbito and Labs, then upgrade only when you need more throughput.
+                </p>
+
+                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                  {[
+                    "Clip long videos with Orbito",
+                    "Generate AI media in Labs",
+                    "Use one shared credit pool",
+                    "Keep one publish workflow",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white/75"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="w-full lg:col-span-3 lg:pt-10">
-                <button
-                  type="button"
-                  onClick={() => startOrbitoCheckout("free")}
-                  disabled={startingCheckout !== null}
-                  className={cn(
-                    "btn-orbito-cta inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                  )}
-                >
-                  {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
-                </button>
-                <BenefitsDisclosure
-                  open={openBenefits.trial}
-                  onToggle={() => toggleBenefits("trial")}
-                  items={benefits.trial}
-                />
+              <div className="w-full lg:col-span-4">
+                <div className="flex h-full flex-col rounded-2xl border border-white/14 bg-black/25 p-4">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Start here</div>
+                  <div className="mt-2 text-sm font-semibold text-white/88">Test full workflow before paying</div>
+                  <div className="mt-1 text-xs leading-relaxed text-white/62">
+                    Validate clipping quality, generation speed, and publish flow in one workspace.
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => startOrbitoCheckout("free")}
+                    disabled={startingCheckout !== null}
+                    className={cn(
+                      "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                      startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                    )}
+                  >
+                    {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
+                  </button>
+                  <BenefitsDisclosure
+                    open={openBenefits.trial}
+                    onToggle={() => toggleBenefits("trial")}
+                    items={benefits.trial}
+                  />
+                </div>
               </div>
             </div>
           </div>
