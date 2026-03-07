@@ -49,10 +49,12 @@ function PriceRow({
   amount,
   suffix,
   strike,
+  glowTone,
 }: {
   amount: string;
   suffix: string;
   strike?: string;
+  glowTone?: "orbito" | "labs";
 }) {
   return (
     <div className="mt-4">
@@ -65,7 +67,16 @@ function PriceRow({
         {strike || "$0"}
       </div>
       <div className="mt-1 flex items-end gap-2">
-        <div className="text-4xl font-semibold tracking-tight sm:text-5xl">{amount}</div>
+        <div
+          className={cn(
+            "text-4xl font-semibold tracking-tight sm:text-5xl",
+            glowTone ? "price-amount-animated" : "",
+            glowTone === "orbito" ? "price-amount-orbito" : "",
+            glowTone === "labs" ? "price-amount-labs" : ""
+          )}
+        >
+          {amount}
+        </div>
         {suffix ? <div className="pb-2 text-sm text-white/55">{suffix}</div> : null}
       </div>
     </div>
@@ -128,7 +139,7 @@ function ModeToggle({
         type="button"
         onClick={() => setMode("monthly")}
         className={cn(
-          "rounded-full px-4 py-2 text-sm transition",
+          "inline-flex items-center rounded-full px-4 py-2 text-sm transition",
           mode === "monthly" ? "bg-white text-black" : "text-white/70 hover:text-white"
         )}
       >
@@ -138,11 +149,21 @@ function ModeToggle({
         type="button"
         onClick={() => setMode("yearly")}
         className={cn(
-          "rounded-full px-4 py-2 text-sm transition",
+          "inline-flex items-center rounded-full px-4 py-2 text-sm transition",
           mode === "yearly" ? "bg-white text-black" : "text-white/70 hover:text-white"
         )}
       >
         Yearly
+        <span
+          className={cn(
+            "ml-2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+            mode === "yearly"
+              ? "yearly-discount-badge border-emerald-300/60 bg-emerald-300/20 text-emerald-100"
+              : "border-white/20 bg-white/[0.08] text-white/70"
+          )}
+        >
+          -25%
+        </span>
       </button>
     </div>
   );
@@ -190,6 +211,60 @@ function CompareRow({
       <div className="text-white/62">{labsSpark}</div>
       <div className="text-white/62">{labsVelocity}</div>
     </div>
+  );
+}
+
+function PricingMotionStyles() {
+  return (
+    <style>{`
+      @keyframes priceGradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      @keyframes priceGlowPulseOrbito {
+        0%, 100% { filter: drop-shadow(0 0 8px rgba(70,215,255,0.30)); }
+        50% { filter: drop-shadow(0 0 16px rgba(53,242,166,0.38)); }
+      }
+      @keyframes priceGlowPulseLabs {
+        0%, 100% { filter: drop-shadow(0 0 8px rgba(255,183,3,0.30)); }
+        50% { filter: drop-shadow(0 0 16px rgba(251,86,7,0.40)); }
+      }
+      @keyframes yearlyBadgePulse {
+        0%, 100% { box-shadow: 0 0 0 rgba(52, 211, 153, 0); }
+        50% { box-shadow: 0 0 12px rgba(52, 211, 153, 0.45); }
+      }
+      .price-amount-animated {
+        color: transparent;
+        -webkit-background-clip: text;
+        background-clip: text;
+        background-size: 220% 220%;
+        animation: priceGradientShift 5.5s linear infinite;
+      }
+      .price-amount-orbito {
+        background-image: linear-gradient(
+          92deg,
+          rgba(155,140,255,1),
+          rgba(70,215,255,1),
+          rgba(53,242,166,1),
+          rgba(155,140,255,1)
+        );
+        animation: priceGradientShift 5.5s linear infinite, priceGlowPulseOrbito 3.2s ease-in-out infinite;
+      }
+      .price-amount-labs {
+        background-image: linear-gradient(
+          92deg,
+          rgba(255,183,3,1),
+          rgba(251,86,7,1),
+          rgba(58,134,255,1),
+          rgba(255,183,3,1)
+        );
+        animation: priceGradientShift 5.5s linear infinite, priceGlowPulseLabs 3.2s ease-in-out infinite;
+      }
+      .yearly-discount-badge {
+        animation: yearlyBadgePulse 2.4s ease-in-out infinite;
+      }
+    `}</style>
   );
 }
 
@@ -271,7 +346,7 @@ export default function Page() {
 
   const labsCreatorMonthlyBasePrice = 99;
   const labsCreatorMonthlyScaledPrice = labsCreatorMonthlyBasePrice * creditScale;
-  const labsCreatorYearlyScaledMonthly = labsCreatorMonthlyScaledPrice * 0.8;
+  const labsCreatorYearlyScaledMonthly = labsCreatorMonthlyScaledPrice * 0.75;
   const labsCreatorYearlyTotal = Math.round(labsCreatorYearlyScaledMonthly * 12);
   const labsCreatorCredits =
     (mode === "yearly" ? 11880 : 990) * creditScale;
@@ -325,6 +400,7 @@ export default function Page() {
 
   return (
     <div className="relative">
+      <PricingMotionStyles />
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
@@ -495,6 +571,7 @@ export default function Page() {
                   amount={`$${formatMoney(orbitoCreatorYearlyScaledMonthly)}`}
                   suffix="/mo"
                   strike={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`}
+                  glowTone="orbito"
                 />
               ) : (
                 <PriceRow amount={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`} suffix="/mo" />
@@ -570,6 +647,7 @@ export default function Page() {
                   amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
                   suffix="/mo"
                   strike={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`}
+                  glowTone="labs"
                 />
               ) : (
                 <PriceRow amount={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`} suffix="/mo" />

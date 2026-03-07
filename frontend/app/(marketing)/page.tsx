@@ -94,28 +94,29 @@ function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
 function HeroBorderStyles() {
   return (
     <style>{`
-      @keyframes heroBorderSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+      @keyframes heroBorderShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
       .orbito-hero-border {
         position: relative;
         overflow: hidden;
         isolation: isolate;
         border-radius: var(--r-xl);
-        padding: 3px;
+        padding: 2px;
         box-shadow:
           0 0 0 1px rgba(255, 255, 255, 0.08),
-          0 0 22px rgba(56, 189, 248, 0.18),
-          0 0 34px rgba(251, 146, 60, 0.12);
+          0 0 18px rgba(56, 189, 248, 0.16),
+          0 0 24px rgba(251, 146, 60, 0.10);
       }
       .orbito-hero-border::before {
         content: "";
         position: absolute;
-        inset: -58%;
-        border-radius: 50%;
-        background: conic-gradient(
-          from 0deg,
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+          120deg,
           rgba(37, 99, 235, 1),
           rgba(56, 189, 248, 1),
           rgba(45, 212, 191, 1),
@@ -124,18 +125,19 @@ function HeroBorderStyles() {
           rgba(167, 139, 250, 1),
           rgba(37, 99, 235, 1)
         );
-        animation: heroBorderSpin 4.2s linear infinite;
-        filter: saturate(1.12) brightness(1.06);
-        opacity: 0.98;
+        background-size: 280% 280%;
+        animation: heroBorderShift 7s ease-in-out infinite;
+        filter: saturate(1.08) brightness(1.04);
+        opacity: 0.95;
         pointer-events: none;
         z-index: 0;
-        will-change: transform;
+        will-change: background-position;
       }
       .orbito-hero-border::after {
         content: "";
         position: absolute;
-        inset: 3px;
-        border-radius: 19px;
+        inset: 2px;
+        border-radius: 18px;
         background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
         box-shadow:
           0 0 12px rgba(125, 211, 252, 0.18),
@@ -146,16 +148,15 @@ function HeroBorderStyles() {
       .orbito-hero-border > .orbito-hero-inner {
         position: relative;
         z-index: 2;
-        border-radius: 20px;
+        border-radius: 18px;
       }
       @media (max-width: 900px), (pointer: coarse) {
         .orbito-hero-border {
           padding: 2px;
         }
         .orbito-hero-border::before {
-          inset: -86%;
-          animation: none !important;
-          opacity: 0.74;
+          animation-duration: 9s;
+          opacity: 0.88;
         }
         .orbito-hero-border::after {
           inset: 2px;
