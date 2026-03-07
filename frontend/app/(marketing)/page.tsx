@@ -114,8 +114,10 @@ function HeroBorderStyles() {
       .orbito-hero-border::before {
         content: "";
         position: absolute;
-        inset: -6%;
+        inset: 0;
         border-radius: inherit;
+        padding: 2px;
+        box-sizing: border-box;
         background: conic-gradient(
           from 180deg at 50% 50%,
           rgba(37, 99, 235, 1),
@@ -126,6 +128,14 @@ function HeroBorderStyles() {
           rgba(167, 139, 250, 1),
           rgba(37, 99, 235, 1)
         );
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        mask-composite: exclude;
         animation: heroBorderSpin 10s linear infinite;
         filter: saturate(1.08) brightness(1.04);
         opacity: 0.98;
