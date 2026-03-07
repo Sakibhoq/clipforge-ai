@@ -159,7 +159,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   function aiLabButton(mobile = false) {
     const active = isActive("/app/labs");
-    const labsHref = "/app/labs?target=generate";
+    const labsHref = "/app/labs/app/generate";
     const labsLogoV = "labs-1";
 
     return (

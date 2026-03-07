@@ -399,7 +399,7 @@ export default function Navbar() {
         { href: "/app", label: "Overview" },
         { href: "/app/clips?source=orbito", label: "Clips" },
         {
-          href: generatorLocked ? "/app/billing?intent=labs" : "/app/labs?target=generate",
+          href: generatorLocked ? "/app/billing?intent=labs" : "/app/labs/app/generate",
           label: generatorLocked ? "Generator 🔒" : "Generator",
         },
         {
