@@ -371,39 +371,45 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-8 grid auto-rows-fr gap-4 lg:grid-cols-5">
-          <div className="group surface relative overflow-hidden p-4">
-            <div className="relative flex h-full flex-col">
-              <FamilyPill label="Unified Trial" tone="neutral" />
-              <div className="mt-3 text-xl font-semibold text-white/92">Orbito + Labs Free Trial</div>
-              <PriceRow amount="$0" suffix="/trial" />
-              <Bullets
-                items={[
-                  `Shared trial credits: ${formatInt(sharedTrialCredits)}`,
-                  "Use the same credit pool in Orbito + Labs",
-                  "Test clipping + generation in one account",
-                  "Upgrade when you need production volume",
-                ]}
-              />
-              <button
-                type="button"
-                onClick={() => startOrbitoCheckout("free")}
-                disabled={startingCheckout !== null}
-                className={cn(
-                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                )}
-              >
-                {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
-              </button>
-              <BenefitsDisclosure
-                open={openBenefits.trial}
-                onToggle={() => toggleBenefits("trial")}
-                items={benefits.trial}
-              />
+        <div className="mt-8">
+          <div className="group surface relative overflow-hidden p-5 sm:p-6">
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl">
+                <FamilyPill label="Free Trial" tone="neutral" />
+                <div className="mt-3 text-2xl font-semibold text-white/92 sm:text-3xl">Free Trial</div>
+                <PriceRow amount="$0" suffix="/trial" />
+                <Bullets
+                  items={[
+                    `Shared trial credits: ${formatInt(sharedTrialCredits)}`,
+                    "Use the same credit pool in Orbito + Labs",
+                    "Test clipping + generation in one account",
+                    "Upgrade when you need production volume",
+                  ]}
+                />
+              </div>
+              <div className="w-full lg:max-w-xs lg:pt-10">
+                <button
+                  type="button"
+                  onClick={() => startOrbitoCheckout("free")}
+                  disabled={startingCheckout !== null}
+                  className={cn(
+                    "btn-orbito-cta inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                  )}
+                >
+                  {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
+                </button>
+                <BenefitsDisclosure
+                  open={openBenefits.trial}
+                  onToggle={() => toggleBenefits("trial")}
+                  items={benefits.trial}
+                />
+              </div>
             </div>
           </div>
+        </div>
 
+        <div className="mt-4 grid auto-rows-fr gap-4 lg:grid-cols-4">
           <div className="group surface relative overflow-hidden border border-cyan-300/22 p-4">
             <GlowLayer family="orbito" />
             <div className="relative flex h-full flex-col">
@@ -423,7 +429,7 @@ export default function Page() {
                 onClick={() => startOrbitoCheckout("starter")}
                 disabled={startingCheckout !== null}
                 className={cn(
-                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                  "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
                   startingCheckout ? "cursor-not-allowed opacity-80" : ""
                 )}
               >
@@ -467,7 +473,7 @@ export default function Page() {
                 onClick={() => startOrbitoCheckout("creator")}
                 disabled={startingCheckout !== null}
                 className={cn(
-                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                  "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
                   startingCheckout ? "cursor-not-allowed opacity-80" : ""
                 )}
               >
@@ -498,7 +504,7 @@ export default function Page() {
               />
               <Link
                 href={labsStarterHref}
-                className="btn-clipforge mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
+                className="btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
               >
                 Choose Labs Spark
               </Link>
@@ -538,7 +544,7 @@ export default function Page() {
               />
               <Link
                 href={labsCreatorHref}
-                className="btn-clipforge mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
+                className="btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
               >
                 Choose Labs Velocity
               </Link>
