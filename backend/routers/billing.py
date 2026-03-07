@@ -152,8 +152,8 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     - Free trial: 65 (one-time)
     - Starter: 150 / month
     - Creator: 300 / month * pack_qty
-    - Labs Spark: 300 / month
-    - Labs Velocity: 900 / month
+    - Labs Spark: 390 / month
+    - Labs Velocity: 990 / month
     - Studio: manual
     """
     plan = plan.lower().strip()
@@ -171,10 +171,10 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
         return base * qty
 
     if plan == "labs_spark":
-        return 300 if interval in {"month", "monthly"} else 300 * 12
+        return 390 if interval in {"month", "monthly"} else 390 * 12
 
     if plan == "labs_velocity":
-        return 900 if interval in {"month", "monthly"} else 900 * 12
+        return 990 if interval in {"month", "monthly"} else 990 * 12
 
     return 0
 
