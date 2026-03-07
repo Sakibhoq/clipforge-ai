@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
 import { SocialBrandRow } from "@/components/SocialBrand";
 
 type BillingMode = "monthly" | "yearly";
-type OrbitoCheckoutPlan = "free" | "starter" | "creator";
+type CheckoutPlan = "free" | "starter" | "creator" | "labs_spark" | "labs_velocity";
 type BenefitsKey =
   | "trial"
   | "orbitoStarter"
@@ -274,7 +273,7 @@ export default function Page() {
   const pathname = usePathname();
   const [mode, setMode] = useState<BillingMode>("yearly");
   const [creditScale, setCreditScale] = useState(1);
-  const [startingCheckout, setStartingCheckout] = useState<null | OrbitoCheckoutPlan>(null);
+  const [startingCheckout, setStartingCheckout] = useState<null | CheckoutPlan>(null);
   const [openBenefits, setOpenBenefits] = useState<Record<BenefitsKey, boolean>>({
     trial: false,
     orbitoStarter: false,
@@ -310,7 +309,7 @@ export default function Page() {
     return "Checkout is temporarily unavailable. Please try again.";
   }
 
-  async function startOrbitoCheckout(plan: OrbitoCheckoutPlan) {
+  async function startCheckout(plan: CheckoutPlan) {
     const ok = await requireAuthOrRedirect();
     if (!ok) return;
     try {
@@ -352,8 +351,6 @@ export default function Page() {
   const labsCreatorCredits =
     (mode === "yearly" ? 11880 : 990) * creditScale;
 
-  const labsStarterHref = BRAND.clipforgeUrl;
-  const labsCreatorHref = BRAND.clipforgeUrl;
   const toggleBenefits = (key: BenefitsKey) =>
     setOpenBenefits((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -432,7 +429,7 @@ export default function Page() {
             <div>
               <div className="text-sm font-medium text-white/88">Credit scaling system</div>
               <div className="text-xs text-white/56">
-                Scale Creator and Labs Velocity throughput from 1x to 8x without changing your plan structure.
+                Scale Creator and Labs Creator throughput from 1x to 8x without changing your plan structure.
               </div>
             </div>
             <div className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-sm text-white/82">
@@ -507,7 +504,7 @@ export default function Page() {
 
                   <button
                     type="button"
-                    onClick={() => startOrbitoCheckout("free")}
+                    onClick={() => startCheckout("free")}
                     disabled={startingCheckout !== null}
                     className={cn(
                       "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
@@ -546,7 +543,7 @@ export default function Page() {
               />
               <button
                 type="button"
-                onClick={() => startOrbitoCheckout("starter")}
+                onClick={() => startCheckout("starter")}
                 disabled={startingCheckout !== null}
                 className={cn(
                   "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
@@ -592,7 +589,7 @@ export default function Page() {
               />
               <button
                 type="button"
-                onClick={() => startOrbitoCheckout("creator")}
+                onClick={() => startCheckout("creator")}
                 disabled={startingCheckout !== null}
                 className={cn(
                   "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
@@ -613,7 +610,7 @@ export default function Page() {
             <GlowLayer family="labs" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
-              <div className="mt-3 text-xl font-semibold text-white/94">Labs Spark</div>
+              <div className="mt-3 text-xl font-semibold text-white/94">Labs Starter</div>
               <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
               <div className="mt-2 min-h-[20px] text-xs text-white/50">&nbsp;</div>
@@ -625,12 +622,17 @@ export default function Page() {
                   "Monthly billing",
                 ]}
               />
-              <Link
-                href={labsStarterHref}
-                className="btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
+              <button
+                type="button"
+                onClick={() => startCheckout("labs_spark")}
+                disabled={startingCheckout !== null}
+                className={cn(
+                  "btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                )}
               >
-                Choose Labs Spark
-              </Link>
+                {startingCheckout === "labs_spark" ? "Opening Checkout..." : "Choose Labs Starter"}
+              </button>
               <BenefitsDisclosure
                 open={openBenefits.labsSpark}
                 onToggle={() => toggleBenefits("labsSpark")}
@@ -643,7 +645,7 @@ export default function Page() {
             <GlowLayer family="labs" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
-              <div className="mt-3 text-xl font-semibold text-white/94">Labs Velocity</div>
+              <div className="mt-3 text-xl font-semibold text-white/94">Labs Creator</div>
               <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               {mode === "yearly" ? (
                 <PriceRow
@@ -666,12 +668,17 @@ export default function Page() {
                   `Credit scale applied: ${creditScale}x`,
                 ]}
               />
-              <Link
-                href={labsCreatorHref}
-                className="btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
+              <button
+                type="button"
+                onClick={() => startCheckout("labs_velocity")}
+                disabled={startingCheckout !== null}
+                className={cn(
+                  "btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                )}
               >
-                Choose Labs Velocity
-              </Link>
+                {startingCheckout === "labs_velocity" ? "Opening Checkout..." : "Choose Labs Creator"}
+              </button>
               <BenefitsDisclosure
                 open={openBenefits.labsVelocity}
                 onToggle={() => toggleBenefits("labsVelocity")}
@@ -691,7 +698,7 @@ export default function Page() {
               Every Labs plan includes full Orbito Creator-level access.
             </div>
             <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
-              Labs Velocity unlocks the highest generation throughput.
+              Labs Creator unlocks the highest generation throughput.
             </div>
           </div>
         </section>
@@ -716,8 +723,8 @@ export default function Page() {
                 <div>Trial</div>
                 <div>Orbito Starter</div>
                 <div>Orbito Creator</div>
-                <div>Labs Spark</div>
-                <div>Labs Velocity</div>
+                <div>Labs Starter</div>
+                <div>Labs Creator</div>
               </div>
               <div className="h-px bg-white/10" />
 
