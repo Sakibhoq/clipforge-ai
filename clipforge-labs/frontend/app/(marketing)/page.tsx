@@ -500,7 +500,7 @@ export default function Page() {
               <Link href="/pricing" className="hover:text-white/80">
                 Pricing
               </Link>
-              <Link href="/contact" className="hover:text-white/80">
+              <Link href="https://app.orbito.cc/contact" className="hover:text-white/80">
                 Contact
               </Link>
               <Link href="/privacy-policy" className="hover:text-white/80">

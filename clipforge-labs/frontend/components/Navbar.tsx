@@ -399,7 +399,7 @@ export default function Navbar() {
   const marketingLinks = useMemo(
     () => [
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/contact", label: "Contact" },
+      { href: "https://app.orbito.cc/contact", label: "Contact" },
     ],
     []
   );

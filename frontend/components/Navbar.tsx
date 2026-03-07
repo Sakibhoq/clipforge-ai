@@ -403,7 +403,7 @@ export default function Navbar() {
           label: generatorLocked ? "Generator 🔒" : "Generator",
         },
         {
-          href: labsClipsLocked ? "/app/billing?intent=labs" : "/app/labs?target=clips",
+          href: labsClipsLocked ? "/app/billing?intent=labs" : "/app/labs/app/clips",
           label: labsClipsLocked ? "AI Clips 🔒" : "AI Clips",
         },
         { href: "/app/connections", label: "Connection" },

@@ -162,7 +162,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
   const labsUnlocked = useMemo(() => hasLabsFeatureAccess(me?.plan), [me?.plan]);
   const generatorHref = labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs";
-  const labsClipsHref = labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs";
+  const labsClipsHref = labsUnlocked ? "/app/labs/app/clips" : "/app/billing?intent=labs";
   const generatorLabel = loading || labsUnlocked ? "Generator" : "Generator 🔒";
   const labsClipsLabel = loading || labsUnlocked ? "AI Clips" : "AI Clips 🔒";
 

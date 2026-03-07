@@ -4,7 +4,6 @@ import { getSiteOrigin } from "@/lib/seo";
 const PUBLIC_ROUTES = [
   "/",
   "/pricing",
-  "/contact",
   "/privacy-policy",
   "/terms-of-service",
 ];

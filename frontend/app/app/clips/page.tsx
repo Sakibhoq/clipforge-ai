@@ -2158,7 +2158,7 @@ function LabsClipsPanel() {
         AI clips and Orbito clips are separated by source. AI clips are edited in the Labs editor. Publishing is handled from Orbito Connections.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/app/labs?target=clips" className="btn-clipforge px-4 py-2 text-xs">
+        <Link href="/app/labs/app/clips" className="btn-clipforge px-4 py-2 text-xs">
           Open AI Clips
         </Link>
         <Link href="/app/connections" className="btn-ghost px-4 py-2 text-xs">
