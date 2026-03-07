@@ -12,7 +12,7 @@ export const BRAND = {
   clipforgeProduct: "Orbito Labs",
   clipforgeUrl:
     process.env.NEXT_PUBLIC_LABS_MARKETING_URL?.trim() ||
-    "https://app.orbito.cc/app/labs?target=clips",
+    "https://app.orbito.cc/app/labs/app/generate",
 
   // Monetization partner
   whopName: "Whop",

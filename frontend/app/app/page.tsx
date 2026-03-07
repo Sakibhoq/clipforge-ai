@@ -63,9 +63,7 @@ export default function OverviewPage() {
           </div>
         </section>
 
-        {/* Upload + Clips merged */}
         <section className="mt-8">
-          <div className="mb-4 text-xs text-white/55">• Upload + Clips</div>
           <div className="grid gap-8">
             <UploadsPage />
             <ClipsPage />

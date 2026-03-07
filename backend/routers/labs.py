@@ -40,14 +40,14 @@ def _mode() -> str:
 def _labs_frontend_url() -> str:
     return _clean_url(
         os.getenv("LABS_FRONTEND_URL") or "",
-        "https://clipforge.us",
+        "https://app.orbito.cc/app/labs",
     )
 
 
 def _labs_api_url() -> str:
     return _clean_url(
         os.getenv("LABS_API_URL") or "",
-        "https://api.clipforge.us",
+        "https://api.orbito.cc",
     )
 
 

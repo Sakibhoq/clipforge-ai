@@ -394,16 +394,17 @@ export default function Navbar() {
     () => {
       const generatorLocked = authed && !labsPlanAccess;
       const labsClipsLocked = authed && !labsPlanAccess;
+      const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
 
       return [
         { href: "/app", label: "Overview" },
         { href: "/app/clips?source=orbito", label: "Clips" },
         {
-          href: generatorLocked ? "/app/billing?intent=labs" : "/app/labs/app/generate",
+          href: generatorLocked ? "/app/billing?intent=labs" : `${orbitoAppOrigin}/app/labs/app/generate`,
           label: generatorLocked ? "Generator 🔒" : "Generator",
         },
         {
-          href: labsClipsLocked ? "/app/billing?intent=labs" : "/app/labs/app/clips",
+          href: labsClipsLocked ? "/app/billing?intent=labs" : `${orbitoAppOrigin}/app/labs/app/clips`,
           label: labsClipsLocked ? "AI Clips 🔒" : "AI Clips",
         },
         { href: "/app/connections", label: "Connection" },
@@ -415,7 +416,7 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const labsNavHref = inApp ? "/app/labs" : BRAND.clipforgeUrl;
+  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : BRAND.clipforgeUrl;
   const labsNavTitle = inApp ? "Open Orbito Labs console" : `${BRAND.clipforgeProduct}`;
 
   // Always card/glass

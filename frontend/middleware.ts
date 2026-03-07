@@ -3,6 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 const AUTH_COOKIE = "cf_token";
 const ONE_YEAR_SECONDS = 31536000;
+const ORBITO_APP_ORIGIN = (
+  process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc"
+)
+  .trim()
+  .replace(/\/+$/, "");
+
+function hostFromOrigin(origin: string) {
+  try {
+    return new URL(origin).host.toLowerCase();
+  } catch {
+    return "app.orbito.cc";
+  }
+}
 
 // Protect authenticated surface in production
 const PROTECTED_PREFIXES = [
@@ -84,6 +97,29 @@ export function middleware(req: NextRequest) {
       production: isProduction,
       https: isHttps,
     });
+  }
+
+  const orbitoAppHost = hostFromOrigin(ORBITO_APP_ORIGIN);
+  const labsTarget = (req.nextUrl.searchParams.get("target") || "").trim().toLowerCase();
+  const redirectToOrbitoApp = (path: string) => {
+    const target = new URL(path, ORBITO_APP_ORIGIN);
+    return applySecurityHeaders(NextResponse.redirect(target, 308), {
+      production: isProduction,
+      https: true,
+    });
+  };
+
+  // Normalize all Labs entry routes to canonical app.orbito.cc destinations.
+  if (pathname === "/app/labs") {
+    if (labsTarget === "clips") return redirectToOrbitoApp("/app/labs/app/clips");
+    return redirectToOrbitoApp("/app/labs/app/generate");
+  }
+  if (pathname === "/app/labs/contact") return redirectToOrbitoApp("/contact");
+  if (pathname === "/app/labs/privacy-policy") return redirectToOrbitoApp("/privacy-policy");
+  if (pathname === "/app/labs/terms-of-service") return redirectToOrbitoApp("/terms-of-service");
+  if (pathname.startsWith("/app/labs/") && host !== orbitoAppHost) {
+    const suffix = `${pathname}${req.nextUrl.search || ""}`;
+    return redirectToOrbitoApp(suffix);
   }
 
   // Marketing Labs entry must always resolve to landing section (never a standalone /labs page)

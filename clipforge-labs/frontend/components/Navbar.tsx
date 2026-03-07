@@ -463,8 +463,6 @@ export default function Navbar() {
               <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 <a
                   href={BRAND.orbitoUrl}
-                  target="_blank"
-                  rel="noreferrer"
                   className="hidden xl:inline-flex btn-orbito text-xs"
                   title={`Go to ${BRAND.orbitoName}`}
                 >
@@ -598,8 +596,6 @@ export default function Navbar() {
                 <div className="mt-2 p-2">
                   <a
                     href={BRAND.orbitoUrl}
-                    target="_blank"
-                    rel="noreferrer"
                     onClick={() => setOpen(false)}
                     className="btn-orbito w-full text-xs"
                     title={`Go to ${BRAND.orbitoName}`}
