@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
-import DevNotice from "@/components/DevNotice";
 
 function withBasePath(path: string) {
   const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
@@ -427,9 +426,6 @@ export default function Navbar() {
     <>
       {/* ✅ Spacer so FIXED marketing navbar never overlaps content */}
       {needsSpacer && <div aria-hidden="true" className="h-[112px]" />}
-      {/* Drop-down notice should appear BELOW the fixed navbar (never behind it). */}
-      {!inApp && <DevNotice />}
-
       <header
         className={`${navModeClass} ${navTopClass} z-50 w-full`}
         style={{
