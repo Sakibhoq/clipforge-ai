@@ -21,6 +21,60 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
+function orbitoUrl(pathname: string, opts?: { keepSearch?: boolean; req?: NextRequest }) {
+  const url = new URL(pathname, ORBITO_APP_ORIGIN);
+  if (opts?.keepSearch && opts.req) {
+    const qs = opts.req.nextUrl.searchParams.toString();
+    if (qs) url.search = `?${qs}`;
+  }
+  return url;
+}
+
+function redirectFunctionalLabsRoute(req: NextRequest, routePath: string): URL | null {
+  const nextHasBridge = req.nextUrl.searchParams.has("bridge_token");
+
+  // Legal + support pages should live on Orbito only.
+  if (routePath === "/contact") return orbitoUrl("/contact");
+  if (routePath === "/pricing") return orbitoUrl("/pricing");
+  if (routePath === "/privacy" || routePath === "/privacy-policy") return orbitoUrl("/privacy-policy");
+  if (routePath === "/terms" || routePath === "/terms-of-service") return orbitoUrl("/terms-of-service");
+
+  // Auth pages should use Orbito auth (except Labs bridge login handoff).
+  if (routePath === "/login" && !nextHasBridge) {
+    return orbitoUrl("/login", { keepSearch: true, req });
+  }
+  if (routePath === "/register" || routePath === "/forgot-password" || routePath === "/reset-password" || routePath === "/start-trial") {
+    return orbitoUrl(routePath, { keepSearch: true, req });
+  }
+
+  // Shared app surfaces should resolve in Orbito app.
+  if (routePath === "/dashboard") return orbitoUrl("/app", { keepSearch: true, req });
+  if (routePath === "/app") return orbitoUrl("/app/labs?target=generate");
+  if (routePath === "/app/settings" || routePath.startsWith("/app/settings/")) {
+    return orbitoUrl(routePath, { keepSearch: true, req });
+  }
+  if (routePath === "/app/billing" || routePath.startsWith("/app/billing/")) {
+    return orbitoUrl("/app/billing", { keepSearch: true, req });
+  }
+  if (routePath === "/app/studio" || routePath.startsWith("/app/studio/") || routePath === "/app/connections" || routePath.startsWith("/app/connections/")) {
+    return orbitoUrl("/app/connections", { keepSearch: true, req });
+  }
+  if (routePath === "/app/upload" || routePath.startsWith("/app/upload/") || routePath === "/app/youtube" || routePath.startsWith("/app/youtube/")) {
+    return orbitoUrl("/app/upload", { keepSearch: true, req });
+  }
+  if (routePath === "/app/automations" || routePath.startsWith("/app/automations/")) {
+    return orbitoUrl("/app/automations", { keepSearch: true, req });
+  }
+  if (routePath === "/app/storefront" || routePath.startsWith("/app/storefront/")) {
+    return orbitoUrl(routePath, { keepSearch: true, req });
+  }
+  if (routePath.startsWith("/storefront/")) {
+    return orbitoUrl(routePath, { keepSearch: true, req });
+  }
+
+  return null;
+}
+
 
 function hostWithoutPort(host: string) {
   return host.split(":")[0]?.toLowerCase() || host.toLowerCase();
@@ -110,6 +164,14 @@ export function proxy(req: NextRequest) {
     return applySecurityHeaders(NextResponse.next(), {
       production: isProduction,
       https: isHttps,
+    });
+  }
+
+  const functionalRedirect = redirectFunctionalLabsRoute(req, routePath);
+  if (functionalRedirect) {
+    return applySecurityHeaders(NextResponse.redirect(functionalRedirect, 308), {
+      production: isProduction,
+      https: true,
     });
   }
 
