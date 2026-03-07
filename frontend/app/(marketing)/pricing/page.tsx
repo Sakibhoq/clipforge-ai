@@ -276,8 +276,8 @@ export default function Page() {
   const labsCreatorCredits =
     (mode === "yearly" ? 11880 : 990) * creditScale;
 
-  const labsStarterHref = "/labs?source=pricing&plan=spark";
-  const labsCreatorHref = `/labs?source=pricing&plan=velocity&interval=${mode}&scale=${creditScale}`;
+  const labsStarterHref = "/#standard";
+  const labsCreatorHref = "/#standard";
   const toggleBenefits = (key: BenefitsKey) =>
     setOpenBenefits((prev) => ({ ...prev, [key]: !prev[key] }));
 
