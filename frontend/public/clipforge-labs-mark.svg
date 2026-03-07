@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F1527"/>
+      <stop offset="1" stop-color="#090D18"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="12" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB703"/>
+      <stop offset="0.5" stop-color="#FB5607"/>
+      <stop offset="1" stop-color="#3A86FF"/>
+    </linearGradient>
+    <linearGradient id="planet" x1="21" y1="19" x2="43" y2="43" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD166"/>
+      <stop offset="0.45" stop-color="#FB5607"/>
+      <stop offset="1" stop-color="#3A86FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(38 22) rotate(132) scale(28)">
+      <stop stop-color="#FB5607" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FB5607" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="ring-top">
+      <rect x="0" y="0" width="64" height="32"/>
+    </clipPath>
+    <clipPath id="ring-bottom">
+      <rect x="0" y="32" width="64" height="32"/>
+    </clipPath>
+  </defs>
+
+  <rect x="6" y="6" width="52" height="52" rx="16" fill="url(#bg)"/>
+  <rect x="6.8" y="6.8" width="50.4" height="50.4" rx="15.2" stroke="url(#brand)" stroke-opacity="0.65" stroke-width="1.6"/>
+  <rect x="10" y="10" width="44" height="44" rx="13" fill="url(#glow)"/>
+
+  <g transform="rotate(-18 32 32)" clip-path="url(#ring-top)" opacity="0.56">
+    <ellipse cx="32" cy="34" rx="19.5" ry="7.6" stroke="url(#brand)" stroke-width="4.8" stroke-linecap="round"/>
+  </g>
+
+  <circle cx="32" cy="32" r="11.4" fill="url(#planet)"/>
+
+  <g transform="rotate(-18 32 32)" clip-path="url(#ring-bottom)">
+    <ellipse cx="32" cy="34" rx="19.5" ry="7.6" stroke="url(#brand)" stroke-width="4.8" stroke-linecap="round"/>
+  </g>
+
+  <path d="M48.8 14.2L49.8 16.8L52.4 17.8L49.8 18.8L48.8 21.4L47.8 18.8L45.2 17.8L47.8 16.8L48.8 14.2Z" fill="#F3F7FF" opacity="0.62"/>
+</svg>

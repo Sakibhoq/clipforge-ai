@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
-import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
   name?: string | null;
@@ -158,13 +157,36 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  function aiLabButton(mobile = false) {
+    const active = isActive("/app/labs");
+    const labsHref = "/app/labs?target=generate";
+    const labsLogoV = "labs-1";
+
+    return (
+      <Link
+        href={labsHref}
+        onClick={() => mobile && setMobileOpen(false)}
+        className={cx(
+          "btn-clipforge inline-flex items-center gap-2 whitespace-nowrap",
+          mobile ? "w-full justify-center px-3 py-2.5 text-sm" : "px-3 py-1.5 text-xs",
+          active && "ring-1 ring-amber-300/45"
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
+          alt="AI Lab logo"
+          width={14}
+          height={14}
+          className="rounded-sm"
+        />
+        <span>AI Lab</span>
+      </Link>
+    );
+  }
+
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
-  const labsUnlocked = useMemo(() => hasLabsFeatureAccess(me?.plan), [me?.plan]);
-  const generatorHref = labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs";
-  const labsClipsHref = labsUnlocked ? "/app/labs/app/clips" : "/app/billing?intent=labs";
-  const generatorLabel = loading || labsUnlocked ? "Generator" : "Generator 🔒";
-  const labsClipsLabel = loading || labsUnlocked ? "AI Clips" : "AI Clips 🔒";
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "orb-1";
@@ -234,8 +256,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="hidden md:flex items-center gap-2">
             {navItem("/app", "Overview")}
             {navItem("/app/clips", "Clips")}
-            {navItem(generatorHref, generatorLabel)}
-            {navItem(labsClipsHref, labsClipsLabel)}
+            {aiLabButton()}
             {navItem("/app/connections", "Connection")}
             {navItem("/app/billing", "Billing")}
             {navItem("/app/settings", "Settings")}
@@ -291,8 +312,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
               {navItem("/app", "Overview", true)}
               {navItem("/app/clips", "Clips", true)}
-              {navItem(generatorHref, generatorLabel, true)}
-              {navItem(labsClipsHref, labsClipsLabel, true)}
+              {aiLabButton(true)}
               {navItem("/app/connections", "Connection", true)}
               {navItem("/app/billing", "Billing", true)}
               {navItem("/app/settings", "Settings", true)}
