@@ -525,7 +525,12 @@ export default function ContactPage() {
               {/* LEFT */}
               <div>
                 <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Need help with <span className="grad-text">Orbito</span>?
+                  Need help with <span className="grad-text">Orbito</span>
+                  <span className="text-white/78">/</span>
+                  <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_46%,#3a86ff_100%)] bg-clip-text text-transparent">
+                    Labs
+                  </span>
+                  ?
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
