@@ -459,6 +459,24 @@ function SendMessageModal({
 
 export default function ContactPage() {
   const topics = ["Support", "Billing", "Studio / enterprise", "Partnerships", "Feedback"];
+  const faqs = [
+    {
+      q: "How fast do you respond?",
+      a: "Most messages get a reply within 24 hours. Complex billing or technical issues may take a bit longer.",
+    },
+    {
+      q: "What should I include in a bug report?",
+      a: "Share what you expected, what happened, and attach a screenshot or short screen recording if possible.",
+    },
+    {
+      q: "Can I get help with billing and credits?",
+      a: "Yes. Include the email on your account and we can review plan, credit, and charge details quickly.",
+    },
+    {
+      q: "Do you support studio or enterprise setups?",
+      a: "Yes. Use the Studio / enterprise option and include expected volume, team size, and required workflows.",
+    },
+  ];
 
   const footerLinks = useMemo(
     () => [
@@ -611,6 +629,29 @@ export default function ContactPage() {
                   <div className="text-xs text-white/50">Preferred format</div>
                   <div className="mt-2 text-sm text-white/65 leading-relaxed">
                     One sentence summary + what you expected + what happened.
+                  </div>
+                </div>
+
+                <div className="group surface-soft relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                  <HoverSheen />
+                  <div className="relative">
+                    <div className="text-xs text-white/50">Frequently asked questions</div>
+                    <div className="mt-3 space-y-2">
+                      {faqs.map((item) => (
+                        <details
+                          key={item.q}
+                          className="group/faq rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
+                        >
+                          <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
+                            <div className="flex items-center justify-between gap-3">
+                              <span>{item.q}</span>
+                              <span className="text-xs text-white/45 transition group-open/faq:rotate-45">+</span>
+                            </div>
+                          </summary>
+                          <div className="mt-2 text-xs leading-relaxed text-white/62">{item.a}</div>
+                        </details>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
