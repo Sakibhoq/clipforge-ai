@@ -10,7 +10,7 @@ export const BRAND = {
   // Merged product link
   clipforgeName: "Orbito Labs",
   clipforgeProduct: "Orbito Labs",
-  clipforgeUrl: "/app/labs",
+  clipforgeUrl: "/labs",
 
   // Monetization partner
   whopName: "Whop",
