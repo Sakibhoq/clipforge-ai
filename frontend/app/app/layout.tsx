@@ -176,8 +176,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <img
           src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
           alt="AI Lab logo"
-          width={14}
-          height={14}
+          width={18}
+          height={18}
           className="rounded-sm"
         />
         <span>AI Lab</span>
@@ -254,9 +254,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
+            {aiLabButton()}
             {navItem("/app", "Overview")}
             {navItem("/app/clips", "Clips")}
-            {aiLabButton()}
             {navItem("/app/connections", "Connection")}
             {navItem("/app/billing", "Billing")}
             {navItem("/app/settings", "Settings")}
@@ -310,9 +310,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
               </div>
 
+              {aiLabButton(true)}
               {navItem("/app", "Overview", true)}
               {navItem("/app/clips", "Clips", true)}
-              {aiLabButton(true)}
               {navItem("/app/connections", "Connection", true)}
               {navItem("/app/billing", "Billing", true)}
               {navItem("/app/settings", "Settings", true)}
