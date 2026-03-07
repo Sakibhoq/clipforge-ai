@@ -91,101 +91,6 @@ function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
   );
 }
 
-function HeroBorderStyles() {
-  return (
-    <style>{`
-      @keyframes heroBorderSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      .orbito-hero-border {
-        --hero-radius: 24px;
-        position: relative;
-        overflow: hidden;
-        isolation: isolate;
-        border-radius: var(--hero-radius);
-        padding: 2px;
-        box-shadow:
-          0 0 0 1px rgba(255, 255, 255, 0.08),
-          0 0 22px rgba(56, 189, 248, 0.16),
-          0 0 22px rgba(251, 146, 60, 0.16),
-          0 0 22px rgba(167, 139, 250, 0.16);
-      }
-      .orbito-hero-border::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 2px;
-        box-sizing: border-box;
-        background: conic-gradient(
-          from 180deg at 50% 50%,
-          rgba(37, 99, 235, 1),
-          rgba(56, 189, 248, 1),
-          rgba(45, 212, 191, 1),
-          rgba(251, 146, 60, 1),
-          rgba(129, 140, 248, 1),
-          rgba(167, 139, 250, 1),
-          rgba(37, 99, 235, 1)
-        );
-        -webkit-mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        mask-composite: exclude;
-        animation: heroBorderSpin 10s linear infinite;
-        filter: saturate(1.08) brightness(1.04);
-        opacity: 0.98;
-        pointer-events: none;
-        z-index: 0;
-        will-change: transform;
-      }
-      .orbito-hero-border::after {
-        content: "";
-        position: absolute;
-        inset: 2px;
-        border-radius: calc(var(--hero-radius) - 2px);
-        background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
-        box-shadow:
-          inset 0 0 0 1px rgba(255,255,255,0.04),
-          0 0 10px rgba(125, 211, 252, 0.14),
-          0 0 14px rgba(167, 139, 250, 0.10);
-        pointer-events: none;
-        z-index: 1;
-      }
-      .orbito-hero-border > .orbito-hero-inner {
-        position: relative;
-        z-index: 2;
-        border-radius: calc(var(--hero-radius) - 2px);
-      }
-      @media (max-width: 900px), (pointer: coarse) {
-        .orbito-hero-border {
-          --hero-radius: 20px;
-          padding: 2px;
-        }
-        .orbito-hero-border::before {
-          animation-duration: 12s;
-          opacity: 0.92;
-        }
-        .orbito-hero-border::after {
-          inset: 2px;
-          border-radius: calc(var(--hero-radius) - 2px);
-          box-shadow:
-            0 0 10px rgba(125, 211, 252, 0.16),
-            0 0 10px rgba(251, 146, 60, 0.14),
-            0 0 10px rgba(167, 139, 250, 0.12);
-        }
-        .orbito-hero-border > .orbito-hero-inner {
-          border-radius: calc(var(--hero-radius) - 2px);
-        }
-      }
-    `}</style>
-  );
-}
-
 /**
  * Brighter, more obvious ambient glows:
  * - FX is fixed (does not affect layout height)
@@ -450,13 +355,12 @@ export default function Page() {
   return (
     // IMPORTANT: no overflow-y/scroll containers here — only document scroll
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
-      <HeroBorderStyles />
       {/* Content ABOVE FX */}
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="relative">
-          <div data-reveal className="reveal orbito-hero-border">
-            <div className="orbito-hero-inner relative overflow-hidden p-5 sm:p-6 md:p-10">
+          <div data-reveal className="reveal">
+            <div className="surface-soft relative overflow-hidden p-5 sm:p-6 md:p-10">
               <PricingCardGlow tone="full" />
               <div aria-hidden="true" className="pointer-events-none absolute inset-0">
                 <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
