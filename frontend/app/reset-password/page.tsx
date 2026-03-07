@@ -5,6 +5,7 @@ import React, { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import AuthMixedBackground from "@/components/AuthMixedBackground";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -214,21 +215,7 @@ function ResetPasswordPageInner() {
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]" style={rootStyle}>
-      {/* PAGE-LEVEL AURORA (mobile-safe) */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_700px_at_50%_10%,rgba(255,255,255,0.06),transparent_62%)]" />
-        <div className="absolute inset-0 opacity-[0.48] sm:opacity-[0.55]">
-          <div className="aurora" />
-        </div>
-
-        {/* blobs: vmin positioning reduces iOS overflow edge cases */}
-        <div className="absolute -top-[22vmin] left-[-18vmin] h-[54vmin] w-[54vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.20),transparent_62%)] blur-3xl" />
-        <div className="absolute top-[10vmin] right-[-18vmin] h-[58vmin] w-[58vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.17),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-24vmin] left-[6vmin] h-[64vmin] w-[64vmin] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.13),transparent_65%)] blur-3xl" />
-
-        {/* grid: disable on small screens (can shimmer / seams on iOS) */}
-        <div className="hidden sm:block absolute inset-0 opacity-[0.08] mix-blend-overlay [background-image:linear-gradient(to_right,rgba(255,255,255,0.14)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.14)_1px,transparent_1px)] [background-size:64px_64px]" />
-      </div>
+      <AuthMixedBackground />
 
       <main className="relative mx-auto max-w-lg px-6 pb-14 pt-10 sm:pt-12">
         <section className="surface-soft relative w-full overflow-hidden p-6 md:p-8">

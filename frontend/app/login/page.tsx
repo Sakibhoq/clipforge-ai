@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, getApiBase } from "@/lib/api";
+import AuthMixedBackground from "@/components/AuthMixedBackground";
 
 /* =========================================================
    Orbito — Login (Cookie Auth, Production)
@@ -526,6 +527,7 @@ function LoginPageInner() {
   if (checking) {
     return (
       <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+        <AuthMixedBackground />
         <main className="relative mx-auto max-w-6xl px-6 pb-16 pt-12">
           <div className="surface mx-auto max-w-xl p-8 text-center">
             <div className="inline-flex items-center gap-2 text-sm text-white/70">
@@ -540,6 +542,7 @@ function LoginPageInner() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+      <AuthMixedBackground />
       {/* Layout: mobile-first scroll; desktop can look centered without forcing 100vh traps */}
       <main className="relative mx-auto max-w-6xl px-6 pb-16 pt-10 sm:pt-12 overflow-visible">
         <section className="surface relative overflow-visible p-6 sm:p-8 md:p-12">

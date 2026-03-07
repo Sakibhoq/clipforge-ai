@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, getApiBase } from "@/lib/api";
+import AuthMixedBackground from "@/components/AuthMixedBackground";
 
 /* =========================================================
    Orbito — Register (Cookie Auth, Production)
@@ -411,6 +412,7 @@ function RegisterPageInner() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
+      <AuthMixedBackground />
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12 overflow-visible">
         <section className="surface relative overflow-visible p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
