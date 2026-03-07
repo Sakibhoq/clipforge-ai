@@ -17,7 +17,7 @@ export default function PricingRedirectPage() {
       <div className="surface-soft rounded-2xl p-6 text-sm text-white/75">
         <div className="text-xs text-white/55">Pricing moved</div>
         <div className="mt-2 text-base font-semibold text-white/90">
-          Orbito + Orbito Labs now use one unified pricing page
+          Open the new Plans + Credits Engine
         </div>
         <p className="mt-2 text-white/65">
           Redirecting you to the new pricing page.

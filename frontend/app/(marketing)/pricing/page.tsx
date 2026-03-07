@@ -19,14 +19,21 @@ function formatMoney(n: number) {
   return fixed.endsWith(".00") ? fixed.slice(0, -3) : fixed;
 }
 
-function GlowLayer({ orbito }: { orbito: boolean }) {
-  const background = orbito
-    ? "radial-gradient(520px 260px at 15% 12%, rgba(155,140,255,0.24), transparent 66%), radial-gradient(520px 260px at 82% 35%, rgba(70,215,255,0.20), transparent 66%), radial-gradient(520px 280px at 48% 95%, rgba(53,242,166,0.16), transparent 68%)"
-    : "radial-gradient(520px 260px at 15% 12%, rgba(255,183,3,0.22), transparent 66%), radial-gradient(520px 260px at 82% 35%, rgba(251,86,7,0.20), transparent 66%), radial-gradient(520px 280px at 48% 95%, rgba(58,134,255,0.16), transparent 68%)";
+function formatInt(n: number) {
+  return new Intl.NumberFormat("en-US").format(Math.max(0, Math.round(n)));
+}
+
+function GlowLayer({ family }: { family: "orbito" | "labs" | "full" }) {
+  const background =
+    family === "orbito"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(155,140,255,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(70,215,255,0.22), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(53,242,166,0.16), transparent 72%)"
+      : family === "labs"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(251,86,7,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(58,134,255,0.16), transparent 72%)"
+      : "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(70,215,255,0.16), transparent 72%)";
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute -inset-10 opacity-75"
+      className="pointer-events-none absolute -inset-12 opacity-75"
       style={{ background }}
     />
   );
@@ -48,7 +55,7 @@ function PriceRow({
       ) : null}
       <div className="mt-1 flex items-end gap-2">
         <div className="text-4xl font-semibold tracking-tight sm:text-5xl">{amount}</div>
-        <div className="pb-2 text-sm text-white/55">{suffix}</div>
+        {suffix ? <div className="pb-2 text-sm text-white/55">{suffix}</div> : null}
       </div>
     </div>
   );
@@ -56,10 +63,10 @@ function PriceRow({
 
 function Bullets({ items }: { items: string[] }) {
   return (
-    <ul className="mt-4 space-y-2 text-sm text-white/72">
+    <ul className="mt-4 space-y-2 text-sm text-white/74">
       {items.map((item) => (
         <li key={item} className="flex items-start gap-2">
-          <span className="mt-[0.42rem] h-1.5 w-1.5 rounded-full bg-white/45" />
+          <span className="mt-[0.42rem] h-1.5 w-1.5 rounded-full bg-white/50" />
           <span>{item}</span>
         </li>
       ))}
@@ -72,7 +79,7 @@ function ModeToggle({
   setMode,
 }: {
   mode: BillingMode;
-  setMode: (next: BillingMode) => void;
+  setMode: (m: BillingMode) => void;
 }) {
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1">
@@ -100,10 +107,29 @@ function ModeToggle({
   );
 }
 
+function FamilyPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "orbito" | "labs" | "full" | "neutral";
+}) {
+  const cls =
+    tone === "orbito"
+      ? "border-cyan-300/30 bg-cyan-300/[0.12] text-cyan-100"
+      : tone === "labs"
+      ? "border-amber-300/30 bg-amber-300/[0.14] text-amber-100"
+      : tone === "full"
+      ? "border-indigo-300/30 bg-indigo-300/[0.14] text-indigo-100"
+      : "border-white/15 bg-white/[0.07] text-white/80";
+  return <div className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px]", cls)}>{label}</div>;
+}
+
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
   const [mode, setMode] = useState<BillingMode>("yearly");
+  const [creditScale, setCreditScale] = useState(1);
   const [startingCheckout, setStartingCheckout] = useState<null | OrbitoCheckoutPlan>(null);
 
   async function requireAuthOrRedirect(): Promise<boolean> {
@@ -126,15 +152,9 @@ export default function Page() {
     if (!status && String(e?.message || "").toLowerCase().includes("failed to fetch")) {
       return "Network error reaching billing. Please refresh and try again.";
     }
-    if (lower.includes("stripe not configured")) {
-      return "Checkout is not configured yet. Please try again shortly.";
-    }
-    if (lower.includes("price not configured") || lower.includes("no such price")) {
-      return "Pricing is not configured yet. Contact support.";
-    }
-    if (status === 401) {
-      return "Your session expired. Please sign in again.";
-    }
+    if (lower.includes("stripe not configured")) return "Checkout is not configured yet.";
+    if (lower.includes("price not configured") || lower.includes("no such price")) return "Pricing is not configured yet.";
+    if (status === 401) return "Your session expired. Please sign in again.";
     if (detailStr) return detailStr;
     return "Checkout is temporarily unavailable. Please try again.";
   }
@@ -145,10 +165,9 @@ export default function Page() {
     try {
       setStartingCheckout(plan);
       const interval = plan === "creator" ? mode : "monthly";
-      const payload = { plan, interval };
       const data = (await apiFetch("/billing/checkout-session", {
         method: "POST",
-        body: payload,
+        body: { plan, interval },
       })) as any;
       const url = String(data?.url || "").trim();
       if (!url) throw new Error("No checkout URL returned.");
@@ -160,21 +179,34 @@ export default function Page() {
     }
   }
 
-  const orbitoStarterMonthly = 10;
-  const orbitoCreatorMonthly = 20;
-  const orbitoCreatorYearlyMonthly = orbitoCreatorMonthly * 0.75;
-  const orbitoCreatorYearlyTotal = Math.round(orbitoCreatorYearlyMonthly * 12);
+  const trialOrbitoCredits = 60;
+  const trialLabsCredits = 75;
 
-  const labsStarterMonthly = 39;
-  const labsCreatorMonthly = 99;
-  const labsCreatorYearlyMonthly = labsCreatorMonthly * 0.8;
-  const labsCreatorYearlyTotal = Math.round(labsCreatorYearlyMonthly * 12);
+  const orbitoStarterMonthlyPrice = 10;
+  const orbitoStarterCredits = 150;
 
-  const orbitoCreatorCredits = mode === "yearly" ? 3600 : 300;
-  const labsCreatorCredits = mode === "yearly" ? 11880 : 990;
+  const orbitoCreatorMonthlyBasePrice = 20;
+  const orbitoCreatorMonthlyScaledPrice = orbitoCreatorMonthlyBasePrice * creditScale;
+  const orbitoCreatorYearlyScaledMonthly = orbitoCreatorMonthlyScaledPrice * 0.75;
+  const orbitoCreatorYearlyTotal = Math.round(orbitoCreatorYearlyScaledMonthly * 12);
+  const orbitoCreatorCredits =
+    (mode === "yearly" ? 3600 : 300) * creditScale;
+
+  const labsStarterMonthlyPrice = 39;
+  const labsStarterCredits = 390;
+
+  const labsCreatorMonthlyBasePrice = 99;
+  const labsCreatorMonthlyScaledPrice = labsCreatorMonthlyBasePrice * creditScale;
+  const labsCreatorYearlyScaledMonthly = labsCreatorMonthlyScaledPrice * 0.8;
+  const labsCreatorYearlyTotal = Math.round(labsCreatorYearlyScaledMonthly * 12);
+  const labsCreatorCredits =
+    (mode === "yearly" ? 11880 : 990) * creditScale;
+
+  const fullCreditsMonthly = (300 + 990) * creditScale;
+  const fullCreditsYearly = (3600 + 11880) * creditScale;
 
   const labsStarterHref = "/app/labs/app/billing?source=pricing&plan=starter";
-  const labsCreatorHref = `/app/labs/app/billing?source=pricing&plan=creator&interval=${mode}`;
+  const labsCreatorHref = `/app/labs/app/billing?source=pricing&plan=creator&interval=${mode}&scale=${creditScale}`;
 
   const footerLinks = useMemo(
     () => [
@@ -190,8 +222,8 @@ export default function Page() {
   return (
     <div className="relative">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(980px_620px_at_50%_8%,rgba(255,255,255,0.06),transparent_65%)]" />
-        <div className="absolute inset-0 opacity-[0.50]">
+        <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.06),transparent_66%)]" />
+        <div className="absolute inset-0 opacity-[0.5]">
           <div className="aurora" />
         </div>
       </div>
@@ -199,13 +231,12 @@ export default function Page() {
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="text-xs text-white/50">• Unified pricing</div>
+            <div className="text-xs text-white/50">• Plans + Credits Engine</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              Orbito + Orbito Labs. <span className="grad-text">One pricing surface.</span>
+              One command center for <span className="grad-text">Orbito + Orbito Labs</span>
             </h1>
-            <p className="mt-3 max-w-3xl text-sm text-white/65 sm:text-base">
-              Pick an Orbito plan, a Labs plan, or Full Access. Orbito and Labs credits are separate by
-              default and combine only on Full Access.
+            <p className="mt-3 max-w-3xl text-sm text-white/66 sm:text-base">
+              Clean pricing, creative workflows, and one upgrade path. All Labs plans include Orbito access by default.
             </p>
             <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels"]} />
@@ -214,169 +245,195 @@ export default function Page() {
           <ModeToggle mode={mode} setMode={setMode} />
         </div>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-white/62">
-          Creator cards use {mode} pricing. Starter cards stay monthly.
+        <div className="mt-7 surface-soft rounded-2xl p-4 sm:p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm font-medium text-white/88">Credit scaling system</div>
+              <div className="text-xs text-white/56">
+                Scale Creator and Full Access throughput from 1x to 8x without changing your plan structure.
+              </div>
+            </div>
+            <div className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-sm text-white/82">
+              Scale: <span className="ml-1 font-semibold">{creditScale}x</span>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <input
+              type="range"
+              min={1}
+              max={8}
+              step={1}
+              value={creditScale}
+              onChange={(e) => setCreditScale(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+              className="w-full accent-white"
+              aria-label="Credit scaling multiplier"
+            />
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-2 text-xs text-cyan-100/95">
+              Orbito Creator: {formatInt(orbitoCreatorCredits)} credits {mode === "yearly" ? "/ year upfront" : "/ month"}
+            </div>
+            <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-3 py-2 text-xs text-amber-100/95">
+              Labs Velocity: {formatInt(labsCreatorCredits)} credits {mode === "yearly" ? "/ year upfront" : "/ month"}
+            </div>
+            <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-3 py-2 text-xs text-indigo-100/95">
+              Full Access pool: {formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} credits
+            </div>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           <div className="group surface relative overflow-hidden p-5 sm:p-6">
             <div className="relative">
-              <div className="text-xs uppercase tracking-[0.12em] text-white/50">Unified Trial</div>
-              <div className="mt-2 text-xl font-semibold text-white/90">Orbito + Labs Free Trial</div>
+              <FamilyPill label="Unified Trial" tone="neutral" />
+              <div className="mt-3 text-xl font-semibold text-white/92">Orbito + Labs Free Trial</div>
               <PriceRow amount="$0" suffix="/trial" />
               <Bullets
                 items={[
-                  "Orbito trial credits: 60",
-                  "Labs trial credits: 75",
-                  "Try clipping + AI generation",
-                  "Upgrade to unlock full posting volume",
+                  `Orbito trial credits: ${formatInt(trialOrbitoCredits)}`,
+                  `Labs trial credits: ${formatInt(trialLabsCredits)}`,
+                  "Test clipping + generation in one account",
+                  "Upgrade when you need production volume",
                 ]}
               />
               <button
                 type="button"
                 onClick={() => startOrbitoCheckout("free")}
                 disabled={startingCheckout !== null}
-                className={cn(
-                  "btn-orbito-cta mt-6 w-full",
-                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                )}
+                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
               >
                 {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
               </button>
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-cyan-300/20 p-5 sm:p-6">
-            <GlowLayer orbito />
+          <div className="group surface relative overflow-hidden border border-cyan-300/22 p-5 sm:p-6">
+            <GlowLayer family="orbito" />
             <div className="relative">
-              <div className="text-xs uppercase tracking-[0.12em] text-cyan-200/75">Orbito</div>
-              <div className="mt-2 text-xl font-semibold text-white/92">Orbito Starter</div>
-              <PriceRow amount={`$${formatMoney(orbitoStarterMonthly)}`} suffix="/mo" />
+              <FamilyPill label="Orbito" tone="orbito" />
+              <div className="mt-3 text-xl font-semibold text-white/94">Orbito Starter</div>
+              <PriceRow amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`} suffix="/mo" />
               <Bullets
                 items={[
-                  "150 Orbito credits / month",
-                  "Clip + edit + schedule workflow",
-                  "Starter publishing limits",
-                  "Monthly only",
+                  `${formatInt(orbitoStarterCredits)} Orbito credits / month`,
+                  "Core clipping, editing, publishing",
+                  "Starter posting limits",
+                  "Monthly billing",
                 ]}
               />
               <button
                 type="button"
                 onClick={() => startOrbitoCheckout("starter")}
                 disabled={startingCheckout !== null}
-                className={cn(
-                  "btn-orbito-cta mt-6 w-full",
-                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                )}
+                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
               >
                 {startingCheckout === "starter" ? "Opening Checkout..." : "Choose Orbito Starter"}
               </button>
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/25 p-5 sm:p-6">
-            <GlowLayer orbito={false} />
+          <div className="group surface relative overflow-hidden border border-cyan-300/26 p-5 sm:p-6">
+            <GlowLayer family="orbito" />
             <div className="relative">
-              <div className="text-xs uppercase tracking-[0.12em] text-amber-200/80">Orbito Labs</div>
-              <div className="mt-2 text-xl font-semibold text-white/92">Labs Starter</div>
-              <PriceRow amount={`$${formatMoney(labsStarterMonthly)}`} suffix="/mo" />
-              <Bullets
-                items={[
-                  "390 Labs credits / month",
-                  "1-minute AI post generation",
-                  "Image/video/voice pipelines",
-                  "Monthly only",
-                ]}
-              />
-              <Link href={labsStarterHref} className="btn-clipforge mt-6 w-full text-center">
-                Choose Labs Starter
-              </Link>
-            </div>
-          </div>
-
-          <div className="group surface relative overflow-hidden border border-cyan-300/25 p-5 sm:p-6">
-            <GlowLayer orbito />
-            <div className="relative">
-              <div className="inline-flex rounded-full border border-cyan-200/35 bg-cyan-300/10 px-2.5 py-1 text-[11px] text-cyan-100">
-                Popular
-              </div>
-              <div className="mt-3 text-xs uppercase tracking-[0.12em] text-cyan-200/75">Orbito</div>
-              <div className="mt-2 text-xl font-semibold text-white/92">Orbito Creator</div>
+              <FamilyPill label="Orbito" tone="orbito" />
+              <div className="mt-3 text-xl font-semibold text-white/94">Orbito Creator</div>
               {mode === "yearly" ? (
                 <PriceRow
-                  amount={`$${formatMoney(orbitoCreatorYearlyMonthly)}`}
+                  amount={`$${formatMoney(orbitoCreatorYearlyScaledMonthly)}`}
                   suffix="/mo"
-                  strike={`$${formatMoney(orbitoCreatorMonthly)}`}
+                  strike={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`}
                 />
               ) : (
-                <PriceRow amount={`$${formatMoney(orbitoCreatorMonthly)}`} suffix="/mo" />
+                <PriceRow amount={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`} suffix="/mo" />
               )}
               <div className="mt-2 text-xs text-white/50">
-                {mode === "yearly" ? `Billed yearly ($${orbitoCreatorYearlyTotal})` : "Billed monthly"}
+                {mode === "yearly" ? `Billed yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Billed monthly"}
               </div>
               <Bullets
                 items={[
-                  `${orbitoCreatorCredits} Orbito credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
-                  "Priority clipping + exports",
-                  "Advanced posting lanes",
-                  "Unlimited downloads",
+                  `${formatInt(orbitoCreatorCredits)} Orbito credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
+                  "Priority clipping and exports",
+                  "Advanced publish throughput",
+                  `Credit scale applied: ${creditScale}x`,
                 ]}
               />
               <button
                 type="button"
                 onClick={() => startOrbitoCheckout("creator")}
                 disabled={startingCheckout !== null}
-                className={cn(
-                  "btn-orbito-cta mt-6 w-full",
-                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                )}
+                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
               >
                 {startingCheckout === "creator" ? "Opening Checkout..." : "Choose Orbito Creator"}
               </button>
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/25 p-5 sm:p-6">
-            <GlowLayer orbito={false} />
+          <div className="group surface relative overflow-hidden border border-amber-300/24 p-5 sm:p-6">
+            <GlowLayer family="labs" />
             <div className="relative">
-              <div className="text-xs uppercase tracking-[0.12em] text-amber-200/80">Orbito Labs</div>
-              <div className="mt-2 text-xl font-semibold text-white/92">Labs Creator</div>
-              {mode === "yearly" ? (
-                <PriceRow
-                  amount={`$${formatMoney(labsCreatorYearlyMonthly)}`}
-                  suffix="/mo"
-                  strike={`$${formatMoney(labsCreatorMonthly)}`}
-                />
-              ) : (
-                <PriceRow amount={`$${formatMoney(labsCreatorMonthly)}`} suffix="/mo" />
-              )}
-              <div className="mt-2 text-xs text-white/50">
-                {mode === "yearly" ? `Billed yearly ($${labsCreatorYearlyTotal})` : "Billed monthly"}
-              </div>
+              <FamilyPill label="Orbito Labs" tone="labs" />
+              <div className="mt-3 text-xl font-semibold text-white/94">Labs Spark</div>
+              <div className="mt-1 text-xs text-white/52">Renamed from Labs Starter</div>
+              <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
               <Bullets
                 items={[
-                  `${labsCreatorCredits} Labs credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
-                  "HD + 4K generation lanes",
-                  "Faster queue priority",
-                  "Advanced AI post pipeline",
+                  `${formatInt(labsStarterCredits)} Labs credits / month`,
+                  "Prompt-to-image/video/voice generation",
+                  "Includes Orbito access by default",
+                  "Monthly billing",
                 ]}
               />
-              <Link href={labsCreatorHref} className="btn-clipforge mt-6 w-full text-center">
-                Choose Labs Creator
+              <Link href={labsStarterHref} className="btn-clipforge mt-6 w-full text-center">
+                Choose Labs Spark
               </Link>
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-white/20 bg-white/[0.05] p-5 sm:p-6">
+          <div className="group surface relative overflow-hidden border border-amber-300/28 p-5 sm:p-6">
+            <GlowLayer family="labs" />
             <div className="relative">
-              <div className="text-xs uppercase tracking-[0.12em] text-white/60">Bundle</div>
-              <div className="mt-2 text-xl font-semibold text-white/94">Full Access</div>
+              <FamilyPill label="Orbito Labs" tone="labs" />
+              <div className="mt-3 text-xl font-semibold text-white/94">Labs Velocity</div>
+              <div className="mt-1 text-xs text-white/52">Renamed from Labs Creator</div>
+              {mode === "yearly" ? (
+                <PriceRow
+                  amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
+                  suffix="/mo"
+                  strike={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`}
+                />
+              ) : (
+                <PriceRow amount={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`} suffix="/mo" />
+              )}
+              <div className="mt-2 text-xs text-white/50">
+                {mode === "yearly" ? `Billed yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Billed monthly"}
+              </div>
+              <Bullets
+                items={[
+                  `${formatInt(labsCreatorCredits)} Labs credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
+                  "HD + 4K generation lanes",
+                  "Includes Orbito Creator-level access",
+                  `Credit scale applied: ${creditScale}x`,
+                ]}
+              />
+              <Link href={labsCreatorHref} className="btn-clipforge mt-6 w-full text-center">
+                Choose Labs Velocity
+              </Link>
+            </div>
+          </div>
+
+          <div className="group surface relative overflow-hidden border border-indigo-300/24 bg-white/[0.05] p-5 sm:p-6">
+            <GlowLayer family="full" />
+            <div className="relative">
+              <FamilyPill label="Bundle" tone="full" />
+              <div className="mt-3 text-xl font-semibold text-white/95">Full Access</div>
               <PriceRow amount="Custom" suffix="" />
               <Bullets
                 items={[
-                  "Orbito + Labs under one commercial plan",
-                  "Unified access strategy for both products",
-                  "Bundled credit model and custom limits",
+                  "Orbito + Labs in one commercial plan",
+                  "Unified access + pricing policy",
+                  `Pooled credits: ${formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} (${mode})`,
                   "Priority onboarding and support",
                 ]}
               />
@@ -388,17 +445,17 @@ export default function Page() {
         </div>
 
         <section className="mt-10 surface-soft rounded-2xl p-5 sm:p-6">
-          <div className="text-xs text-white/50">• Credit system</div>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">How credits work now</h2>
-          <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
-            <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-4 py-3 text-white/78">
-              Orbito plans spend Orbito credits.
+          <div className="text-xs text-white/50">• Access logic</div>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">Simple rule set</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
+              Orbito plans cover clipping + publishing.
             </div>
-            <div className="rounded-xl border border-amber-300/25 bg-amber-300/[0.08] px-4 py-3 text-white/78">
-              Labs plans spend Labs credits.
+            <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-4 py-3 text-sm text-amber-100/95">
+              Every Labs plan includes Orbito access.
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-white/70 md:col-span-2">
-              Full Access can combine access and bundled credit strategy.
+            <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
+              Full Access unifies commercial access and credits.
             </div>
           </div>
         </section>
