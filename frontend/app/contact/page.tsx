@@ -598,11 +598,8 @@ export default function ContactPage() {
                     </div>
 
                     <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
-                      <div className="text-xs text-white/45">Support</div>
+                      <div className="text-xs text-white/45">Support email</div>
                       <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
-                      <div className="mt-2 text-xs text-white/45">
-                        Billing? include the email on your account.
-                      </div>
                     </div>
 
                     <div className="mt-6 flex flex-wrap gap-3">
@@ -618,16 +615,6 @@ export default function ContactPage() {
                       </a>
                     </div>
 
-                    <div className="mt-6 text-xs text-white/45">
-                      Tip: include a link or screenshot if something looks off.
-                    </div>
-                  </div>
-                </div>
-
-                <div className="surface-soft p-5">
-                  <div className="text-xs text-white/50">Preferred format</div>
-                  <div className="mt-2 text-sm text-white/65 leading-relaxed">
-                    One sentence summary + what you expected + what happened.
                   </div>
                 </div>
 
