@@ -284,9 +284,11 @@ export default function ClipsPage() {
   const pathname = usePathname();
   const router = useRouter();
   const [generatedOnly] = useState(() => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return true;
     const raw = String(new URLSearchParams(window.location.search).get("generated") || "").trim().toLowerCase();
-    return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+    if (!raw) return true;
+    if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "all") return false;
+    return true;
   });
 
   const [rows, setRows] = useState<ClipRow[]>([]);

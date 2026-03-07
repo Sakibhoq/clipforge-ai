@@ -63,6 +63,15 @@ def _is_generated_ai_clip_key(key: str | None) -> bool:
     return k.startswith("clips/generated/") or k.startswith("clips/generated-posts/")
 
 
+def _is_generated_upload(upload: Upload | None) -> bool:
+    if not upload:
+        return False
+    source_type = str(getattr(upload, "source_type", "") or "").strip().lower()
+    if source_type in {"generated", "ai_generated", "aigc", "labs_generated"}:
+        return True
+    return _is_generated_ai_clip_key(getattr(upload, "storage_key", None))
+
+
 def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:
     cleaned = "".join(ch for ch in (name or "clip.mp4") if ch not in '/\\:*?"<>|').strip()
     if not cleaned:
@@ -443,6 +452,8 @@ def list_clips(
         if upload.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
+        upload_is_generated = _is_generated_upload(upload)
+
         clips = (
             db.query(Clip)
             .join(Upload, Clip.upload_id == Upload.id)
@@ -452,7 +463,7 @@ def list_clips(
             .all()
         )
         if generated_only:
-            clips = [c for c in clips if _is_generated_ai_clip_key(c.storage_key)]
+            clips = [c for c in clips if upload_is_generated or _is_generated_ai_clip_key(c.storage_key)]
         clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
 
@@ -478,7 +489,12 @@ def list_clips(
         .all()
     )
     if generated_only:
-        all_clips = [c for c in all_clips if _is_generated_ai_clip_key(c.storage_key)]
+        generated_upload_ids = {u.id for u in uploads if _is_generated_upload(u)}
+        all_clips = [
+            c
+            for c in all_clips
+            if c.upload_id in generated_upload_ids or _is_generated_ai_clip_key(c.storage_key)
+        ]
 
     if not grouped:
         visible = [c for c in all_clips if _clip_storage_exists(storage, c.storage_key)]

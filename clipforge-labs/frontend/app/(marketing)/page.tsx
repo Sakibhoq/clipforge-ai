@@ -52,7 +52,6 @@ type SampleClip = {
 
 export default function Page() {
   const revealRef = useReveal();
-  const [showDevGate, setShowDevGate] = useState(true);
 
   const prompts = useMemo<PromptDemo[]>(
     () => [
@@ -126,56 +125,11 @@ export default function Page() {
     return () => window.clearInterval(t);
   }, [prompts.length]);
 
-  useEffect(() => {
-    try {
-      const seen = window.sessionStorage.getItem("clipforge-dev-gate-v1") === "1";
-      if (seen) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setShowDevGate(false);
-      }
-    } catch {
-      // Keep visible when storage is unavailable.
-    }
-  }, []);
-
   const p = prompts[idx] || prompts[0]!;
   const heroClip = sampleClips[idx % sampleClips.length] || sampleClips[0]!;
 
   return (
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
-      {showDevGate ? (
-        <div className="fixed inset-0 z-[120]">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
-          <div className="relative mx-auto flex min-h-[100svh] max-w-3xl items-center justify-center px-4 py-8 sm:px-6">
-            <div className="w-full rounded-3xl border border-white/14 bg-[linear-gradient(155deg,rgba(9,13,24,0.98),rgba(7,10,18,0.96))] p-6 shadow-[0_28px_80px_rgba(0,0,0,0.55)] sm:p-8">
-              <div className="text-xs text-white/58">• Notice</div>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/96 sm:text-3xl">
-                Orbito Labs is still in development
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-white/72 sm:text-base">
-                You are viewing the live development build. Some features are still being tuned and may change rapidly.
-              </p>
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowDevGate(false);
-                    try {
-                      window.sessionStorage.setItem("clipforge-dev-gate-v1", "1");
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  className="btn-aurora"
-                >
-                  Exit to site
-                </button>
-                <span className="text-xs text-white/52">You can still use all core pages after closing this notice.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
