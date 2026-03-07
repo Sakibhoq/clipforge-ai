@@ -4,8 +4,6 @@ import { getSiteOrigin } from "@/lib/seo";
 const PUBLIC_ROUTES = [
   "/",
   "/pricing",
-  "/privacy-policy",
-  "/terms-of-service",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

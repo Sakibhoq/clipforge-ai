@@ -307,7 +307,7 @@ function PlanCard({
 
         <div className="mt-5" />
         {def.key === "studio" ? (
-          <Link href="/contact" className="btn-ghost mt-auto inline-flex h-11 w-full items-center justify-center text-sm font-semibold">
+          <Link href="https://app.orbito.cc/contact" className="btn-ghost mt-auto inline-flex h-11 w-full items-center justify-center text-sm font-semibold">
             Contact support
           </Link>
         ) : (
@@ -628,7 +628,7 @@ export default function BillingPage() {
             <div className="mt-1 text-sm text-white/60">Tell us your output goals and we will map the right Orbito + Labs setup.</div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/contact" className="btn-ghost px-4 py-2 text-xs">Contact support</Link>
+            <Link href="https://app.orbito.cc/contact" className="btn-ghost px-4 py-2 text-xs">Contact support</Link>
             <Link href="/pricing" className="btn-ghost px-4 py-2 text-xs">View pricing page</Link>
           </div>
         </div>

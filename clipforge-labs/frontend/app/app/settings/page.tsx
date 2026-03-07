@@ -827,7 +827,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="mt-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
-          <Link href="/contact" className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2 w-full sm:w-auto">
+          <Link href="https://app.orbito.cc/contact" className="btn-ghost text-[12px] px-4 py-2 inline-flex items-center gap-2 w-full sm:w-auto">
             Contact support
             <Icon name="chev" className="opacity-70" />
           </Link>

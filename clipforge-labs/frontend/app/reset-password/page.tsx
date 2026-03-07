@@ -430,7 +430,7 @@ function ResetPasswordPageInner() {
 
                 <div className="flex items-center justify-between text-[12px] text-white/50">
                   <span>Security-first: we don’t reveal account existence.</span>
-                  <Link href="/contact" className="text-white/60 hover:text-white/80">
+                  <Link href="https://app.orbito.cc/contact" className="text-white/60 hover:text-white/80">
                     Need help?
                   </Link>
                 </div>

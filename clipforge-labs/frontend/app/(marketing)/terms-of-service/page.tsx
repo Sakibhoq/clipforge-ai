@@ -1,6 +1,5 @@
-import React from "react";
-import LegalDocument from "@/components/legal/LegalDocument";
+import { redirect } from "next/navigation";
 
 export default function TermsOfServicePage() {
-  return <LegalDocument kind="terms" />;
+  redirect("https://app.orbito.cc/terms-of-service");
 }

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function TermsPage() {
-  redirect("/terms-of-service");
+  redirect("https://app.orbito.cc/terms-of-service");
 }

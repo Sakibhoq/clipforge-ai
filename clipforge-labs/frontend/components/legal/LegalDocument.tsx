@@ -877,7 +877,7 @@ export default function LegalDocument({ kind }: { kind: LegalKind }) {
 
           <div className="mt-6 flex flex-wrap gap-2 text-xs text-white/65">
             <Link
-              href="/contact"
+              href="https://app.orbito.cc/contact"
               className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1.5 hover:text-white/85"
             >
               Contact support

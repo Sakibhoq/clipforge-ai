@@ -457,10 +457,10 @@ export default function Page() {
               <Link href="https://app.orbito.cc/contact" className="hover:text-white/80">
                 Contact
               </Link>
-              <Link href="/privacy-policy" className="hover:text-white/80">
+              <Link href="https://app.orbito.cc/privacy-policy" className="hover:text-white/80">
                 Privacy
               </Link>
-              <Link href="/terms-of-service" className="hover:text-white/80">
+              <Link href="https://app.orbito.cc/terms-of-service" className="hover:text-white/80">
                 Terms
               </Link>
             </div>

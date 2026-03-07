@@ -1,6 +1,5 @@
-import React from "react";
-import LegalDocument from "@/components/legal/LegalDocument";
+import { redirect } from "next/navigation";
 
 export default function PrivacyPolicyPage() {
-  return <LegalDocument kind="privacy" />;
+  redirect("https://app.orbito.cc/privacy-policy");
 }

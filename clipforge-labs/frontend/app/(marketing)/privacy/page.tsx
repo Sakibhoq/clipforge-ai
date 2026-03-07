@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function PrivacyPage() {
-  redirect("/privacy-policy");
+  redirect("https://app.orbito.cc/privacy-policy");
 }
