@@ -131,7 +131,7 @@ def _get_user_from_session(db: Session, session_obj: dict) -> Optional[User]:
 def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     """
     Launch credit rules:
-    - Free trial: 60 (one-time)
+    - Free trial: 65 (one-time)
     - Starter: 150 / month
     - Creator: 300 / month * pack_qty
     - Studio: manual
@@ -140,7 +140,7 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     interval = interval.lower().strip()
 
     if plan == "free":
-        return 60
+        return 65
 
     if plan == "starter":
         return 150 if interval in {"month", "monthly"} else 150 * 12
@@ -449,7 +449,7 @@ async def stripe_webhook(
         _reset_download_meter(user)
 
         if plan == "free":
-            user.credits = max(int(user.credits or 0), 60)
+            user.credits = max(int(user.credits or 0), int(grant))
             if hasattr(user, "trial_used"):
                 user.trial_used = True
         else:

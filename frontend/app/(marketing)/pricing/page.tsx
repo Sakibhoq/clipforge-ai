@@ -254,8 +254,7 @@ export default function Page() {
     }
   }
 
-  const trialOrbitoCredits = 60;
-  const trialLabsCredits = 75;
+  const sharedTrialCredits = 65;
 
   const orbitoStarterMonthlyPrice = 15;
   const orbitoStarterCredits = 150;
@@ -405,8 +404,8 @@ export default function Page() {
               <PriceRow amount="$0" suffix="/trial" />
               <Bullets
                 items={[
-                  `Orbito trial credits: ${formatInt(trialOrbitoCredits)}`,
-                  `Labs trial credits: ${formatInt(trialLabsCredits)}`,
+                  `Shared trial credits: ${formatInt(sharedTrialCredits)}`,
+                  "Use the same credit pool in Orbito + Labs",
                   "Test clipping + generation in one account",
                   "Upgrade when you need production volume",
                 ]}
@@ -576,33 +575,6 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-indigo-300/24 bg-white/[0.05] p-5 sm:p-6">
-            <GlowLayer family="full" />
-            <div className="relative">
-              <FamilyPill label="Bundle" tone="full" />
-              <div className="mt-3 text-xl font-semibold text-white/95">Full Access</div>
-              <PriceRow amount="Custom" suffix="" />
-              <Bullets
-                items={[
-                  "Orbito + Labs in one commercial plan",
-                  "Unified access + pricing policy",
-                  `Pooled credits: ${formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} (${mode})`,
-                  "Priority onboarding and support",
-                ]}
-              />
-              <Link
-                href="/contact?plan=full-access"
-                className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full border border-indigo-300/35 bg-indigo-300/[0.14] px-4 text-center text-base font-semibold text-indigo-100 transition hover:bg-indigo-300/[0.2]"
-              >
-                Request Full Access
-              </Link>
-              <BenefitsDisclosure
-                open={openBenefits.fullAccess}
-                onToggle={() => toggleBenefits("fullAccess")}
-                items={benefits.fullAccess}
-              />
-            </div>
-          </div>
         </div>
 
         <section className="mt-10 surface-soft rounded-2xl p-5 sm:p-6">
@@ -670,7 +642,7 @@ export default function Page() {
               <div className="h-px bg-white/10" />
               <CompareRow
                 label="Orbito credits"
-                trial={`${formatInt(trialOrbitoCredits)}`}
+                trial={`${formatInt(sharedTrialCredits)} shared`}
                 orbitoStarter={`${formatInt(orbitoStarterCredits)}/mo`}
                 orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
                 labsSpark="Included access"
@@ -680,7 +652,7 @@ export default function Page() {
               <div className="h-px bg-white/10" />
               <CompareRow
                 label="Labs credits"
-                trial={`${formatInt(trialLabsCredits)}`}
+                trial={`${formatInt(sharedTrialCredits)} shared`}
                 orbitoStarter="Not included"
                 orbitoCreator="Not included"
                 labsSpark={`${formatInt(labsStarterCredits)}/mo`}

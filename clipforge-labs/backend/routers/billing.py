@@ -124,7 +124,7 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     - AI image+voice posts: about $1.50/min -> 15 credits/min
 
     Plan grants:
-    - Free trial: 75 credits (one-time)
+    - Free trial: 65 credits (one-time)
     - Starter: 390 credits / month
     - Creator: 990 credits / month * pack_qty
     - Studio: 3000 credits / month
@@ -133,7 +133,7 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     interval = interval.lower().strip()
 
     if plan == "free":
-        return 75
+        return 65
 
     if plan == "starter":
         return 390 if interval in {"month", "monthly"} else 390 * 12
