@@ -49,7 +49,7 @@ services:
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"
 
       # Storage
-      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      STORAGE_BACKEND: "${LABS_STORAGE_BACKEND:-local}"
       LOCAL_STORAGE_PATH: "/data/storage"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
       S3_BUCKET: "${S3_BUCKET:-clipforge-uploads-dev-26}"
@@ -157,7 +157,7 @@ services:
       WORKER_WATERMARK_TEXT_SIZE: "70"
 
       # Storage
-      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      STORAGE_BACKEND: "${LABS_STORAGE_BACKEND:-local}"
       # Local dev cookie domain disabled unless explicitly set
       COOKIE_DOMAIN: "${COOKIE_DOMAIN:-}"
       LOCAL_STORAGE_PATH: "/data/storage"
