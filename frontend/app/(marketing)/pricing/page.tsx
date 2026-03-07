@@ -332,7 +332,12 @@ export default function Page() {
           <div>
             <div className="text-xs text-white/50">• Plans + Credits Engine</div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
-              One command center for <span className="grad-text">Orbito + Orbito Labs</span>
+              <span className="grad-text">Orbito</span>{" "}
+              <span className="text-white/70">+</span>{" "}
+              <span className="bg-[linear-gradient(90deg,rgba(255,183,3,1),rgba(251,86,7,1),rgba(58,134,255,1))] bg-clip-text text-transparent">
+                Labs
+              </span>{" "}
+              <span className="text-white/94">Plans</span>
             </h1>
             <p className="mt-3 max-w-3xl text-sm text-white/66 sm:text-base">
               Clean pricing, creative workflows, and one upgrade path. All Labs plans include Orbito access by default.
