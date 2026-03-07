@@ -160,7 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   function aiLabButton(mobile = false) {
     const active = isActive("/app/labs");
     const labsHref = "https://app.orbito.cc/app/labs/app/generate";
-    const labsLogoV = "labs-1";
+    const labsLogoV = "labs-2";
 
     return (
       <Link
@@ -178,7 +178,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           alt="AI Lab logo"
           width={18}
           height={18}
-          className="rounded-sm"
         />
         <span>AI Lab</span>
       </Link>

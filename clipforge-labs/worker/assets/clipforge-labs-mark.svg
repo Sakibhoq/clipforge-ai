@@ -1,32 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F1527"/>
-      <stop offset="1" stop-color="#090D18"/>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5eead4" />
+      <stop offset="55%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#a78bfa" />
     </linearGradient>
-    <linearGradient id="stroke" x1="12" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FFB703"/>
-      <stop offset="0.5" stop-color="#FB5607"/>
-      <stop offset="1" stop-color="#3A86FF"/>
+    <linearGradient id="planet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4ef3e8" />
+      <stop offset="50%" stop-color="#7b6cff" />
+      <stop offset="100%" stop-color="#ff5fd2" />
     </linearGradient>
-    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(36 23) rotate(132) scale(28)">
-      <stop stop-color="#FB5607" stop-opacity="0.34"/>
-      <stop offset="1" stop-color="#FB5607" stop-opacity="0"/>
-    </radialGradient>
+    <clipPath id="clipTop" clipPathUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="512" height="256" />
+    </clipPath>
+    <clipPath id="clipBottom" clipPathUnits="userSpaceOnUse">
+      <rect x="0" y="256" width="512" height="256" />
+    </clipPath>
+    <filter id="ringGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b" />
+      <feMerge>
+        <feMergeNode in="b" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
   </defs>
 
-  <rect x="6" y="6" width="52" height="52" rx="16" fill="url(#bg)"/>
-  <rect x="6.8" y="6.8" width="50.4" height="50.4" rx="15.2" stroke="url(#stroke)" stroke-opacity="0.65" stroke-width="1.6"/>
-  <rect x="10" y="10" width="44" height="44" rx="13" fill="url(#glow)"/>
+  <g transform="rotate(-18 256 256)" clip-path="url(#clipTop)" opacity="0.55">
+    <ellipse
+      cx="256"
+      cy="270"
+      rx="210"
+      ry="82"
+      fill="none"
+      stroke="url(#ring)"
+      stroke-width="40"
+      stroke-linecap="round"
+    />
+  </g>
 
-  <path
-    d="M43 20.5C40.2 17.2 36.1 15 31.4 15C22.9 15 16 21.9 16 30.4C16 38.9 22.9 45.8 31.4 45.8C36.1 45.8 40.2 43.6 43 40.3"
-    stroke="url(#stroke)"
-    stroke-width="6.6"
-    stroke-linecap="round"
-  />
+  <circle cx="256" cy="256" r="140" fill="url(#planet)" />
 
-  <path d="M30.8 24.7L41.1 30.4L30.8 36.1V24.7Z" fill="#F3F7FF"/>
-
-  <path d="M48.8 14.2L49.8 16.8L52.4 17.8L49.8 18.8L48.8 21.4L47.8 18.8L45.2 17.8L47.8 16.8L48.8 14.2Z" fill="#F3F7FF" opacity="0.6"/>
+  <g transform="rotate(-18 256 256)" clip-path="url(#clipBottom)">
+    <ellipse
+      cx="256"
+      cy="270"
+      rx="210"
+      ry="82"
+      fill="none"
+      stroke="url(#ring)"
+      stroke-width="40"
+      stroke-linecap="round"
+      filter="url(#ringGlow)"
+    />
+  </g>
 </svg>

@@ -21,7 +21,7 @@ function Logo() {
   const inApp = pathname?.startsWith("/app");
 
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
-  const v = "cflabs-3";
+  const v = "cflabs-4";
   const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${v}`);
   const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${v}`;
 

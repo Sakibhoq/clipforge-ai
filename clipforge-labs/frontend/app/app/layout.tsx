@@ -198,7 +198,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "cflabs-3";
+  const logoV = "cflabs-4";
   const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
   const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${logoV}`;
 

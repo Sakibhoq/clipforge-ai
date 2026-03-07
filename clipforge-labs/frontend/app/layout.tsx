@@ -5,7 +5,7 @@ import { getSiteUrl } from "@/lib/seo";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 // bump when you want browsers to re-fetch the favicon (they can be aggressively cached)
-const ICON_V = "cflabs-3";
+const ICON_V = "cflabs-4";
 
 const fontSans = Space_Grotesk({
   subsets: ["latin"],
