@@ -41,10 +41,37 @@ DOWNLOAD_CREDIT_COST = {
 
 def _plan_key(raw_plan: Optional[str]) -> str:
     p = (raw_plan or "").strip().lower()
-    if p in DOWNLOAD_LIMITS:
-        return p
-    if p in {"free_trial", "trial"}:
-        return "free"
+    token = re.sub(r"[^a-z0-9]+", "_", p).strip("_")
+    if token in DOWNLOAD_LIMITS:
+        return token
+
+    aliases = {
+        "free_trial": "free",
+        "trial": "free",
+        "trialing": "free",
+        "starter_monthly": "starter",
+        "starter_yearly": "starter",
+        "labs_starter": "starter",
+        "labs_spark": "starter",
+        "creator_plus": "creator",
+        "creator_monthly": "creator",
+        "creator_yearly": "creator",
+        "labs_creator": "creator",
+        "labs_velocity": "creator",
+        "pro": "creator",
+        "pro_plus": "creator",
+        "studio_monthly": "studio",
+        "studio_yearly": "studio",
+    }
+    if token in aliases:
+        return aliases[token]
+
+    if token.startswith("starter") or "starter" in token or "spark" in token:
+        return "starter"
+    if token.startswith("creator") or token.startswith("pro") or "creator" in token or "velocity" in token:
+        return "creator"
+    if token.startswith("studio") or "studio" in token:
+        return "studio"
     return "free"
 
 

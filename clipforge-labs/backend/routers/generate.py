@@ -208,7 +208,38 @@ def _env_float(name: str, default: float, *, min_value: float = 0.0, max_value: 
 
 def _plan_key(raw_plan: str | None) -> str:
     p = (raw_plan or "free").strip().lower()
-    return p if p in PLAN_MAX_VIDEO_DURATION_SECONDS_HD else "free"
+    token = re.sub(r"[^a-z0-9]+", "_", p).strip("_")
+    if token in PLAN_MAX_VIDEO_DURATION_SECONDS_HD:
+        return token
+
+    aliases = {
+        "free_trial": "free",
+        "trial": "free",
+        "trialing": "free",
+        "starter_monthly": "starter",
+        "starter_yearly": "starter",
+        "labs_starter": "starter",
+        "labs_spark": "starter",
+        "creator_plus": "creator",
+        "creator_monthly": "creator",
+        "creator_yearly": "creator",
+        "labs_creator": "creator",
+        "labs_velocity": "creator",
+        "pro": "creator",
+        "pro_plus": "creator",
+        "studio_monthly": "studio",
+        "studio_yearly": "studio",
+    }
+    if token in aliases:
+        return aliases[token]
+
+    if token.startswith("starter") or "starter" in token or "spark" in token:
+        return "starter"
+    if token.startswith("creator") or token.startswith("pro") or "creator" in token or "velocity" in token:
+        return "creator"
+    if token.startswith("studio") or "studio" in token:
+        return "studio"
+    return "free"
 
 
 def _video_speed_key(raw_speed: str | None) -> str:
