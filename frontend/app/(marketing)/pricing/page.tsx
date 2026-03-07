@@ -158,8 +158,8 @@ function ModeToggle({
           className={cn(
             "ml-2 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none",
             mode === "yearly"
-              ? "yearly-discount-badge border-emerald-300/60 bg-emerald-300/20 text-emerald-100"
-              : "border-white/20 bg-white/[0.08] text-white/70"
+              ? "yearly-discount-badge border-emerald-300/70 bg-emerald-200 !text-black"
+              : "border-emerald-300/60 bg-emerald-200/90 !text-black"
           )}
         >
           -25%
@@ -263,6 +263,7 @@ function PricingMotionStyles() {
       }
       .yearly-discount-badge {
         animation: yearlyBadgePulse 2.4s ease-in-out infinite;
+        color: #000000;
       }
     `}</style>
   );
@@ -351,8 +352,8 @@ export default function Page() {
   const labsCreatorCredits =
     (mode === "yearly" ? 11880 : 990) * creditScale;
 
-  const labsStarterHref = "/#standard";
-  const labsCreatorHref = "/#standard";
+  const labsStarterHref = BRAND.clipforgeUrl;
+  const labsCreatorHref = BRAND.clipforgeUrl;
   const toggleBenefits = (key: BenefitsKey) =>
     setOpenBenefits((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -404,8 +405,7 @@ export default function Page() {
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="text-xs text-white/50">• Plans + Credits Engine</div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
               <span className="grad-text">Orbito</span>{" "}
               <span className="text-white/70">+</span>{" "}
               <span className="bg-[linear-gradient(90deg,rgba(255,183,3,1),rgba(251,86,7,1),rgba(58,134,255,1))] bg-clip-text text-transparent">
@@ -496,9 +496,8 @@ export default function Page() {
 
               <div className="w-full lg:col-span-4">
                 <div className="flex h-full flex-col rounded-2xl border border-white/14 bg-black/25 p-4">
-                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Start here</div>
-                  <div className="mt-2 text-sm font-semibold text-white/88">Test full workflow before paying</div>
-                  <div className="mt-1 text-xs leading-relaxed text-white/62">
+                  <div className="text-sm font-semibold text-white/88">Test full workflow before paying</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/62">
                     Validate clipping quality, generation speed, and publish flow in one workspace.
                   </div>
 
@@ -611,7 +610,7 @@ export default function Page() {
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Spark</div>
-              <div className="mt-1 min-h-[20px] text-xs text-white/52">Renamed from Labs Starter</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
               <div className="mt-2 min-h-[20px] text-xs text-white/50">&nbsp;</div>
               <Bullets
@@ -641,7 +640,7 @@ export default function Page() {
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Velocity</div>
-              <div className="mt-1 min-h-[20px] text-xs text-white/52">Renamed from Labs Creator</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               {mode === "yearly" ? (
                 <PriceRow
                   amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
@@ -679,8 +678,7 @@ export default function Page() {
         </div>
 
         <section className="mt-10 surface-soft rounded-2xl p-5 sm:p-6">
-          <div className="text-xs text-white/50">• Access logic</div>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/90">Simple rule set</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-white/90">Simple rule set</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
               Orbito plans cover clipping + publishing.
@@ -697,8 +695,7 @@ export default function Page() {
         <section className="mt-10 surface rounded-2xl p-5 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-xs text-white/50">• Compare included features</div>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/92">Everything at a glance</h2>
+              <h2 className="text-2xl font-semibold tracking-tight text-white/92">Everything at a glance</h2>
               <p className="mt-2 text-sm text-white/62">
                 Side-by-side view of access, credits, and capabilities across all plans.
               </p>

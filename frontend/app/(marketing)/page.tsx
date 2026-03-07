@@ -94,29 +94,30 @@ function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
 function HeroBorderStyles() {
   return (
     <style>{`
-      @keyframes heroBorderShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+      @keyframes heroBorderSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
       .orbito-hero-border {
+        --hero-radius: 24px;
         position: relative;
         overflow: hidden;
         isolation: isolate;
-        border-radius: var(--r-xl);
+        border-radius: var(--hero-radius);
         padding: 2px;
         box-shadow:
           0 0 0 1px rgba(255, 255, 255, 0.08),
-          0 0 18px rgba(56, 189, 248, 0.16),
-          0 0 24px rgba(251, 146, 60, 0.10);
+          0 0 22px rgba(56, 189, 248, 0.16),
+          0 0 22px rgba(251, 146, 60, 0.16),
+          0 0 22px rgba(167, 139, 250, 0.16);
       }
       .orbito-hero-border::before {
         content: "";
         position: absolute;
-        inset: 0;
+        inset: -6%;
         border-radius: inherit;
-        background: linear-gradient(
-          120deg,
+        background: conic-gradient(
+          from 180deg at 50% 50%,
           rgba(37, 99, 235, 1),
           rgba(56, 189, 248, 1),
           rgba(45, 212, 191, 1),
@@ -125,48 +126,50 @@ function HeroBorderStyles() {
           rgba(167, 139, 250, 1),
           rgba(37, 99, 235, 1)
         );
-        background-size: 280% 280%;
-        animation: heroBorderShift 7s ease-in-out infinite;
+        animation: heroBorderSpin 10s linear infinite;
         filter: saturate(1.08) brightness(1.04);
-        opacity: 0.95;
+        opacity: 0.98;
         pointer-events: none;
         z-index: 0;
-        will-change: background-position;
+        will-change: transform;
       }
       .orbito-hero-border::after {
         content: "";
         position: absolute;
         inset: 2px;
-        border-radius: 18px;
+        border-radius: calc(var(--hero-radius) - 2px);
         background: linear-gradient(135deg, rgba(8, 12, 20, 0.94), rgba(7, 11, 18, 0.92));
         box-shadow:
-          0 0 12px rgba(125, 211, 252, 0.18),
-          0 0 20px rgba(167, 139, 250, 0.14);
+          inset 0 0 0 1px rgba(255,255,255,0.04),
+          0 0 10px rgba(125, 211, 252, 0.14),
+          0 0 14px rgba(167, 139, 250, 0.10);
         pointer-events: none;
         z-index: 1;
       }
       .orbito-hero-border > .orbito-hero-inner {
         position: relative;
         z-index: 2;
-        border-radius: 18px;
+        border-radius: calc(var(--hero-radius) - 2px);
       }
       @media (max-width: 900px), (pointer: coarse) {
         .orbito-hero-border {
+          --hero-radius: 20px;
           padding: 2px;
         }
         .orbito-hero-border::before {
-          animation-duration: 9s;
-          opacity: 0.88;
+          animation-duration: 12s;
+          opacity: 0.92;
         }
         .orbito-hero-border::after {
           inset: 2px;
-          border-radius: 18px;
+          border-radius: calc(var(--hero-radius) - 2px);
           box-shadow:
-            0 0 8px rgba(125, 211, 252, 0.16),
-            0 0 14px rgba(167, 139, 250, 0.12);
+            0 0 10px rgba(125, 211, 252, 0.16),
+            0 0 10px rgba(251, 146, 60, 0.14),
+            0 0 10px rgba(167, 139, 250, 0.12);
         }
         .orbito-hero-border > .orbito-hero-inner {
-          border-radius: 18px;
+          border-radius: calc(var(--hero-radius) - 2px);
         }
       }
     `}</style>
@@ -541,9 +544,7 @@ export default function Page() {
         {/* HOW IT WORKS */}
         <section id="how-it-works" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-              How it works. <H>Simple and fast.</H>
-            </h2>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">How it works</h2>
             <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
               One upload, more clips, and faster posting.
             </p>
@@ -557,8 +558,7 @@ export default function Page() {
               <PricingCardGlow tone="orbito" />
               <HoverSheen />
               <div className="relative">
-                <div className="text-xs text-white/50">Flow</div>
-                <div className="mt-2 text-xl font-semibold text-white/90 sm:text-2xl">Upload, pick, post.</div>
+                <div className="text-xl font-semibold text-white/90 sm:text-2xl">Upload, pick, post.</div>
                 <p className="mt-3 text-sm leading-relaxed text-white/65">Use one clear flow from source video to final post.</p>
                 <div className="mt-5 flex flex-wrap items-center gap-2">
                   <SocialBrandRow platforms={["youtube", "tiktok", "instagram", "facebook"]} compact />
@@ -591,10 +591,10 @@ export default function Page() {
                 data-reveal
                 className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
               >
+                <PricingCardGlow tone="orbito" />
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">Connected channels</div>
-                  <div className="mt-2 text-sm font-semibold text-white/90">YouTube, TikTok, Instagram, Facebook</div>
+                  <div className="text-sm font-semibold text-white/90">YouTube, TikTok, Instagram, Facebook</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">
                     Connect once in Studio. Then schedule clips across all selected channels.
                   </div>
@@ -605,10 +605,10 @@ export default function Page() {
                 data-reveal
                 className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
               >
+                <PricingCardGlow tone="orbito" />
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">Cross-platform publishing</div>
-                  <div className="mt-2 text-sm font-semibold text-white/90">Publish the same clip everywhere</div>
+                  <div className="text-sm font-semibold text-white/90">Publish the same clip everywhere</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">
                     Connect channels once, then send approved clips to all selected destinations from one workflow.
                   </div>
@@ -623,10 +623,10 @@ export default function Page() {
                 data-reveal
                 className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
               >
+                <PricingCardGlow tone="orbito" />
                 <HoverSheen />
                 <div className="relative">
-                  <div className="text-xs text-white/50">Monetization</div>
-                  <div className="mt-2 text-sm font-semibold text-white/90">Turn your clips into payouts with Whop</div>
+                  <div className="text-sm font-semibold text-white/90">Turn your clips into payouts with Whop</div>
                   <div className="mt-2 text-sm leading-relaxed text-white/65">
                     Publish strong clips, join campaigns, and start earning from the content you already create.
                   </div>
@@ -656,8 +656,9 @@ export default function Page() {
         <section id="standard" className="pt-12 sm:pt-14">
           <div
             data-reveal
-            className="reveal relative overflow-hidden rounded-3xl border border-white/15 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px]"
+            className="reveal relative overflow-hidden rounded-3xl border border-orange-300/55 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px] shadow-[0_0_0_1px_rgba(251,146,60,0.20),0_0_24px_rgba(251,146,60,0.20)]"
           >
+            <PricingCardGlow tone="labs" />
             <div
               aria-hidden="true"
               className="absolute -inset-10 opacity-70 blur-2xl"
@@ -668,10 +669,7 @@ export default function Page() {
             />
             <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">Orbito Labs</span>
-                <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1">
-                  Orbito Labs • AI video generation
-                </span>
+                <span className="rounded-full border border-orange-300/50 bg-orange-300/10 px-3 py-1">Orbito Labs</span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
                 Want to generate AI clips? Visit Orbito Labs.
@@ -700,7 +698,7 @@ export default function Page() {
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link href={BRAND.clipforgeUrl} className="btn-clipforge">
-                  Go to Orbito Labs
+                  Open Orbito Labs
                 </Link>
               </div>
             </div>
