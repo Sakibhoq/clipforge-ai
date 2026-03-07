@@ -389,7 +389,7 @@ function BillingHistoryCard({
 export default function BillingPage() {
   const labsSectionRef = useRef<HTMLDivElement | null>(null);
 
-  const [interval, setInterval] = useState<BillingInterval>("yearly");
+  const [interval, setInterval] = useState<BillingInterval>("monthly");
   const [currentPlan, setCurrentPlan] = useState<PlanKey>("free_trial");
   const [credits, setCredits] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -546,6 +546,8 @@ export default function BillingPage() {
         ) : null}
       </section>
 
+      <BillingHistoryCard invoices={history} loading={historyLoading} error={historyError} />
+
       <section className="surface-soft p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -618,8 +620,6 @@ export default function BillingPage() {
           ))}
         </div>
       </section>
-
-      <BillingHistoryCard invoices={history} loading={historyLoading} error={historyError} />
 
       <section className="surface-soft p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
