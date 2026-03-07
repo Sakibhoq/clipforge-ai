@@ -18,7 +18,6 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
-const AUTH_PAGES = ["/login", "/register"];
 
 function hostWithoutPort(host: string) {
   return host.split(":")[0]?.toLowerCase() || host.toLowerCase();
@@ -28,10 +27,6 @@ function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
-}
-
-function isAuthPage(pathname: string) {
-  return AUTH_PAGES.includes(pathname);
 }
 
 function hasAuthCookie(req: NextRequest) {
@@ -152,17 +147,11 @@ export function proxy(req: NextRequest) {
   // ✅ PRODUCTION: enforce via cookie on shared domain (e.g. Domain=.clipforge.ai)
   const authed = hasAuthCookie(req);
 
-  // If logged in, keep auth pages clean
-  if (authed && isAuthPage(routePath)) {
-    const url = req.nextUrl.clone();
-    // Keep redirect targets base-path agnostic to avoid duplicate prefixes.
-    url.pathname = "/app";
-    url.search = "";
-    return applySecurityHeaders(NextResponse.redirect(url), {
-      production: isProduction,
-      https: isHttps,
-    });
-  }
+  // IMPORTANT:
+  // Do not auto-redirect /login or /register when a cookie is present.
+  // A stale/foreign cf_token (for example, issued by Orbito backend but not
+  // valid for Labs backend) must still be allowed to reach login, otherwise
+  // users can get trapped in /app <-> /login redirect loops.
 
   // Protected paths require auth
   if (isProtectedPath(routePath) && !authed) {
