@@ -32,14 +32,6 @@ function orbitoUrl(pathname: string, opts?: { keepSearch?: boolean; req?: NextRe
 
 function redirectFunctionalLabsRoute(req: NextRequest, routePath: string): URL | null {
   const nextHasBridge = req.nextUrl.searchParams.has("bridge_token");
-  const legacyTarget = (req.nextUrl.searchParams.get("target") || "").trim().toLowerCase();
-
-  // Legacy launch links still using ?target should resolve to concrete app routes.
-  if (routePath === "/" && (legacyTarget === "generate" || legacyTarget === "clips")) {
-    return orbitoUrl(
-      legacyTarget === "clips" ? "/app/labs/app/clips" : "/app/labs/app/generate"
-    );
-  }
 
   // Legal + support pages should live on Orbito only.
   if (routePath === "/contact") return orbitoUrl("/contact");
@@ -57,7 +49,7 @@ function redirectFunctionalLabsRoute(req: NextRequest, routePath: string): URL |
 
   // Shared app surfaces should resolve in Orbito app.
   if (routePath === "/dashboard") return orbitoUrl("/app", { keepSearch: true, req });
-  if (routePath === "/app") return orbitoUrl("/app/labs/app/generate");
+  if (routePath === "/app") return orbitoUrl("/app/labs?target=generate");
   if (routePath === "/app/settings" || routePath.startsWith("/app/settings/")) {
     return orbitoUrl(routePath, { keepSearch: true, req });
   }

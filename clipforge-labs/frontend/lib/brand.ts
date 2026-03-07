@@ -14,7 +14,7 @@ export const BRAND = {
 
   // Sister product link
   orbitoName: "Orbito",
-  orbitoUrl: "https://app.orbito.cc",
+  orbitoUrl: "https://orbito.cc",
 
   // Footer/company
   company: "Sakib LLC",

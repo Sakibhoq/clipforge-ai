@@ -64,8 +64,8 @@ function orbitoLoginUrl(nextPath: string) {
   return url.toString();
 }
 
-function orbitoLandingUrl() {
-  return `${orbitoOrigin()}/`;
+function orbitoConsoleUrl() {
+  return `${orbitoOrigin()}/app`;
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -308,9 +308,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
 
             <a
-              href={orbitoLandingUrl()}
+              href={orbitoConsoleUrl()}
               className="btn-orbito hidden md:inline-flex text-[12px]"
-              title={`Go to ${BRAND.orbitoName}`}
+              title={`Go to ${BRAND.orbitoName} Console`}
             >
               {BRAND.orbitoName} <span aria-hidden="true">↗</span>
             </a>
@@ -348,9 +348,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="mt-3 h-px bg-white/10" />
 
               <a
-                href={orbitoLandingUrl()}
+                href={orbitoConsoleUrl()}
                 className="btn-orbito w-full text-left text-sm"
-                title={`Go to ${BRAND.orbitoName}`}
+                title={`Go to ${BRAND.orbitoName} Console`}
               >
                 Go to {BRAND.orbitoName} <span aria-hidden="true">↗</span>
               </a>
