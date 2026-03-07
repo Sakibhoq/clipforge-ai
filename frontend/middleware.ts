@@ -86,6 +86,18 @@ export function middleware(req: NextRequest) {
     });
   }
 
+  // Marketing Labs entry must always resolve to landing section (never a standalone /labs page)
+  if (pathname === "/labs" || pathname.startsWith("/labs/")) {
+    const target = req.nextUrl.clone();
+    target.pathname = "/";
+    target.search = "";
+    target.hash = "standard";
+    return applySecurityHeaders(NextResponse.redirect(target, 308), {
+      production: isProduction,
+      https: isHttps,
+    });
+  }
+
   // Production: enforce HTTPS on real domains.
   if (isProduction && !isCodespaces && !isLocal && !isHttps) {
     const url = req.nextUrl.clone();
