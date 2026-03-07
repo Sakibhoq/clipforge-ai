@@ -368,21 +368,25 @@ export default function Page() {
         "Best for solo clipping and weekly posting",
         "Predictable monthly spend",
         "Clean path to Orbito Creator",
+        "Cancel anytime",
       ],
       orbitoCreator: [
         "Scaled clipping pipeline for daily output",
         "Faster turnaround and advanced publishing",
         "Yearly saves on effective monthly price",
+        "Cancel anytime",
       ],
       labsSpark: [
         "Prompt-to-media generation with Labs credits",
         "Includes full Orbito Creator-level access",
         "Good entry point for AI content testing",
+        "Cancel anytime",
       ],
       labsVelocity: [
         "Higher generation throughput and quality lanes",
         "Designed for routine AI post production",
         "Can be scaled with the credit slider",
+        "Cancel anytime",
       ],
     }),
     []
