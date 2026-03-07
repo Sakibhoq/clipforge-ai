@@ -463,7 +463,7 @@ export default function Navbar() {
                   className="hidden xl:inline-flex btn-clipforge text-xs"
                   title={`${BRAND.clipforgeProduct}`}
                 >
-                  <span>{BRAND.clipforgeName}</span>
+                  <span>Orbito</span>
                   <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                     LABS
                   </span>
@@ -611,7 +611,7 @@ export default function Navbar() {
                     className="btn-clipforge w-full text-xs"
                     title={`${BRAND.clipforgeProduct}`}
                   >
-                    <span>{BRAND.clipforgeName}</span>
+                    <span>Orbito</span>
                     <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                       LABS
                     </span>
