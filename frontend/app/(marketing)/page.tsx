@@ -666,7 +666,7 @@ export default function Page() {
         <section id="standard" className="pt-12 sm:pt-14">
           <div
             data-reveal
-            className="reveal relative overflow-hidden rounded-3xl border border-orange-300/55 bg-[linear-gradient(120deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))] p-[1px] shadow-[0_0_0_1px_rgba(251,146,60,0.20),0_0_24px_rgba(251,146,60,0.20)]"
+            className="reveal relative overflow-hidden rounded-3xl border border-orange-300/55 bg-[linear-gradient(120deg,rgba(255,183,3,0.20),rgba(251,86,7,0.15),rgba(96,165,250,0.16))] p-[1px] shadow-[0_0_0_1px_rgba(251,146,60,0.22),0_0_24px_rgba(251,86,7,0.20),0_0_24px_rgba(96,165,250,0.16)]"
           >
             <PricingCardGlow tone="labs" />
             <div
@@ -674,15 +674,24 @@ export default function Page() {
               className="absolute -inset-10 opacity-70 blur-2xl"
               style={{
                 background:
-                  "conic-gradient(from 120deg, rgba(255,183,3,0.26), rgba(251,86,7,0.22), rgba(58,134,255,0.22), rgba(255,183,3,0.26))",
+                  "conic-gradient(from 120deg, rgba(255,183,3,0.28), rgba(251,86,7,0.24), rgba(96,165,250,0.24), rgba(255,183,3,0.28))",
               }}
             />
-            <div className="relative rounded-[22px] bg-black/70 p-6 md:p-7">
+            <div className="relative rounded-[22px] bg-[linear-gradient(140deg,rgba(16,12,8,0.88),rgba(8,10,20,0.86))] p-6 md:p-7">
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-orange-300/50 bg-orange-300/10 px-3 py-1">Orbito Labs</span>
+                <span className="rounded-full border border-orange-300/55 bg-[linear-gradient(90deg,rgba(255,183,3,0.16),rgba(251,86,7,0.14),rgba(96,165,250,0.14))] px-3 py-1">
+                  Orbito{" "}
+                  <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_45%,#60a5fa_100%)] bg-clip-text text-transparent">
+                    Labs
+                  </span>
+                </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Want to generate AI clips? Visit Orbito Labs.
+                Want to generate AI clips? Visit Orbito{" "}
+                <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_45%,#60a5fa_100%)] bg-clip-text text-transparent">
+                  Labs
+                </span>
+                .
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
                 Orbito Labs is the AI video generation workspace. One login, shared connections, and one place to create prompt-to-clip content.
@@ -699,7 +708,10 @@ export default function Page() {
                     d: "Download MP4s or publish to your connected channels.",
                   },
                 ].map((x) => (
-                  <div key={x.t} className="surface-soft relative overflow-hidden p-5">
+                  <div
+                    key={x.t}
+                    className="relative overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(140deg,rgba(255,183,3,0.08),rgba(251,86,7,0.06),rgba(96,165,250,0.08))] p-5"
+                  >
                     <div className="text-sm font-semibold">{x.t}</div>
                     <div className="mt-2 text-sm leading-relaxed text-white/65">{x.d}</div>
                   </div>
