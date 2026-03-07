@@ -399,9 +399,9 @@ export default function Page() {
 
               <div className="relative z-[2] grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
                 <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-2.5 py-1 text-[12px] text-white/75">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    <span>Long videos in. Short clips out.</span>
+                    <span className="whitespace-nowrap">Long videos in. Short clips out.</span>
                     <SocialBrandPill platform="youtube" compact />
                   </div>
 
