@@ -1,36 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
+import React from "react";
 import UploadsPage from "@/app/app/upload/page";
 import ClipsPage from "@/app/app/clips/page";
 import { BRAND } from "@/lib/brand";
-import { apiFetch } from "@/lib/api";
-import { hasLabsFeatureAccess } from "@/lib/plans";
-
-type MeResponse = {
-  plan?: string | null;
-};
 
 export default function OverviewPage() {
-  const [labsUnlocked, setLabsUnlocked] = useState(hasLabsFeatureAccess(null));
-
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<MeResponse>("/auth/me", { method: "GET" })
-      .then((me) => {
-        if (cancelled) return;
-        setLabsUnlocked(hasLabsFeatureAccess(me?.plan));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLabsUnlocked(hasLabsFeatureAccess(null));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
@@ -85,40 +60,6 @@ export default function OverviewPage() {
             >
               Open <span className="whop-word">Whop</span> monetization
             </a>
-          </div>
-        </section>
-
-        <section className="mt-6 surface-soft relative overflow-hidden rounded-3xl p-5 md:p-6">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-12 opacity-40 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(260px 180px at 20% 30%, rgba(255,178,90,0.24), transparent 70%), radial-gradient(240px 170px at 78% 38%, rgba(255,102,36,0.20), transparent 72%), radial-gradient(240px 170px at 54% 90%, rgba(58,134,255,0.14), transparent 72%)",
-            }}
-          />
-          <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-xs text-white/55">• Orbito Labs</div>
-              <div className="mt-1 text-sm font-semibold text-white/90">AI generation workspace now linked to your Orbito account</div>
-              <div className="mt-1 text-sm text-white/65">
-                Access Generator and Labs Clips directly from Orbito. They are currently unlocked for testing.
-              </div>
-            </div>
-            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-              <Link
-                href={labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs"}
-                className="btn-clipforge text-[12px] px-4 py-2 w-full md:w-auto text-center"
-              >
-                {labsUnlocked ? "Open Generator" : "Generator 🔒"}
-              </Link>
-              <Link
-                href={labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs"}
-                className="btn-ghost text-[12px] px-4 py-2 w-full md:w-auto text-center"
-              >
-                {labsUnlocked ? "Open Labs Clips" : "Labs Clips 🔒"}
-              </Link>
-            </div>
           </div>
         </section>
 
