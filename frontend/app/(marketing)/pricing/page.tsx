@@ -371,10 +371,9 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-8 -mx-1 overflow-x-auto px-1 pb-1">
-          <div className="flex min-w-[1080px] gap-4">
-          <div className="group surface relative w-[208px] shrink-0 overflow-hidden p-4">
-            <div className="relative">
+        <div className="mt-8 grid auto-rows-fr gap-4 lg:grid-cols-5">
+          <div className="group surface relative overflow-hidden p-4">
+            <div className="relative flex h-full flex-col">
               <FamilyPill label="Unified Trial" tone="neutral" />
               <div className="mt-3 text-xl font-semibold text-white/92">Orbito + Labs Free Trial</div>
               <PriceRow amount="$0" suffix="/trial" />
@@ -391,7 +390,7 @@ export default function Page() {
                 onClick={() => startOrbitoCheckout("free")}
                 disabled={startingCheckout !== null}
                 className={cn(
-                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
                   startingCheckout ? "cursor-not-allowed opacity-80" : ""
                 )}
               >
@@ -405,9 +404,9 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-cyan-300/22 p-4">
+          <div className="group surface relative overflow-hidden border border-cyan-300/22 p-4">
             <GlowLayer family="orbito" />
-            <div className="relative">
+            <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito" tone="orbito" />
               <div className="mt-3 text-xl font-semibold text-white/94">Orbito Starter</div>
               <PriceRow amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`} suffix="/mo" />
@@ -424,7 +423,7 @@ export default function Page() {
                 onClick={() => startOrbitoCheckout("starter")}
                 disabled={startingCheckout !== null}
                 className={cn(
-                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
                   startingCheckout ? "cursor-not-allowed opacity-80" : ""
                 )}
               >
@@ -438,9 +437,9 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-cyan-300/26 p-4">
+          <div className="group surface relative overflow-hidden border border-cyan-300/26 p-4">
             <GlowLayer family="orbito" />
-            <div className="relative">
+            <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito" tone="orbito" />
               <div className="mt-3 text-xl font-semibold text-white/94">Orbito Creator</div>
               {mode === "yearly" ? (
@@ -468,7 +467,7 @@ export default function Page() {
                 onClick={() => startOrbitoCheckout("creator")}
                 disabled={startingCheckout !== null}
                 className={cn(
-                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  "btn-orbito-cta mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
                   startingCheckout ? "cursor-not-allowed opacity-80" : ""
                 )}
               >
@@ -482,9 +481,9 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-amber-300/24 p-4">
+          <div className="group surface relative overflow-hidden border border-amber-300/24 p-4">
             <GlowLayer family="labs" />
-            <div className="relative">
+            <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Spark</div>
               <div className="mt-1 text-xs text-white/52">Renamed from Labs Starter</div>
@@ -499,7 +498,7 @@ export default function Page() {
               />
               <Link
                 href={labsStarterHref}
-                className="btn-clipforge mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold"
+                className="btn-clipforge mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
               >
                 Choose Labs Spark
               </Link>
@@ -511,9 +510,9 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative w-[208px] shrink-0 overflow-hidden border border-amber-300/28 p-4">
+          <div className="group surface relative overflow-hidden border border-amber-300/28 p-4">
             <GlowLayer family="labs" />
-            <div className="relative">
+            <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Velocity</div>
               <div className="mt-1 text-xs text-white/52">Renamed from Labs Creator</div>
@@ -539,7 +538,7 @@ export default function Page() {
               />
               <Link
                 href={labsCreatorHref}
-                className="btn-clipforge mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold"
+                className="btn-clipforge mt-auto inline-flex h-12 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none"
               >
                 Choose Labs Velocity
               </Link>
@@ -549,7 +548,6 @@ export default function Page() {
                 items={benefits.labsVelocity}
               />
             </div>
-          </div>
           </div>
         </div>
 
