@@ -182,10 +182,10 @@ export default function Page() {
   const trialOrbitoCredits = 60;
   const trialLabsCredits = 75;
 
-  const orbitoStarterMonthlyPrice = 10;
+  const orbitoStarterMonthlyPrice = 15;
   const orbitoStarterCredits = 150;
 
-  const orbitoCreatorMonthlyBasePrice = 20;
+  const orbitoCreatorMonthlyBasePrice = 30;
   const orbitoCreatorMonthlyScaledPrice = orbitoCreatorMonthlyBasePrice * creditScale;
   const orbitoCreatorYearlyScaledMonthly = orbitoCreatorMonthlyScaledPrice * 0.75;
   const orbitoCreatorYearlyTotal = Math.round(orbitoCreatorYearlyScaledMonthly * 12);
