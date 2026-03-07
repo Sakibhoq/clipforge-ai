@@ -368,7 +368,28 @@ export default function Page() {
                   "radial-gradient(720px 360px at 18% 18%, rgba(255,183,3,0.18), transparent 68%), radial-gradient(760px 420px at 82% 22%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(780px 420px at 50% 96%, rgba(70,215,255,0.18), transparent 72%)",
               }}
             />
-            <div className="surface-soft relative overflow-hidden p-5 sm:p-6 md:p-10">
+            <div className="surface-soft relative overflow-hidden p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_28px_rgba(125,211,252,0.20),0_0_44px_rgba(251,146,60,0.14)] sm:p-6 md:p-10">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1] rounded-[inherit]">
+                <div
+                  className="absolute -inset-px rounded-[inherit] opacity-90"
+                  style={{
+                    padding: "1px",
+                    background:
+                      "conic-gradient(from 170deg at 50% 50%, rgba(125,211,252,0.95), rgba(167,139,250,0.92), rgba(45,212,191,0.88), rgba(251,146,60,0.92), rgba(125,211,252,0.95))",
+                    WebkitMask:
+                      "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
+                  }}
+                />
+                <div
+                  className="absolute -inset-10 rounded-[inherit] opacity-60 blur-3xl"
+                  style={{
+                    background:
+                      "radial-gradient(460px_180px_at_0%_50%,rgba(125,211,252,0.22),transparent_72%), radial-gradient(460px_180px_at_100%_50%,rgba(251,146,60,0.20),transparent_72%), radial-gradient(560px_220px_at_50%_0%,rgba(167,139,250,0.20),transparent_74%), radial-gradient(560px_220px_at_50%_100%,rgba(45,212,191,0.18),transparent_74%)",
+                  }}
+                />
+              </div>
               <PricingCardGlow tone="full" />
               <div aria-hidden="true" className="pointer-events-none absolute inset-0">
                 <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
@@ -376,7 +397,7 @@ export default function Page() {
                 <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
               </div>
 
-              <div className="relative grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
+              <div className="relative z-[2] grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
                 <div>
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/75">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
