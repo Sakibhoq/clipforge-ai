@@ -98,7 +98,8 @@ def _labs_next_target(target: str) -> str:
     if t == "generate":
         return "/app/generate"
     if t == "clips":
-        return "/app/clips"
+        # Open Labs clips page in generated-only mode so this route only surfaces AI output.
+        return "/app/clips?generated=1"
     return "/app"
 
 
@@ -269,7 +270,7 @@ def labs_launch(
     if target in {"generate", "clips"} and not _has_effective_labs_access(getattr(current_user, "plan", "free")):
         raise HTTPException(
             status_code=402,
-            detail="Labs plan required. Purchase a Labs plan to unlock Generator and Labs Clips.",
+            detail="Labs plan required. Purchase a Labs plan to unlock Generator and AI Clips.",
         )
 
     token = _build_bridge_token(current_user)

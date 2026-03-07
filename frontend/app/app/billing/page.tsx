@@ -29,7 +29,7 @@ function formatMoney(n: number) {
   return fixed.endsWith(".00") ? fixed.slice(0, -3) : fixed;
 }
 
-type PlanKey = "free_trial" | "starter" | "creator" | "studio";
+type PlanKey = "free_trial" | "starter" | "creator" | "studio" | "labs_spark" | "labs_velocity";
 type BillingInterval = "monthly" | "yearly";
 
 type Plan = {
@@ -65,6 +65,27 @@ type BillingHistoryInvoice = {
   hosted_invoice_url?: string | null;
   invoice_pdf?: string | null;
 };
+
+function canonicalPlan(raw: string | null | undefined): string {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function billingPlanKey(raw: string | null | undefined): PlanKey {
+  const plan = canonicalPlan(raw);
+  if (!plan) return "free_trial";
+  if (plan === "labs_spark" || plan === "labs_starter") return "labs_spark";
+  if (plan === "labs_velocity" || plan === "labs_creator") return "labs_velocity";
+
+  const normalized = normalizeAppPlan(raw);
+  if (normalized === "starter") return "starter";
+  if (normalized === "creator") return "creator";
+  if (normalized === "studio") return "studio";
+  return "free_trial";
+}
 
 function formatMoneyFromCents(cents: number, currency: string) {
   const value = (Number(cents || 0) / 100).toFixed(2);
@@ -536,16 +557,7 @@ export default function BillingPage() {
     apiFetch<MeResponse>("/auth/me", { method: "GET" })
       .then((me) => {
         if (cancelled) return;
-        const plan = normalizeAppPlan(me.plan);
-        const mapped: PlanKey =
-          plan === "starter"
-            ? "starter"
-            : plan === "creator"
-            ? "creator"
-            : plan === "studio"
-            ? "studio"
-            : "free_trial";
-        setCurrentPlan(mapped);
+        setCurrentPlan(billingPlanKey(me.plan));
         setCredits(typeof me.credits === "number" ? me.credits : 0);
       })
       .catch(() => {
@@ -582,7 +594,7 @@ export default function BillingPage() {
     toastTimer.current = window.setTimeout(() => setToast(null), 1800);
   }
 
-  async function startCheckout(plan: "free" | "starter" | "creator", packQty?: number) {
+  async function startCheckout(plan: "free" | "starter" | "creator" | "labs_spark" | "labs_velocity", packQty?: number) {
     if (startingCheckout) return;
     setStartingCheckout(true);
     try {
@@ -609,7 +621,7 @@ export default function BillingPage() {
     }
   }
 
-  const plans: Plan[] = useMemo(() => {
+  const orbitoPlans: Plan[] = useMemo(() => {
     const starterMonthlyPrice = 10.0;
     const creatorMonthlyPrice = 20.0;
     const creatorPrice = `$${formatMoney(creatorMonthlyPrice)} / mo`;
@@ -655,6 +667,32 @@ export default function BillingPage() {
       },
     ];
   }, [interval]);
+
+  const labsPlans: Plan[] = useMemo(() => {
+    return [
+      {
+        key: "labs_spark",
+        name: "Labs Spark",
+        short: "AI starter",
+        desc: "Unlock Orbito Labs Generator and AI Clips.",
+        priceLabel: "$19 / mo",
+        interval: "monthly",
+        note: "Best for testing AI clip workflows.",
+      },
+      {
+        key: "labs_velocity",
+        name: "Labs Velocity",
+        short: "AI scale",
+        desc: "Higher-volume AI generation and clips workflows.",
+        priceLabel: "$49 / mo",
+        interval: "monthly",
+        note: "For frequent generation and publishing.",
+        recommended: true,
+      },
+    ];
+  }, []);
+
+  const allPlans = useMemo(() => [...orbitoPlans, ...labsPlans], [orbitoPlans, labsPlans]);
 
   const creditPacks: CreditPack[] = useMemo(() => {
     const base = 300;
@@ -713,6 +751,8 @@ export default function BillingPage() {
     if (modalMode === "plan" && pendingPlan) {
       if (pendingPlan === "starter") startCheckout("starter");
       if (pendingPlan === "creator") startCheckout("creator", 1);
+      if (pendingPlan === "labs_spark") startCheckout("labs_spark");
+      if (pendingPlan === "labs_velocity") startCheckout("labs_velocity");
       if (pendingPlan === "free_trial") startCheckout("free");
       return;
     }
@@ -728,14 +768,23 @@ export default function BillingPage() {
     }
   }
 
-  const currentPlanLabel = plans.find((p) => p.key === currentPlan)?.name ?? "—";
+  const currentPlanLabel = allPlans.find((p) => p.key === currentPlan)?.name ?? "—";
 
   const isDowngrade = (from: PlanKey, to: PlanKey) => {
-    const rank: Record<PlanKey, number> = { free_trial: 0, starter: 1, creator: 2, studio: 3 };
+    const rank: Record<PlanKey, number> = {
+      free_trial: 0,
+      starter: 1,
+      creator: 2,
+      studio: 3,
+      labs_spark: 4,
+      labs_velocity: 5,
+    };
     return rank[to] < rank[from];
   };
 
   const pendingIsDowngrade = pendingPlan ? isDowngrade(currentPlan, pendingPlan) : false;
+  const pendingPlanLabel = pendingPlan ? allPlans.find((p) => p.key === pendingPlan)?.name ?? "Selected plan" : "Selected plan";
+  const isPendingLabsPlan = pendingPlan === "labs_spark" || pendingPlan === "labs_velocity";
 
   return (
     <div className="min-h-[100svh] pb-[max(16px,env(safe-area-inset-bottom))] grid gap-6">
@@ -812,12 +861,24 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {plans
-            .filter((p) => p.key !== "free_trial")
-            .map((p) => (
+        <div className="mt-5">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-white/55">Orbito plans</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-3">
+            {orbitoPlans
+              .filter((p) => p.key !== "free_trial")
+              .map((p) => (
+                <PlanCard key={p.key} plan={p} active={p.key === currentPlan} onChoose={openPlanModal} />
+              ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-white/55">Orbito Labs plans</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-2">
+            {labsPlans.map((p) => (
               <PlanCard key={p.key} plan={p} active={p.key === currentPlan} onChoose={openPlanModal} />
             ))}
+          </div>
         </div>
 
         <div className="mt-4 text-[12px] text-white/55">
@@ -864,7 +925,9 @@ export default function BillingPage() {
         }
         desc={
           modalMode === "plan"
-            ? "This will open Stripe Checkout to confirm your plan."
+            ? isPendingLabsPlan
+              ? "This will open Stripe Checkout to confirm your Orbito Labs plan."
+              : "This will open Stripe Checkout to confirm your plan."
             : modalMode === "pack"
             ? "This will open Stripe Checkout to buy Creator credits."
             : "Nothing to change right now. You’re already on this plan."
@@ -875,6 +938,7 @@ export default function BillingPage() {
           modalMode === "plan" && pendingPlan ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 text-[12px] text-white/60">
               <div className="font-semibold text-white/80">What happens next</div>
+              <div className="mt-1">Selected: {pendingPlanLabel}</div>
               <div className="mt-2 grid gap-2">
                 <div>• Upgrades: immediate.</div>
                 <div>• Downgrades: handled in Stripe during checkout.</div>

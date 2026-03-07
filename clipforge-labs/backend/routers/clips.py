@@ -56,6 +56,13 @@ def _asset_type_from_key(key: str | None) -> str:
     return "video"
 
 
+def _is_generated_ai_clip_key(key: str | None) -> bool:
+    k = str(key or "").strip().lower()
+    if not k:
+        return False
+    return k.startswith("clips/generated/") or k.startswith("clips/generated-posts/")
+
+
 def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:
     cleaned = "".join(ch for ch in (name or "clip.mp4") if ch not in '/\\:*?"<>|').strip()
     if not cleaned:
@@ -412,6 +419,7 @@ def crop_clip(
 def list_clips(
     upload_id: Optional[int] = Query(default=None),
     grouped: bool = Query(default=True),
+    generated_only: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     request: Request = None,
@@ -443,6 +451,8 @@ def list_clips(
             .order_by(Clip.start_time.asc(), Clip.id.asc())
             .all()
         )
+        if generated_only:
+            clips = [c for c in clips if _is_generated_ai_clip_key(c.storage_key)]
         clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
 
@@ -467,6 +477,8 @@ def list_clips(
         .order_by(Clip.upload_id.desc(), Clip.start_time.asc(), Clip.id.asc())
         .all()
     )
+    if generated_only:
+        all_clips = [c for c in all_clips if _is_generated_ai_clip_key(c.storage_key)]
 
     if not grouped:
         visible = [c for c in all_clips if _clip_storage_exists(storage, c.storage_key)]

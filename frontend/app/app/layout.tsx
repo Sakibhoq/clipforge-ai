@@ -164,7 +164,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const generatorHref = labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs";
   const labsClipsHref = labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs";
   const generatorLabel = loading || labsUnlocked ? "Generator" : "Generator 🔒";
-  const labsClipsLabel = loading || labsUnlocked ? "Labs Clips" : "Labs Clips 🔒";
+  const labsClipsLabel = loading || labsUnlocked ? "AI Clips" : "AI Clips 🔒";
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "orb-1";

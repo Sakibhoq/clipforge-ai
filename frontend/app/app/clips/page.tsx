@@ -2152,21 +2152,21 @@ function ClipsWorkspace() {
 function LabsClipsPanel() {
   return (
     <div className="surface rounded-[28px] border border-white/15 p-5 sm:p-6">
-      <div className="text-xs text-white/55">Labs Generated Library</div>
-      <h2 className="mt-2 text-xl font-semibold text-white/92">Open your Labs-generated clips</h2>
+      <div className="text-xs text-white/55">AI Generated Library</div>
+      <h2 className="mt-2 text-xl font-semibold text-white/92">Open your AI-generated clips</h2>
       <p className="mt-2 max-w-2xl text-sm text-white/65">
-        Labs clips and Orbito clips are separated by source. Labs clips are edited in the Labs editor. Publishing is handled from Orbito Connections.
+        AI clips and Orbito clips are separated by source. AI clips are edited in the Labs editor. Publishing is handled from Orbito Connections.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/app/labs" className="btn-clipforge px-4 py-2 text-xs">
-          Open Labs Library
+        <Link href="/app/labs?target=clips" className="btn-clipforge px-4 py-2 text-xs">
+          Open AI Clips
         </Link>
         <Link href="/app/connections" className="btn-ghost px-4 py-2 text-xs">
           Open Connections
         </Link>
       </div>
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs text-white/60">
-        Orbito editor is for Orbito clips. Labs editor is for AI-generated Labs clips.
+        Orbito editor is for Orbito clips. Labs editor is for AI clips.
       </div>
     </div>
   );
@@ -2199,7 +2199,7 @@ function ClipsPageShell() {
             source === "labs" ? "border-[#fb560780] bg-[#fb560724] text-[#ffd7b0]" : "border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08]"
           )}
         >
-          Labs Clips
+          AI Clips
         </Link>
       </div>
 

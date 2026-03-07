@@ -20,9 +20,18 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-ALLOWED_PLANS = {"free", "starter", "creator", "studio"}
+ALLOWED_PLANS = {
+    "free",
+    "starter",
+    "creator",
+    "studio",
+    "labs_spark",
+    "labs_velocity",
+    "labs_starter",
+    "labs_creator",
+}
 ALLOWED_INTERVALS = {"month", "monthly", "year", "yearly"}
-MONTHLY_ONLY_PLANS = {"free", "starter", "studio"}
+MONTHLY_ONLY_PLANS = {"free", "starter", "studio", "labs_spark", "labs_velocity", "labs_starter", "labs_creator"}
 
 
 # ------------------------------------------------------------------
@@ -71,6 +80,15 @@ def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
         if value:
             return value
     return None
+
+
+def _canonical_checkout_plan(plan: str) -> str:
+    normalized = str(plan or "").strip().lower()
+    aliases = {
+        "labs_starter": "labs_spark",
+        "labs_creator": "labs_velocity",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _stripe_error_message(exc: Exception) -> str:
@@ -134,6 +152,8 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     - Free trial: 65 (one-time)
     - Starter: 150 / month
     - Creator: 300 / month * pack_qty
+    - Labs Spark: 300 / month
+    - Labs Velocity: 900 / month
     - Studio: manual
     """
     plan = plan.lower().strip()
@@ -149,6 +169,12 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
         base = 300 if interval in {"month", "monthly"} else 300 * 12
         qty = max(1, int(pack_qty or 1))
         return base * qty
+
+    if plan == "labs_spark":
+        return 300 if interval in {"month", "monthly"} else 300 * 12
+
+    if plan == "labs_velocity":
+        return 900 if interval in {"month", "monthly"} else 900 * 12
 
     return 0
 
@@ -210,7 +236,7 @@ def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    plan = payload.plan.strip().lower()
+    plan = _canonical_checkout_plan(payload.plan)
     interval = payload.interval.strip().lower()
 
     if plan not in ALLOWED_PLANS:
@@ -435,7 +461,7 @@ async def stripe_webhook(
             return {"status": "ignored", "reason": "duplicate event"}
 
         md = session.get("metadata") or {}
-        plan = (md.get("plan") or "").strip().lower()
+        plan = _canonical_checkout_plan(md.get("plan") or "")
         interval = (md.get("interval") or "monthly").strip().lower()
         pack = int(md.get("pack") or 1)
 

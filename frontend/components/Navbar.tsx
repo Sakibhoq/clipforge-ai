@@ -404,7 +404,7 @@ export default function Navbar() {
         },
         {
           href: labsClipsLocked ? "/app/billing?intent=labs" : "/app/labs?target=clips",
-          label: labsClipsLocked ? "Labs Clips 🔒" : "Labs Clips",
+          label: labsClipsLocked ? "AI Clips 🔒" : "AI Clips",
         },
         { href: "/app/connections", label: "Connection" },
         { href: "/app/billing", label: "Billing" },

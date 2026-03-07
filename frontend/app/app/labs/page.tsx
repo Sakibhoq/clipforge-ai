@@ -14,7 +14,7 @@ type LabsLaunchTarget = "app" | "generate" | "clips";
 const TARGET_META: Record<LabsLaunchTarget, { title: string; fallbackHref: string }> = {
   app: { title: "Orbito Labs", fallbackHref: "/app/labs/app" },
   generate: { title: "Labs Generator", fallbackHref: "/app/labs/app/generate" },
-  clips: { title: "Labs Clips", fallbackHref: "/app/labs/app/clips" },
+  clips: { title: "AI Clips", fallbackHref: "/app/labs/app/clips?generated=1" },
 };
 
 export default function LabsPage() {

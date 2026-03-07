@@ -36,7 +36,7 @@ def test_has_labs_plan_access(plan: str, expected: bool):
     [
         ("app", "/app"),
         ("generate", "/app/generate"),
-        ("clips", "/app/clips"),
+        ("clips", "/app/clips?generated=1"),
         ("unknown", "/app"),
     ],
 )
@@ -64,6 +64,17 @@ def test_labs_launch_allows_generate_when_lock_disabled(monkeypatch: pytest.Monk
     assert res.target == "generate"
     assert res.launch_url.startswith("https://labs.example/login?")
     assert "next=%2Fapp%2Fgenerate" in res.launch_url
+
+
+def test_labs_launch_clips_uses_generated_filter(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LABS_FRONTEND_URL", "https://labs.example")
+    user = _mk_user("labs_creator")
+
+    res = labs_launch(target="clips", current_user=user)
+
+    assert res.target == "clips"
+    assert res.launch_url.startswith("https://labs.example/login?")
+    assert "next=%2Fapp%2Fclips%3Fgenerated%3D1" in res.launch_url
 
 
 def test_labs_launch_allows_app_target_without_labs_plan(monkeypatch: pytest.MonkeyPatch):
