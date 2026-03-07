@@ -44,14 +44,26 @@ def test_labs_next_target(target: str, expected: str):
     assert _labs_next_target(target) == expected
 
 
-def test_labs_launch_blocks_locked_targets_without_labs_plan():
+def test_labs_launch_blocks_locked_targets_without_labs_plan(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LABS_ENFORCE_PLAN_LOCK", "1")
     user = _mk_user("starter")
 
     with pytest.raises(HTTPException) as exc:
         labs_launch(target="generate", current_user=user)
-
     assert exc.value.status_code == 402
     assert "Labs plan required" in str(exc.value.detail)
+
+
+def test_labs_launch_allows_generate_when_lock_disabled(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LABS_FRONTEND_URL", "https://labs.example")
+    monkeypatch.setenv("LABS_ENFORCE_PLAN_LOCK", "0")
+    user = _mk_user("starter")
+
+    res = labs_launch(target="generate", current_user=user)
+
+    assert res.target == "generate"
+    assert res.launch_url.startswith("https://labs.example/login?")
+    assert "next=%2Fapp%2Fgenerate" in res.launch_url
 
 
 def test_labs_launch_allows_app_target_without_labs_plan(monkeypatch: pytest.MonkeyPatch):

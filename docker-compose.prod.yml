@@ -5,6 +5,7 @@ services:
       args:
         # Build-time: baked into Next.js bundle
         NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-https://api.orbito.cc}"
+        NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
     # Bind locally so only your reverse proxy (nginx/caddy/ALB) can reach it.
     ports:
       - "127.0.0.1:3000:3000"
@@ -14,6 +15,7 @@ services:
       NODE_ENV: "production"
       # Runtime: also used by client helpers for fallbacks
       NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-https://api.orbito.cc}"
+      NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
     depends_on:
       backend:
         condition: service_healthy
@@ -34,6 +36,7 @@ services:
       LABS_SHARE_USE_ORBITO_CONNECTIONS: "${LABS_SHARE_USE_ORBITO_CONNECTIONS:-1}"
       LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
       LABS_ENTITLEMENTS_ALLOWED_ISSUERS: "${LABS_ENTITLEMENTS_ALLOWED_ISSUERS:-}"
+      LABS_ENFORCE_PLAN_LOCK: "${LABS_ENFORCE_PLAN_LOCK:-0}"
     volumes:
       # Only used if you run sqlite/local storage in production.
       - ./data:/data

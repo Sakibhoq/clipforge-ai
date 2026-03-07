@@ -6,25 +6,25 @@ import UploadsPage from "@/app/app/upload/page";
 import ClipsPage from "@/app/app/clips/page";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
-import { hasLabsPlanAccess } from "@/lib/plans";
+import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
   plan?: string | null;
 };
 
 export default function OverviewPage() {
-  const [labsUnlocked, setLabsUnlocked] = useState(false);
+  const [labsUnlocked, setLabsUnlocked] = useState(hasLabsFeatureAccess(null));
 
   useEffect(() => {
     let cancelled = false;
     apiFetch<MeResponse>("/auth/me", { method: "GET" })
       .then((me) => {
         if (cancelled) return;
-        setLabsUnlocked(hasLabsPlanAccess(me?.plan));
+        setLabsUnlocked(hasLabsFeatureAccess(me?.plan));
       })
       .catch(() => {
         if (cancelled) return;
-        setLabsUnlocked(false);
+        setLabsUnlocked(hasLabsFeatureAccess(null));
       });
     return () => {
       cancelled = true;
@@ -102,7 +102,7 @@ export default function OverviewPage() {
               <div className="text-xs text-white/55">• Orbito Labs</div>
               <div className="mt-1 text-sm font-semibold text-white/90">AI generation workspace now linked to your Orbito account</div>
               <div className="mt-1 text-sm text-white/65">
-                Access Generator and Labs Clips directly from Orbito. These are unlocked on Labs plans only.
+                Access Generator and Labs Clips directly from Orbito. They are currently unlocked for testing.
               </div>
             </div>
             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">

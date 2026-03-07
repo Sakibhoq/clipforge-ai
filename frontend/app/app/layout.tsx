@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
-import { hasLabsPlanAccess } from "@/lib/plans";
+import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
   name?: string | null;
@@ -160,7 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
-  const labsUnlocked = useMemo(() => hasLabsPlanAccess(me?.plan), [me?.plan]);
+  const labsUnlocked = useMemo(() => hasLabsFeatureAccess(me?.plan), [me?.plan]);
   const generatorHref = labsUnlocked ? "/app/labs?target=generate" : "/app/billing?intent=labs";
   const labsClipsHref = labsUnlocked ? "/app/labs?target=clips" : "/app/billing?intent=labs";
   const generatorLabel = loading || labsUnlocked ? "Generator" : "Generator 🔒";
@@ -179,12 +179,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     >
       {/* Background: fixed behind everything, never participates in height */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.55]">
+        <div className="absolute inset-0 bg-black" />
+        <div className="absolute inset-y-0 left-0 w-[58%] bg-[radial-gradient(980px_620px_at_20%_16%,rgba(155,140,255,0.28),transparent_66%),radial-gradient(900px_560px_at_34%_72%,rgba(70,215,255,0.18),transparent_70%),radial-gradient(760px_520px_at_42%_38%,rgba(53,242,166,0.13),transparent_72%)]" />
+        <div className="absolute inset-y-0 right-0 w-[58%] bg-[radial-gradient(980px_620px_at_80%_16%,rgba(255,183,3,0.24),transparent_66%),radial-gradient(900px_560px_at_66%_72%,rgba(251,86,7,0.18),transparent_70%),radial-gradient(760px_520px_at_58%_38%,rgba(58,134,255,0.13),transparent_72%)]" />
+        <div className="absolute inset-0 opacity-[0.22]">
           <div className="aurora" />
         </div>
-        <div className="absolute -top-40 left-[-20%] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,rgba(167,139,250,0.18),transparent_62%)] blur-3xl" />
-        <div className="absolute top-24 right-[-18%] h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.14),transparent_64%)] blur-3xl" />
-        <div className="absolute bottom-[-18%] left-[10%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.12),transparent_65%)] blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(1050px_640px_at_50%_8%,rgba(255,255,255,0.045),transparent_66%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.16),rgba(0,0,0,0.46))]" />
       </div>
 
       {/* Top bar */}

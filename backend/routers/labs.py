@@ -69,6 +69,11 @@ def _bridge_ttl_seconds() -> int:
     return max(120, min(3600, value))
 
 
+def _labs_plan_lock_enabled() -> bool:
+    raw = (os.getenv("LABS_ENFORCE_PLAN_LOCK") or "0").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _canonical_plan_token(raw_plan: str | None) -> str:
     return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(raw_plan or "").strip()).strip("_")
 
@@ -80,6 +85,12 @@ def _has_labs_plan_access(raw_plan: str | None) -> bool:
     if token in {"labs_starter", "labs_spark", "labs_creator", "labs_velocity"}:
         return True
     return "labs" in token or "spark" in token or "velocity" in token
+
+
+def _has_effective_labs_access(raw_plan: str | None) -> bool:
+    if not _labs_plan_lock_enabled():
+        return True
+    return _has_labs_plan_access(raw_plan)
 
 
 def _labs_next_target(target: str) -> str:
@@ -240,7 +251,7 @@ def labs_status(
         connected_accounts=len(providers),
         user_plan=str(getattr(current_user, "plan", "free")),
         user_credits=int(getattr(current_user, "credits", 0) or 0),
-        labs_access=_has_labs_plan_access(getattr(current_user, "plan", "free")),
+        labs_access=_has_effective_labs_access(getattr(current_user, "plan", "free")),
     )
 
 
@@ -255,7 +266,7 @@ def labs_launch(
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=ttl_seconds)
 
-    if target in {"generate", "clips"} and not _has_labs_plan_access(getattr(current_user, "plan", "free")):
+    if target in {"generate", "clips"} and not _has_effective_labs_access(getattr(current_user, "plan", "free")):
         raise HTTPException(
             status_code=402,
             detail="Labs plan required. Purchase a Labs plan to unlock Generator and Labs Clips.",

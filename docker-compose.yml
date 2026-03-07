@@ -4,11 +4,13 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8000}"
+        NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
     ports:
       - "3000:3000"
     environment:
       # IMPORTANT: browser-visible base
       NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8000}"
+      NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
     depends_on:
       backend:
         condition: service_healthy
@@ -77,6 +79,7 @@ services:
       LABS_SHARE_USE_ORBITO_CONNECTIONS: "${LABS_SHARE_USE_ORBITO_CONNECTIONS:-1}"
       LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
       LABS_ENTITLEMENTS_ALLOWED_ISSUERS: "${LABS_ENTITLEMENTS_ALLOWED_ISSUERS:-}"
+      LABS_ENFORCE_PLAN_LOCK: "${LABS_ENFORCE_PLAN_LOCK:-0}"
 
       # OAuth (login + social connections)
       OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"

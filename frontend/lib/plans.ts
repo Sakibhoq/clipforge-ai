@@ -63,3 +63,17 @@ export function hasLabsPlanAccess(raw: string | null | undefined): boolean {
 
   return plan.includes("labs") || plan.includes("spark") || plan.includes("velocity");
 }
+
+function envFlagOn(raw: string | undefined): boolean {
+  const v = String(raw || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+export function labsPlanLockEnabled(): boolean {
+  return envFlagOn(process.env.NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK);
+}
+
+export function hasLabsFeatureAccess(raw: string | null | undefined): boolean {
+  if (!labsPlanLockEnabled()) return true;
+  return hasLabsPlanAccess(raw);
+}
