@@ -399,6 +399,8 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
+  const labsNavHref = inApp ? "/app/labs" : BRAND.clipforgeUrl;
+  const labsNavTitle = inApp ? "Open Orbito Labs console" : `${BRAND.clipforgeProduct}`;
 
   // Always card/glass
   const shellClass =
@@ -459,9 +461,9 @@ export default function Navbar() {
                 </a>
 
                 <Link
-                  href={BRAND.clipforgeUrl}
-                  className="hidden xl:inline-flex btn-clipforge text-xs"
-                  title={`${BRAND.clipforgeProduct}`}
+                  href={labsNavHref}
+                  className={inApp ? "inline-flex btn-clipforge text-xs" : "hidden xl:inline-flex btn-clipforge text-xs"}
+                  title={labsNavTitle}
                 >
                   <span>Orbito</span>
                   <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
@@ -606,10 +608,10 @@ export default function Navbar() {
                     <span aria-hidden="true">↗</span>
                   </a>
                   <Link
-                    href={BRAND.clipforgeUrl}
+                    href={labsNavHref}
                     onClick={() => setOpen(false)}
                     className="btn-clipforge w-full text-xs"
-                    title={`${BRAND.clipforgeProduct}`}
+                    title={labsNavTitle}
                   >
                     <span>Orbito</span>
                     <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
