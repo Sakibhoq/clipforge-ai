@@ -16,8 +16,8 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "orb-1";
 
-  const markBoxClass = inApp ? "h-10 w-10 rounded-[18px]" : "h-9 w-9 rounded-2xl";
-  const markImgSize = inApp ? 24 : 22;
+  const markBoxClass = inApp ? "h-12 w-12" : "h-10 w-10";
+  const markImgSize = inApp ? 30 : 26;
   const wordmarkClass = inApp
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
     : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
@@ -36,7 +36,7 @@ function Logo() {
     <Link href={inApp ? "/app" : "/"} onClick={onLogoClick} className="group flex items-center gap-3 shrink-0">
       <span
         className={[
-          "relative inline-flex items-center justify-center overflow-hidden border border-white/10 bg-white/5 backdrop-blur",
+          "relative inline-flex items-center justify-center",
           markBoxClass,
         ].join(" ")}
       >

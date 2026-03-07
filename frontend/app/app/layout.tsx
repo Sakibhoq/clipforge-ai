@@ -226,7 +226,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Brand */}
           <div className="flex items-center gap-3 min-w-0">
             <Link href="/" className="group inline-flex items-center gap-3 min-w-0">
-              <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur">
+              <span className="relative inline-flex h-11 w-11 items-center justify-center">
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -240,8 +240,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <img
                   src={`/orbito-mark.svg?v=${logoV}`}
                   alt="Orbito logo"
-                  width={22}
-                  height={22}
+                  width={30}
+                  height={30}
                   style={{ display: "block" }}
                 />
               </span>
