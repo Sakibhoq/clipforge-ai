@@ -24,14 +24,6 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
 
-LABS_GENERATION_JOB_KINDS = {
-    "generate",
-    "generate_image",
-    "generate_voiceover",
-    "generate_post",
-}
-
-
 def _key_ext(key: str | None) -> str:
     _, ext = os.path.splitext(str(key or "").lower())
     return ext
@@ -80,14 +72,9 @@ def _is_generated_upload(upload: Upload | None) -> bool:
     return False
 
 
-def _is_generated_job_kind(kind: str | None) -> bool:
-    return str(kind or "").strip().lower() in LABS_GENERATION_JOB_KINDS
-
-
 def _is_labs_generated_clip(clip: Clip | None, job_kind: str | None, source_type: str | None) -> bool:
+    _ = job_kind
     if clip and _is_generated_ai_clip_key(getattr(clip, "storage_key", None)):
-        return True
-    if _is_generated_job_kind(job_kind):
         return True
     src = str(source_type or "").strip().lower()
     if src in {"generated", "ai_generated", "aigc", "labs_generated"}:

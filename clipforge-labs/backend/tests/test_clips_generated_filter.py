@@ -116,9 +116,11 @@ def test_generated_only_excludes_orbito_clip_jobs(db, monkeypatch: pytest.Monkey
     assert ids == {int(labs_clip.id)}
 
 
-def test_generated_only_keeps_generate_job_kind_even_without_generated_source_type(db, monkeypatch: pytest.MonkeyPatch):
+def test_generated_only_excludes_generate_job_kind_without_labs_asset_signature(
+    db, monkeypatch: pytest.MonkeyPatch
+):
     user = _mk_user(db)
-    generated_by_job_kind = _mk_clip(
+    _mk_clip(
         db,
         user_id=user.id,
         source_type="upload",
@@ -136,8 +138,7 @@ def test_generated_only_keeps_generate_job_kind_even_without_generated_source_ty
         request=None,
     )
 
-    ids = {int(r["id"]) for r in rows}
-    assert ids == {int(generated_by_job_kind.id)}
+    assert rows == []
 
 
 def test_generated_only_excludes_generated_source_without_labs_asset_signature(

@@ -596,7 +596,7 @@ export default function Page() {
           </div>
         </section>
 
-        <section id="standard" className="pt-12 sm:pt-14">
+        <section id="labs-showcase" className="pt-12 sm:pt-14">
           <div
             data-reveal
             className="reveal relative overflow-hidden rounded-3xl border border-orange-300/55 bg-[linear-gradient(120deg,rgba(255,183,3,0.20),rgba(251,86,7,0.15),rgba(96,165,250,0.16))] p-[1px] shadow-[0_0_0_1px_rgba(251,146,60,0.22),0_0_24px_rgba(251,86,7,0.20),0_0_24px_rgba(96,165,250,0.16)]"
@@ -620,25 +620,25 @@ export default function Page() {
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
-                Want to generate AI clips? Visit Orbito{" "}
+                Orbito{" "}
                 <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_45%,#60a5fa_100%)] bg-clip-text text-transparent">
                   Labs
                 </span>
-                .
+                {" "}preview card
               </h2>
               <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-                Orbito Labs is the AI video generation workspace. One login, shared connections, and one place to create prompt-to-clip content.
+                See how Labs works before you open the app: prompt flow, generated clips library, and ready-to-post outputs.
               </p>
 
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {[
                   {
-                    t: "Prompt-to-video",
-                    d: "Create scroll-stopping clips from a single prompt.",
+                    t: "Prompt assistant",
+                    d: "Write one idea and generate an AI video direction plus matching voiceover script.",
                   },
                   {
-                    t: "Export + publish",
-                    d: "Download MP4s or publish to your connected channels.",
+                    t: "AI clips library",
+                    d: "Review generated assets, open editor, and schedule directly into Orbito connections.",
                   },
                 ].map((x) => (
                   <div
@@ -651,9 +651,47 @@ export default function Page() {
                 ))}
               </div>
 
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[
+                  {
+                    t: "Prompt",
+                    v: "1-minute gym motivation story with cinematic frames",
+                  },
+                  {
+                    t: "Output",
+                    v: "Vertical MP4 • voice + captions • ready to post",
+                  },
+                  {
+                    t: "Workflow",
+                    v: "Generate → AI Clips → Editor → Schedule",
+                  },
+                ].map((x) => (
+                  <div
+                    key={x.t}
+                    className="relative overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(140deg,rgba(8,12,24,0.92),rgba(12,16,32,0.88),rgba(22,12,8,0.82))] p-4"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-8 opacity-55 blur-2xl"
+                      style={{
+                        background:
+                          "radial-gradient(220px 120px at 16% 14%, rgba(255,183,3,0.24), transparent 70%), radial-gradient(220px 120px at 84% 18%, rgba(251,86,7,0.20), transparent 74%), radial-gradient(220px 120px at 52% 92%, rgba(96,165,250,0.22), transparent 74%)",
+                      }}
+                    />
+                    <div className="relative">
+                      <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">{x.t}</div>
+                      <div className="mt-2 text-sm text-white/85">{x.v}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link href={BRAND.clipforgeUrl} className="btn-clipforge">
-                  Open Orbito Labs
+                <Link href="/#labs-showcase" className="btn-clipforge">
+                  Orbito Labs Preview
+                </Link>
+                <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-ghost">
+                  Open Labs app
                 </Link>
               </div>
             </div>

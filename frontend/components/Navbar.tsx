@@ -16,8 +16,8 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "orb-1";
 
-  const markBoxClass = inApp ? "h-12 w-12" : "h-10 w-10";
-  const markImgSize = inApp ? 30 : 26;
+  const markBoxClass = inApp ? "h-14 w-14" : "h-11 w-11";
+  const markImgSize = inApp ? 38 : 30;
   const wordmarkClass = inApp
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
     : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
@@ -416,8 +416,8 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : BRAND.clipforgeUrl;
-  const labsNavTitle = inApp ? "Open Orbito Labs console" : `${BRAND.clipforgeProduct}`;
+  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : "/#labs-showcase";
+  const labsNavTitle = inApp ? "Open Orbito Labs console" : "Preview Orbito Labs";
 
   // Always card/glass
   const shellClass =
