@@ -9,6 +9,13 @@ import { SocialBrandRow } from "@/components/SocialBrand";
 
 type BillingMode = "monthly" | "yearly";
 type OrbitoCheckoutPlan = "free" | "starter" | "creator";
+type BenefitsKey =
+  | "trial"
+  | "orbitoStarter"
+  | "orbitoCreator"
+  | "labsSpark"
+  | "labsVelocity"
+  | "fullAccess";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -74,6 +81,36 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
+function BenefitsDisclosure({
+  open,
+  onToggle,
+  items,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  items: string[];
+}) {
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-2.5 text-xs text-white/78 transition hover:bg-white/[0.06]"
+      >
+        <span>See benefits</span>
+        <span className="text-white/55">{open ? "−" : "+"}</span>
+      </button>
+      {open ? (
+        <ul className="mt-3 list-disc space-y-2 rounded-2xl border border-white/10 bg-black/25 p-4 pl-8 text-xs text-white/70 marker:text-white/45">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ModeToggle({
   mode,
   setMode,
@@ -125,12 +162,50 @@ function FamilyPill({
   return <div className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px]", cls)}>{label}</div>;
 }
 
+function CompareRow({
+  label,
+  trial,
+  orbitoStarter,
+  orbitoCreator,
+  labsSpark,
+  labsVelocity,
+  fullAccess,
+}: {
+  label: string;
+  trial: string;
+  orbitoStarter: string;
+  orbitoCreator: string;
+  labsSpark: string;
+  labsVelocity: string;
+  fullAccess: string;
+}) {
+  return (
+    <div className="grid grid-cols-7 gap-3 py-3 text-sm">
+      <div className="text-white/78">{label}</div>
+      <div className="text-white/62">{trial}</div>
+      <div className="text-white/62">{orbitoStarter}</div>
+      <div className="text-white/62">{orbitoCreator}</div>
+      <div className="text-white/62">{labsSpark}</div>
+      <div className="text-white/62">{labsVelocity}</div>
+      <div className="text-white/62">{fullAccess}</div>
+    </div>
+  );
+}
+
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
   const [mode, setMode] = useState<BillingMode>("yearly");
   const [creditScale, setCreditScale] = useState(1);
   const [startingCheckout, setStartingCheckout] = useState<null | OrbitoCheckoutPlan>(null);
+  const [openBenefits, setOpenBenefits] = useState<Record<BenefitsKey, boolean>>({
+    trial: false,
+    orbitoStarter: false,
+    orbitoCreator: false,
+    labsSpark: false,
+    labsVelocity: false,
+    fullAccess: false,
+  });
 
   async function requireAuthOrRedirect(): Promise<boolean> {
     try {
@@ -207,6 +282,44 @@ export default function Page() {
 
   const labsStarterHref = "/app/labs/app/billing?source=pricing&plan=starter";
   const labsCreatorHref = `/app/labs/app/billing?source=pricing&plan=creator&interval=${mode}&scale=${creditScale}`;
+  const toggleBenefits = (key: BenefitsKey) =>
+    setOpenBenefits((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const benefits = useMemo(
+    () => ({
+      trial: [
+        "Test Orbito and Labs from one account",
+        "No commitment required",
+        "Understand your workflow before upgrade",
+      ],
+      orbitoStarter: [
+        "Best for solo clipping and weekly posting",
+        "Predictable monthly spend",
+        "Clean path to Orbito Creator",
+      ],
+      orbitoCreator: [
+        "Scaled clipping pipeline for daily output",
+        "Faster turnaround and advanced publishing",
+        "Yearly saves on effective monthly price",
+      ],
+      labsSpark: [
+        "Prompt-to-media generation with Labs credits",
+        "Access to Orbito workspace included",
+        "Good entry point for AI content testing",
+      ],
+      labsVelocity: [
+        "Higher generation throughput and quality lanes",
+        "Designed for routine AI post production",
+        "Can be scaled with the credit slider",
+      ],
+      fullAccess: [
+        "Single commercial agreement for both products",
+        "Unified credit strategy option",
+        "Onboarding and support priority",
+      ],
+    }),
+    []
+  );
 
   const footerLinks = useMemo(
     () => [
@@ -302,10 +415,18 @@ export default function Page() {
                 type="button"
                 onClick={() => startOrbitoCheckout("free")}
                 disabled={startingCheckout !== null}
-                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
+                className={cn(
+                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                )}
               >
                 {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
               </button>
+              <BenefitsDisclosure
+                open={openBenefits.trial}
+                onToggle={() => toggleBenefits("trial")}
+                items={benefits.trial}
+              />
             </div>
           </div>
 
@@ -327,10 +448,18 @@ export default function Page() {
                 type="button"
                 onClick={() => startOrbitoCheckout("starter")}
                 disabled={startingCheckout !== null}
-                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
+                className={cn(
+                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                )}
               >
                 {startingCheckout === "starter" ? "Opening Checkout..." : "Choose Orbito Starter"}
               </button>
+              <BenefitsDisclosure
+                open={openBenefits.orbitoStarter}
+                onToggle={() => toggleBenefits("orbitoStarter")}
+                items={benefits.orbitoStarter}
+              />
             </div>
           </div>
 
@@ -363,10 +492,18 @@ export default function Page() {
                 type="button"
                 onClick={() => startOrbitoCheckout("creator")}
                 disabled={startingCheckout !== null}
-                className={cn("btn-orbito-cta mt-6 w-full", startingCheckout ? "cursor-not-allowed opacity-80" : "")}
+                className={cn(
+                  "btn-orbito-cta mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold",
+                  startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                )}
               >
                 {startingCheckout === "creator" ? "Opening Checkout..." : "Choose Orbito Creator"}
               </button>
+              <BenefitsDisclosure
+                open={openBenefits.orbitoCreator}
+                onToggle={() => toggleBenefits("orbitoCreator")}
+                items={benefits.orbitoCreator}
+              />
             </div>
           </div>
 
@@ -385,9 +522,17 @@ export default function Page() {
                   "Monthly billing",
                 ]}
               />
-              <Link href={labsStarterHref} className="btn-clipforge mt-6 w-full text-center">
+              <Link
+                href={labsStarterHref}
+                className="btn-clipforge mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold"
+              >
                 Choose Labs Spark
               </Link>
+              <BenefitsDisclosure
+                open={openBenefits.labsSpark}
+                onToggle={() => toggleBenefits("labsSpark")}
+                items={benefits.labsSpark}
+              />
             </div>
           </div>
 
@@ -417,9 +562,17 @@ export default function Page() {
                   `Credit scale applied: ${creditScale}x`,
                 ]}
               />
-              <Link href={labsCreatorHref} className="btn-clipforge mt-6 w-full text-center">
+              <Link
+                href={labsCreatorHref}
+                className="btn-clipforge mt-6 inline-flex h-12 w-full items-center justify-center px-4 text-center text-base font-semibold"
+              >
                 Choose Labs Velocity
               </Link>
+              <BenefitsDisclosure
+                open={openBenefits.labsVelocity}
+                onToggle={() => toggleBenefits("labsVelocity")}
+                items={benefits.labsVelocity}
+              />
             </div>
           </div>
 
@@ -437,9 +590,17 @@ export default function Page() {
                   "Priority onboarding and support",
                 ]}
               />
-              <Link href="/contact?plan=full-access" className="btn-ghost mt-6 w-full text-center">
+              <Link
+                href="/contact?plan=full-access"
+                className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-full border border-indigo-300/35 bg-indigo-300/[0.14] px-4 text-center text-base font-semibold text-indigo-100 transition hover:bg-indigo-300/[0.2]"
+              >
                 Request Full Access
               </Link>
+              <BenefitsDisclosure
+                open={openBenefits.fullAccess}
+                onToggle={() => toggleBenefits("fullAccess")}
+                items={benefits.fullAccess}
+              />
             </div>
           </div>
         </div>
@@ -456,6 +617,96 @@ export default function Page() {
             </div>
             <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
               Full Access unifies commercial access and credits.
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-10 surface rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="text-xs text-white/50">• Compare included features</div>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white/92">Everything at a glance</h2>
+              <p className="mt-2 text-sm text-white/62">
+                Side-by-side view of access, credits, and capabilities across all plans.
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/62">
+              Showing: {mode} • scale {creditScale}x
+            </div>
+          </div>
+
+          <div className="mt-6 -mx-3 overflow-x-auto px-3">
+            <div className="min-w-[1200px] rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="grid grid-cols-7 gap-3 pb-3 text-xs text-white/52">
+                <div className="text-white/65">Feature</div>
+                <div>Trial</div>
+                <div>Orbito Starter</div>
+                <div>Orbito Creator</div>
+                <div>Labs Spark</div>
+                <div>Labs Velocity</div>
+                <div>Full Access</div>
+              </div>
+              <div className="h-px bg-white/10" />
+
+              <CompareRow
+                label="Orbito access"
+                trial="Included"
+                orbitoStarter="Included"
+                orbitoCreator="Included"
+                labsSpark="Included"
+                labsVelocity="Included"
+                fullAccess="Included"
+              />
+              <div className="h-px bg-white/10" />
+              <CompareRow
+                label="Labs generation"
+                trial="Included"
+                orbitoStarter="Not included"
+                orbitoCreator="Not included"
+                labsSpark="Included"
+                labsVelocity="Included"
+                fullAccess="Included"
+              />
+              <div className="h-px bg-white/10" />
+              <CompareRow
+                label="Orbito credits"
+                trial={`${formatInt(trialOrbitoCredits)}`}
+                orbitoStarter={`${formatInt(orbitoStarterCredits)}/mo`}
+                orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
+                labsSpark="Included access"
+                labsVelocity="Included access"
+                fullAccess="Pooled"
+              />
+              <div className="h-px bg-white/10" />
+              <CompareRow
+                label="Labs credits"
+                trial={`${formatInt(trialLabsCredits)}`}
+                orbitoStarter="Not included"
+                orbitoCreator="Not included"
+                labsSpark={`${formatInt(labsStarterCredits)}/mo`}
+                labsVelocity={`${formatInt(labsCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
+                fullAccess={`${formatInt(mode === "yearly" ? fullCreditsYearly : fullCreditsMonthly)} pooled`}
+              />
+              <div className="h-px bg-white/10" />
+              <CompareRow
+                label="4K generation lanes"
+                trial="No"
+                orbitoStarter="No"
+                orbitoCreator="No"
+                labsSpark="No"
+                labsVelocity="Yes"
+                fullAccess="Yes"
+              />
+              <div className="h-px bg-white/10" />
+              <CompareRow
+                label="Priority support"
+                trial="No"
+                orbitoStarter="Email"
+                orbitoCreator="Priority email"
+                labsSpark="Email"
+                labsVelocity="Priority email"
+                fullAccess="Priority + onboarding"
+              />
             </div>
           </div>
         </section>
