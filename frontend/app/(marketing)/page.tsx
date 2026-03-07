@@ -359,7 +359,15 @@ export default function Page() {
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}
         <section className="relative">
-          <div data-reveal className="reveal">
+          <div data-reveal className="reveal relative">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-10 -z-10 opacity-65 blur-3xl"
+              style={{
+                background:
+                  "radial-gradient(720px 360px at 18% 18%, rgba(255,183,3,0.18), transparent 68%), radial-gradient(760px 420px at 82% 22%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(780px 420px at 50% 96%, rgba(70,215,255,0.18), transparent 72%)",
+              }}
+            />
             <div className="surface-soft relative overflow-hidden p-5 sm:p-6 md:p-10">
               <PricingCardGlow tone="full" />
               <div aria-hidden="true" className="pointer-events-none absolute inset-0">

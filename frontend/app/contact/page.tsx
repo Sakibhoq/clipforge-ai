@@ -458,7 +458,7 @@ function SendMessageModal({
 }
 
 export default function ContactPage() {
-  const topics = ["Support", "Billing", "Studio / enterprise", "Partnerships", "Feedback"];
+  const topics = ["Support", "Billing", "Partnerships", "Feedback"];
   const faqs = [
     {
       q: "How fast do you respond?",
@@ -471,10 +471,6 @@ export default function ContactPage() {
     {
       q: "Can I get help with billing and credits?",
       a: "Yes. Include the email on your account and we can review plan, credit, and charge details quickly.",
-    },
-    {
-      q: "Do you support studio or enterprise setups?",
-      a: "Yes. Use the Studio / enterprise option and include expected volume, team size, and required workflows.",
     },
   ];
 
@@ -606,13 +602,6 @@ export default function ContactPage() {
                       <button type="button" className="btn-aurora" onClick={() => setOpen(true)}>
                         Write a message
                       </button>
-
-                      <a
-                        className="btn-ghost"
-                        href="mailto:support@orbito.cc?subject=Studio%20%2F%20Enterprise%20inquiry"
-                      >
-                        Studio / enterprise
-                      </a>
                     </div>
 
                   </div>
