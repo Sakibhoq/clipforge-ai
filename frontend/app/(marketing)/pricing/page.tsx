@@ -373,8 +373,8 @@ export default function Page() {
 
         <div className="mt-8">
           <div className="group surface relative overflow-hidden p-5 sm:p-6">
-            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-3xl">
+            <div className="relative grid gap-5 lg:grid-cols-12 lg:items-start">
+              <div className="lg:col-span-6">
                 <FamilyPill label="Free Trial" tone="neutral" />
                 <div className="mt-3 text-2xl font-semibold text-white/92 sm:text-3xl">Free Trial</div>
                 <PriceRow amount="$0" suffix="/trial" />
@@ -387,7 +387,23 @@ export default function Page() {
                   ]}
                 />
               </div>
-              <div className="w-full lg:max-w-xs lg:pt-10">
+
+              <div className="grid gap-3 lg:col-span-3 lg:pt-8">
+                <div className="rounded-2xl border border-white/12 bg-white/[0.04] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Shared Credits</div>
+                  <div className="mt-2 text-3xl font-semibold tracking-tight text-white">{formatInt(sharedTrialCredits)}</div>
+                  <div className="mt-1 text-xs text-white/62">Available across Orbito + Labs.</div>
+                </div>
+                <div className="rounded-2xl border border-white/12 bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.08em] text-white/55">Workspace</div>
+                  <div className="mt-2 text-sm font-semibold text-white/88">One account, two workflows</div>
+                  <div className="mt-1 text-xs leading-relaxed text-white/62">
+                    Validate clipping and generation quality before moving to paid plans.
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full lg:col-span-3 lg:pt-10">
                 <button
                   type="button"
                   onClick={() => startOrbitoCheckout("free")}
