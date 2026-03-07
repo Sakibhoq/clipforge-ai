@@ -56,9 +56,14 @@ function PriceRow({
 }) {
   return (
     <div className="mt-4">
-      {strike ? (
-        <div className="text-sm text-white/45 line-through decoration-white/35">{strike}</div>
-      ) : null}
+      <div
+        className={cn(
+          "text-sm line-through decoration-white/35 min-h-[20px]",
+          strike ? "text-white/45" : "invisible"
+        )}
+      >
+        {strike || "$0"}
+      </div>
       <div className="mt-1 flex items-end gap-2">
         <div className="text-4xl font-semibold tracking-tight sm:text-5xl">{amount}</div>
         {suffix ? <div className="pb-2 text-sm text-white/55">{suffix}</div> : null}
@@ -444,12 +449,14 @@ export default function Page() {
         </div>
 
         <div className="mt-4 grid auto-rows-fr gap-4 lg:grid-cols-4">
-          <div className="group surface relative overflow-hidden border border-cyan-300/22 p-4">
+          <div className="group surface relative min-h-[560px] overflow-hidden border border-cyan-300/22 p-4">
             <GlowLayer family="orbito" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito" tone="orbito" />
               <div className="mt-3 text-xl font-semibold text-white/94">Orbito Starter</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               <PriceRow amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`} suffix="/mo" />
+              <div className="mt-2 min-h-[20px] text-xs text-white/50">&nbsp;</div>
               <Bullets
                 items={[
                   `${formatInt(orbitoStarterCredits)} Orbito credits / month`,
@@ -477,11 +484,12 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-cyan-300/26 p-4">
+          <div className="group surface relative min-h-[560px] overflow-hidden border border-cyan-300/26 p-4">
             <GlowLayer family="orbito" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito" tone="orbito" />
               <div className="mt-3 text-xl font-semibold text-white/94">Orbito Creator</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">&nbsp;</div>
               {mode === "yearly" ? (
                 <PriceRow
                   amount={`$${formatMoney(orbitoCreatorYearlyScaledMonthly)}`}
@@ -491,7 +499,7 @@ export default function Page() {
               ) : (
                 <PriceRow amount={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`} suffix="/mo" />
               )}
-              <div className="mt-2 text-xs text-white/50">
+              <div className="mt-2 min-h-[20px] text-xs text-white/50">
                 {mode === "yearly" ? `Billed yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Billed monthly"}
               </div>
               <Bullets
@@ -521,13 +529,14 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/24 p-4">
+          <div className="group surface relative min-h-[560px] overflow-hidden border border-amber-300/24 p-4">
             <GlowLayer family="labs" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Spark</div>
-              <div className="mt-1 text-xs text-white/52">Renamed from Labs Starter</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">Renamed from Labs Starter</div>
               <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
+              <div className="mt-2 min-h-[20px] text-xs text-white/50">&nbsp;</div>
               <Bullets
                 items={[
                   `${formatInt(labsStarterCredits)} Labs credits / month`,
@@ -550,12 +559,12 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="group surface relative overflow-hidden border border-amber-300/28 p-4">
+          <div className="group surface relative min-h-[560px] overflow-hidden border border-amber-300/28 p-4">
             <GlowLayer family="labs" />
             <div className="relative flex h-full flex-col">
               <FamilyPill label="Orbito Labs" tone="labs" />
               <div className="mt-3 text-xl font-semibold text-white/94">Labs Velocity</div>
-              <div className="mt-1 text-xs text-white/52">Renamed from Labs Creator</div>
+              <div className="mt-1 min-h-[20px] text-xs text-white/52">Renamed from Labs Creator</div>
               {mode === "yearly" ? (
                 <PriceRow
                   amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
@@ -565,7 +574,7 @@ export default function Page() {
               ) : (
                 <PriceRow amount={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`} suffix="/mo" />
               )}
-              <div className="mt-2 text-xs text-white/50">
+              <div className="mt-2 min-h-[20px] text-xs text-white/50">
                 {mode === "yearly" ? `Billed yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Billed monthly"}
               </div>
               <Bullets
