@@ -16,12 +16,20 @@ from sqlalchemy.orm import Session
 
 from core.database import get_db
 from models.clip import Clip
+from models.job import Job
 from models.upload import Upload
 from models.user import User
 from storage import get_storage
 from routers.auth import get_current_user
 
 router = APIRouter(prefix="/clips", tags=["clips"])
+
+LABS_GENERATION_JOB_KINDS = {
+    "generate",
+    "generate_image",
+    "generate_voiceover",
+    "generate_post",
+}
 
 
 def _key_ext(key: str | None) -> str:
@@ -69,7 +77,11 @@ def _is_generated_upload(upload: Upload | None) -> bool:
     source_type = str(getattr(upload, "source_type", "") or "").strip().lower()
     if source_type in {"generated", "ai_generated", "aigc", "labs_generated"}:
         return True
-    return _is_generated_ai_clip_key(getattr(upload, "storage_key", None))
+    return False
+
+
+def _is_generated_job_kind(kind: str | None) -> bool:
+    return str(kind or "").strip().lower() in LABS_GENERATION_JOB_KINDS
 
 
 def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:
@@ -454,16 +466,18 @@ def list_clips(
 
         upload_is_generated = _is_generated_upload(upload)
 
-        clips = (
-            db.query(Clip)
+        clip_rows = (
+            db.query(Clip, Job.kind)
             .join(Upload, Clip.upload_id == Upload.id)
+            .join(Job, Clip.job_id == Job.id)
             .filter(Clip.upload_id == upload_id)
             .filter(Upload.user_id == current_user.id)
             .order_by(Clip.start_time.asc(), Clip.id.asc())
             .all()
         )
         if generated_only:
-            clips = [c for c in clips if upload_is_generated or _is_generated_ai_clip_key(c.storage_key)]
+            clip_rows = [row for row in clip_rows if upload_is_generated or _is_generated_job_kind(row[1])]
+        clips = [row[0] for row in clip_rows]
         clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
 
@@ -482,19 +496,21 @@ def list_clips(
 
     upload_ids = [u.id for u in uploads]
 
-    all_clips = (
-        db.query(Clip)
+    all_clip_rows = (
+        db.query(Clip, Job.kind)
+        .join(Job, Clip.job_id == Job.id)
         .filter(Clip.upload_id.in_(upload_ids))
         .order_by(Clip.upload_id.desc(), Clip.start_time.asc(), Clip.id.asc())
         .all()
     )
     if generated_only:
         generated_upload_ids = {u.id for u in uploads if _is_generated_upload(u)}
-        all_clips = [
-            c
-            for c in all_clips
-            if c.upload_id in generated_upload_ids or _is_generated_ai_clip_key(c.storage_key)
+        all_clip_rows = [
+            row
+            for row in all_clip_rows
+            if row[0].upload_id in generated_upload_ids or _is_generated_job_kind(row[1])
         ]
+    all_clips = [row[0] for row in all_clip_rows]
 
     if not grouped:
         visible = [c for c in all_clips if _clip_storage_exists(storage, c.storage_key)]
