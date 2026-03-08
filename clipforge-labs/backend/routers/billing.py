@@ -207,17 +207,12 @@ def _get_user_from_session(db: Session, session_obj: dict) -> Optional[User]:
 
 def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     """
-    Orbito Labs pricing model:
-    - 1 credit ~= $0.10 value
-    - Video generation: about $1.00/sec -> 10 credits/sec
-    - Premium video+audio workflow: about $1.20/sec -> 12 credits/sec
-    - AI image+voice posts: about $1.50/min -> 15 credits/min
-
-    Plan grants:
     - Free trial: 65 credits (one-time)
-    - Starter: 390 credits / month
-    - Creator: 990 credits / month * pack_qty
-    - Studio: 3000 credits / month
+    - Orbito Starter: 150 / month
+    - Orbito Creator: 300 / month * pack_qty
+    - Labs Spark: 390 / month
+    - Labs Velocity: 990 / month * pack_qty
+    - Studio: manual
     """
     plan = plan.lower().strip()
     interval = interval.lower().strip()
@@ -225,10 +220,18 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     if plan == "free":
         return 65
 
-    if plan in {"starter", "labs_spark", "labs_starter"}:
+    if plan == "starter":
+        return 150 if interval in {"month", "monthly"} else 150 * 12
+
+    if plan == "creator":
+        base = 300 if interval in {"month", "monthly"} else 300 * 12
+        qty = max(1, int(pack_qty or 1))
+        return base * qty
+
+    if plan in {"labs_spark", "labs_starter"}:
         return 390 if interval in {"month", "monthly"} else 390 * 12
 
-    if plan in {"creator", "labs_velocity", "labs_creator"}:
+    if plan in {"labs_velocity", "labs_creator"}:
         base = 990 if interval in {"month", "monthly"} else 990 * 12
         qty = max(1, int(pack_qty or 1))
         return base * qty
@@ -249,12 +252,16 @@ def _plan_tier(plan: str | None) -> int:
 
     if token == "free":
         return 0
-    if token in {"starter", "labs_spark", "labs_starter"}:
+    if token == "starter":
         return 1
-    if token in {"creator", "labs_velocity", "labs_creator"}:
+    if token == "creator":
         return 2
-    if token == "studio":
+    if token in {"labs_spark", "labs_starter"}:
         return 3
+    if token in {"labs_velocity", "labs_creator"}:
+        return 4
+    if token == "studio":
+        return 5
     return 0
 
 
