@@ -53,17 +53,6 @@ def get_db() -> Generator[Session, None, None]:
 def _frontend_base_url() -> str:
     return os.getenv("FRONTEND_BASE_URL") or "http://127.0.0.1:3000"
 
-def _allow_free_trial_without_stripe() -> bool:
-    """
-    Dev-only bypass so free trials can work without Stripe configured.
-    Controlled by ALLOW_FREE_TRIAL_WITHOUT_STRIPE=1 or non-production APP_ENV.
-    """
-    flag = (os.getenv("ALLOW_FREE_TRIAL_WITHOUT_STRIPE") or "").strip().lower()
-    if flag in {"1", "true", "yes", "on"}:
-        return True
-    env = (os.getenv("APP_ENV") or "development").strip().lower()
-    return env != "production"
-
 
 def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     interval = interval.lower().strip()
@@ -421,21 +410,6 @@ def create_checkout_session(
             detail=f"{plan.capitalize()} supports monthly billing only",
         )
 
-    # Dev-only: allow free trial credits without Stripe configured
-    if plan == "free" and not stripe.api_key and _allow_free_trial_without_stripe():
-        user = _reload_user(db, current_user)
-        if getattr(user, "trial_used", False):
-            raise HTTPException(status_code=400, detail="Free trial already used")
-
-        user.credits = (user.credits or 0) + _credits_for_plan("free", interval, 1)
-        user.trial_used = True
-        user.plan = "free"
-        _reset_download_meter(user)
-        db.commit()
-
-        base = _frontend_base_url()
-        return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&trial=local")
-
     if not stripe.api_key:
         raise HTTPException(status_code=500, detail="Stripe not configured")
 
@@ -472,12 +446,6 @@ def create_checkout_session(
                     proration_behavior="always_invoice",
                     items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
                     expand=["latest_invoice"],
-                    metadata={
-                        "user_id": str(user.id),
-                        "plan": plan,
-                        "interval": interval,
-                        "pack": str(quantity),
-                    },
                 )
 
                 for sub in active_subs[1:]:
