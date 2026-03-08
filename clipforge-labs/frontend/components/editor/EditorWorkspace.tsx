@@ -1803,7 +1803,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                 className={cx(
                   "clipforge-scrollbar pointer-events-auto absolute left-[88px] top-3 z-30 overflow-y-auto rounded-2xl border border-transparent backdrop-blur-md p-3 shadow-[0_30px_55px_rgba(0,0,0,0.58)]",
                   surfacePrimaryClass,
-                  toolTab === "audio" || toolTab === "media" ? "w-[392px] max-h-[calc(100%-0.75rem)]" : "w-[320px] max-h-[calc(100%-1.5rem)]"
+                  toolTab === "media"
+                    ? "w-[440px] max-h-[calc(100%-0.75rem)]"
+                    : toolTab === "audio"
+                      ? "w-[392px] max-h-[calc(100%-0.75rem)]"
+                      : "w-[320px] max-h-[calc(100%-1.5rem)]"
                 )}
               >
                 <div className="mb-3 text-xs text-white/55">• {toolLabel(toolTab)}</div>
@@ -1877,7 +1881,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                       <div className={cx("rounded-3xl border border-transparent p-3", surfaceInsetClass)}>
                         <div>
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Videos ({videos.length})</div>
-                          <div className="grid gap-2">
+                          <div className="clipforge-scrollbar grid max-h-[34svh] gap-2 overflow-y-auto pr-1">
                             {videos.map((clip) => (
                               <button
                                 key={clip.id}
@@ -1890,16 +1894,19 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                                   "rounded-2xl border border-transparent px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
                                   surfaceSoftClass
                                 )}
+                                title={clip.title || `Video #${clip.id}`}
                               >
-                                <div className="truncate font-semibold text-white/92">{clip.title || `Video #${clip.id}`}</div>
-                                <div className="text-white/50">{formatSeconds(clip.duration)}</div>
+                                <div className="overflow-hidden text-[12px] font-semibold leading-4 text-white/94 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] break-words">
+                                  {clip.title || `Video #${clip.id}`}
+                                </div>
+                                <div className="mt-1 text-[10px] text-white/56">{formatSeconds(clip.duration)}</div>
                               </button>
                             ))}
                           </div>
                         </div>
                         <div className="mt-3">
                           <div className="mb-2 text-[12px] font-semibold text-white/85">Images ({images.length})</div>
-                          <div className="grid gap-2">
+                          <div className="clipforge-scrollbar grid max-h-[28svh] gap-2 overflow-y-auto pr-1">
                             {images.map((clip) => (
                               <button
                                 key={clip.id}
@@ -1912,9 +1919,12 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                                   "rounded-2xl border border-transparent px-3 py-2 text-left text-[12px] text-white/84 hover:bg-white/[0.08]",
                                   surfaceSoftClass
                                 )}
+                                title={clip.title || `Image #${clip.id}`}
                               >
-                                <div className="truncate font-semibold text-white/92">{clip.title || `Image #${clip.id}`}</div>
-                                <div className="text-white/50">Adds motion scene</div>
+                                <div className="overflow-hidden text-[12px] font-semibold leading-4 text-white/94 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] break-words">
+                                  {clip.title || `Image #${clip.id}`}
+                                </div>
+                                <div className="mt-1 text-[10px] text-white/56">Adds motion scene</div>
                               </button>
                             ))}
                           </div>
