@@ -399,10 +399,10 @@ export default function Page() {
 
               <div className="relative z-[2] grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-2.5 py-1 text-[12px] text-white/75">
+                  <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-1.5 py-1 text-[12px] text-white/75">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
                     <span className="whitespace-nowrap">Long videos in. Short clips out.</span>
-                    <SocialBrandPill platform="youtube" compact />
+                    <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
                   </div>
 
                   <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">

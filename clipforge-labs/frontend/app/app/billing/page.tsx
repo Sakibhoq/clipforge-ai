@@ -78,7 +78,7 @@ const PLAN_DEFS: PlanDef[] = [
   {
     key: "labs_spark",
     family: "labs",
-    name: "Labs Spark",
+    name: "Labs Starter",
     summary: "Generator + AI clips with full Orbito Creator-level access.",
     monthlyPrice: 39,
     monthlyCredits: 390,
@@ -87,7 +87,7 @@ const PLAN_DEFS: PlanDef[] = [
   {
     key: "labs_velocity",
     family: "labs",
-    name: "Labs Velocity",
+    name: "Labs Creator",
     summary: "Higher AI generation throughput with full Orbito Creator-level access.",
     monthlyPrice: 99,
     monthlyCredits: 990,
