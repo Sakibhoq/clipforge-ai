@@ -5,7 +5,13 @@ const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_
 const normalizedBasePath = rawBasePath
   ? `/${rawBasePath.replace(/^\/+/, "").replace(/\/+$/, "")}`
   : "";
-const internalApiOrigin = (process.env.INTERNAL_API_ORIGIN || "http://backend:8000").trim().replace(/\/+$/, "");
+const internalApiOrigin = (
+  process.env.INTERNAL_API_ORIGIN ||
+  process.env.LABS_INTERNAL_API_ORIGIN ||
+  "http://labs-backend:8000"
+)
+  .trim()
+  .replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   basePath: normalizedBasePath || undefined,
