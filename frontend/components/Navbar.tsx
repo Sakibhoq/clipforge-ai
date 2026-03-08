@@ -16,8 +16,8 @@ function Logo() {
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
   const v = "orb-1";
 
-  const markBoxClass = inApp ? "h-14 w-14" : "h-11 w-11";
-  const markImgSize = inApp ? 38 : 30;
+  const markBoxClass = inApp ? "h-16 w-16" : "h-12 w-12";
+  const markImgSize = inApp ? 42 : 34;
   const wordmarkClass = inApp
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
     : "text-[18px] font-semibold tracking-[-0.01em] text-white/95";
