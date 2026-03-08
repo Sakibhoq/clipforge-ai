@@ -434,41 +434,6 @@ def create_checkout_session(
     cancel_url = f"{base}/app/billing?checkout=cancel"
 
     try:
-        active_subs = _active_subscriptions_for_customer(customer_id)
-        if active_subs and plan != "free":
-            primary = active_subs[0]
-            sub_item_id = _subscription_item_id(primary)
-            if sub_item_id:
-                updated_sub = stripe.Subscription.modify(
-                    primary.id,
-                    payment_behavior="pending_if_incomplete",
-                    proration_behavior="always_invoice",
-                    items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
-                    expand=["latest_invoice"],
-                )
-
-                for sub in active_subs[1:]:
-                    if not bool(getattr(sub, "cancel_at_period_end", False)):
-                        stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
-
-                latest_invoice = getattr(updated_sub, "latest_invoice", None)
-                invoice_obj = None
-                if latest_invoice:
-                    if isinstance(latest_invoice, dict):
-                        invoice_obj = latest_invoice
-                    else:
-                        latest_invoice_id = getattr(latest_invoice, "id", latest_invoice)
-                        if latest_invoice_id:
-                            invoice_obj = stripe.Invoice.retrieve(latest_invoice_id)
-
-                hosted_invoice_url = (
-                    invoice_obj.get("hosted_invoice_url")
-                    if isinstance(invoice_obj, dict)
-                    else getattr(invoice_obj, "hosted_invoice_url", None)
-                )
-                if hosted_invoice_url:
-                    return CheckoutSessionResponse(url=str(hosted_invoice_url))
-
         session = stripe.checkout.Session.create(
             mode="subscription",
             line_items=[{"price": price_id, "quantity": quantity}],
@@ -641,6 +606,25 @@ async def stripe_webhook(
         if plan != "free":
             # Paid plans are credited on invoice.paid so click-only actions
             # never grant credits before Stripe confirms payment.
+            # Also mark any previous active subscriptions to cancel at period end
+            # once this new checkout succeeds, so users don't keep multiple renewals.
+            customer_id = session.get("customer") if isinstance(session, dict) else getattr(session, "customer", None)
+            new_subscription = session.get("subscription") if isinstance(session, dict) else getattr(session, "subscription", None)
+            new_sub_id = (
+                new_subscription.get("id")
+                if isinstance(new_subscription, dict)
+                else getattr(new_subscription, "id", new_subscription)
+            )
+            new_sub_id = str(new_sub_id or "").strip() or None
+
+            if customer_id:
+                active_subs = _active_subscriptions_for_customer(str(customer_id))
+                for sub in active_subs:
+                    sub_id = str(getattr(sub, "id", "") or "").strip()
+                    if not sub_id or (new_sub_id and sub_id == new_sub_id):
+                        continue
+                    if not bool(getattr(sub, "cancel_at_period_end", False)):
+                        stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
             return {"status": "ok"}
 
         grant = _apply_plan_grant(
