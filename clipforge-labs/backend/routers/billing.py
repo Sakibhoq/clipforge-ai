@@ -19,9 +19,18 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-ALLOWED_PLANS = {"free", "starter", "creator", "studio"}
+ALLOWED_PLANS = {
+    "free",
+    "starter",
+    "creator",
+    "studio",
+    "labs_spark",
+    "labs_velocity",
+    "labs_starter",
+    "labs_creator",
+}
 ALLOWED_INTERVALS = {"month", "monthly", "year", "yearly"}
-MONTHLY_ONLY_PLANS = {"free", "starter", "studio"}
+MONTHLY_ONLY_PLANS = {"free", "starter", "studio", "labs_spark", "labs_starter"}
 
 
 # ------------------------------------------------------------------
@@ -65,11 +74,45 @@ def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     else:
         return None
 
+    candidates = [str(plan or "").strip().upper()]
+    legacy_aliases = {
+        "LABS_SPARK": "LABS_STARTER",
+        "LABS_VELOCITY": "LABS_CREATOR",
+    }
+    alias = legacy_aliases.get(candidates[0] or "")
+    if alias:
+        candidates.append(alias)
+
     for suffix in suffixes:
-        value = (os.getenv(f"STRIPE_PRICE_{plan.upper()}_{suffix}") or "").strip()
-        if value:
-            return value
+        for candidate in candidates:
+            value = (os.getenv(f"STRIPE_PRICE_{candidate}_{suffix}") or "").strip()
+            if value:
+                return value
     return None
+
+
+def _expected_price_env_keys(plan: str, interval: str) -> list[str]:
+    normalized_plan = str(plan or "").strip().upper()
+    normalized_interval = str(interval or "").strip().lower()
+    suffixes = ("MONTHLY", "MONTH") if normalized_interval in {"month", "monthly"} else ("YEARLY", "YEAR")
+    candidates = [normalized_plan]
+    legacy_aliases = {
+        "LABS_SPARK": "LABS_STARTER",
+        "LABS_VELOCITY": "LABS_CREATOR",
+    }
+    alias = legacy_aliases.get(normalized_plan)
+    if alias:
+        candidates.append(alias)
+    return [f"STRIPE_PRICE_{candidate}_{suffix}" for candidate in candidates for suffix in suffixes]
+
+
+def _canonical_checkout_plan(plan: str) -> str:
+    normalized = str(plan or "").strip().lower()
+    aliases = {
+        "labs_starter": "labs_spark",
+        "labs_creator": "labs_velocity",
+    }
+    return aliases.get(normalized, normalized)
 
 
 def _reload_user(db: Session, current_user: User) -> User:
@@ -135,10 +178,10 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     if plan == "free":
         return 65
 
-    if plan == "starter":
+    if plan in {"starter", "labs_spark", "labs_starter"}:
         return 390 if interval in {"month", "monthly"} else 390 * 12
 
-    if plan == "creator":
+    if plan in {"creator", "labs_velocity", "labs_creator"}:
         base = 990 if interval in {"month", "monthly"} else 990 * 12
         qty = max(1, int(pack_qty or 1))
         return base * qty
@@ -199,7 +242,7 @@ def create_checkout_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    plan = payload.plan.strip().lower()
+    plan = _canonical_checkout_plan(payload.plan)
     interval = payload.interval.strip().lower()
 
     if plan not in ALLOWED_PLANS:
@@ -233,7 +276,8 @@ def create_checkout_session(
 
     price_id = _price_id_from_env(plan, interval)
     if not price_id:
-        raise HTTPException(status_code=500, detail="Stripe price not configured")
+        expected = ", ".join(_expected_price_env_keys(plan, interval))
+        raise HTTPException(status_code=500, detail=f"Stripe price not configured ({expected})")
 
     quantity = 1
     if plan == "creator":
@@ -408,7 +452,7 @@ async def stripe_webhook(
             return {"status": "ignored", "reason": "duplicate event"}
 
         md = session.get("metadata") or {}
-        plan = (md.get("plan") or "").strip().lower()
+        plan = _canonical_checkout_plan(md.get("plan") or "")
         interval = (md.get("interval") or "monthly").strip().lower()
         pack = int(md.get("pack") or 1)
 

@@ -314,7 +314,7 @@ export default function Page() {
     if (!ok) return;
     try {
       setStartingCheckout(plan);
-      const interval = plan === "creator" ? mode : "monthly";
+      const interval = plan === "creator" || plan === "labs_velocity" ? mode : "monthly";
       const data = (await apiFetch("/billing/checkout-session", {
         method: "POST",
         body: { plan, interval },

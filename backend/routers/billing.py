@@ -31,7 +31,7 @@ ALLOWED_PLANS = {
     "labs_creator",
 }
 ALLOWED_INTERVALS = {"month", "monthly", "year", "yearly"}
-MONTHLY_ONLY_PLANS = {"free", "starter", "studio", "labs_spark", "labs_velocity", "labs_starter", "labs_creator"}
+MONTHLY_ONLY_PLANS = {"free", "starter", "studio", "labs_spark", "labs_starter"}
 
 
 # ------------------------------------------------------------------
@@ -75,11 +75,36 @@ def _price_id_from_env(plan: str, interval: str) -> Optional[str]:
     else:
         return None
 
+    candidates = [str(plan or "").strip().upper()]
+    legacy_aliases = {
+        "LABS_SPARK": "LABS_STARTER",
+        "LABS_VELOCITY": "LABS_CREATOR",
+    }
+    alias = legacy_aliases.get(candidates[0] or "")
+    if alias:
+        candidates.append(alias)
+
     for suffix in suffixes:
-        value = (os.getenv(f"STRIPE_PRICE_{plan.upper()}_{suffix}") or "").strip()
-        if value:
-            return value
+        for candidate in candidates:
+            value = (os.getenv(f"STRIPE_PRICE_{candidate}_{suffix}") or "").strip()
+            if value:
+                return value
     return None
+
+
+def _expected_price_env_keys(plan: str, interval: str) -> list[str]:
+    normalized_plan = str(plan or "").strip().upper()
+    normalized_interval = str(interval or "").strip().lower()
+    suffixes = ("MONTHLY", "MONTH") if normalized_interval in {"month", "monthly"} else ("YEARLY", "YEAR")
+    candidates = [normalized_plan]
+    legacy_aliases = {
+        "LABS_SPARK": "LABS_STARTER",
+        "LABS_VELOCITY": "LABS_CREATOR",
+    }
+    alias = legacy_aliases.get(normalized_plan)
+    if alias:
+        candidates.append(alias)
+    return [f"STRIPE_PRICE_{candidate}_{suffix}" for candidate in candidates for suffix in suffixes]
 
 
 def _canonical_checkout_plan(plan: str) -> str:
@@ -271,7 +296,8 @@ def create_checkout_session(
 
     price_id = _price_id_from_env(plan, interval)
     if not price_id:
-        raise HTTPException(status_code=500, detail="Stripe price not configured")
+        expected = ", ".join(_expected_price_env_keys(plan, interval))
+        raise HTTPException(status_code=500, detail=f"Stripe price not configured ({expected})")
 
     quantity = 1
     if plan == "creator":

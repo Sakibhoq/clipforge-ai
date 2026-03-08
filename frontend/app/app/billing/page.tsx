@@ -486,7 +486,7 @@ export default function BillingPage() {
       return;
     }
     if (key === "labs_velocity") {
-      startCheckout("labs_velocity", "monthly");
+      startCheckout("labs_velocity", interval === "yearly" ? "yearly" : "monthly");
     }
   }
 
