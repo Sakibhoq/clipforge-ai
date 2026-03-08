@@ -623,15 +623,6 @@ export default function SettingsPage() {
           <div className="text-lg font-semibold text-white/90">Settings</div>
           <div className="mt-1 text-sm text-white/60">Manage your account and app preferences.</div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href="/app/billing" className="btn-solid-dark text-[12px] px-4 py-2">
-            Billing
-          </Link>
-          <Link href="/app" className="btn-ghost text-[12px] px-4 py-2">
-            Overview
-          </Link>
-        </div>
       </div>
       {actionMsg && (
         <div className="text-[12px] text-white/60">{actionMsg}</div>
@@ -695,9 +686,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full md:w-auto">
-            <Link href="/app/upload" className="btn-aurora text-[12px] px-4 py-2 w-full sm:w-auto">
-              New upload
-            </Link>
             <button
               type="button"
               onClick={logout}
