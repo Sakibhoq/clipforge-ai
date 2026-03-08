@@ -331,6 +331,43 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
 
   const parsed = await readJsonSafe(res);
 
+  // Resilience fallback:
+  // If Labs proxied API path returns 404, retry direct API origin.
+  // This protects generation flows when /app/labs/api proxy routing is stale.
+  if (
+    res.status === 404 &&
+    typeof path === "string" &&
+    path.startsWith("/labs/") &&
+    typeof url === "string" &&
+    url.includes("/app/labs/api/")
+  ) {
+    const directOrigin = guessPublicApiOriginFromPage() || "https://api.orbito.cc";
+    const fallbackUrl = `${directOrigin}${path.startsWith("/") ? "" : "/"}${path}`;
+    try {
+      const retryRes = await fetch(fallbackUrl, {
+        ...init,
+        headers,
+        body,
+        credentials: "include",
+        cache: "no-store",
+      });
+      const retryParsed = await readJsonSafe(retryRes);
+      if (!retryRes.ok) {
+        throw buildErrorPayload(retryRes, fallbackUrl, retryParsed);
+      }
+      return retryParsed as T;
+    } catch (retryErr: any) {
+      if (retryErr && typeof retryErr === "object" && ("status" in retryErr || "detail" in retryErr || "message" in retryErr)) {
+        throw retryErr;
+      }
+      throw {
+        status: 404,
+        url: fallbackUrl,
+        detail: typeof parsed === "object" && parsed && "detail" in (parsed as any) ? (parsed as any).detail : "Not Found",
+      };
+    }
+  }
+
   if (!res.ok) {
     throw buildErrorPayload(res, url, parsed);
   }
