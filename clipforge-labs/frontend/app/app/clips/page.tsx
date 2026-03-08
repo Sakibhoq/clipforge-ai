@@ -48,6 +48,7 @@ type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 type SocialPlan = AppPlan;
 type AssetFilter = "all" | "video" | "image" | "audio";
 type ActionIconName = "download" | "play" | "schedule" | "edit";
+type ClipSourceMode = "orbito" | "ai";
 
 const TIKTOK_PRIVACY_CHOICES = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
 
@@ -283,13 +284,20 @@ function ActionIconButton({
 export default function ClipsPage() {
   const pathname = usePathname();
   const router = useRouter();
-  const [generatedOnly] = useState(() => {
-    if (typeof window === "undefined") return true;
-    const raw = String(new URLSearchParams(window.location.search).get("generated") || "").trim().toLowerCase();
-    if (!raw) return true;
-    if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "all") return false;
-    return true;
+  const [sourceMode, setSourceMode] = useState<ClipSourceMode>(() => {
+    if (typeof window === "undefined") return "orbito";
+    const params = new URLSearchParams(window.location.search);
+    const source = String(params.get("source") || "").trim().toLowerCase();
+    if (source === "ai") return "ai";
+    if (source === "orbito") return "orbito";
+
+    // Backward compatibility for old shared links using generated=...
+    const raw = String(params.get("generated") || "").trim().toLowerCase();
+    if (!raw) return "orbito";
+    if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "all") return "orbito";
+    return "ai";
   });
+  const generatedOnly = sourceMode === "ai";
 
   const [rows, setRows] = useState<ClipRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -340,6 +348,17 @@ export default function ClipsPage() {
     const next = nextQuery.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     setEditorFromQuery(false);
+  }
+
+  function switchSource(next: ClipSourceMode) {
+    if (next === sourceMode) return;
+    setSourceMode(next);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("source", next);
+    params.delete("generated");
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }
 
   async function loadClips() {
@@ -710,14 +729,14 @@ export default function ClipsPage() {
                     </>
                   ) : (
                     <>
-                      Orbito Labs <span className="grad-text">Media Library</span>
+                      Orbito <span className="grad-text">Clips Library</span>
                     </>
                   )}
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
                   {generatedOnly
                     ? "Only AI-generated clips from Orbito Labs appear here. Review, edit, and publish from one workflow."
-                    : "Manage published-ready visuals and audio in one workspace designed for fast review and posting."}
+                    : "Shared Orbito clip library for review, editor flow, and scheduling in one place."}
                 </p>
               </div>
 
@@ -729,6 +748,34 @@ export default function ClipsPage() {
                   Open Editor
                 </button>
               </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => switchSource("orbito")}
+                className={cx(
+                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                  sourceMode === "orbito"
+                    ? "border-[#fb560782] bg-[linear-gradient(120deg,rgba(255,183,3,0.16),rgba(251,86,7,0.2),rgba(58,134,255,0.18))] text-white"
+                    : cx("border-white/12 text-white/72 hover:bg-white/10", clipsSurfaceInsetClass)
+                )}
+              >
+                Orbito Clips
+              </button>
+              <button
+                type="button"
+                onClick={() => switchSource("ai")}
+                className={cx(
+                  "rounded-full border px-3 py-1.5 text-[11px] font-semibold transition",
+                  sourceMode === "ai"
+                    ? "border-[#fb560782] bg-[linear-gradient(120deg,rgba(255,183,3,0.16),rgba(251,86,7,0.2),rgba(58,134,255,0.18))] text-white"
+                    : cx("border-white/12 text-white/72 hover:bg-white/10", clipsSurfaceInsetClass)
+                )}
+              >
+                AI Clips
+              </button>
+              <span className="text-[11px] text-white/50">Switch between shared Orbito clips and Labs AI-only clips.</span>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -909,7 +956,11 @@ export default function ClipsPage() {
 
         {!visualRows.length && !audioRows.length ? (
           <section className={cx("mt-6 surface-soft rounded-3xl p-7 text-sm text-white/60", clipsSurfaceSoftClass)}>
-            {loading ? "Loading assets..." : "No assets yet. Generate your first one from Generator."}
+            {loading
+              ? "Loading assets..."
+              : generatedOnly
+              ? "No AI assets yet. Generate your first one from Generator."
+              : "No clips yet. Upload in Orbito or generate in Labs to populate this library."}
           </section>
         ) : null}
       </main>
