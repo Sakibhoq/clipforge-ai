@@ -48,7 +48,7 @@ function Logo() {
           className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{
             background: isLabsMarketing
-              ? "radial-gradient(60px 60px at 50% 50%, rgba(255,183,3,0.34), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(251,86,7,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(58,134,255,0.22), transparent 70%)"
+              ? "radial-gradient(60px 60px at 50% 50%, rgba(255,183,3,0.30), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(58,134,255,0.28), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(251,86,7,0.18), transparent 70%)"
               : "radial-gradient(60px 60px at 50% 50%, rgba(167,139,250,0.35), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(125,211,252,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(45,212,191,0.22), transparent 70%)",
             filter: "blur(10px)",
           }}
@@ -72,7 +72,7 @@ function Logo() {
           style={
             isLabsMarketing
               ? {
-                  backgroundImage: "linear-gradient(90deg,#ffb703 0%,#fb5607 48%,#7aa2ff 100%)",
+                  backgroundImage: "linear-gradient(90deg,#ffb703 0%,#7aa2ff 52%,#fb5607 100%)",
                   WebkitBackgroundClip: "text",
                   backgroundClip: "text",
                   color: "transparent",
@@ -89,7 +89,7 @@ function Logo() {
           className="pointer-events-none absolute inset-0 opacity-[0.55] blur-[10px] transition-opacity duration-300 group-hover:opacity-[0.85]"
           style={{
             background: isLabsMarketing
-              ? "linear-gradient(90deg, rgba(255,183,3,0.62), rgba(251,86,7,0.56), rgba(122,162,255,0.45))"
+              ? "linear-gradient(90deg, rgba(255,183,3,0.48), rgba(122,162,255,0.54), rgba(251,86,7,0.34))"
               : "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
           }}
         />

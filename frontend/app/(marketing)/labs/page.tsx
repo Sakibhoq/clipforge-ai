@@ -68,18 +68,20 @@ function LabsAura() {
           color: transparent;
         }
         .labs-page .labs-card {
-          border-color: rgba(251, 86, 7, 0.5) !important;
+          border-color: rgba(122, 162, 255, 0.38) !important;
           box-shadow:
-            0 0 0 1px rgba(255, 183, 3, 0.18),
+            0 0 0 1px rgba(255, 183, 3, 0.14),
             0 14px 36px rgba(0, 0, 0, 0.52),
-            0 0 30px rgba(251, 86, 7, 0.2);
+            0 0 26px rgba(58, 134, 255, 0.20),
+            0 0 18px rgba(251, 86, 7, 0.12);
         }
         .labs-page .labs-card-strong {
-          border-color: rgba(251, 86, 7, 0.62) !important;
+          border-color: rgba(255, 183, 3, 0.42) !important;
           box-shadow:
-            0 0 0 1px rgba(255, 183, 3, 0.24),
+            0 0 0 1px rgba(255, 183, 3, 0.20),
             0 20px 48px rgba(0, 0, 0, 0.56),
-            0 0 42px rgba(251, 86, 7, 0.28);
+            0 0 36px rgba(58, 134, 255, 0.22),
+            0 0 24px rgba(251, 86, 7, 0.14);
         }
         @media (prefers-reduced-motion: reduce) {
           .labs-anim {
@@ -94,14 +96,14 @@ function LabsAura() {
           className="absolute inset-0 opacity-[0.78]"
           style={{
             background:
-              "radial-gradient(1200px 720px at 18% 12%, rgba(255,183,3,0.28), transparent 64%), radial-gradient(1200px 740px at 82% 14%, rgba(251,86,7,0.34), transparent 66%), radial-gradient(980px 620px at 54% 84%, rgba(251,86,7,0.24), transparent 68%), radial-gradient(820px 500px at 62% 42%, rgba(58,134,255,0.12), transparent 70%)",
+              "radial-gradient(1200px 720px at 18% 12%, rgba(255,183,3,0.22), transparent 64%), radial-gradient(1200px 740px at 82% 14%, rgba(58,134,255,0.26), transparent 66%), radial-gradient(980px 620px at 54% 84%, rgba(251,86,7,0.16), transparent 68%), radial-gradient(900px 540px at 30% 48%, rgba(122,162,255,0.18), transparent 70%)",
           }}
         />
         <div
           className="labs-anim absolute -inset-[36%] blur-3xl"
           style={{
             background:
-              "radial-gradient(900px 520px at 16% 14%, rgba(255,183,3,0.5), transparent 66%), radial-gradient(920px 560px at 84% 16%, rgba(251,86,7,0.45), transparent 68%), radial-gradient(840px 560px at 56% 88%, rgba(122,162,255,0.2), transparent 70%)",
+              "radial-gradient(900px 520px at 16% 14%, rgba(255,183,3,0.34), transparent 66%), radial-gradient(920px 560px at 84% 16%, rgba(58,134,255,0.30), transparent 68%), radial-gradient(840px 560px at 56% 88%, rgba(251,86,7,0.18), transparent 70%)",
             mixBlendMode: "screen",
             animation: "labsGlowFloat 16s ease-in-out infinite",
           }}
@@ -110,7 +112,7 @@ function LabsAura() {
           className="labs-anim absolute left-[-28%] top-[8%] h-[420px] w-[760px] blur-3xl"
           style={{
             background:
-              "radial-gradient(closest-side, rgba(255,183,3,0.38), rgba(251,86,7,0.3), rgba(122,162,255,0.16), transparent 72%)",
+              "radial-gradient(closest-side, rgba(255,183,3,0.26), rgba(58,134,255,0.24), rgba(251,86,7,0.14), transparent 72%)",
             mixBlendMode: "screen",
             animation: "labsSweep 14s ease-in-out infinite",
           }}
@@ -119,7 +121,7 @@ function LabsAura() {
           className="absolute inset-0 opacity-[0.14]"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(to bottom, rgba(251,86,7,0.20) 0 1px, transparent 1px 34px), repeating-linear-gradient(to right, rgba(255,183,3,0.10) 0 1px, transparent 1px 92px)",
+              "repeating-linear-gradient(to bottom, rgba(58,134,255,0.14) 0 1px, transparent 1px 34px), repeating-linear-gradient(to right, rgba(255,183,3,0.08) 0 1px, transparent 1px 92px)",
           }}
         />
       </div>
@@ -202,7 +204,7 @@ export default function LabsMarketingPage() {
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
           <div data-reveal className="reveal pt-1">
-            <div className="pill border-orange-200/35 bg-[linear-gradient(90deg,rgba(255,183,3,0.14),rgba(251,86,7,0.14),rgba(122,162,255,0.08))]">
+            <div className="pill border-[#8fb1ff66] bg-[linear-gradient(90deg,rgba(255,183,3,0.12),rgba(58,134,255,0.14),rgba(251,86,7,0.08))]">
               <span className="pill-dot" />
               <span className="text-white/90">AI video lab</span>
               <span className="text-white/62">built for creators</span>
@@ -251,7 +253,7 @@ export default function LabsMarketingPage() {
             className="reveal surface labs-card labs-card-strong relative overflow-hidden p-5 sm:p-6"
           >
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-              <div className="absolute -inset-8 opacity-85 blur-2xl bg-[radial-gradient(520px_260px_at_14%_18%,rgba(255,183,3,0.3),transparent_72%),radial-gradient(560px_260px_at_86%_18%,rgba(251,86,7,0.3),transparent_74%),radial-gradient(560px_280px_at_52%_92%,rgba(96,165,250,0.16),transparent_76%)]" />
+              <div className="absolute -inset-8 opacity-85 blur-2xl bg-[radial-gradient(520px_260px_at_14%_18%,rgba(255,183,3,0.24),transparent_72%),radial-gradient(560px_260px_at_86%_18%,rgba(58,134,255,0.24),transparent_74%),radial-gradient(560px_280px_at_52%_92%,rgba(251,86,7,0.14),transparent_76%)]" />
             </div>
 
             <div className="relative">
@@ -320,9 +322,9 @@ export default function LabsMarketingPage() {
               {clips.map((clip) => (
                 <article
                   key={clip.title}
-                  className="group labs-card mt-5 overflow-hidden rounded-3xl border bg-[linear-gradient(150deg,rgba(255,183,3,0.08),rgba(251,86,7,0.08),rgba(122,162,255,0.06))] transition hover:-translate-y-0.5"
+                  className="group labs-card mt-5 overflow-hidden rounded-3xl border bg-[linear-gradient(150deg,rgba(255,183,3,0.06),rgba(58,134,255,0.08),rgba(251,86,7,0.05))] transition hover:-translate-y-0.5"
                 >
-                  <div className="relative h-[180px] overflow-hidden border-b border-[#fb560788] bg-black/40">
+                  <div className="relative h-[180px] overflow-hidden border-b border-[#8fb1ff80] bg-black/40">
                     <video
                       src={clip.src}
                       autoPlay
@@ -349,15 +351,15 @@ export default function LabsMarketingPage() {
             </div>
 
             <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.10),rgba(251,86,7,0.08),rgba(122,162,255,0.08))] p-4">
+              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.08),rgba(58,134,255,0.10),rgba(251,86,7,0.06))] p-4">
                 <div className="text-xs text-white/58">Smart script help</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">Labs writes your plan</div>
               </div>
-              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.10),rgba(251,86,7,0.08),rgba(122,162,255,0.08))] p-4">
+              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.08),rgba(58,134,255,0.10),rgba(251,86,7,0.06))] p-4">
                 <div className="text-xs text-white/58">Voice and captions</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">Auto speech and text</div>
               </div>
-              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.10),rgba(251,86,7,0.08),rgba(122,162,255,0.08))] p-4">
+              <div className="labs-card rounded-2xl border bg-[linear-gradient(145deg,rgba(255,183,3,0.08),rgba(58,134,255,0.10),rgba(251,86,7,0.06))] p-4">
                 <div className="text-xs text-white/58">Post everywhere</div>
                 <div className="mt-1 text-sm font-semibold text-white/90">Send to your channels</div>
               </div>
