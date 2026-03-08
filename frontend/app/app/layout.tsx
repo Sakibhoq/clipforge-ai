@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
+import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
   name?: string | null;
@@ -161,6 +162,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const active = isActive("/app/labs");
     const labsHref = "https://app.orbito.cc/app/labs/app/generate";
     const labsLogoV = "labs-3";
+    const locked = !!me && !hasLabsFeatureAccess(me.plan);
+    const deniedTitle = "You don't have permission to open AI Lab. Upgrade to a Labs plan.";
+
+    if (locked) {
+      return (
+        <button
+          type="button"
+          onClick={(e) => e.preventDefault()}
+          title={deniedTitle}
+          aria-label={deniedTitle}
+          aria-disabled="true"
+          className={cx(
+            "btn-clipforge inline-flex items-center gap-2 whitespace-nowrap opacity-70 cursor-not-allowed",
+            mobile ? "w-full justify-center px-3 py-2.5 text-sm" : "px-3 py-1.5 text-xs",
+            active && "ring-1 ring-amber-300/45"
+          )}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
+            alt="AI Lab logo"
+            width={18}
+            height={18}
+          />
+          <span>AI Lab 🔒</span>
+        </button>
+      );
+    }
 
     return (
       <Link
