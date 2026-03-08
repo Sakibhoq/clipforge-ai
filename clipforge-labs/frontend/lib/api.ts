@@ -49,6 +49,14 @@ function labsProxyApiBase(): string {
   return basePath ? `${basePath}/_api` : "/_api";
 }
 
+function labsLegacyProxyApiBase(): string {
+  const envBasePath = normalizeBasePath(
+    process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
+  );
+  const basePath = envBasePath || inferLabsBasePathFromLocation();
+  return basePath ? `${basePath}/api` : "/api";
+}
+
 function shouldForceLabsProxyApi(): boolean {
   const raw = (process.env.NEXT_PUBLIC_LABS_FORCE_PROXY_API || "1").trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
@@ -343,6 +351,7 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
   ) {
     const candidateBases = [
       labsProxyApiBase(),
+      labsLegacyProxyApiBase(),
       "/_api",
       "/api",
       guessPublicApiOriginFromPage() || "https://api.orbito.cc",
