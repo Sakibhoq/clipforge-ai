@@ -4,9 +4,17 @@
 }
 
 orbito.cc, www.orbito.cc, app.orbito.cc {
+	handle_path /app/labs* {
+		reverse_proxy 127.0.0.1:3100
+	}
+
 	reverse_proxy 127.0.0.1:3000
 }
 
 api.orbito.cc {
+	handle_path /labs* {
+		reverse_proxy 127.0.0.1:8100
+	}
+
 	reverse_proxy 127.0.0.1:8000
 }

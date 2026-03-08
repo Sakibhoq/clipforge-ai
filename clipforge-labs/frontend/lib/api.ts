@@ -24,6 +24,31 @@ function isBrowser() {
   return typeof window !== "undefined";
 }
 
+function normalizeBasePath(rawBase: string): string {
+  const trimmed = (rawBase || "").trim();
+  if (!trimmed) return "";
+  return `/${trimmed.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+}
+
+function labsProxyApiBase(): string {
+  const basePath = normalizeBasePath(
+    process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
+  );
+  return basePath ? `${basePath}/api` : "/api";
+}
+
+function shouldForceLabsProxyApi(): boolean {
+  const raw = (process.env.NEXT_PUBLIC_LABS_FORCE_PROXY_API || "1").trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
+  if (!isBrowser()) return true;
+  const basePath = normalizeBasePath(
+    process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
+  );
+  if (!basePath) return true;
+  const pathname = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+  return pathname === basePath || pathname.startsWith(`${basePath}/`);
+}
+
 function guessCodespacesBackendOrigin(): string | null {
   if (!isBrowser()) return null;
 
@@ -142,6 +167,10 @@ function normalizeEnvBase(envBase: string): string {
 }
 
 export function getApiBase(): string {
+  if (shouldForceLabsProxyApi()) {
+    return labsProxyApiBase();
+  }
+
   // Prefer explicit env override (works for EC2 + local + Codespaces)
   const envBase =
     process.env.NEXT_PUBLIC_API_BASE ||
@@ -177,6 +206,10 @@ export function getApiBase(): string {
  * Avoids same-origin frontend proxy limits (often causes HTTP 413).
  */
 export function getDirectApiBase(): string {
+  if (shouldForceLabsProxyApi()) {
+    return labsProxyApiBase();
+  }
+
   const envBase =
     process.env.NEXT_PUBLIC_API_BASE ||
     process.env.NEXT_PUBLIC_API_URL ||

@@ -183,13 +183,13 @@ services:
     build:
       context: ./clipforge-labs/frontend
       args:
-        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
         NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
         NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
     ports:
       - "3100:3000"
     environment:
-      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-http://localhost:8100}"
+      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
       NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
       NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
       INTERNAL_API_ORIGIN: "http://labs-backend:8000"
