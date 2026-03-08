@@ -21,7 +21,6 @@ function buildTargetUrl(path: string[]): string {
 function copyResponseHeaders(src: Headers): Headers {
   const out = new Headers();
   src.forEach((value, key) => {
-    // Let platform compute transfer/content length.
     if (key.toLowerCase() === "content-length") return;
     out.append(key, value);
   });
@@ -78,3 +77,4 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ path: st
 export async function OPTIONS(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   return proxy(req, await ctx.params);
 }
+

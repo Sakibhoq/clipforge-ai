@@ -645,8 +645,26 @@ def get_current_user(
         normalized = _normalize_legacy_synthetic_email(email)
         if normalized != email:
             user = db.query(User).filter(User.email == normalized).first()
+            if user:
+                email = normalized
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        # Auto-provision labs mirror user for valid Orbito session tokens.
+        # This prevents "Signed out" on Labs pages when the user exists in Orbito
+        # but not yet in labs DB.
+        entitlements = _fetch_orbito_entitlements(email=email, strict=False)
+        plan = str((entitlements or ("free", 0))[0] or "free")
+        credits = int((entitlements or ("free", 0))[1] or 0)
+        user = User(
+            name=None,
+            email=email,
+            hashed_password=pwd_context.hash(secrets.token_urlsafe(24)),
+            plan=plan,
+            credits=max(0, credits),
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
     # Back-compat: migrate legacy synthetic OAuth emails off `.local` so /auth/me
     # (EmailStr response) and billing can work reliably.

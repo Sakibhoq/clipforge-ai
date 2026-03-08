@@ -79,7 +79,7 @@ services:
     build:
       context: ./clipforge-labs/frontend
       args:
-        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
+        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/lapi}"
         NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
         NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
         NEXT_PUBLIC_LABS_FORCE_PROXY_API: "1"
@@ -91,7 +91,7 @@ services:
       - .env.prod
     environment:
       NODE_ENV: "production"
-      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
+      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/lapi}"
       NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
       NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
       NEXT_PUBLIC_LABS_FORCE_PROXY_API: "1"

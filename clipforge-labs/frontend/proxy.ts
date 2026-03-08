@@ -159,6 +159,7 @@ export function proxy(req: NextRequest) {
     routePath.startsWith("/favicon") ||
     routePath.startsWith("/robots.txt") ||
     routePath.startsWith("/sitemap") ||
+    routePath.startsWith("/lapi") ||
     routePath.startsWith("/_api") ||
     routePath.startsWith("/api")
   ) {
