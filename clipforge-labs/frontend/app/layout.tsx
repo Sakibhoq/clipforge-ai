@@ -5,7 +5,10 @@ import { getSiteUrl } from "@/lib/seo";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
 // bump when you want browsers to re-fetch the favicon (they can be aggressively cached)
-const ICON_V = "cflabs-4";
+const ICON_V = "cflabs-9";
+const RAW_BASE_PATH = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "").trim();
+const BASE_PATH = RAW_BASE_PATH ? `/${RAW_BASE_PATH.replace(/^\/+/, "").replace(/\/+$/, "")}` : "";
+const ICON_URL = `${BASE_PATH}/icon?v=${ICON_V}`;
 
 const fontSans = Space_Grotesk({
   subsets: ["latin"],
@@ -32,8 +35,9 @@ export const metadata: Metadata = {
   // App Router: since you have app/icon.tsx, you don't need to manually point to /icon here.
   // Keeping it explicit is fine, but we keep it minimal and correct.
   icons: {
-    icon: [{ url: `/icon?v=${ICON_V}`, type: "image/svg+xml" }],
-    shortcut: [{ url: `/icon?v=${ICON_V}`, type: "image/svg+xml" }],
+    icon: [{ url: ICON_URL, type: "image/svg+xml" }],
+    shortcut: [{ url: ICON_URL, type: "image/svg+xml" }],
+    apple: [{ url: ICON_URL, type: "image/svg+xml" }],
   },
 };
 
