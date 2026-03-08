@@ -73,15 +73,13 @@ def _is_generated_upload(upload: Upload | None) -> bool:
 
 
 def _is_labs_generated_clip(clip: Clip | None, job_kind: str | None, source_type: str | None) -> bool:
-    _ = job_kind
-    if clip and _is_generated_ai_clip_key(getattr(clip, "storage_key", None)):
-        return True
+    kind = str(job_kind or "").strip().lower()
+    is_labs_job_kind = kind in {"generate", "generate_image", "generate_voiceover", "generate_post"}
+    has_generated_key = bool(clip and _is_generated_ai_clip_key(getattr(clip, "storage_key", None)))
+
     src = str(source_type or "").strip().lower()
-    if src in {"generated", "ai_generated", "aigc", "labs_generated"}:
-        key = str(getattr(clip, "storage_key", "") or "").strip().lower()
-        if "/generated/" in key or key.startswith("generated/"):
-            return True
-    return False
+    has_generated_source = src in {"generated", "ai_generated", "aigc", "labs_generated"}
+    return has_generated_key and (is_labs_job_kind or has_generated_source)
 
 
 def _sanitize_download_name(name: str, default_ext: str = ".mp4") -> str:

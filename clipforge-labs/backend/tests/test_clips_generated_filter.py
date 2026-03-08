@@ -164,3 +164,28 @@ def test_generated_only_excludes_generated_source_without_labs_asset_signature(
     )
 
     assert rows == []
+
+
+def test_generated_only_excludes_generated_key_for_non_labs_job(
+    db, monkeypatch: pytest.MonkeyPatch
+):
+    user = _mk_user(db)
+    _mk_clip(
+        db,
+        user_id=user.id,
+        source_type="upload",
+        job_kind="clip",
+        storage_key=f"clips/generated/{uuid.uuid4().hex}.mp4",
+    )
+
+    monkeypatch.setattr(clips_router, "get_storage", lambda: _MockStorage())
+    rows = clips_router.list_clips(
+        upload_id=None,
+        grouped=False,
+        generated_only=True,
+        db=db,
+        current_user=user,
+        request=None,
+    )
+
+    assert rows == []

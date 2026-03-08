@@ -30,10 +30,20 @@ function normalizeBasePath(rawBase: string): string {
   return `/${trimmed.replace(/^\/+/, "").replace(/\/+$/, "")}`;
 }
 
+function inferLabsBasePathFromLocation(): string {
+  if (!isBrowser()) return "";
+  const pathname = String(window.location.pathname || "/");
+  const marker = "/app/labs";
+  const idx = pathname.toLowerCase().indexOf(marker);
+  if (idx < 0) return "";
+  return pathname.slice(idx, idx + marker.length) || marker;
+}
+
 function labsProxyApiBase(): string {
-  const basePath = normalizeBasePath(
+  const envBasePath = normalizeBasePath(
     process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
   );
+  const basePath = envBasePath || inferLabsBasePathFromLocation();
   return basePath ? `${basePath}/api` : "/api";
 }
 
@@ -41,9 +51,10 @@ function shouldForceLabsProxyApi(): boolean {
   const raw = (process.env.NEXT_PUBLIC_LABS_FORCE_PROXY_API || "1").trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
   if (!isBrowser()) return true;
-  const basePath = normalizeBasePath(
+  const envBasePath = normalizeBasePath(
     process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
   );
+  const basePath = envBasePath || inferLabsBasePathFromLocation();
   if (!basePath) return true;
   const pathname = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
   return pathname === basePath || pathname.startsWith(`${basePath}/`);

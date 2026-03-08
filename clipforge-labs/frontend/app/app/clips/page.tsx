@@ -285,7 +285,7 @@ export default function ClipsPage() {
   const pathname = usePathname();
   const router = useRouter();
   const [sourceMode, setSourceMode] = useState<ClipSourceMode>(() => {
-    if (typeof window === "undefined") return "orbito";
+    if (typeof window === "undefined") return "ai";
     const params = new URLSearchParams(window.location.search);
     const source = String(params.get("source") || "").trim().toLowerCase();
     if (source === "ai") return "ai";
@@ -293,7 +293,7 @@ export default function ClipsPage() {
 
     // Backward compatibility for old shared links using generated=...
     const raw = String(params.get("generated") || "").trim().toLowerCase();
-    if (!raw) return "orbito";
+    if (!raw) return "ai";
     if (raw === "0" || raw === "false" || raw === "no" || raw === "off" || raw === "all") return "orbito";
     return "ai";
   });
