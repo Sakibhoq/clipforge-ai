@@ -122,12 +122,12 @@ export function middleware(req: NextRequest) {
     return redirectToOrbitoApp(suffix);
   }
 
-  // Marketing Labs entry must always resolve to landing section (never a standalone /labs page)
-  if (pathname === "/labs" || pathname.startsWith("/labs/")) {
+  // Keep nested Labs marketing paths normalized to canonical /labs.
+  if (pathname.startsWith("/labs/")) {
     const target = req.nextUrl.clone();
-    target.pathname = "/";
+    target.pathname = "/labs";
     target.search = "";
-    target.hash = "standard";
+    target.hash = "";
     return applySecurityHeaders(NextResponse.redirect(target, 308), {
       production: isProduction,
       https: isHttps,

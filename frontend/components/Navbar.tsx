@@ -416,8 +416,8 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : "/#labs-showcase";
-  const labsNavTitle = inApp ? "Open Orbito Labs console" : "Preview Orbito Labs";
+  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : "/labs";
+  const labsNavTitle = inApp ? "Open Orbito Labs console" : "Open Orbito Labs";
 
   // Always card/glass
   const shellClass =
