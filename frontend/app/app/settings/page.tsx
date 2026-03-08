@@ -19,6 +19,24 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+function displayPlanLabel(rawPlan: string | null | undefined): string {
+  const token = String(rawPlan || "free")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (!token || token === "free" || token === "free_trial" || token === "trial" || token === "trialing") {
+    return "free";
+  }
+  if (token === "labs_spark" || token === "labs_starter") return "labs starter";
+  if (token === "labs_velocity" || token === "labs_creator") return "labs creator";
+  if (token.startsWith("starter")) return "starter";
+  if (token.startsWith("creator") || token.startsWith("pro")) return "creator";
+  if (token.startsWith("studio")) return "studio";
+  return token.replace(/_/g, " ");
+}
+
 function Icon({
   name,
   className = "",
@@ -383,7 +401,7 @@ export default function SettingsPage() {
 
   const name = me?.name ?? "—";
   const email = me?.email ?? "—";
-  const plan = me?.plan ?? "—";
+  const plan = displayPlanLabel(me?.plan ?? "—");
   const credits = typeof me?.credits === "number" ? String(me.credits) : "—";
   const status = meLoading ? "Loading…" : me ? "Active" : "—";
   const subscriptionCanceled =

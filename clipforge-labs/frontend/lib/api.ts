@@ -44,7 +44,9 @@ function labsProxyApiBase(): string {
     process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_PATH || "",
   );
   const basePath = envBasePath || inferLabsBasePathFromLocation();
-  return basePath ? `${basePath}/api` : "/api";
+  // Use a dedicated labs proxy prefix so reverse-proxy /api rules for Orbito
+  // cannot accidentally intercept Labs API traffic.
+  return basePath ? `${basePath}/_api` : "/_api";
 }
 
 function shouldForceLabsProxyApi(): boolean {
@@ -341,6 +343,7 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
   ) {
     const candidateBases = [
       labsProxyApiBase(),
+      "/_api",
       "/api",
       guessPublicApiOriginFromPage() || "https://api.orbito.cc",
     ];

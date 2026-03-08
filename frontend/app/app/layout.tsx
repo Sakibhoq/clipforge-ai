@@ -44,6 +44,24 @@ function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function displayPlanLabel(rawPlan: string | null | undefined): string {
+  const token = String(rawPlan || "free")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  if (!token || token === "free" || token === "free_trial" || token === "trial" || token === "trialing") {
+    return "free";
+  }
+  if (token === "labs_spark" || token === "labs_starter") return "labs starter";
+  if (token === "labs_velocity" || token === "labs_creator") return "labs creator";
+  if (token.startsWith("starter")) return "starter";
+  if (token.startsWith("creator") || token.startsWith("pro")) return "creator";
+  if (token.startsWith("studio")) return "studio";
+  return token.replace(/_/g, " ");
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathnameRaw = usePathname();
@@ -213,7 +231,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const planLabel = useMemo(() => me?.plan ?? "free", [me]);
+  const planLabel = useMemo(() => displayPlanLabel(me?.plan), [me?.plan]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)

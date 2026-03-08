@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 import jwt
 import requests
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 JOB_KIND_VIDEO = "generate"
@@ -147,11 +148,13 @@ def _orbito_adjust_credits(*, email: str, delta: int, reason: str, reference: st
 
 
 def _db_url() -> str:
-    v = _env("DATABASE_URL", "")
+    # Prefer labs-specific URL if provided so the labs worker never drifts to
+    # Orbito's primary DB by accident.
+    v = _env("LABS_DATABASE_URL", "") or _env("DATABASE_URL", "")
     if v:
         return v
     # Match backend default path when running with the compose /data volume.
-    return "sqlite:////data/app.db"
+    return "sqlite:////data/labs/app.db"
 
 
 def _connect_engine():
@@ -159,6 +162,9 @@ def _connect_engine():
     connect_args = {}
     if url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
+        db_path = url.replace("sqlite:///", "", 1)
+        if db_path and db_path != ":memory:":
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
     return create_engine(url, connect_args=connect_args, pool_pre_ping=True)
 
 
@@ -172,7 +178,7 @@ def _uses_object_storage_backend(backend: str | None) -> bool:
 
 def _local_storage_path() -> str:
     # Used when STORAGE_BACKEND=local. In docker compose we mount ./data -> /data.
-    return os.path.abspath(_env("LOCAL_STORAGE_PATH", "/data/storage"))
+    return os.path.abspath(_env("LOCAL_STORAGE_PATH", "/data/labs/storage"))
 
 
 def _s3_client():
@@ -3202,75 +3208,79 @@ def main() -> None:
     engine = _connect_engine()
     Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
-    print("[worker] orbito-labs generation worker starting")
+    print(f"[worker] orbito-labs generation worker starting (db={_db_url()})")
 
     while True:
-        with Session() as db:
-            job = _next_generate_job(db)
-            if not job:
-                db.commit()
-                time.sleep(poll)
-                continue
+        try:
+            with Session() as db:
+                job = _next_generate_job(db)
+                if not job:
+                    db.commit()
+                    time.sleep(poll)
+                    continue
 
-            job_id = int(job["id"])
-            upload_id = int(job["upload_id"])
-            kind = str(job.get("kind") or JOB_KIND_VIDEO)
+                job_id = int(job["id"])
+                upload_id = int(job["upload_id"])
+                kind = str(job.get("kind") or JOB_KIND_VIDEO)
 
-            try:
-                _mark_job_status(db, job_id, "running", None)
-                db.commit()
+                try:
+                    _mark_job_status(db, job_id, "running", None)
+                    db.commit()
 
-                result = _process_job(job)
-                key = str(result.get("storage_key") or "")
-                content_type = str(result.get("content_type") or "application/octet-stream")
-                duration_seconds = float(result.get("duration_seconds") or 0.0)
-                title = result.get("title")
-                extra_clips = result.get("extra_clips") if isinstance(result.get("extra_clips"), list) else []
-                settings_patch = result.get("settings_patch") if isinstance(result.get("settings_patch"), dict) else None
+                    result = _process_job(job)
+                    key = str(result.get("storage_key") or "")
+                    content_type = str(result.get("content_type") or "application/octet-stream")
+                    duration_seconds = float(result.get("duration_seconds") or 0.0)
+                    title = result.get("title")
+                    extra_clips = result.get("extra_clips") if isinstance(result.get("extra_clips"), list) else []
+                    settings_patch = result.get("settings_patch") if isinstance(result.get("settings_patch"), dict) else None
 
-                if not key:
-                    raise RuntimeError("Generation returned no storage key")
+                    if not key:
+                        raise RuntimeError("Generation returned no storage key")
 
-                _insert_clip(
-                    db,
-                    upload_id=upload_id,
-                    job_id=job_id,
-                    storage_key=key,
-                    duration_seconds=duration_seconds,
-                    title=str(title) if isinstance(title, str) else None,
-                )
-                for extra in extra_clips:
-                    if not isinstance(extra, dict):
-                        continue
-                    extra_key = str(extra.get("storage_key") or "").strip()
-                    if not extra_key:
-                        continue
                     _insert_clip(
                         db,
                         upload_id=upload_id,
                         job_id=job_id,
-                        storage_key=extra_key,
-                        duration_seconds=float(extra.get("duration_seconds") or 0.0),
-                        start_time=float(extra.get("start_time") or 0.0),
-                        title=str(extra.get("title") or "").strip() or None,
-                        hook=str(extra.get("hook") or "").strip() or None,
+                        storage_key=key,
+                        duration_seconds=duration_seconds,
+                        title=str(title) if isinstance(title, str) else None,
                     )
-                if settings_patch:
-                    _merge_job_settings(db, job_id=job_id, patch=settings_patch)
-                _mark_job_status(db, job_id, "done", None)
-                db.commit()
-                print(f"[worker] generated asset kind={kind} job_id={job_id} key={key} content_type={content_type}")
-            except Exception as exc:
-                refunded = 0
-                try:
-                    refunded = _refund_reserved_credits(db, job_id)
-                    _mark_job_status(db, job_id, "failed", str(exc)[:500])
+                    for extra in extra_clips:
+                        if not isinstance(extra, dict):
+                            continue
+                        extra_key = str(extra.get("storage_key") or "").strip()
+                        if not extra_key:
+                            continue
+                        _insert_clip(
+                            db,
+                            upload_id=upload_id,
+                            job_id=job_id,
+                            storage_key=extra_key,
+                            duration_seconds=float(extra.get("duration_seconds") or 0.0),
+                            start_time=float(extra.get("start_time") or 0.0),
+                            title=str(extra.get("title") or "").strip() or None,
+                            hook=str(extra.get("hook") or "").strip() or None,
+                        )
+                    if settings_patch:
+                        _merge_job_settings(db, job_id=job_id, patch=settings_patch)
+                    _mark_job_status(db, job_id, "done", None)
                     db.commit()
-                except Exception:
-                    db.rollback()
-                if refunded:
-                    print(f"[worker] refunded {refunded} credits for failed job_id={job_id}")
-                print(f"[worker] job failed kind={kind} job_id={job_id} err={type(exc).__name__}: {exc}")
+                    print(f"[worker] generated asset kind={kind} job_id={job_id} key={key} content_type={content_type}")
+                except Exception as exc:
+                    refunded = 0
+                    try:
+                        refunded = _refund_reserved_credits(db, job_id)
+                        _mark_job_status(db, job_id, "failed", str(exc)[:500])
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+                    if refunded:
+                        print(f"[worker] refunded {refunded} credits for failed job_id={job_id}")
+                    print(f"[worker] job failed kind={kind} job_id={job_id} err={type(exc).__name__}: {exc}")
+        except SQLAlchemyError as exc:
+            print(f"[worker] database unavailable, retrying in {poll}s: {type(exc).__name__}: {exc}")
+            time.sleep(poll)
 
 
 if __name__ == "__main__":

@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   basePath: normalizedBasePath || undefined,
   async rewrites() {
     return [
+      // Dedicated Labs proxy path to avoid collisions with global /api routing.
+      {
+        source: "/_api/:path*",
+        destination: `${internalApiOrigin}/:path*`,
+      },
       // Proxy browser calls like /api/auth/login, /api/auth/me, /api/clips, etc.
       // This runs inside the frontend container, so "backend:8000" is reachable.
       {

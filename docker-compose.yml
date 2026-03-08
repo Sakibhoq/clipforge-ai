@@ -189,7 +189,7 @@ services:
     build:
       context: ./clipforge-labs/frontend
       args:
-        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
+        NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
         NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
         NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
         NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
@@ -197,7 +197,7 @@ services:
     ports:
       - "3100:3000"
     environment:
-      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
+      NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
       NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
       NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
       NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
@@ -222,6 +222,7 @@ services:
       APP_ENV: "${APP_ENV:-development}"
       SECRET_KEY: "${SECRET_KEY:-}"
       DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
+      AUTO_CREATE_DB: "${LABS_AUTO_CREATE_DB:-1}"
       FRONTEND_ORIGIN: "${LABS_FRONTEND_ORIGIN:-http://localhost:3100}"
       FRONTEND_BASE_URL: "${LABS_FRONTEND_BASE_URL:-http://localhost:3100/app/labs}"
       PUBLIC_API_BASE: "${LABS_PUBLIC_API_BASE:-http://localhost:8100}"
@@ -287,6 +288,7 @@ services:
     environment:
       PYTHONFAULTHANDLER: "1"
       SECRET_KEY: "${SECRET_KEY:-}"
+      LABS_DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
       DATABASE_URL: "${LABS_DATABASE_URL:-sqlite:////data/labs/app.db}"
       STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
       LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
