@@ -1379,6 +1379,10 @@ function ClipsWorkspace() {
       setActionError("Editor is available on Starter and above.");
       return;
     }
+    // Ensure only one drawer is visible; prevents the settings/schedule card
+    // from rendering behind the editor shell.
+    setSettingsClipId(null);
+    setScheduleClipId(null);
     setCropClip(clip);
     setCropRect(DEFAULT_CROP_RECT);
     const d = Math.max(0.5, safeNum(clip.duration, 0));
