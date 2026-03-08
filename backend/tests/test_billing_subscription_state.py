@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from routers.billing import _subscription_status_payload
+from routers.billing import _subscription_item_id, _subscription_status_payload
 
 
 def test_subscription_status_payload_no_active_subscriptions():
@@ -30,3 +30,18 @@ def test_subscription_status_payload_cancel_state_when_all_canceling():
     assert status == "cancel_at_period_end"
     assert cancel_at_period_end is True
     assert subscription_id == "sub_a"
+
+
+def test_subscription_item_id_reads_namespace_shape():
+    subscription = SimpleNamespace(items=SimpleNamespace(data=[SimpleNamespace(id="si_123")]))
+    assert _subscription_item_id(subscription) == "si_123"
+
+
+def test_subscription_item_id_reads_dict_shape():
+    subscription = {"items": {"data": [{"id": "si_456"}]}}
+    assert _subscription_item_id(subscription) == "si_456"
+
+
+def test_subscription_item_id_returns_none_when_missing():
+    subscription = SimpleNamespace(items=SimpleNamespace(data=[SimpleNamespace(id="")]))
+    assert _subscription_item_id(subscription) is None

@@ -134,6 +134,25 @@ def _active_subscriptions_for_customer(customer_id: str) -> list:
     return rows
 
 
+def _subscription_item_id(subscription: object) -> Optional[str]:
+    items_container = getattr(subscription, "items", None)
+    items = getattr(items_container, "data", None)
+
+    if items is None and isinstance(items_container, dict):
+        items = items_container.get("data")
+    if items is None and isinstance(subscription, dict):
+        items = (subscription.get("items") or {}).get("data")
+
+    for item in items or []:
+        if isinstance(item, dict):
+            item_id = str(item.get("id", "") or "").strip()
+        else:
+            item_id = str(getattr(item, "id", "") or "").strip()
+        if item_id:
+            return item_id
+    return None
+
+
 def _subscription_status_payload(active_subs: list) -> tuple[str, bool, Optional[str]]:
     if not active_subs:
         return ("no_active_subscription", False, None)
@@ -339,32 +358,29 @@ def create_checkout_session(
         active_subs = _active_subscriptions_for_customer(customer_id)
         if active_subs:
             primary = active_subs[0]
-            sub_item = ((getattr(getattr(primary, "items", None), "data", None) or [None])[0])
-            sub_item_id = str(getattr(sub_item, "id", "") or "").strip()
-            if not sub_item_id:
-                raise HTTPException(status_code=502, detail="Billing provider returned invalid subscription item")
+            sub_item_id = _subscription_item_id(primary)
+            if sub_item_id:
+                stripe.Subscription.modify(
+                    primary.id,
+                    cancel_at_period_end=False,
+                    proration_behavior="create_prorations",
+                    items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
+                    metadata={
+                        "user_id": str(user.id),
+                        "plan": plan,
+                        "interval": interval,
+                        "pack": str(quantity),
+                    },
+                )
 
-            stripe.Subscription.modify(
-                primary.id,
-                cancel_at_period_end=False,
-                proration_behavior="create_prorations",
-                items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
-                metadata={
-                    "user_id": str(user.id),
-                    "plan": plan,
-                    "interval": interval,
-                    "pack": str(quantity),
-                },
-            )
+                for sub in active_subs[1:]:
+                    if not bool(getattr(sub, "cancel_at_period_end", False)):
+                        stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
 
-            for sub in active_subs[1:]:
-                if not bool(getattr(sub, "cancel_at_period_end", False)):
-                    stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
-
-            user.plan = plan
-            _reset_download_meter(user)
-            db.commit()
-            return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&updated=1")
+                user.plan = plan
+                _reset_download_meter(user)
+                db.commit()
+                return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&updated=1")
 
         session = stripe.checkout.Session.create(
             mode="subscription",
