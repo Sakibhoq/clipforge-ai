@@ -192,16 +192,18 @@ services:
         NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
         NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
         NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+        NEXT_PUBLIC_LABS_FORCE_PROXY_API: "1"
         NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
-        INTERNAL_API_ORIGIN: "${LABS_INTERNAL_API_ORIGIN:-http://labs-backend:8000}"
+        INTERNAL_API_ORIGIN: "http://labs-backend:8000"
     ports:
       - "3100:3000"
     environment:
       NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/_api}"
       NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
       NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+      NEXT_PUBLIC_LABS_FORCE_PROXY_API: "1"
       NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
-      INTERNAL_API_ORIGIN: "${LABS_INTERNAL_API_ORIGIN:-http://labs-backend:8000}"
+      INTERNAL_API_ORIGIN: "http://labs-backend:8000"
       NEXT_PUBLIC_ORBITO_APP_ORIGIN: "${FRONTEND_BASE_URL:-http://localhost:3000}"
     depends_on:
       labs-backend:

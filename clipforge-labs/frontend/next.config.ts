@@ -5,13 +5,30 @@ const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || process.env.NEXT_BASE_
 const normalizedBasePath = rawBasePath
   ? `/${rawBasePath.replace(/^\/+/, "").replace(/\/+$/, "")}`
   : "";
-const internalApiOrigin = (
+const configuredInternalApiOrigin = (
   process.env.INTERNAL_API_ORIGIN ||
   process.env.LABS_INTERNAL_API_ORIGIN ||
-  "http://labs-backend:8000"
-)
-  .trim()
-  .replace(/\/+$/, "");
+  ""
+).trim();
+
+function resolveInternalApiOrigin(raw: string): string {
+  const fallback = "http://labs-backend:8000";
+  const value = (raw || "").trim().replace(/\/+$/, "");
+  if (!value) return fallback;
+  try {
+    const parsed = new URL(value);
+    const host = (parsed.hostname || "").toLowerCase();
+    // In production Labs frontend should proxy only to Labs backend.
+    // If misconfigured to "backend" (Orbito API) we force the Labs backend.
+    if (host === "backend" || host === "0.0.0.0") return fallback;
+    return value;
+  } catch {
+    if (value.includes("backend:8000")) return fallback;
+    return value || fallback;
+  }
+}
+
+const internalApiOrigin = resolveInternalApiOrigin(configuredInternalApiOrigin);
 
 const nextConfig: NextConfig = {
   basePath: normalizedBasePath || undefined,
