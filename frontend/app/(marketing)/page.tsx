@@ -77,7 +77,7 @@ function HoverSheen() {
 function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
   const background =
     tone === "orbito"
-      ? "radial-gradient(520px 280px at 18% 14%, rgba(155,140,255,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(70,215,255,0.22), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(53,242,166,0.16), transparent 72%)"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(155,140,255,0.14), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(70,215,255,0.12), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(53,242,166,0.09), transparent 72%)"
       : tone === "labs"
       ? "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(251,86,7,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(58,134,255,0.16), transparent 72%)"
       : "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(70,215,255,0.16), transparent 72%)";
