@@ -287,6 +287,19 @@ function buildErrorPayload(res: Response, url: string, body: any): Record<string
   return payload;
 }
 
+function isAuthMePath(path: string): boolean {
+  const p = String(path || "").trim().toLowerCase();
+  return p === "/auth/me" || p.endsWith("/auth/me");
+}
+
+function isValidAuthMePayload(body: any): boolean {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  if (typeof (body as any).email !== "string") return false;
+  if (!("plan" in (body as any))) return false;
+  if (!("credits" in (body as any))) return false;
+  return true;
+}
+
 function isPlainObject(v: any): v is Record<string, any> {
   if (!v || typeof v !== "object") return false;
   if (v instanceof FormData) return false;
@@ -340,25 +353,33 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
   }
 
   const parsed = await readJsonSafe(res);
+  const authMe = isAuthMePath(path);
+  const invalidAuthMePayload = authMe && !isValidAuthMePayload(parsed);
 
   // Resilience fallback:
-  // If Labs generation routes return 404, retry against alternate API bases.
+  // If Labs/auth routes return proxy/edge mismatch responses, retry against
+  // alternate API bases.
   // This protects prompt/generation flows when proxy/basePath routing is stale.
   if (
-    res.status === 404 &&
+    (res.status === 404 || res.status === 502 || res.status === 503 || res.status === 504 || invalidAuthMePayload) &&
     typeof path === "string" &&
-    (path.startsWith("/labs/") || path.startsWith("/jobs/") || path === "/jobs")
+    (path.startsWith("/labs/") || path.startsWith("/jobs/") || path === "/jobs" || authMe)
   ) {
     const candidateBases = [
       labsProxyApiBase(),
+      "/app/labs/_api",
       labsLegacyProxyApiBase(),
+      "/app/labs/api",
       "/_api",
       "/api",
       guessPublicApiOriginFromPage() || "https://api.orbito.cc",
     ];
     let lastErr: any = null;
+    const seen = new Set<string>();
 
     for (const candidateBase of candidateBases) {
+      if (!candidateBase || seen.has(candidateBase)) continue;
+      seen.add(candidateBase);
       const candidateUrl =
         path.startsWith("http")
           ? path
@@ -374,10 +395,19 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
           cache: "no-store",
         });
         const retryParsed = await readJsonSafe(retryRes);
-        if (retryRes.ok) {
+        const retryInvalidAuthMePayload = authMe && !isValidAuthMePayload(retryParsed);
+        if (retryRes.ok && !retryInvalidAuthMePayload) {
           return retryParsed as T;
         }
-        lastErr = buildErrorPayload(retryRes, candidateUrl, retryParsed);
+        if (retryInvalidAuthMePayload) {
+          lastErr = {
+            status: 502,
+            url: candidateUrl,
+            detail: "Invalid auth payload from upstream",
+          };
+        } else {
+          lastErr = buildErrorPayload(retryRes, candidateUrl, retryParsed);
+        }
       } catch (retryErr: any) {
         lastErr = retryErr;
       }
@@ -388,6 +418,14 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
         throw lastErr;
       }
     }
+  }
+
+  if (invalidAuthMePayload) {
+    throw {
+      status: 502,
+      url,
+      detail: "Invalid auth payload from upstream",
+    } satisfies ApiErrorShape;
   }
 
   if (!res.ok) {
