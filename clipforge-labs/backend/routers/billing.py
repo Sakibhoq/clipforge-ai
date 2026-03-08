@@ -115,6 +115,34 @@ def _canonical_checkout_plan(plan: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+def _stripe_error_message(exc: Exception) -> str:
+    if isinstance(exc, stripe.error.StripeError):
+        msg = (getattr(exc, "user_message", None) or str(exc) or "").strip()
+        return msg or "Stripe request failed"
+    return (str(exc) or "").strip() or "Unknown billing error"
+
+
+def _active_subscriptions_for_customer(customer_id: str) -> list:
+    active_states = {"active", "trialing", "past_due", "unpaid"}
+    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
+    rows: list = []
+    for sub in getattr(subs, "data", []) or []:
+        status = str(getattr(sub, "status", "") or "").lower()
+        if status in active_states:
+            rows.append(sub)
+    return rows
+
+
+def _subscription_status_payload(active_subs: list) -> tuple[str, bool, Optional[str]]:
+    if not active_subs:
+        return ("no_active_subscription", False, None)
+    any_non_canceling = any(not bool(getattr(sub, "cancel_at_period_end", False)) for sub in active_subs)
+    primary_id = str(getattr(active_subs[0], "id", "") or "") or None
+    if any_non_canceling:
+        return ("active", False, primary_id)
+    return ("cancel_at_period_end", True, primary_id)
+
+
 def _reload_user(db: Session, current_user: User) -> User:
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
@@ -294,23 +322,58 @@ def create_checkout_session(
     success_url = f"{base}/app/billing?checkout=success"
     cancel_url = f"{base}/app/billing?checkout=cancel"
 
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        line_items=[{"price": price_id, "quantity": quantity}],
-        success_url=success_url,
-        cancel_url=cancel_url,
-        customer=customer_id,
-        payment_method_collection="always",
-        allow_promotion_codes=True,
-        metadata={
-            "user_id": str(user.id),
-            "plan": plan,
-            "interval": interval,
-            "pack": str(quantity),
-        },
-    )
+    try:
+        active_subs = _active_subscriptions_for_customer(customer_id)
+        if active_subs:
+            primary = active_subs[0]
+            sub_item = ((getattr(getattr(primary, "items", None), "data", None) or [None])[0])
+            sub_item_id = str(getattr(sub_item, "id", "") or "").strip()
+            if not sub_item_id:
+                raise HTTPException(status_code=502, detail="Billing provider returned invalid subscription item")
 
-    return CheckoutSessionResponse(url=session.url)
+            stripe.Subscription.modify(
+                primary.id,
+                cancel_at_period_end=False,
+                proration_behavior="create_prorations",
+                items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
+                metadata={
+                    "user_id": str(user.id),
+                    "plan": plan,
+                    "interval": interval,
+                    "pack": str(quantity),
+                },
+            )
+
+            for sub in active_subs[1:]:
+                if not bool(getattr(sub, "cancel_at_period_end", False)):
+                    stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
+
+            user.plan = plan
+            db.commit()
+            return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&updated=1")
+
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": quantity}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer=customer_id,
+            payment_method_collection="always",
+            allow_promotion_codes=True,
+            metadata={
+                "user_id": str(user.id),
+                "plan": plan,
+                "interval": interval,
+                "pack": str(quantity),
+            },
+        )
+        return CheckoutSessionResponse(url=session.url)
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe checkout failed: {_stripe_error_message(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to start checkout")
 
 
 @router.post("/cancel", response_model=CancelSubscriptionResponse)
@@ -326,22 +389,19 @@ def cancel_subscription(
     if not customer_id:
         raise HTTPException(status_code=400, detail="No Stripe customer found")
 
-    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
-    target = None
-    for sub in subs.data:
-        s = str(getattr(sub, "status", "") or "").lower()
-        if s in {"active", "trialing", "past_due", "unpaid"}:
-            target = sub
-            break
+    try:
+        active_subs = _active_subscriptions_for_customer(customer_id)
+        if not active_subs:
+            return CancelSubscriptionResponse(status="no_active_subscription")
 
-    if not target:
-        return CancelSubscriptionResponse(status="no_active_subscription")
-
-    if bool(getattr(target, "cancel_at_period_end", False)):
+        for sub in active_subs:
+            if not bool(getattr(sub, "cancel_at_period_end", False)):
+                stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
         return CancelSubscriptionResponse(status="cancel_at_period_end")
-
-    stripe.Subscription.modify(target.id, cancel_at_period_end=True)
-    return CancelSubscriptionResponse(status="cancel_at_period_end")
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error while canceling subscription: {_stripe_error_message(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to cancel subscription")
 
 
 @router.get("/subscription-status", response_model=SubscriptionStatusResponse)
@@ -357,18 +417,19 @@ def subscription_status(
     if not customer_id:
         return SubscriptionStatusResponse(status="no_active_subscription")
 
-    subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
-    for sub in subs.data:
-        s = str(getattr(sub, "status", "") or "").lower()
-        if s in {"active", "trialing", "past_due", "unpaid"}:
-            cancel_at_period_end = bool(getattr(sub, "cancel_at_period_end", False))
-            return SubscriptionStatusResponse(
-                status="cancel_at_period_end" if cancel_at_period_end else "active",
-                cancel_at_period_end=cancel_at_period_end,
-                subscription_id=str(getattr(sub, "id", "") or "") or None,
-            )
-
-    return SubscriptionStatusResponse(status="no_active_subscription")
+    try:
+        status, cancel_at_period_end, subscription_id = _subscription_status_payload(
+            _active_subscriptions_for_customer(customer_id)
+        )
+        return SubscriptionStatusResponse(
+            status=status,
+            cancel_at_period_end=cancel_at_period_end,
+            subscription_id=subscription_id,
+        )
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=502, detail=f"Stripe error while checking subscription: {_stripe_error_message(e)}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not reach billing provider to check subscription")
 
 
 @router.get("/history", response_model=BillingHistoryResponse)
