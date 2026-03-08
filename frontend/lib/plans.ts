@@ -54,15 +54,12 @@ export function hasLabsPlanAccess(raw: string | null | undefined): boolean {
   const plan = canonicalizePlan(raw);
   if (!plan) return false;
 
-  const explicitLabsPlans = new Set([
-    "labs_starter",
-    "labs_spark",
-    "labs_creator",
-    "labs_velocity",
-  ]);
-  if (explicitLabsPlans.has(plan)) return true;
-
-  return plan.includes("labs") || plan.includes("spark") || plan.includes("velocity");
+  return (
+    plan === "labs_starter" ||
+    plan === "labs_spark" ||
+    plan === "labs_creator" ||
+    plan === "labs_velocity"
+  );
 }
 
 function envFlagOn(raw: string | undefined): boolean {

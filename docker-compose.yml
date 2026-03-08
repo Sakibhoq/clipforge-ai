@@ -4,13 +4,13 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8000}"
-        NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
+        NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
     ports:
       - "3000:3000"
     environment:
       # IMPORTANT: browser-visible base
       NEXT_PUBLIC_API_BASE: "${NEXT_PUBLIC_API_BASE:-http://localhost:8000}"
-      NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-0}"
+      NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
     depends_on:
       backend:
         condition: service_healthy
@@ -85,7 +85,7 @@ services:
       LABS_SHARE_USE_ORBITO_CONNECTIONS: "${LABS_SHARE_USE_ORBITO_CONNECTIONS:-1}"
       LABS_BRIDGE_SECRET: "${LABS_BRIDGE_SECRET:-}"
       LABS_ENTITLEMENTS_ALLOWED_ISSUERS: "${LABS_ENTITLEMENTS_ALLOWED_ISSUERS:-}"
-      LABS_ENFORCE_PLAN_LOCK: "${LABS_ENFORCE_PLAN_LOCK:-0}"
+      LABS_ENFORCE_PLAN_LOCK: "${LABS_ENFORCE_PLAN_LOCK:-1}"
 
       # OAuth (login + social connections)
       OAUTH_GOOGLE_CLIENT_ID: "${OAUTH_GOOGLE_CLIENT_ID:-}"
@@ -192,12 +192,14 @@ services:
         NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
         NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
         NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+        NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
     ports:
       - "3100:3000"
     environment:
       NEXT_PUBLIC_API_BASE: "${LABS_NEXT_PUBLIC_API_BASE:-/app/labs/api}"
       NEXT_PUBLIC_BASE_PATH: "${LABS_NEXT_PUBLIC_BASE_PATH:-/app/labs}"
       NEXT_BASE_PATH: "${LABS_NEXT_BASE_PATH:-/app/labs}"
+      NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK: "${NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK:-1}"
       INTERNAL_API_ORIGIN: "http://labs-backend:8000"
       NEXT_PUBLIC_ORBITO_APP_ORIGIN: "${FRONTEND_BASE_URL:-http://localhost:3000}"
     depends_on:

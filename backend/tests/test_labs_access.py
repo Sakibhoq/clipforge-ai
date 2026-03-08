@@ -24,7 +24,7 @@ def _mk_user(plan: str) -> User:
         ("labs_spark", True),
         ("labs_creator", True),
         ("labs_velocity", True),
-        ("velocity_plus", True),
+        ("velocity_plus", False),
     ],
 )
 def test_has_labs_plan_access(plan: str, expected: bool):

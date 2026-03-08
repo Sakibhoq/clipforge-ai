@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
 import { BRAND } from "@/lib/brand";
+import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
   name?: string | null;
@@ -66,6 +67,13 @@ function orbitoLoginUrl(nextPath: string) {
 
 function orbitoConsoleUrl() {
   return `${orbitoOrigin()}/app`;
+}
+
+function orbitoLabsBillingUrl() {
+  const url = new URL("/app/billing", orbitoOrigin());
+  url.searchParams.set("intent", "labs");
+  url.searchParams.set("source", "labs-lock");
+  return url.toString();
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -183,6 +191,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const planLabel = useMemo(() => me?.plan ?? "free", [me]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
+  const labsPlanAccess = useMemo(() => hasLabsFeatureAccess(me?.plan), [me?.plan]);
 
   useEffect(() => {
     if (!pathname.startsWith("/app/editor")) {
@@ -196,6 +205,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       setIsEditorEmbed(false);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!me) return;
+    if (labsPlanAccess) return;
+    window.location.replace(orbitoLabsBillingUrl());
+  }, [labsPlanAccess, loading, me]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
   const logoV = "cflabs-8";

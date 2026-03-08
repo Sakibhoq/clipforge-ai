@@ -164,6 +164,35 @@ def _orbi_api_base() -> str:
     return base.rstrip("/")
 
 
+def _labs_plan_lock_enabled() -> bool:
+    return (os.getenv("LABS_ENFORCE_PLAN_LOCK") or "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _canonical_plan_token(raw_plan: str | None) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(raw_plan or "").strip()).strip("_")
+
+
+def _has_labs_plan_access(raw_plan: str | None) -> bool:
+    token = _canonical_plan_token(raw_plan)
+    if not token:
+        return False
+    return token in {"labs_starter", "labs_spark", "labs_creator", "labs_velocity"}
+
+
+def _plan_lock_exempt_path(path: str) -> bool:
+    p = str(path or "").strip().lower()
+    return (
+        p.startswith("/auth/")
+        or p.startswith("/health/")
+        or p.startswith("/billing/")
+    )
+
+
 def _build_entitlements_token(*, email: str, issuer: str) -> str:
     secret = _bridge_secret()
     if not secret:
@@ -633,6 +662,13 @@ def get_current_user(
 
     # Optional bridge mode: keep Labs entitlements mirrored from Orbito.
     sync_user_entitlements_from_orbito(db=db, user=user, strict=False)
+
+    if _labs_plan_lock_enabled() and not _plan_lock_exempt_path(request.url.path):
+        if not _has_labs_plan_access(getattr(user, "plan", "free")):
+            raise HTTPException(
+                status_code=402,
+                detail="Labs plan required. Purchase Labs Starter or Labs Creator to access AI Labs.",
+            )
 
     return user
 

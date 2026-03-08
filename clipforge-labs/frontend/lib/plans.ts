@@ -49,3 +49,23 @@ export function normalizeAppPlan(raw: string | null | undefined): AppPlan {
 
   return "free";
 }
+
+export function hasLabsPlanAccess(raw: string | null | undefined): boolean {
+  const plan = canonicalizePlan(raw);
+  if (!plan) return false;
+  return plan === "labs_starter" || plan === "labs_spark" || plan === "labs_creator" || plan === "labs_velocity";
+}
+
+function envFlagOn(raw: string | undefined): boolean {
+  const v = String(raw || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+export function labsPlanLockEnabled(): boolean {
+  return envFlagOn(process.env.NEXT_PUBLIC_LABS_ENFORCE_PLAN_LOCK);
+}
+
+export function hasLabsFeatureAccess(raw: string | null | undefined): boolean {
+  if (!labsPlanLockEnabled()) return true;
+  return hasLabsPlanAccess(raw);
+}

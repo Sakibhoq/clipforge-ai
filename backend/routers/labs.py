@@ -82,9 +82,7 @@ def _has_labs_plan_access(raw_plan: str | None) -> bool:
     token = _canonical_plan_token(raw_plan)
     if not token:
         return False
-    if token in {"labs_starter", "labs_spark", "labs_creator", "labs_velocity"}:
-        return True
-    return "labs" in token or "spark" in token or "velocity" in token
+    return token in {"labs_starter", "labs_spark", "labs_creator", "labs_velocity"}
 
 
 def _has_effective_labs_access(raw_plan: str | None) -> bool:
