@@ -2,6 +2,8 @@ from types import SimpleNamespace
 
 from routers.billing import (
     _credits_delta_for_upgrade,
+    _first_invoice_line_price_and_quantity,
+    _resolve_plan_interval_from_price_id,
     _subscription_item_id,
     _subscription_status_payload,
 )
@@ -59,3 +61,25 @@ def test_credits_delta_for_upgrade_adds_new_plan_grant():
 def test_credits_delta_for_upgrade_skips_non_upgrade_transition():
     assert _credits_delta_for_upgrade("labs_velocity", "starter", "monthly", 1) == 0
     assert _credits_delta_for_upgrade("creator", "creator", "monthly", 1) == 0
+
+
+def test_resolve_plan_interval_from_price_id_uses_configured_prices(monkeypatch):
+    monkeypatch.setenv("STRIPE_PRICE_LABS_VELOCITY_YEARLY", "price_lv_yr")
+    plan, interval = _resolve_plan_interval_from_price_id("price_lv_yr")
+    assert plan == "labs_velocity"
+    assert interval == "yearly"
+
+
+def test_first_invoice_line_price_and_quantity_reads_dict_shape():
+    invoice = {"lines": {"data": [{"price": {"id": "price_abc"}, "quantity": 3}]}}
+    price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
+    assert price_id == "price_abc"
+    assert quantity == 3
+
+
+def test_first_invoice_line_price_and_quantity_reads_namespace_shape():
+    line = SimpleNamespace(price=SimpleNamespace(id="price_xyz"), quantity=2)
+    invoice = SimpleNamespace(lines=SimpleNamespace(data=[line]))
+    price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
+    assert price_id == "price_xyz"
+    assert quantity == 2

@@ -211,6 +211,51 @@ def _get_user_from_session(db: Session, session_obj: dict) -> Optional[User]:
     return None
 
 
+def _get_user_from_customer_id(db: Session, customer_id: str | None) -> Optional[User]:
+    cid = str(customer_id or "").strip()
+    if not cid:
+        return None
+    return db.query(User).filter(User.stripe_customer_id == cid).first()
+
+
+def _normalize_interval(interval: str | None) -> str:
+    token = str(interval or "").strip().lower()
+    return "yearly" if token in {"year", "yearly"} else "monthly"
+
+
+def _resolve_plan_interval_from_price_id(price_id: str | None) -> tuple[Optional[str], Optional[str]]:
+    pid = str(price_id or "").strip()
+    if not pid:
+        return (None, None)
+    for plan in sorted(ALLOWED_PLANS):
+        for interval in ("monthly", "yearly"):
+            expected = _price_id_from_env(plan, interval)
+            if expected and expected == pid:
+                return (_canonical_checkout_plan(plan), _normalize_interval(interval))
+    return (None, None)
+
+
+def _first_invoice_line_price_and_quantity(invoice_obj: object) -> tuple[Optional[str], int]:
+    lines = None
+    if isinstance(invoice_obj, dict):
+        lines = ((invoice_obj.get("lines") or {}).get("data") or [])
+    else:
+        lines_container = getattr(invoice_obj, "lines", None)
+        if isinstance(lines_container, dict):
+            lines = lines_container.get("data")
+        else:
+            lines = getattr(lines_container, "data", None)
+
+    for line in lines or []:
+        price_obj = line.get("price") if isinstance(line, dict) else getattr(line, "price", None)
+        price_id = price_obj.get("id") if isinstance(price_obj, dict) else getattr(price_obj, "id", None)
+        if price_id:
+            qty = line.get("quantity") if isinstance(line, dict) else getattr(line, "quantity", None)
+            quantity = max(1, int(qty or 1))
+            return (str(price_id), quantity)
+    return (None, 1)
+
+
 def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     """
     Launch credit rules:
@@ -278,6 +323,37 @@ def _reset_download_meter(user: User) -> None:
         user.downloads_used = 0
     if hasattr(user, "downloads_window"):
         user.downloads_window = datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except Exception:
+        return int(default)
+
+
+def _apply_plan_grant(
+    *,
+    user: User,
+    plan: str,
+    interval: str,
+    pack: int,
+    event_id: Optional[str],
+) -> int:
+    grant = int(_credits_for_plan(plan, interval, pack))
+    user.plan = plan
+    _reset_download_meter(user)
+
+    if plan == "free":
+        user.credits = max(int(user.credits or 0), grant)
+        if hasattr(user, "trial_used"):
+            user.trial_used = True
+    else:
+        user.credits = int(user.credits or 0) + grant
+
+    if hasattr(user, "last_stripe_event_id") and event_id:
+        user.last_stripe_event_id = event_id
+    return grant
 
 
 # ------------------------------------------------------------------
@@ -385,16 +461,17 @@ def create_checkout_session(
 
     try:
         active_subs = _active_subscriptions_for_customer(customer_id)
-        if active_subs:
+        if active_subs and plan != "free":
             primary = active_subs[0]
             sub_item_id = _subscription_item_id(primary)
             if sub_item_id:
-                previous_plan = str(getattr(user, "plan", "free") or "free")
-                stripe.Subscription.modify(
+                updated_sub = stripe.Subscription.modify(
                     primary.id,
                     cancel_at_period_end=False,
-                    proration_behavior="create_prorations",
+                    payment_behavior="pending_if_incomplete",
+                    proration_behavior="always_invoice",
                     items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
+                    expand=["latest_invoice"],
                     metadata={
                         "user_id": str(user.id),
                         "plan": plan,
@@ -407,13 +484,23 @@ def create_checkout_session(
                     if not bool(getattr(sub, "cancel_at_period_end", False)):
                         stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
 
-                add_credits = _credits_delta_for_upgrade(previous_plan, plan, interval, quantity)
-                if add_credits > 0:
-                    user.credits = int(user.credits or 0) + int(add_credits)
-                user.plan = plan
-                _reset_download_meter(user)
-                db.commit()
-                return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&updated=1")
+                latest_invoice = getattr(updated_sub, "latest_invoice", None)
+                invoice_obj = None
+                if latest_invoice:
+                    if isinstance(latest_invoice, dict):
+                        invoice_obj = latest_invoice
+                    else:
+                        latest_invoice_id = getattr(latest_invoice, "id", latest_invoice)
+                        if latest_invoice_id:
+                            invoice_obj = stripe.Invoice.retrieve(latest_invoice_id)
+
+                hosted_invoice_url = (
+                    invoice_obj.get("hosted_invoice_url")
+                    if isinstance(invoice_obj, dict)
+                    else getattr(invoice_obj, "hosted_invoice_url", None)
+                )
+                if hosted_invoice_url:
+                    return CheckoutSessionResponse(url=str(hosted_invoice_url))
 
         session = stripe.checkout.Session.create(
             mode="subscription",
@@ -584,22 +671,18 @@ async def stripe_webhook(
         if plan not in ALLOWED_PLANS:
             return {"status": "ignored", "reason": "invalid plan"}
 
-        grant = _credits_for_plan(plan, interval, pack)
+        if plan != "free":
+            # Paid plans are credited on invoice.paid so click-only actions
+            # never grant credits before Stripe confirms payment.
+            return {"status": "ok"}
 
-        # Apply changes atomically
-        user.plan = plan
-        _reset_download_meter(user)
-
-        if plan == "free":
-            user.credits = max(int(user.credits or 0), int(grant))
-            if hasattr(user, "trial_used"):
-                user.trial_used = True
-        else:
-            user.credits = int(user.credits or 0) + int(grant)
-
-        if hasattr(user, "last_stripe_event_id"):
-            user.last_stripe_event_id = event_id
-
+        grant = _apply_plan_grant(
+            user=user,
+            plan=plan,
+            interval=interval,
+            pack=pack,
+            event_id=event_id,
+        )
         db.commit()
 
         try:
@@ -607,6 +690,44 @@ async def stripe_webhook(
                 to_email=user.email,
                 plan=plan,
                 interval=interval,
+                credits_granted=int(grant),
+                credits_balance=int(user.credits or 0),
+            )
+        except Exception as exc:
+            print(f"[billing] confirmation email skipped: {type(exc).__name__}")
+
+    if event["type"] == "invoice.paid":
+        invoice = event["data"]["object"]
+        customer_id = invoice.get("customer") if isinstance(invoice, dict) else getattr(invoice, "customer", None)
+        user = _get_user_from_customer_id(db, customer_id)
+        if not user:
+            return {"status": "ignored", "reason": "user not found"}
+
+        if getattr(user, "last_stripe_event_id", None) == event_id:
+            return {"status": "ignored", "reason": "duplicate event"}
+
+        price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
+        plan, interval = _resolve_plan_interval_from_price_id(price_id)
+        if not plan or plan not in ALLOWED_PLANS:
+            return {"status": "ignored", "reason": "unmapped invoice price"}
+
+        if plan == "free":
+            return {"status": "ignored", "reason": "free plan has no paid invoice credits"}
+
+        grant = _apply_plan_grant(
+            user=user,
+            plan=plan,
+            interval=interval or "monthly",
+            pack=max(1, _safe_int(quantity, 1)),
+            event_id=event_id,
+        )
+        db.commit()
+
+        try:
+            send_billing_confirmation_email(
+                to_email=user.email,
+                plan=plan,
+                interval=interval or "monthly",
                 credits_granted=int(grant),
                 credits_balance=int(user.credits or 0),
             )
