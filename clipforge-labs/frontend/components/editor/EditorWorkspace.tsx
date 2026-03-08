@@ -1568,9 +1568,15 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       lensActive && timelineHoverLens
         ? timelineHoverLens.displayY - lensSize - 18
         : 0;
+    const laneRadiusClass =
+      track === "visual"
+        ? "rounded-t-2xl rounded-b-none"
+        : track === "captions"
+        ? "rounded-t-none rounded-b-2xl"
+        : "rounded-none";
 
     return (
-      <div className={cx("grid gap-x-2.5 gap-y-0 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "pb-1 pt-2.5" : "py-0")}>
+      <div className={cx("grid gap-x-2.5 gap-y-0 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "pb-0 pt-2.5" : "py-0")}>
         <div className="flex items-center justify-between gap-2 lg:flex lg:h-full lg:flex-col lg:items-start lg:justify-center">
           <div className={cx("inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em]", trackTone(track))}>
             {trackLabel(track)}
@@ -1579,7 +1585,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
         </div>
 
         <div data-track-wrap className="relative overflow-visible">
-          <div className={cx("clipforge-scrollbar overflow-x-auto overflow-y-visible", track === "visual" ? "pb-1.5" : "pb-0")}>
+          <div className="clipforge-scrollbar overflow-x-auto overflow-y-visible pb-0">
             <div className="relative min-w-[560px]" style={{ width: `${timelineWidthPct}%` }}>
               {track === "visual" ? (
                 <div className="flex h-4 items-center justify-between gap-1 text-[9px] text-white/38">
@@ -1593,7 +1599,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
 
               <div
                 data-track-lane={track}
-                className={cx("relative overflow-visible rounded-2xl", laneSurfaceClass, track === "visual" ? "mt-1" : "mt-0")}
+                className={cx("relative overflow-visible mt-0", laneSurfaceClass, laneRadiusClass)}
                 style={{ height: laneHeight }}
                 onMouseMove={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
