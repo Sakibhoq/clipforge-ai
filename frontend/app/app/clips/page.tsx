@@ -25,6 +25,13 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+function computeEditorIsDesktop() {
+  if (typeof window === "undefined") return true;
+  const wide = window.matchMedia("(min-width: 1024px)").matches;
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  return wide && !coarsePointer;
+}
+
 /* ---------- Errors ---------- */
 function toErrorText(e: any): string {
   try {
@@ -836,12 +843,14 @@ function ClipActions({
   onSchedule,
   onEdit,
   canEdit,
+  editErrorMessage,
   onActionError,
 }: {
   clip: ClipDTO;
   onSchedule: () => void;
   onEdit: () => void;
   canEdit: boolean;
+  editErrorMessage: string;
   onActionError: (msg: string) => void;
 }) {
   const [downloading, setDownloading] = useState(false);
@@ -886,7 +895,7 @@ function ClipActions({
         onClick={(e) => {
           e.stopPropagation();
           if (!canEdit) {
-            onActionError("Editor is available on Starter and above.");
+            onActionError(editErrorMessage);
             return;
           }
           onEdit();
@@ -896,7 +905,7 @@ function ClipActions({
           !canEdit && "opacity-70"
         )}
         aria-label="Edit"
-        title={canEdit ? "Edit" : "Upgrade to Starter to unlock editor"}
+        title={canEdit ? "Edit" : editErrorMessage}
       >
         <Icon name="crop" />
         Edit
@@ -1079,7 +1088,29 @@ function ClipsWorkspace() {
   >({});
   const [socialAccounts, setSocialAccounts] = useState<SocialAccountDTO[]>([]);
   const [socialPlan, setSocialPlan] = useState<SocialPlan>("free");
+  const [editorDesktopOnly, setEditorDesktopOnly] = useState<boolean>(computeEditorIsDesktop);
   const editorEnabled = useMemo(() => socialPlan !== "free", [socialPlan]);
+  const canOpenEditor = editorEnabled && editorDesktopOnly;
+  const editorBlockedMessage = editorDesktopOnly
+    ? "Editor is available on Starter and above."
+    : "Editor is desktop-only. Open Clips from a laptop or desktop browser.";
+
+  useEffect(() => {
+    const onChange = () => setEditorDesktopOnly(computeEditorIsDesktop());
+
+    onChange();
+    const widthQuery = window.matchMedia("(min-width: 1024px)");
+    const pointerQuery = window.matchMedia("(pointer: coarse)");
+    widthQuery.addEventListener("change", onChange);
+    pointerQuery.addEventListener("change", onChange);
+    window.addEventListener("resize", onChange);
+
+    return () => {
+      widthQuery.removeEventListener("change", onChange);
+      pointerQuery.removeEventListener("change", onChange);
+      window.removeEventListener("resize", onChange);
+    };
+  }, []);
 
   const allowedScheduleProviders = useMemo(
     () => socialPlanAllowedProviders(socialPlan),
@@ -1340,6 +1371,10 @@ function ClipsWorkspace() {
   }, [scheduleClipId, scheduleSelectedProviders]);
 
   function openCrop(clip: ClipDTO) {
+    if (!editorDesktopOnly) {
+      setActionError("Editor is desktop-only. Open Clips from a laptop or desktop browser.");
+      return;
+    }
     if (!editorEnabled) {
       setActionError("Editor is available on Starter and above.");
       return;
@@ -2026,7 +2061,8 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onSchedule={() => openSchedule(c)}
                                   onEdit={() => openCrop(c)}
-                                  canEdit={editorEnabled}
+                                  canEdit={canOpenEditor}
+                                  editErrorMessage={editorBlockedMessage}
                                   onActionError={(msg) => setActionError(msg || null)}
                                 />
                               </div>
@@ -2053,7 +2089,8 @@ function ClipsWorkspace() {
                                   clip={c}
                                   onSchedule={() => openSchedule(c)}
                                   onEdit={() => openCrop(c)}
-                                  canEdit={editorEnabled}
+                                  canEdit={canOpenEditor}
+                                  editErrorMessage={editorBlockedMessage}
                                   onActionError={(msg) => setActionError(msg || null)}
                                 />
                               </div>
@@ -2080,7 +2117,8 @@ function ClipsWorkspace() {
                   clip={c}
                   onSchedule={() => openSchedule(c)}
                   onEdit={() => openCrop(c)}
-                  canEdit={editorEnabled}
+                  canEdit={canOpenEditor}
+                  editErrorMessage={editorBlockedMessage}
                   onActionError={(msg) => setActionError(msg || null)}
                 />
               </div>
@@ -2100,7 +2138,8 @@ function ClipsWorkspace() {
                   clip={c}
                   onSchedule={() => openSchedule(c)}
                   onEdit={() => openCrop(c)}
-                  canEdit={editorEnabled}
+                  canEdit={canOpenEditor}
+                  editErrorMessage={editorBlockedMessage}
                   onActionError={(msg) => setActionError(msg || null)}
                 />
               </div>
@@ -4001,7 +4040,7 @@ function Drawer({
             : scheduleCard
               ? "left-1/2 top-1/2 h-[min(90svh,860px)] w-[min(1040px,calc(100vw-1.25rem))] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border shadow-[0_30px_120px_rgba(0,0,0,0.65),0_0_0_1px_rgba(125,211,252,0.09)] bg-[radial-gradient(130%_110%_at_18%_0%,rgba(125,211,252,0.14),transparent_54%),radial-gradient(100%_120%_at_82%_0%,rgba(167,139,250,0.11),transparent_48%),rgba(7,10,15,0.92)]"
             : variant === "studio"
-              ? "inset-2 sm:inset-4 lg:inset-6 overflow-hidden overscroll-contain [scrollbar-gutter:stable] rounded-3xl border shadow-[0_30px_115px_rgba(0,0,0,0.64),0_0_0_1px_rgba(125,211,252,0.08)]"
+              ? "left-1/2 top-1/2 h-[min(94dvh,980px)] w-[min(1680px,calc(100vw-1rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden overscroll-contain [scrollbar-gutter:stable] rounded-3xl border shadow-[0_30px_115px_rgba(0,0,0,0.64),0_0_0_1px_rgba(125,211,252,0.08)]"
               : "right-0 top-0 h-full w-full max-w-md border-l"
         )}
       >
