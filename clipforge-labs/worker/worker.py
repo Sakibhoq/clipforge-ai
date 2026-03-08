@@ -25,6 +25,9 @@ JOB_KIND_IMAGE = "generate_image"
 JOB_KIND_VOICEOVER = "generate_voiceover"
 JOB_KIND_POST = "generate_post"
 LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
+GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+_GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
+_GOOGLE_PROJECT_CACHE: str | None = None
 
 
 def _env(name: str, default: str = "") -> str:
@@ -456,9 +459,39 @@ def _http_post_json_custom(
 
 
 def _google_project_id() -> str:
+    global _GOOGLE_PROJECT_CACHE
+    if _GOOGLE_PROJECT_CACHE:
+        return _GOOGLE_PROJECT_CACHE
+
     env_project = _env("GOOGLE_VERTEX_PROJECT_ID", "")
     if env_project:
+        _GOOGLE_PROJECT_CACHE = env_project
         return env_project
+
+    # Common Google env aliases.
+    env_project = _env("GOOGLE_CLOUD_PROJECT", "") or _env("GCP_PROJECT", "")
+    if env_project:
+        _GOOGLE_PROJECT_CACHE = env_project
+        return env_project
+
+    # Optional service-account JSON (raw or base64) can provide project_id.
+    raw_sa = _env("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    raw_sa_b64 = _env("GOOGLE_SERVICE_ACCOUNT_JSON_B64", "")
+    if raw_sa_b64 and not raw_sa:
+        try:
+            raw_sa = base64.b64decode(raw_sa_b64.encode("utf-8")).decode("utf-8")
+        except Exception:
+            raw_sa = ""
+    if raw_sa:
+        try:
+            sa_info = json.loads(raw_sa)
+            project = str((sa_info or {}).get("project_id") or "").strip()
+            if project:
+                _GOOGLE_PROJECT_CACHE = project
+                return project
+        except Exception:
+            pass
+
     try:
         import requests
     except Exception as exc:
@@ -466,28 +499,124 @@ def _google_project_id() -> str:
     md_url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
     resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
     if resp.status_code < 400 and (resp.text or "").strip():
-        return resp.text.strip()
+        project = resp.text.strip()
+        _GOOGLE_PROJECT_CACHE = project
+        return project
     raise RuntimeError("GOOGLE_VERTEX_PROJECT_ID is required (or run worker on GCE with metadata access)")
 
 
 def _google_access_token() -> str:
+    global _GOOGLE_TOKEN_CACHE, _GOOGLE_PROJECT_CACHE
+
     raw = _env("GOOGLE_API_BEARER_TOKEN", "")
     if raw:
         token = raw.replace("Bearer ", "").strip()
         if token:
             return token
+
+    # Reuse a warm token to avoid refreshing credentials on every request.
+    now_ts = time.time()
+    if _GOOGLE_TOKEN_CACHE:
+        cached_token, cached_expiry = _GOOGLE_TOKEN_CACHE
+        if cached_token and cached_expiry > (now_ts + 60):
+            return cached_token
+
+    scope = _env("GOOGLE_AUTH_SCOPE", GOOGLE_CLOUD_PLATFORM_SCOPE) or GOOGLE_CLOUD_PLATFORM_SCOPE
+    auth_error: str | None = None
+
+    # Preferred path: explicit Google auth credentials.
+    try:
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        import google.auth
+        from google.oauth2 import service_account
+
+        creds = None
+
+        raw_sa = _env("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+        raw_sa_b64 = _env("GOOGLE_SERVICE_ACCOUNT_JSON_B64", "")
+        if raw_sa_b64 and not raw_sa:
+            try:
+                raw_sa = base64.b64decode(raw_sa_b64.encode("utf-8")).decode("utf-8")
+            except Exception:
+                raw_sa = ""
+
+        if raw_sa:
+            try:
+                sa_info = json.loads(raw_sa)
+                creds = service_account.Credentials.from_service_account_info(
+                    sa_info,
+                    scopes=[scope],
+                )
+                project = str((sa_info or {}).get("project_id") or "").strip()
+                if project:
+                    _GOOGLE_PROJECT_CACHE = project
+            except Exception as exc:
+                auth_error = f"service-account-json failed: {exc}"
+
+        if creds is None:
+            gac_path = _env("GOOGLE_APPLICATION_CREDENTIALS", "")
+            if gac_path and os.path.exists(gac_path):
+                try:
+                    creds = service_account.Credentials.from_service_account_file(
+                        gac_path,
+                        scopes=[scope],
+                    )
+                    if getattr(creds, "project_id", None):
+                        _GOOGLE_PROJECT_CACHE = str(creds.project_id)
+                except Exception as exc:
+                    auth_error = f"service-account-file failed: {exc}"
+
+        if creds is None:
+            try:
+                creds, detected_project = google.auth.default(scopes=[scope])
+                if detected_project:
+                    _GOOGLE_PROJECT_CACHE = str(detected_project)
+            except Exception as exc:
+                auth_error = f"adc default failed: {exc}"
+                creds = None
+
+        if creds is not None:
+            creds.refresh(GoogleAuthRequest())
+            token = str(getattr(creds, "token", "") or "").strip()
+            if token:
+                expiry_dt = getattr(creds, "expiry", None)
+                expiry_ts = (expiry_dt.timestamp() if expiry_dt else (now_ts + 300))
+                _GOOGLE_TOKEN_CACHE = (token, float(expiry_ts))
+                return token
+    except Exception as exc:
+        auth_error = f"google-auth unavailable/failed: {exc}"
+
+    # Fallback: metadata server access token.
     try:
         import requests
     except Exception as exc:
         raise RuntimeError("requests package missing in worker image") from exc
     md_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
-    resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+    resp = requests.get(
+        md_url,
+        headers={"Metadata-Flavor": "Google"},
+        params={"scopes": scope},
+        timeout=2,
+    )
     if resp.status_code >= 400:
-        raise RuntimeError("Failed to fetch Google access token from metadata server")
+        # Retry metadata call without explicit scopes for environments that reject
+        # the query parameter.
+        resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+    if resp.status_code >= 400:
+        detail = f"Failed to fetch Google access token from metadata server ({resp.status_code})"
+        if auth_error:
+            detail = f"{detail}; auth fallback error: {auth_error}"
+        raise RuntimeError(detail)
     data = resp.json() if resp.content else {}
     token = str((data or {}).get("access_token") or "").strip()
     if not token:
-        raise RuntimeError("Google metadata token response missing access_token")
+        detail = "Google metadata token response missing access_token"
+        if auth_error:
+            detail = f"{detail}; auth fallback error: {auth_error}"
+        raise RuntimeError(detail)
+    expires_in = int((data or {}).get("expires_in") or 0)
+    if expires_in > 0:
+        _GOOGLE_TOKEN_CACHE = (token, now_ts + max(60, expires_in - 30))
     return token
 
 

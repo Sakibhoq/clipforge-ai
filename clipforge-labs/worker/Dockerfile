@@ -22,6 +22,7 @@ RUN pip install --upgrade pip && \
       psycopg2-binary \
       boto3 \
       requests \
+      google-auth \
       PyJWT
 
 CMD ["python", "worker.py"]
