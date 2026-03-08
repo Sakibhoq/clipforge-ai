@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from routers.billing import _subscription_item_id, _subscription_status_payload
+from routers.billing import (
+    _credits_delta_for_upgrade,
+    _subscription_item_id,
+    _subscription_status_payload,
+)
 
 
 def test_subscription_status_payload_no_active_subscriptions():
@@ -45,3 +49,13 @@ def test_subscription_item_id_reads_dict_shape():
 def test_subscription_item_id_returns_none_when_missing():
     subscription = SimpleNamespace(items=SimpleNamespace(data=[SimpleNamespace(id="")]))
     assert _subscription_item_id(subscription) is None
+
+
+def test_credits_delta_for_upgrade_adds_new_plan_grant():
+    delta = _credits_delta_for_upgrade("starter", "labs_velocity", "yearly", 1)
+    assert delta == 990 * 12
+
+
+def test_credits_delta_for_upgrade_skips_non_upgrade_transition():
+    assert _credits_delta_for_upgrade("labs_velocity", "starter", "monthly", 1) == 0
+    assert _credits_delta_for_upgrade("creator", "creator", "monthly", 1) == 0

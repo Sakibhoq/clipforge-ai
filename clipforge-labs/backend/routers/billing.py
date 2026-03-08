@@ -239,6 +239,31 @@ def _credits_for_plan(plan: str, interval: str, pack_qty: int) -> int:
     return 0
 
 
+def _plan_tier(plan: str | None) -> int:
+    token = _canonical_checkout_plan(str(plan or "").strip().lower())
+    legacy = {
+        "starter_monthly": "starter",
+        "creator_plus": "creator",
+    }
+    token = legacy.get(token, token)
+
+    if token == "free":
+        return 0
+    if token in {"starter", "labs_spark", "labs_starter"}:
+        return 1
+    if token in {"creator", "labs_velocity", "labs_creator"}:
+        return 2
+    if token == "studio":
+        return 3
+    return 0
+
+
+def _credits_delta_for_upgrade(previous_plan: str | None, next_plan: str, interval: str, pack_qty: int) -> int:
+    if _plan_tier(next_plan) <= _plan_tier(previous_plan):
+        return 0
+    return int(_credits_for_plan(next_plan, interval, pack_qty))
+
+
 # ------------------------------------------------------------------
 # Schemas
 # ------------------------------------------------------------------
@@ -347,6 +372,7 @@ def create_checkout_session(
             primary = active_subs[0]
             sub_item_id = _subscription_item_id(primary)
             if sub_item_id:
+                previous_plan = str(getattr(user, "plan", "free") or "free")
                 stripe.Subscription.modify(
                     primary.id,
                     cancel_at_period_end=False,
@@ -364,6 +390,9 @@ def create_checkout_session(
                     if not bool(getattr(sub, "cancel_at_period_end", False)):
                         stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
 
+                add_credits = _credits_delta_for_upgrade(previous_plan, plan, interval, quantity)
+                if add_credits > 0:
+                    user.credits = int(user.credits or 0) + int(add_credits)
                 user.plan = plan
                 db.commit()
                 return CheckoutSessionResponse(url=f"{base}/app/billing?checkout=success&updated=1")
