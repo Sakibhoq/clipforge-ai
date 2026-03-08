@@ -1572,8 +1572,8 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       track === "visual"
         ? "rounded-t-2xl rounded-b-none"
         : track === "captions"
-        ? "rounded-t-none rounded-b-2xl"
-        : "rounded-none";
+        ? "rounded-t-none rounded-b-2xl -mt-px"
+        : "rounded-none -mt-px";
 
     return (
       <div className={cx("grid gap-x-2.5 gap-y-0 px-3 lg:grid-cols-[132px_minmax(0,1fr)]", track === "visual" ? "pb-0 pt-2.5" : "py-0")}>
@@ -1630,7 +1630,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                 }}
               >
                 <div
-                  className="pointer-events-none absolute inset-y-1 z-20 w-[2px] rounded-full bg-white/90"
+                  className="pointer-events-none absolute inset-y-0 z-20 w-[2px] rounded-full bg-white/90"
                   style={{ left: `${playheadPct}%` }}
                 />
 
