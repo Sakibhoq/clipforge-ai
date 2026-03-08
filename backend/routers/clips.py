@@ -164,6 +164,24 @@ def _clip_download_name(clip: Clip, override: Optional[str] = None) -> str:
     return _sanitize_download_name(f"clip-{clip.id}.mp4")
 
 
+def _is_generated_ai_clip_key(key: Optional[str]) -> bool:
+    k = str(key or "").strip().lower()
+    if not k:
+        return False
+    return k.startswith("clips/generated/") or k.startswith("clips/generated-posts/")
+
+
+def _is_labs_generated_clip(clip: Optional[Clip], source_type: Optional[str]) -> bool:
+    if clip and _is_generated_ai_clip_key(getattr(clip, "storage_key", None)):
+        return True
+    src = str(source_type or "").strip().lower()
+    if src in {"generated", "ai_generated", "aigc", "labs_generated"}:
+        key = str(getattr(clip, "storage_key", "") or "").strip().lower()
+        if "/generated/" in key or key.startswith("generated/"):
+            return True
+    return False
+
+
 def _stream_filelike(body, chunk_size: int = 1024 * 1024):
     try:
         while True:
@@ -491,6 +509,7 @@ def crop_clip(
 def list_clips(
     upload_id: Optional[int] = Query(default=None),
     grouped: bool = Query(default=True),
+    generated_only: bool = Query(default=False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     request: Request = None,
@@ -500,6 +519,7 @@ def list_clips(
     - If upload_id missing:
         grouped=true  -> returns [{ upload: {...}, clips: [...] }, ...]
         grouped=false -> returns flat list of all clips for user
+    - generated_only=true limits results to Labs-generated clips.
     """
     _ensure_sqlite_clip_schema(db)
     storage = get_storage()
@@ -514,14 +534,17 @@ def list_clips(
         if upload.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
 
-        clips = (
-            db.query(Clip)
+        clip_rows = (
+            db.query(Clip, Upload.source_type)
             .join(Upload, Clip.upload_id == Upload.id)
             .filter(Clip.upload_id == upload_id)
             .filter(Upload.user_id == current_user.id)
             .order_by(Clip.start_time.asc(), Clip.id.asc())
             .all()
         )
+        if generated_only:
+            clip_rows = [row for row in clip_rows if _is_labs_generated_clip(row[0], row[1])]
+        clips = [row[0] for row in clip_rows]
         clips = [c for c in clips if _clip_storage_exists(storage, c.storage_key)]
         return [_clip_dict(c, storage, request) for c in clips]
 
@@ -540,12 +563,17 @@ def list_clips(
 
     upload_ids = [u.id for u in uploads]
 
-    all_clips = (
-        db.query(Clip)
+    all_clip_rows = (
+        db.query(Clip, Upload.source_type)
+        .join(Upload, Clip.upload_id == Upload.id)
         .filter(Clip.upload_id.in_(upload_ids))
+        .filter(Upload.user_id == current_user.id)
         .order_by(Clip.upload_id.desc(), Clip.start_time.asc(), Clip.id.asc())
         .all()
     )
+    if generated_only:
+        all_clip_rows = [row for row in all_clip_rows if _is_labs_generated_clip(row[0], row[1])]
+    all_clips = [row[0] for row in all_clip_rows]
 
     if not grouped:
         visible = [c for c in all_clips if _clip_storage_exists(storage, c.storage_key)]
