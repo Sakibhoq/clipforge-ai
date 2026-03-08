@@ -12,9 +12,11 @@ import { hasLabsFeatureAccess } from "@/lib/plans";
 function Logo() {
   const pathname = usePathname();
   const inApp = pathname?.startsWith("/app");
+  const isLabsMarketing = pathname === "/labs";
 
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
-  const v = "orb-1";
+  const v = isLabsMarketing ? "labs-nav-1" : "orb-1";
+  const logoSrc = isLabsMarketing ? `/clipforge-labs-mark.svg?v=${v}` : `/orbito-mark.svg?v=${v}`;
 
   const markBoxClass = inApp ? "h-16 w-16" : "h-12 w-12";
   const markImgSize = inApp ? 42 : 34;
@@ -45,8 +47,9 @@ function Logo() {
           aria-hidden="true"
           className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{
-            background:
-              "radial-gradient(60px 60px at 50% 50%, rgba(167,139,250,0.35), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(125,211,252,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(45,212,191,0.22), transparent 70%)",
+            background: isLabsMarketing
+              ? "radial-gradient(60px 60px at 50% 50%, rgba(255,183,3,0.34), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(251,86,7,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(58,134,255,0.22), transparent 70%)"
+              : "radial-gradient(60px 60px at 50% 50%, rgba(167,139,250,0.35), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(125,211,252,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(45,212,191,0.22), transparent 70%)",
             filter: "blur(10px)",
           }}
         />
@@ -54,7 +57,7 @@ function Logo() {
         {/* Primary mark */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/orbito-mark.svg?v=${v}`}
+          src={logoSrc}
           alt={`${BRAND.name} logo`}
           width={markImgSize}
           height={markImgSize}
@@ -64,15 +67,30 @@ function Logo() {
 
       {/* Wordmark */}
       <span className="relative">
-        <span className={wordmarkClass}>{BRAND.name}</span>
+        <span
+          className={wordmarkClass}
+          style={
+            isLabsMarketing
+              ? {
+                  backgroundImage: "linear-gradient(90deg,#ffb703 0%,#fb5607 48%,#7aa2ff 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  color: "transparent",
+                }
+              : undefined
+          }
+        >
+          {BRAND.name}
+        </span>
 
         {/* soft aurora sheen */}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 opacity-[0.55] blur-[10px] transition-opacity duration-300 group-hover:opacity-[0.85]"
           style={{
-            background:
-              "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
+            background: isLabsMarketing
+              ? "linear-gradient(90deg, rgba(255,183,3,0.62), rgba(251,86,7,0.56), rgba(122,162,255,0.45))"
+              : "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
           }}
         />
       </span>
