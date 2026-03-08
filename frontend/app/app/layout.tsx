@@ -202,17 +202,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[#02050d]" />
         <div
-          className="absolute inset-[-14%]"
+          className="absolute inset-[-16%]"
           style={{
             background:
-              "radial-gradient(1160px 760px at 10% 12%, rgba(155,140,255,0.2), transparent 66%), radial-gradient(1020px 720px at 90% 12%, rgba(58,134,255,0.2), transparent 66%), radial-gradient(1000px 700px at 18% 84%, rgba(251,86,7,0.17), transparent 67%), radial-gradient(960px 700px at 84% 82%, rgba(255,183,3,0.17), transparent 67%), radial-gradient(860px 620px at 52% 50%, rgba(70,215,255,0.12), transparent 70%)",
+              "radial-gradient(1260px 820px at 10% 12%, rgba(155,140,255,0.30), transparent 66%), radial-gradient(1120px 760px at 90% 12%, rgba(58,134,255,0.28), transparent 66%), radial-gradient(1080px 760px at 18% 84%, rgba(251,86,7,0.22), transparent 67%), radial-gradient(1040px 740px at 84% 82%, rgba(255,183,3,0.22), transparent 67%), radial-gradient(980px 680px at 52% 50%, rgba(70,215,255,0.18), transparent 70%)",
           }}
         />
-        <div className="absolute inset-0 opacity-[0.22]">
+        <div
+          className="absolute inset-[-10%] opacity-[0.36] blur-3xl"
+          style={{
+            background:
+              "radial-gradient(820px 380px at 50% 6%, rgba(255,255,255,0.10), transparent 66%), radial-gradient(920px 420px at 18% 44%, rgba(125,211,252,0.16), transparent 70%), radial-gradient(920px 420px at 82% 56%, rgba(167,139,250,0.14), transparent 70%)",
+          }}
+        />
+        <div className="absolute inset-0 opacity-[0.34]">
           <div className="aurora" />
         </div>
-        <div className="absolute inset-0 bg-[radial-gradient(1050px_640px_at_50%_8%,rgba(255,255,255,0.045),transparent_66%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.16),rgba(0,0,0,0.46))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1150px_700px_at_50%_8%,rgba(255,255,255,0.085),transparent_66%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.12),rgba(0,0,0,0.36))]" />
       </div>
 
       {/* Top bar */}
