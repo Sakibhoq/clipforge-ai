@@ -431,7 +431,6 @@ def create_checkout_session(
             if sub_item_id:
                 updated_sub = stripe.Subscription.modify(
                     primary.id,
-                    cancel_at_period_end=False,
                     payment_behavior="pending_if_incomplete",
                     proration_behavior="always_invoice",
                     items=[{"id": sub_item_id, "price": price_id, "quantity": quantity}],
