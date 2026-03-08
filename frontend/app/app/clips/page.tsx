@@ -4001,7 +4001,7 @@ function Drawer({
             : scheduleCard
               ? "left-1/2 top-1/2 h-[min(90svh,860px)] w-[min(1040px,calc(100vw-1.25rem))] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border shadow-[0_30px_120px_rgba(0,0,0,0.65),0_0_0_1px_rgba(125,211,252,0.09)] bg-[radial-gradient(130%_110%_at_18%_0%,rgba(125,211,252,0.14),transparent_54%),radial-gradient(100%_120%_at_82%_0%,rgba(167,139,250,0.11),transparent_48%),rgba(7,10,15,0.92)]"
             : variant === "studio"
-              ? "inset-1 sm:inset-2 lg:inset-3 rounded-3xl border shadow-[0_30px_115px_rgba(0,0,0,0.64),0_0_0_1px_rgba(125,211,252,0.08)]"
+              ? "inset-1 sm:inset-2 lg:inset-3 overflow-y-auto overscroll-contain rounded-3xl border shadow-[0_30px_115px_rgba(0,0,0,0.64),0_0_0_1px_rgba(125,211,252,0.08)] orbito-scrollbar"
               : "right-0 top-0 h-full w-full max-w-md border-l"
         )}
       >
@@ -4025,7 +4025,16 @@ function Drawer({
           </button>
         </div>
 
-        <div className={cx("mt-5 min-h-0 flex-1 overflow-y-auto", enhancedScrollbar ? "orbito-scrollbar pr-3" : "pr-2")}>
+        <div
+          className={cx(
+            "mt-5 min-h-0",
+            studioCard
+              ? "overflow-visible pr-2"
+              : enhancedScrollbar
+                ? "flex-1 overflow-y-auto orbito-scrollbar pr-3"
+                : "flex-1 overflow-y-auto pr-2"
+          )}
+        >
           {children}
         </div>
       </div>
