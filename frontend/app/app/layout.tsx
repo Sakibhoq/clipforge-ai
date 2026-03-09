@@ -313,7 +313,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
             {aiLabButton()}
-            {navItem("/app", "Overview")}
+            {navItem("/app", "Console")}
             {navItem("/app/clips", "Clips")}
             {navItem("/app/connections", "Connection")}
             {navItem("/app/billing", "Billing")}
@@ -369,7 +369,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               {aiLabButton(true)}
-              {navItem("/app", "Overview", true)}
+              {navItem("/app", "Console", true)}
               {navItem("/app/clips", "Clips", true)}
               {navItem("/app/connections", "Connection", true)}
               {navItem("/app/billing", "Billing", true)}
