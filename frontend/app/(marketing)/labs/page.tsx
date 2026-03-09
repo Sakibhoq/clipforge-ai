@@ -141,6 +141,14 @@ function LabsAura() {
         .labs-cta-glow:hover::after {
           opacity: 0.72 !important;
         }
+        .labs-open-ai-cta::before {
+          opacity: 0.96 !important;
+          animation-duration: 1.9s !important;
+        }
+        .labs-open-ai-cta:hover::before {
+          animation-duration: 1.2s !important;
+          opacity: 1 !important;
+        }
         @media (prefers-reduced-motion: reduce) {
           .labs-anim,
           .labs-border-run::after,
@@ -282,7 +290,7 @@ export default function LabsMarketingPage() {
                   </div>
 
                   <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight text-white/95 sm:text-4xl md:text-6xl">
-                    Build AI clips <span className="labs-grad">faster than editing</span>.
+                    Turn AI clips into <span className="labs-grad">cash</span> — your AI content engine.
                   </h1>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
@@ -290,7 +298,7 @@ export default function LabsMarketingPage() {
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge labs-cta-glow">
+                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge labs-cta-glow labs-open-ai-cta">
                       Open AI Lab
                     </Link>
                     <Link href="/pricing" className="btn-ghost">

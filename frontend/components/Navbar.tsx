@@ -263,6 +263,8 @@ export default function Navbar() {
   const [startingTrial, setStartingTrial] = useState(false);
 
   const inApp = pathname?.startsWith("/app");
+  const isLabsMarketing = pathname === "/labs" || pathname?.startsWith("/labs/");
+  const isMarketingHome = pathname === "/" || pathname === "/labs";
 
   // ✅ Keep the scroll-safe approach:
   // - Marketing: FIXED + spacer (guarantees document scroll stays correct with your page backgrounds)
@@ -278,7 +280,7 @@ export default function Navbar() {
 
   // Marketing nav: highlight "How it works" only when section is actually in view.
   useEffect(() => {
-    if (inApp || pathname !== "/") {
+    if (inApp || !isMarketingHome) {
       setHowInView(false);
       return;
     }
@@ -311,7 +313,7 @@ export default function Navbar() {
       window.removeEventListener("resize", onScroll);
       window.removeEventListener("hashchange", onScroll);
     };
-  }, [inApp, pathname]);
+  }, [inApp, isMarketingHome]);
 
   // esc to close
   useEffect(() => {
@@ -409,11 +411,11 @@ export default function Navbar() {
 
   const marketingLinks = useMemo(
     () => [
-      { href: "/#how-it-works", label: "How it works" },
+      { href: isLabsMarketing ? "/labs#how-it-works" : "/#how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/contact", label: "Contact" },
     ],
-    []
+    [isLabsMarketing]
   );
 
   const appLinks = useMemo(
@@ -442,7 +444,6 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const isLabsMarketing = pathname === "/labs";
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
@@ -497,7 +498,7 @@ export default function Navbar() {
                     key={l.href}
                     href={l.href}
                     activeOverride={
-                      !inApp && l.href === "/#how-it-works" && pathname === "/" ? howInView : undefined
+                      !inApp && l.href.endsWith("#how-it-works") && isMarketingHome ? howInView : undefined
                     }
                   >
                     {l.label}
@@ -648,7 +649,7 @@ export default function Navbar() {
                       href={l.href}
                       onNavigate={() => setOpen(false)}
                       activeOverride={
-                        !inApp && l.href === "/#how-it-works" && pathname === "/" ? howInView : undefined
+                        !inApp && l.href.endsWith("#how-it-works") && isMarketingHome ? howInView : undefined
                       }
                     >
                       {l.label}
