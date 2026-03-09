@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from routers.billing import (
     _credits_delta_for_upgrade,
     _first_invoice_line_price_and_quantity,
+    _first_subscription_item_price_and_quantity,
     _resolve_plan_interval_from_price_id,
     _subscription_item_id,
     _subscription_status_payload,
@@ -83,3 +84,26 @@ def test_first_invoice_line_price_and_quantity_reads_namespace_shape():
     price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
     assert price_id == "price_xyz"
     assert quantity == 2
+
+
+def test_first_invoice_line_price_and_quantity_reads_clover_pricing_shape():
+    invoice = {
+        "lines": {
+            "data": [
+                {
+                    "pricing": {"price_details": {"price": "price_clover"}},
+                    "parent": {"subscription_item_details": {"quantity": 4}},
+                }
+            ]
+        }
+    }
+    price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
+    assert price_id == "price_clover"
+    assert quantity == 4
+
+
+def test_first_subscription_item_price_and_quantity_reads_subscription_items():
+    subscription = {"items": {"data": [{"price": {"id": "price_sub"}, "quantity": 3}]}}
+    price_id, quantity = _first_subscription_item_price_and_quantity(subscription)
+    assert price_id == "price_sub"
+    assert quantity == 3

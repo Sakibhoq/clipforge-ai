@@ -207,6 +207,52 @@ def _get_user_from_customer_id(db: Session, customer_id: str | None) -> Optional
     return db.query(User).filter(User.stripe_customer_id == cid).first()
 
 
+def _invoice_field(invoice_obj: object, key: str) -> object | None:
+    if isinstance(invoice_obj, dict):
+        return invoice_obj.get(key)
+    return getattr(invoice_obj, key, None)
+
+
+def _invoice_subscription_id(invoice_obj: object) -> Optional[str]:
+    raw = _invoice_field(invoice_obj, "subscription")
+    if isinstance(raw, dict):
+        token = str(raw.get("id") or "").strip()
+    else:
+        token = str(getattr(raw, "id", raw) or "").strip()
+    return token or None
+
+
+def _get_user_from_invoice(db: Session, invoice_obj: object) -> Optional[User]:
+    customer_id = str(_invoice_field(invoice_obj, "customer") or "").strip() or None
+    if customer_id:
+        by_customer = _get_user_from_customer_id(db, customer_id)
+        if by_customer:
+            return by_customer
+
+    email = str(_invoice_field(invoice_obj, "customer_email") or "").strip().lower() or None
+    if not email:
+        email = str(_invoice_field(invoice_obj, "receipt_email") or "").strip().lower() or None
+
+    if not email and customer_id and stripe.api_key:
+        try:
+            customer = stripe.Customer.retrieve(customer_id)
+            if isinstance(customer, dict):
+                token = customer.get("email")
+            else:
+                token = getattr(customer, "email", None)
+            email = str(token or "").strip().lower() or None
+        except Exception:
+            email = None
+
+    if not email:
+        return None
+
+    user = db.query(User).filter(User.email == email).first()
+    if user and customer_id and not str(getattr(user, "stripe_customer_id", "") or "").strip():
+        user.stripe_customer_id = customer_id
+    return user
+
+
 def _normalize_interval(interval: str | None) -> str:
     token = str(interval or "").strip().lower()
     return "yearly" if token in {"year", "yearly"} else "monthly"
@@ -225,6 +271,35 @@ def _resolve_plan_interval_from_price_id(price_id: str | None) -> tuple[Optional
 
 
 def _first_invoice_line_price_and_quantity(invoice_obj: object) -> tuple[Optional[str], int]:
+    def _deep_get(obj: object, path: tuple[str, ...]) -> object | None:
+        cur: object | None = obj
+        for key in path:
+            if cur is None:
+                return None
+            if isinstance(cur, dict):
+                cur = cur.get(key)
+            else:
+                cur = getattr(cur, key, None)
+        return cur
+
+    def _as_price_id(value: object | None) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            token = value.strip()
+            return token if token.startswith("price_") else None
+        if isinstance(value, dict):
+            nested = value.get("id")
+            if isinstance(nested, str):
+                token = nested.strip()
+                return token if token.startswith("price_") else None
+            return None
+        nested = getattr(value, "id", None)
+        if isinstance(nested, str):
+            token = nested.strip()
+            return token if token.startswith("price_") else None
+        return None
+
     lines = None
     if isinstance(invoice_obj, dict):
         lines = ((invoice_obj.get("lines") or {}).get("data") or [])
@@ -235,13 +310,92 @@ def _first_invoice_line_price_and_quantity(invoice_obj: object) -> tuple[Optiona
         else:
             lines = getattr(lines_container, "data", None)
 
+    price_paths: tuple[tuple[str, ...], ...] = (
+        ("price",),
+        ("price", "id"),
+        # Stripe Clover invoice line payloads may nest price under pricing details.
+        ("pricing", "price_details", "price"),
+        ("pricing", "price", "id"),
+        # Legacy shapes.
+        ("plan", "id"),
+        # Additional nested variants seen under parent subscription item details.
+        ("parent", "subscription_item_details", "price", "id"),
+        ("parent", "subscription_item_details", "price_details", "price"),
+    )
+    qty_paths: tuple[tuple[str, ...], ...] = (
+        ("quantity",),
+        ("parent", "subscription_item_details", "quantity"),
+    )
+
     for line in lines or []:
-        price_obj = line.get("price") if isinstance(line, dict) else getattr(line, "price", None)
-        price_id = price_obj.get("id") if isinstance(price_obj, dict) else getattr(price_obj, "id", None)
-        if price_id:
-            qty = line.get("quantity") if isinstance(line, dict) else getattr(line, "quantity", None)
-            quantity = max(1, int(qty or 1))
-            return (str(price_id), quantity)
+        price_id: Optional[str] = None
+        for path in price_paths:
+            price_id = _as_price_id(_deep_get(line, path))
+            if price_id:
+                break
+        if not price_id:
+            continue
+
+        quantity = 1
+        for path in qty_paths:
+            q = _deep_get(line, path)
+            if q is not None:
+                try:
+                    quantity = max(1, int(q))
+                    break
+                except Exception:
+                    continue
+        return (price_id, quantity)
+    return (None, 1)
+
+
+def _first_subscription_item_price_and_quantity(subscription_obj: object) -> tuple[Optional[str], int]:
+    def _as_price_id(value: object | None) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            token = value.strip()
+            return token if token.startswith("price_") else None
+        if isinstance(value, dict):
+            nested = value.get("id")
+            if isinstance(nested, str):
+                token = nested.strip()
+                return token if token.startswith("price_") else None
+            return None
+        nested = getattr(value, "id", None)
+        if isinstance(nested, str):
+            token = nested.strip()
+            return token if token.startswith("price_") else None
+        return None
+
+    items = None
+    if isinstance(subscription_obj, dict):
+        items = ((subscription_obj.get("items") or {}).get("data") or [])
+    else:
+        items_container = getattr(subscription_obj, "items", None)
+        if isinstance(items_container, dict):
+            items = items_container.get("data")
+        else:
+            items = getattr(items_container, "data", None)
+
+    for item in items or []:
+        if isinstance(item, dict):
+            price_raw = item.get("price")
+            quantity_raw = item.get("quantity")
+        else:
+            price_raw = getattr(item, "price", None)
+            quantity_raw = getattr(item, "quantity", None)
+
+        price_id = _as_price_id(price_raw)
+        if not price_id:
+            continue
+
+        try:
+            qty = max(1, int(quantity_raw)) if quantity_raw is not None else 1
+        except Exception:
+            qty = 1
+        return (price_id, qty)
+
     return (None, 1)
 
 
@@ -609,6 +763,11 @@ async def stripe_webhook(
             # Also mark any previous active subscriptions to cancel at period end
             # once this new checkout succeeds, so users don't keep multiple renewals.
             customer_id = session.get("customer") if isinstance(session, dict) else getattr(session, "customer", None)
+            customer_id = str(customer_id or "").strip() or None
+            if customer_id and customer_id != str(getattr(user, "stripe_customer_id", "") or "").strip():
+                user.stripe_customer_id = customer_id
+                db.commit()
+
             new_subscription = session.get("subscription") if isinstance(session, dict) else getattr(session, "subscription", None)
             new_sub_id = (
                 new_subscription.get("id")
@@ -618,7 +777,7 @@ async def stripe_webhook(
             new_sub_id = str(new_sub_id or "").strip() or None
 
             if customer_id:
-                active_subs = _active_subscriptions_for_customer(str(customer_id))
+                active_subs = _active_subscriptions_for_customer(customer_id)
                 for sub in active_subs:
                     sub_id = str(getattr(sub, "id", "") or "").strip()
                     if not sub_id or (new_sub_id and sub_id == new_sub_id):
@@ -649,17 +808,31 @@ async def stripe_webhook(
 
     if event["type"] == "invoice.paid":
         invoice = event["data"]["object"]
-        customer_id = invoice.get("customer") if isinstance(invoice, dict) else getattr(invoice, "customer", None)
-        user = _get_user_from_customer_id(db, customer_id)
+        customer_id = _invoice_field(invoice, "customer")
+        user = _get_user_from_invoice(db, invoice)
         if not user:
+            print(f"[billing] invoice.paid ignored: user not found (customer={customer_id})")
             return {"status": "ignored", "reason": "user not found"}
 
         if getattr(user, "last_stripe_event_id", None) == event_id:
             return {"status": "ignored", "reason": "duplicate event"}
 
         price_id, quantity = _first_invoice_line_price_and_quantity(invoice)
+        if not price_id:
+            subscription_id = _invoice_subscription_id(invoice)
+            if subscription_id:
+                try:
+                    sub = stripe.Subscription.retrieve(subscription_id, expand=["items.data.price"])
+                    price_id, quantity = _first_subscription_item_price_and_quantity(sub)
+                except Exception:
+                    price_id, quantity = (None, 1)
+
         plan, interval = _resolve_plan_interval_from_price_id(price_id)
         if not plan or plan not in ALLOWED_PLANS:
+            print(
+                f"[billing] invoice.paid ignored: unmapped invoice price "
+                f"(customer={customer_id}, price_id={price_id}, quantity={quantity})"
+            )
             return {"status": "ignored", "reason": "unmapped invoice price"}
 
         if plan == "free":
