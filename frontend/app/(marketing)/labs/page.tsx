@@ -119,23 +119,23 @@ function LabsAura() {
           className="absolute inset-0 opacity-[0.74]"
           style={{
             background:
-              "radial-gradient(1000px 620px at 12% 12%, rgba(255,183,3,0.20), transparent 66%), radial-gradient(1100px 640px at 84% 16%, rgba(96,165,250,0.20), transparent 68%), radial-gradient(980px 620px at 50% 88%, rgba(251,86,7,0.16), transparent 70%)",
+              "radial-gradient(1000px 620px at 12% 12%, rgba(255,183,3,0.20), transparent 66%), radial-gradient(1100px 640px at 84% 16%, rgba(96,165,250,0.20), transparent 68%), radial-gradient(980px 620px at 50% 90%, rgba(255,148,74,0.10), transparent 72%)",
           }}
         />
         <div
           className="labs-anim absolute -inset-[32%] blur-3xl"
           style={{
             background:
-              "radial-gradient(760px 420px at 12% 16%, rgba(255,183,3,0.26), transparent 68%), radial-gradient(760px 420px at 86% 16%, rgba(96,165,250,0.24), transparent 70%), radial-gradient(780px 420px at 52% 92%, rgba(251,86,7,0.18), transparent 72%)",
+              "radial-gradient(760px 420px at 12% 16%, rgba(255,183,3,0.26), transparent 68%), radial-gradient(760px 420px at 86% 16%, rgba(96,165,250,0.24), transparent 70%), radial-gradient(780px 420px at 52% 94%, rgba(255,156,92,0.11), transparent 74%)",
             mixBlendMode: "screen",
             animation: "labsPulse 16s ease-in-out infinite",
           }}
         />
         <div
-          className="absolute inset-0 opacity-[0.12]"
+          className="absolute inset-0 opacity-[0.9]"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(to bottom, rgba(96,165,250,0.14) 0 1px, transparent 1px 34px), repeating-linear-gradient(to right, rgba(255,183,3,0.08) 0 1px, transparent 1px 90px)",
+              "repeating-linear-gradient(to bottom, rgba(255,255,255,0.028) 0px, rgba(255,255,255,0.028) 1px, transparent 1px, transparent 7px)",
           }}
         />
       </div>
@@ -225,7 +225,7 @@ export default function LabsMarketingPage() {
               className="pointer-events-none absolute -inset-10 -z-10 opacity-70 blur-3xl"
               style={{
                 background:
-                  "radial-gradient(760px 380px at 16% 16%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(760px 420px at 84% 18%, rgba(96,165,250,0.22), transparent 70%), radial-gradient(760px 420px at 50% 96%, rgba(251,86,7,0.16), transparent 72%)",
+                  "radial-gradient(760px 380px at 16% 16%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(760px 420px at 84% 18%, rgba(96,165,250,0.22), transparent 70%), radial-gradient(760px 420px at 50% 96%, rgba(255,156,92,0.10), transparent 74%)",
               }}
             />
 

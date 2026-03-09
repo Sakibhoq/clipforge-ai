@@ -434,8 +434,24 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const labsNavHref = inApp ? "https://app.orbito.cc/app/labs/app/generate" : "/labs";
-  const labsNavTitle = inApp ? "Open Orbito Labs console" : "Open Orbito Labs";
+  const isLabsMarketing = pathname === "/labs";
+  const labsNavHref = inApp
+    ? "https://app.orbito.cc/app/labs/app/generate"
+    : isLabsMarketing
+      ? "/app"
+      : "/labs";
+  const labsNavTitle = inApp
+    ? "Open Orbito Labs console"
+    : isLabsMarketing
+      ? "Open Orbito Console"
+      : "Open Orbito Labs";
+  const labsDesktopButtonClass = inApp
+    ? "inline-flex btn-clipforge text-xs"
+    : isLabsMarketing
+      ? "hidden xl:inline-flex btn-orbito-cta text-xs"
+      : "hidden xl:inline-flex btn-clipforge text-xs";
+  const labsMobileButtonClass = isLabsMarketing ? "btn-orbito-cta w-full text-xs" : "btn-clipforge w-full text-xs";
+  const labsButtonIsOrbito = isLabsMarketing;
 
   // Always card/glass
   const shellClass =
@@ -497,13 +513,17 @@ export default function Navbar() {
 
                 <Link
                   href={labsNavHref}
-                  className={inApp ? "inline-flex btn-clipforge text-xs" : "hidden xl:inline-flex btn-clipforge text-xs"}
+                  className={labsDesktopButtonClass}
                   title={labsNavTitle}
                 >
                   <span>Orbito</span>
-                  <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
-                    LABS
-                  </span>
+                  {labsButtonIsOrbito ? (
+                    <span aria-hidden="true">↗</span>
+                  ) : (
+                    <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
+                      LABS
+                    </span>
+                  )}
                 </Link>
 
                 {authed && (
@@ -645,13 +665,17 @@ export default function Navbar() {
                   <Link
                     href={labsNavHref}
                     onClick={() => setOpen(false)}
-                    className="btn-clipforge w-full text-xs"
+                    className={labsMobileButtonClass}
                     title={labsNavTitle}
                   >
                     <span>Orbito</span>
-                    <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
-                      LABS
-                    </span>
+                    {labsButtonIsOrbito ? (
+                      <span aria-hidden="true">↗</span>
+                    ) : (
+                      <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
+                        LABS
+                      </span>
+                    )}
                   </Link>
                 </div>
 

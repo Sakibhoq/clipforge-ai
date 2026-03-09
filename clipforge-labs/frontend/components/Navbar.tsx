@@ -16,6 +16,14 @@ function withBasePath(path: string) {
   return `${base}${clean}`;
 }
 
+function orbitoOrigin() {
+  return (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
+}
+
+function labsMarketingUrl() {
+  return `${orbitoOrigin()}/labs`;
+}
+
 function Logo() {
   const pathname = usePathname();
   const inApp = pathname?.startsWith("/app");
@@ -43,7 +51,7 @@ function Logo() {
 
   return (
     <Link
-      href={inApp ? "/app" : "/"}
+      href={inApp ? labsMarketingUrl() : "/"}
       onClick={onLogoClick}
       className="group flex items-center gap-1.5 shrink-0"
     >

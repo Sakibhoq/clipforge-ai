@@ -87,6 +87,10 @@ function orbitoConsoleUrl() {
   return `${orbitoOrigin()}/app`;
 }
 
+function orbitoLabsMarketingUrl() {
+  return `${orbitoOrigin()}/labs`;
+}
+
 function orbitoLabsBillingUrl() {
   const url = new URL("/app/billing", orbitoOrigin());
   url.searchParams.set("intent", "labs");
@@ -271,7 +275,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {/* Brand */}
           <div className="flex min-w-0 items-center gap-1.5">
-            <Link href="/" className="group inline-flex min-w-0 items-center gap-1.5">
+            <a href={orbitoLabsMarketingUrl()} className="group inline-flex min-w-0 items-center gap-1.5">
               <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center">
                 <span
                   aria-hidden="true"
@@ -307,7 +311,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   LABS
                 </span>
               </span>
-            </Link>
+            </a>
 
           </div>
 
