@@ -53,6 +53,7 @@ type JobRow = {
 type JobSettings = {
   visual_prompt?: string;
   voice_script?: string;
+  dialogue_script?: string;
   voice_name?: string;
   speed_wpm?: number;
   style_preset?: string;
@@ -75,8 +76,8 @@ const VOICE_MIN_CREDITS = 1;
 const VOICE_BASE_WPM = 165;
 const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
-const POST_IMAGE_DEFAULT_COUNT = 10;
-const VIDEO_DURATION_OPTIONS: number[] = [4, 6, 8, 10, 12];
+const POST_IMAGE_DEFAULT_COUNT = 8;
+const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
 const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
 const LOW_COST_STYLES = new Set<StylePreset>(["anime", "cartoon", "comic"]);
 const VOICE_SPEED_OPTIONS = [
@@ -174,7 +175,7 @@ function durationPresetLabel(durationSeconds: number | null | undefined): string
   if (d >= 120) return "2 min";
   if (d >= 90) return "1.5 min";
   if (d >= 60) return "1 min";
-  if (d <= 4) return "Short";
+  if (d <= 5) return "Short";
   if (d <= 8) return "Clip";
   return `${Math.round(d)}s`;
 }
@@ -367,6 +368,7 @@ export default function GenerateClient() {
 
   const [postVisualPrompt, setPostVisualPrompt] = useState("");
   const [postVoiceScript, setPostVoiceScript] = useState("");
+  const [postDialogueScript, setPostDialogueScript] = useState("");
   const [postIdeaSeed, setPostIdeaSeed] = useState("");
   const [postIdeaLoading, setPostIdeaLoading] = useState(false);
   const [postIdeaError, setPostIdeaError] = useState<string | null>(null);
@@ -376,6 +378,7 @@ export default function GenerateClient() {
 
   const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
   const [voiceSpeedMultiplier, setVoiceSpeedMultiplier] = useState<number>(1);
+  const [videoDialogueScript, setVideoDialogueScript] = useState("");
   const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
@@ -428,9 +431,9 @@ export default function GenerateClient() {
   );
   const maxVideoDuration = useMemo(() => {
     const extended = lowCostStyleSelected || videoSpeed === "fast";
-    const hdCaps: Record<string, number> = { free: 4, free_trial: 4, trial: 4, starter: 6, creator: 8, studio: 8 };
-    const extendedCaps: Record<string, number> = { free: 4, free_trial: 4, trial: 4, starter: 8, creator: 12, studio: 12 };
-    const fallback = extended ? 4 : 4;
+    const hdCaps: Record<string, number> = { free: 5, free_trial: 5, trial: 5, starter: 6, creator: 7, studio: 7 };
+    const extendedCaps: Record<string, number> = { free: 5, free_trial: 5, trial: 5, starter: 7, creator: 7, studio: 7 };
+    const fallback = extended ? 5 : 5;
     const table = extended ? extendedCaps : hdCaps;
     return table[normalizedPlan] ?? fallback;
   }, [normalizedPlan, lowCostStyleSelected, videoSpeed]);
@@ -472,7 +475,7 @@ export default function GenerateClient() {
 
   useEffect(() => {
     if (!videoDurationOptions.includes(duration)) {
-      setDuration(videoDurationOptions[videoDurationOptions.length - 1] || 4);
+      setDuration(videoDurationOptions[videoDurationOptions.length - 1] || 5);
     }
   }, [videoDurationOptions, duration]);
 
@@ -505,6 +508,7 @@ export default function GenerateClient() {
       setMode("post");
       setPostVisualPrompt(typeof settings.visual_prompt === "string" ? settings.visual_prompt : String(job.prompt || ""));
       setPostVoiceScript(typeof settings.voice_script === "string" ? settings.voice_script : "");
+      setPostDialogueScript(typeof settings.dialogue_script === "string" ? settings.dialogue_script : "");
       const postDurationRaw =
         typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
       if (Number.isFinite(postDurationRaw) && [60, 90, 120].includes(postDurationRaw)) {
@@ -539,9 +543,10 @@ export default function GenerateClient() {
     }
 
     setMode("video");
+    setVideoDialogueScript(typeof settings.dialogue_script === "string" ? settings.dialogue_script : "");
     const durationSeconds =
       typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
-    if (Number.isFinite(durationSeconds) && [4, 6, 8, 10, 12].includes(durationSeconds)) {
+    if (Number.isFinite(durationSeconds) && [5, 6, 7].includes(durationSeconds)) {
       setDuration(durationSeconds);
     }
     const generationSpeed = typeof settings.generation_speed === "string" ? settings.generation_speed : "";
@@ -752,7 +757,7 @@ export default function GenerateClient() {
     }
 
     const d = dRaw ? Number(dRaw) : NaN;
-    if (Number.isFinite(d) && [4, 6, 8, 10, 12].includes(d)) setDuration(d);
+    if (Number.isFinite(d) && [5, 6, 7].includes(d)) setDuration(d);
 
     const jobId = jobRaw ? Number(jobRaw) : 0;
     const uploadId = uploadRaw ? Number(uploadRaw) : 0;
@@ -773,6 +778,8 @@ export default function GenerateClient() {
     const p = prompt.trim();
     const postPrompt = postVisualPrompt.trim();
     const postScript = postVoiceScript.trim();
+    const postDialogue = postDialogueScript.trim();
+    const videoDialogue = videoDialogueScript.trim();
 
     if (mode === "post") {
       if (postPrompt.length < 3) {
@@ -791,13 +798,14 @@ export default function GenerateClient() {
     setSubmitting(true);
     try {
       let endpoint = "/labs/generate";
-      let body: Record<string, string | number | boolean> = {};
+      let body: Record<string, string | number | boolean | undefined> = {};
 
       if (mode === "post") {
         endpoint = "/labs/generate/post";
         body = {
           visual_prompt: postPrompt,
           voice_script: postScript,
+          dialogue_script: postDialogue || undefined,
           aspect_ratio: aspectRatio,
           duration_seconds: postDurationSeconds,
           image_count: POST_IMAGE_DEFAULT_COUNT,
@@ -829,6 +837,7 @@ export default function GenerateClient() {
         endpoint = "/labs/generate";
         body = {
           prompt: p,
+          dialogue_script: videoDialogue || undefined,
           aspect_ratio: aspectRatio,
           duration_seconds: duration,
           generation_speed: videoSpeed,
@@ -1093,6 +1102,14 @@ export default function GenerateClient() {
                       placeholder="Write the narration for your 1-minute clip."
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
+                    <label className="mt-1 text-xs font-medium text-white/70">Character dialogue (optional)</label>
+                    <textarea
+                      value={postDialogueScript}
+                      onChange={(e) => setPostDialogueScript(e.target.value)}
+                      rows={4}
+                      placeholder="Optional: Hero: We have to move now. Sidekick: I’m right behind you."
+                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                    />
                     <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
                     <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-white/72">
                       <div>
@@ -1133,6 +1150,18 @@ export default function GenerateClient() {
                         ? `${textLength.toLocaleString()} characters`
                         : "Keep prompts short and specific for cleaner output."}
                     </div>
+                    {mode === "video" ? (
+                      <>
+                        <label className="text-xs font-medium text-white/70">Character dialogue (optional)</label>
+                        <textarea
+                          value={videoDialogueScript}
+                          onChange={(e) => setVideoDialogueScript(e.target.value)}
+                          rows={4}
+                          placeholder="Optional speaking lines to guide lip-sync and emotional tone."
+                          className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                        />
+                      </>
+                    ) : null}
                   </>
                 )}
               </div>

@@ -60,7 +60,16 @@ def _is_generated_ai_clip_key(key: str | None) -> bool:
     k = str(key or "").strip().lower()
     if not k:
         return False
-    return k.startswith("clips/generated/") or k.startswith("clips/generated-posts/")
+    labs_generated_prefixes = (
+        "clips/generated/",
+        "clips/generated-posts/",
+        "assets/images/",
+        "assets/voiceovers/",
+        "assets/post-voiceovers/",
+        "assets/post-scenes/",
+        "assets/post-scenes-video/",
+    )
+    return any(k.startswith(prefix) for prefix in labs_generated_prefixes)
 
 
 def _is_generated_upload(upload: Upload | None) -> bool:

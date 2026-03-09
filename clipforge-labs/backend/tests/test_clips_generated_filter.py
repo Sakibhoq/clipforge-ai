@@ -189,3 +189,38 @@ def test_generated_only_excludes_generated_key_for_non_labs_job(
     )
 
     assert rows == []
+
+
+@pytest.mark.parametrize(
+    "storage_key,job_kind",
+    [
+        (f"assets/images/{uuid.uuid4().hex}.png", "generate_image"),
+        (f"assets/voiceovers/{uuid.uuid4().hex}.mp3", "generate_voiceover"),
+        (f"assets/post-voiceovers/{uuid.uuid4().hex}.mp3", "generate_post"),
+        (f"assets/post-scenes/{uuid.uuid4().hex}.png", "generate_post"),
+        (f"assets/post-scenes-video/{uuid.uuid4().hex}.mp4", "generate_post"),
+    ],
+)
+def test_generated_only_includes_labs_asset_prefixes(
+    db, monkeypatch: pytest.MonkeyPatch, storage_key: str, job_kind: str
+):
+    user = _mk_user(db)
+    expected = _mk_clip(
+        db,
+        user_id=user.id,
+        source_type="generated",
+        job_kind=job_kind,
+        storage_key=storage_key,
+    )
+
+    monkeypatch.setattr(clips_router, "get_storage", lambda: _MockStorage())
+    rows = clips_router.list_clips(
+        upload_id=None,
+        grouped=False,
+        generated_only=True,
+        db=db,
+        current_user=user,
+        request=None,
+    )
+
+    assert {int(r["id"]) for r in rows} == {int(expected.id)}

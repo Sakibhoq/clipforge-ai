@@ -284,6 +284,50 @@ def _allow_demo_fallback() -> bool:
     return _env_bool("LABS_ALLOW_DEMO_FALLBACK", False)
 
 
+def _allow_placeholder_fallback(kind: str) -> bool:
+    """
+    Fine-grained fallback toggles to avoid "fake success" assets.
+    By default:
+      - image fallback is allowed in dev
+      - video/voice/post fallback is disabled
+    """
+    if not _allow_demo_fallback():
+        return False
+    k = (kind or "").strip().lower()
+    if k == JOB_KIND_IMAGE:
+        return _env_bool("LABS_ALLOW_IMAGE_PLACEHOLDER_FALLBACK", True)
+    if k == JOB_KIND_VOICEOVER:
+        return _env_bool("LABS_ALLOW_VOICE_PLACEHOLDER_FALLBACK", False)
+    if k == JOB_KIND_POST:
+        return _env_bool("LABS_ALLOW_POST_PLACEHOLDER_FALLBACK", False)
+    return _env_bool("LABS_ALLOW_VIDEO_PLACEHOLDER_FALLBACK", False)
+
+
+def _parse_supported_video_durations() -> list[int]:
+    raw = _env("GOOGLE_VIDEO_SUPPORTED_DURATIONS", "5,6,7")
+    durations: list[int] = []
+    for token in raw.split(","):
+        t = token.strip()
+        if not t:
+            continue
+        try:
+            value = int(t)
+        except Exception:
+            continue
+        if 1 <= value <= 120 and value not in durations:
+            durations.append(value)
+    durations.sort()
+    return durations or [6]
+
+
+def _nearest_supported_duration(requested_seconds: int, supported_durations: list[int]) -> int:
+    safe_supported = [int(v) for v in supported_durations if int(v) > 0]
+    if not safe_supported:
+        return max(1, int(requested_seconds or 6))
+    requested = max(1, int(requested_seconds or 6))
+    return min(safe_supported, key=lambda candidate: (abs(candidate - requested), candidate))
+
+
 def _provider_timeout_seconds() -> int:
     return _env_int("GOOGLE_API_TIMEOUT_SECONDS", 120, min_value=5, max_value=600)
 
@@ -693,8 +737,17 @@ def _run_google_vertex_video_generation(
     start_url = f"{endpoint_base}:predictLongRunning"
     fetch_url = f"{endpoint_base}:fetchPredictOperation"
 
-    max_duration = _env_int("GOOGLE_VIDEO_MAX_DURATION_SECONDS", 12, min_value=4, max_value=120)
-    safe_duration = max(4, min(int(duration_seconds or 6), max_duration))
+    max_duration = _env_int("GOOGLE_VIDEO_MAX_DURATION_SECONDS", 7, min_value=1, max_value=120)
+    supported_durations = [d for d in _parse_supported_video_durations() if d <= max_duration]
+    if not supported_durations:
+        supported_durations = [max(1, max_duration)]
+    requested_duration = int(duration_seconds or 6)
+    safe_duration = _nearest_supported_duration(requested_duration, supported_durations)
+    if safe_duration != requested_duration:
+        print(
+            f"[worker] normalized video duration requested={requested_duration}s "
+            f"to supported={safe_duration}s supported={supported_durations}"
+        )
     safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9"} else "9:16"
 
     output_storage_uri = _env("GOOGLE_VIDEO_OUTPUT_GCS_URI", "")
@@ -1224,6 +1277,26 @@ def _extract_post_scene_beats(raw_visual_prompt: str) -> list[str]:
     return [text_value]
 
 
+def _compact_dialogue_script(dialogue_script: str | None, *, max_chars: int = 1200) -> str:
+    raw = (dialogue_script or "").strip()
+    if not raw:
+        return ""
+    lines = [re.sub(r"\s+", " ", line).strip() for line in raw.replace("\r", "\n").split("\n")]
+    lines = [line for line in lines if line]
+    compact = "\n".join(lines)
+    return compact[:max_chars].strip()
+
+
+def _merge_narration_with_dialogue(narration: str, dialogue_script: str | None) -> str:
+    narration_clean = (narration or "").strip()
+    dialogue_clean = _compact_dialogue_script(dialogue_script, max_chars=2000)
+    if not dialogue_clean:
+        return narration_clean
+    if narration_clean:
+        return f"{narration_clean}\n\nDialogue:\n{dialogue_clean}".strip()
+    return f"Dialogue:\n{dialogue_clean}".strip()
+
+
 def _post_scene_beat_for_index(*, scene_beats: list[str], scene_index: int, scene_count: int) -> str:
     if not scene_beats:
         return "Cinematic social-media frame with clear subject focus and strong composition."
@@ -1241,6 +1314,7 @@ def _build_post_scene_prompt(
     scene_beats: list[str],
     scene_index: int,
     scene_count: int,
+    dialogue_script: str | None = None,
 ) -> str:
     metadata = _parse_post_prompt_metadata(raw_visual_prompt)
     story_title = metadata.get("title", "")
@@ -1288,6 +1362,13 @@ def _build_post_scene_prompt(
     pieces.append(
         "Avoid unintended text artifacts, subtitles, logos, and watermarks unless the scene explicitly asks for visible text."
     )
+    dialogue_hint = _compact_dialogue_script(dialogue_script, max_chars=420)
+    if dialogue_hint:
+        pieces.append(
+            "Dialogue guidance (important): match speaker emotion and mouth movement to the dialogue lines while"
+            " preserving the same protagonist identity."
+        )
+        pieces.append(f"Dialogue lines:\n{dialogue_hint}")
 
     composed = " ".join(piece.strip() for piece in pieces if piece.strip())
     return composed[:1180].rstrip()
@@ -2198,31 +2279,80 @@ def _call_google_generation_endpoint(
     return media_bytes, media_type, final_duration, title
 
 
-def _next_generate_job(db) -> dict | None:
-    row = db.execute(
-        text(
-            """
-            SELECT
-              id,
-              upload_id,
-              COALESCE(kind, 'generate') AS kind,
-              COALESCE(prompt, '') AS prompt,
-              COALESCE(negative_prompt, '') AS negative_prompt,
-              COALESCE(model, '') AS model,
-              COALESCE(duration_seconds, 6) AS duration_seconds,
-              COALESCE(aspect_ratio, '9:16') AS aspect_ratio,
-              COALESCE(captions_enabled, 0) AS captions_enabled,
-              COALESCE(watermark_enabled, 1) AS watermark_enabled,
-              COALESCE(caption_style_json, '{}') AS settings_json
-            FROM jobs
-            WHERE kind IN ('generate', 'generate_image', 'generate_voiceover', 'generate_post')
-              AND status = 'queued'
-            ORDER BY id ASC
-            LIMIT 1
-            """
+def _claim_next_generate_job(db) -> dict | None:
+    """
+    Claim exactly one queued generation job and immediately mark it running.
+    Rules:
+      - FIFO by job id
+      - at most one running generation job per user account at any time
+      - safe for multiple workers racing on the same queue
+    """
+    for _ in range(12):
+        candidate = db.execute(
+            text(
+                """
+                SELECT j.id
+                FROM jobs j
+                JOIN uploads u ON u.id = j.upload_id
+                WHERE j.kind IN ('generate', 'generate_image', 'generate_voiceover', 'generate_post')
+                  AND j.status = 'queued'
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM jobs jr
+                    JOIN uploads ur ON ur.id = jr.upload_id
+                    WHERE ur.user_id = u.user_id
+                      AND jr.kind IN ('generate', 'generate_image', 'generate_voiceover', 'generate_post')
+                      AND jr.status = 'running'
+                  )
+                ORDER BY j.id ASC
+                LIMIT 1
+                """
+            )
+        ).scalar()
+        if not candidate:
+            return None
+
+        updated = db.execute(
+            text(
+                """
+                UPDATE jobs
+                SET status = 'running',
+                    error = NULL
+                WHERE id = :id
+                  AND status = 'queued'
+                """
+            ),
+            {"id": int(candidate)},
         )
-    ).mappings().first()
-    return dict(row) if row else None
+        if int(getattr(updated, "rowcount", 0) or 0) != 1:
+            # Another worker claimed it first; retry quickly.
+            continue
+
+        row = db.execute(
+            text(
+                """
+                SELECT
+                  id,
+                  upload_id,
+                  COALESCE(kind, 'generate') AS kind,
+                  COALESCE(prompt, '') AS prompt,
+                  COALESCE(negative_prompt, '') AS negative_prompt,
+                  COALESCE(model, '') AS model,
+                  COALESCE(duration_seconds, 6) AS duration_seconds,
+                  COALESCE(aspect_ratio, '9:16') AS aspect_ratio,
+                  COALESCE(captions_enabled, 0) AS captions_enabled,
+                  COALESCE(watermark_enabled, 1) AS watermark_enabled,
+                  COALESCE(caption_style_json, '{}') AS settings_json
+                FROM jobs
+                WHERE id = :id
+                LIMIT 1
+                """
+            ),
+            {"id": int(candidate)},
+        ).mappings().first()
+        return dict(row) if row else None
+
+    return None
 
 
 def _mark_job_status(db, job_id: int, status: str, error: str | None = None) -> None:
@@ -2460,9 +2590,14 @@ def _process_job(job: dict) -> dict[str, Any]:
     watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
     captions_enabled = bool(settings.get("captions_enabled", bool(job.get("captions_enabled", False))))
     styled_prompt = _apply_style_preset(prompt, style_preset)
+    dialogue_script = _compact_dialogue_script(str(settings.get("dialogue_script") or "").strip(), max_chars=5000)
+    styled_prompt_with_dialogue = _merge_narration_with_dialogue(styled_prompt, dialogue_script)
     use_google_provider = _model_prefers_google(model)
     strict_provider = _provider_strict_mode()
-    allow_demo_fallback = _allow_demo_fallback()
+    allow_image_fallback = _allow_placeholder_fallback(JOB_KIND_IMAGE)
+    allow_voice_fallback = _allow_placeholder_fallback(JOB_KIND_VOICEOVER)
+    allow_post_fallback = _allow_placeholder_fallback(JOB_KIND_POST)
+    allow_video_fallback = _allow_placeholder_fallback(JOB_KIND_VIDEO)
 
     if kind == JOB_KIND_IMAGE:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-image-{job_id}-", suffix=".png")
@@ -2502,12 +2637,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                     provider_title = remote_title
                 except Exception as exc:
                     provider_capacity_error = _is_provider_capacity_error(exc)
-                    if strict_provider or not allow_demo_fallback:
+                    if strict_provider or not allow_image_fallback:
                         raise RuntimeError(f"Google image generation failed: {exc}") from exc
                     print(f"[worker] image provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_image_fallback:
                     raise RuntimeError("Google image generation returned no media payload")
                 _run_ffmpeg_text_image(prompt=styled_prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
 
@@ -2550,12 +2685,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                     )
                 except Exception as exc:
                     provider_capacity_error = _is_provider_capacity_error(exc)
-                    if strict_provider or not allow_demo_fallback:
+                    if strict_provider or not allow_voice_fallback:
                         raise RuntimeError(f"Google voiceover generation failed: {exc}") from exc
                     print(f"[worker] voiceover provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_voice_fallback:
                     raise RuntimeError("Google voiceover generation returned no audio payload")
                 _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
 
@@ -2593,7 +2728,9 @@ def _process_job(job: dict) -> dict[str, Any]:
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
             scene_beats = _extract_post_scene_beats(raw_visual_prompt)
             post_image_model_id = _resolve_google_image_model_id(style_preset, task="post")
+            raw_dialogue_script = _compact_dialogue_script(str(settings.get("dialogue_script") or dialogue_script), max_chars=5000)
             voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
+            voice_script = _merge_narration_with_dialogue(voice_script, raw_dialogue_script)
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
             provider_capacity_error_voice = False
@@ -2676,13 +2813,13 @@ def _process_job(job: dict) -> dict[str, Any]:
                                 )
                                 time.sleep(wait_seconds)
                                 continue
-                        if strict_provider or not allow_demo_fallback:
+                        if strict_provider or not allow_post_fallback:
                             raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
                         print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
                         break
 
             if not _file_has_data(audio_path):
-                if use_google_provider and not allow_demo_fallback:
+                if use_google_provider and not allow_post_fallback:
                     raise RuntimeError("Google post voiceover generation returned no audio payload")
                 _run_voiceover(
                     script=voice_script or "Untitled voiceover",
@@ -2711,7 +2848,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                 for attempt_idx, attempt_scene_count in enumerate(retry_scene_counts):
                     capacity_hit = False
                     _clear_scene_video_paths()
-                    scene_video_duration = max(4, min(12, int(round(float(target_duration) / float(max(1, attempt_scene_count))))))
+                    scene_video_duration = max(5, min(7, int(round(float(target_duration) / float(max(1, attempt_scene_count))))))
 
                     for idx in range(attempt_scene_count):
                         fd_scene, scene_path = tempfile.mkstemp(prefix=f"cflabs-post-video-{job_id}-{idx}-", suffix=".mp4")
@@ -2724,6 +2861,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             scene_beats=scene_beats,
                             scene_index=idx,
                             scene_count=attempt_scene_count,
+                            dialogue_script=raw_dialogue_script,
                         )
 
                         if use_google_provider:
@@ -2779,7 +2917,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             f"retry_count={attempt_scene_count} err={type(exc).__name__}: {exc}"
                                         )
                                         break
-                                    if strict_provider or not allow_demo_fallback:
+                                    if strict_provider or not allow_post_fallback:
                                         raise RuntimeError(f"Google post video generation failed: {exc}") from exc
                                     print(
                                         f"[worker] post video fallback job_id={job_id} scene={idx + 1}/{attempt_scene_count} "
@@ -2791,7 +2929,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             break
 
                         if not _file_has_data(scene_path):
-                            if use_google_provider and not allow_demo_fallback:
+                            if use_google_provider and not allow_post_fallback:
                                 raise RuntimeError("Google post video generation returned no media payload")
                             used_placeholder_visuals = True
                             _run_ffmpeg_text_video(
@@ -2838,7 +2976,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                     if capacity_hit:
                         last_attempt = attempt_idx >= (len(retry_scene_counts) - 1)
                         if last_attempt:
-                            if not strict_provider and allow_demo_fallback:
+                            if not strict_provider and allow_post_fallback:
                                 print(
                                     f"[worker] post video final capacity fallback job_id={job_id} "
                                     f"retry_count={attempt_scene_count} using local placeholder scenes"
@@ -3005,6 +3143,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         scene_beats=scene_beats,
                         scene_index=idx,
                         scene_count=attempt_image_count,
+                        dialogue_script=raw_dialogue_script,
                     )
 
                     if use_google_provider:
@@ -3057,7 +3196,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                         f"retry_count={attempt_image_count} err={type(exc).__name__}: {exc}"
                                     )
                                     break
-                                if strict_provider or not allow_demo_fallback:
+                                if strict_provider or not allow_post_fallback:
                                     raise RuntimeError(f"Google post image generation failed: {exc}") from exc
                                 print(
                                     f"[worker] post image fallback job_id={job_id} scene={idx + 1}/{attempt_image_count} "
@@ -3069,7 +3208,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         break
 
                     if not _file_has_data(img_path):
-                        if use_google_provider and not allow_demo_fallback:
+                        if use_google_provider and not allow_post_fallback:
                             raise RuntimeError("Google post image generation returned no media payload")
                         used_placeholder_visuals = True
                         _run_ffmpeg_text_image(
@@ -3115,7 +3254,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                 if capacity_hit:
                     last_attempt = attempt_idx >= (len(retry_image_counts) - 1)
                     if last_attempt:
-                        if not strict_provider and allow_demo_fallback:
+                        if not strict_provider and allow_post_fallback:
                             print(
                                 f"[worker] post image final capacity fallback job_id={job_id} "
                                 f"retry_count={attempt_image_count} using local placeholder scenes"
@@ -3287,7 +3426,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                     media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
                         endpoint_env="GOOGLE_VIDEO_API_URL",
                         payload={
-                            "prompt": styled_prompt,
+                            "prompt": styled_prompt_with_dialogue,
                             "negative_prompt": negative_prompt or None,
                             "aspect_ratio": aspect_ratio,
                             "duration_seconds": duration,
@@ -3300,7 +3439,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                     )
                 else:
                     media_bytes, remote_type, remote_duration, remote_title = _run_google_vertex_video_generation(
-                        prompt=styled_prompt,
+                        prompt=styled_prompt_with_dialogue,
                         negative_prompt=negative_prompt,
                         aspect_ratio=aspect_ratio,
                         duration_seconds=duration,
@@ -3314,19 +3453,19 @@ def _process_job(job: dict) -> dict[str, Any]:
                     provider_duration = float(remote_duration)
                 provider_title = remote_title
             except Exception as exc:
-                if strict_provider or not allow_demo_fallback:
+                if strict_provider or not allow_video_fallback:
                     raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
         valid_video, detected_duration = _valid_video_file(out_path)
         if not valid_video:
-            if provider_generated and (strict_provider or not allow_demo_fallback):
+            if provider_generated and (strict_provider or not allow_video_fallback):
                 raise RuntimeError("Google video generation produced an invalid video payload")
             prep_delay = _video_mode_prep_delay_seconds(generation_speed)
             if prep_delay > 0:
                 time.sleep(prep_delay)
             _run_ffmpeg_text_video(
-                prompt=styled_prompt or "Untitled",
+                prompt=styled_prompt_with_dialogue or "Untitled",
                 duration=duration,
                 aspect_ratio=aspect_ratio,
                 out_path=out_path,
@@ -3396,20 +3535,18 @@ def main() -> None:
     while True:
         try:
             with Session() as db:
-                job = _next_generate_job(db)
+                job = _claim_next_generate_job(db)
                 if not job:
                     db.commit()
                     time.sleep(poll)
                     continue
+                db.commit()
 
                 job_id = int(job["id"])
                 upload_id = int(job["upload_id"])
                 kind = str(job.get("kind") or JOB_KIND_VIDEO)
 
                 try:
-                    _mark_job_status(db, job_id, "running", None)
-                    db.commit()
-
                     result = _process_job(job)
                     key = str(result.get("storage_key") or "")
                     content_type = str(result.get("content_type") or "application/octet-stream")

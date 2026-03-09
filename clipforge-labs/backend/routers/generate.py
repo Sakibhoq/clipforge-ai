@@ -35,25 +35,25 @@ VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
 LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
-ALLOWED_DURATIONS = {4, 6, 8, 10, 12}
+ALLOWED_DURATIONS = {5, 6, 7}
 POST_ALLOWED_DURATIONS = {60, 90, 120}
 POST_DEFAULT_DURATION_SECONDS = 60
-POST_DEFAULT_IMAGE_COUNT = 10
+POST_DEFAULT_IMAGE_COUNT = 8
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
 
 PLAN_MAX_VIDEO_DURATION_SECONDS_HD = {
-    "free": 4,
+    "free": 5,
     "starter": 6,
-    "creator": 8,
-    "studio": 8,
+    "creator": 7,
+    "studio": 7,
 }
 
 PLAN_MAX_VIDEO_DURATION_SECONDS_EXTENDED = {
-    "free": 4,
-    "starter": 8,
-    "creator": 12,
-    "studio": 12,
+    "free": 5,
+    "starter": 7,
+    "creator": 7,
+    "studio": 7,
 }
 
 PLAN_MAX_PENDING_GENERATE_JOBS = {
@@ -336,6 +336,29 @@ def _script_word_count(script: str) -> int:
 
 def _clean_spaces(value: str) -> str:
     return " ".join((value or "").strip().split())
+
+
+def _clean_dialogue_script(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    lines = [re.sub(r"\s+", " ", line).strip() for line in raw.replace("\r", "\n").split("\n")]
+    lines = [line for line in lines if line]
+    compact = "\n".join(lines)
+    return compact[:5000].strip()
+
+
+def _compose_prompt_with_dialogue(prompt: str, dialogue_script: str | None) -> str:
+    clean_prompt = _clean_spaces(prompt)
+    dialogue = _clean_dialogue_script(dialogue_script)
+    if not dialogue:
+        return clean_prompt
+    return (
+        f"{clean_prompt}\n\n"
+        "Character dialogue and speaking cues:\n"
+        f"{dialogue}\n\n"
+        "Generate clear talking performance with expressive delivery and matching lip movement."
+    ).strip()
 
 
 def _truncate_words(value: str, max_words: int) -> str:
@@ -1112,13 +1135,14 @@ class GenerateVideoRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=1200)
     negative_prompt: str | None = Field(default=None, max_length=1200)
     aspect_ratio: str = "9:16"
-    duration_seconds: int = Field(default=6, ge=4, le=12)
+    duration_seconds: int = Field(default=6, ge=5, le=7)
     generation_speed: str = Field(default="relax", max_length=16)
     model: str | None = Field(default="google", max_length=64)
     style_preset: str | None = Field(default="social-native", max_length=64)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
     input_image_key: str | None = Field(default=None, max_length=512)
     watermark_enabled: bool = Field(default=True)
+    dialogue_script: str | None = Field(default=None, max_length=5000)
 
 
 class GenerateImageRequest(BaseModel):
@@ -1140,6 +1164,7 @@ class GenerateVoiceoverRequest(BaseModel):
 class GeneratePostRequest(BaseModel):
     visual_prompt: str = Field(min_length=3, max_length=1200)
     voice_script: str = Field(min_length=30, max_length=12000)
+    dialogue_script: str | None = Field(default=None, max_length=5000)
     aspect_ratio: str = "9:16"
     duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
@@ -1271,12 +1296,14 @@ def create_video_generation(
 
     duration_seconds = int(payload.duration_seconds or 6)
     if duration_seconds not in ALLOWED_DURATIONS:
-        raise HTTPException(status_code=422, detail="Duration must be one of: 4, 6, 8, 10, 12 seconds")
+        raise HTTPException(status_code=422, detail="Duration must be one of: 5, 6, 7 seconds")
 
     generation_speed = _video_speed_key(payload.generation_speed)
     model = _check_model_supported(payload.model)
     input_image_key = _assert_user_owned_key(current_user.id, payload.input_image_key)
     style_preset = (payload.style_preset or "social-native")
+    dialogue_script = _clean_dialogue_script(payload.dialogue_script)
+    composed_prompt = _compose_prompt_with_dialogue(prompt, dialogue_script)
     credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset)
 
     def _plan_guard(plan: str) -> None:
@@ -1303,6 +1330,7 @@ def create_video_generation(
         "style_preset": style_preset,
         "seed": payload.seed,
         "input_image_key": input_image_key,
+        "dialogue_script": dialogue_script,
         "watermark_enabled": bool(payload.watermark_enabled),
     }
 
@@ -1310,7 +1338,7 @@ def create_video_generation(
         db=db,
         current_user=current_user,
         kind=JOB_KIND_VIDEO,
-        prompt=prompt,
+        prompt=composed_prompt,
         credits_needed=credits_needed,
         original_filename="generated.mp4",
         aspect_ratio=ar,
@@ -1459,6 +1487,7 @@ def create_post_generation(
     image_count = max(6, min(10, int(payload.image_count or POST_DEFAULT_IMAGE_COUNT)))
     model = _check_model_supported(payload.model)
     style_preset = (payload.style_preset or "social-native")
+    dialogue_script = _clean_dialogue_script(payload.dialogue_script)
     if duration_seconds > 60 and not _is_low_cost_style(style_preset):
         raise HTTPException(
             status_code=422,
@@ -1505,6 +1534,7 @@ def create_post_generation(
         "mode": "post",
         "visual_prompt": visual_prompt,
         "voice_script": voice_script,
+        "dialogue_script": dialogue_script,
         "image_count": image_count,
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
