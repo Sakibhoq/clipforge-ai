@@ -290,7 +290,12 @@ export default function LabsMarketingPage() {
                   </div>
 
                   <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight text-white/95 sm:text-4xl md:text-6xl">
-                    Turn AI clips into <span className="labs-grad">cash</span> — your AI content engine.
+                    <span>
+                      Turn <span className="labs-grad">AI</span> clips into <span className="labs-grad">cash</span> -
+                    </span>{" "}
+                    <span className="text-[0.9em] sm:text-[0.87em] md:text-[0.82em]">
+                      your <span className="labs-grad">AI</span> content <span className="labs-grad">engine</span>.
+                    </span>
                   </h1>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
