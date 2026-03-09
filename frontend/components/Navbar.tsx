@@ -66,33 +66,41 @@ function Logo() {
       </span>
 
       {/* Wordmark */}
-      <span className="relative">
-        <span
-          className={wordmarkClass}
-          style={
-            isLabsMarketing
-              ? {
-                  backgroundImage: "linear-gradient(90deg,#ffb703 0%,#7aa2ff 52%,#fb5607 100%)",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                  color: "transparent",
-                }
-              : undefined
-          }
-        >
-          {BRAND.name}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="relative">
+          <span
+            className={wordmarkClass}
+            style={
+              isLabsMarketing
+                ? {
+                    backgroundImage: "linear-gradient(90deg,#ffb703 0%,#7aa2ff 52%,#fb5607 100%)",
+                    WebkitBackgroundClip: "text",
+                    backgroundClip: "text",
+                    color: "transparent",
+                  }
+                : undefined
+            }
+          >
+            {BRAND.name}
+          </span>
+
+          {/* soft aurora sheen */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.55] blur-[10px] transition-opacity duration-300 group-hover:opacity-[0.85]"
+            style={{
+              background: isLabsMarketing
+                ? "linear-gradient(90deg, rgba(255,183,3,0.48), rgba(122,162,255,0.54), rgba(251,86,7,0.34))"
+                : "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
+            }}
+          />
         </span>
 
-        {/* soft aurora sheen */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.55] blur-[10px] transition-opacity duration-300 group-hover:opacity-[0.85]"
-          style={{
-            background: isLabsMarketing
-              ? "linear-gradient(90deg, rgba(255,183,3,0.48), rgba(122,162,255,0.54), rgba(251,86,7,0.34))"
-              : "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
-          }}
-        />
+        {isLabsMarketing && (
+          <span className="hidden shrink-0 rounded-full border border-[#fb56076e] bg-[linear-gradient(90deg,rgba(255,183,3,0.14),rgba(251,86,7,0.18),rgba(58,134,255,0.14))] px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-[#ffd9b5] sm:inline-flex">
+            LABS
+          </span>
+        )}
       </span>
     </Link>
   );
@@ -438,7 +446,7 @@ export default function Navbar() {
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
-      ? "/app"
+      ? "/"
       : "/labs";
   const labsNavTitle = inApp
     ? "Open Orbito Labs console"
@@ -517,9 +525,7 @@ export default function Navbar() {
                   title={labsNavTitle}
                 >
                   <span>Orbito</span>
-                  {labsButtonIsOrbito ? (
-                    <span aria-hidden="true">↗</span>
-                  ) : (
+                  {!labsButtonIsOrbito && (
                     <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                       LABS
                     </span>
@@ -669,9 +675,7 @@ export default function Navbar() {
                     title={labsNavTitle}
                   >
                     <span>Orbito</span>
-                    {labsButtonIsOrbito ? (
-                      <span aria-hidden="true">↗</span>
-                    ) : (
+                    {!labsButtonIsOrbito && (
                       <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                         LABS
                       </span>

@@ -60,6 +60,29 @@ function LabsAura() {
           0% { background-position: 0% 50%; }
           100% { background-position: 240% 50%; }
         }
+        @keyframes labsCtaPulse {
+          0% {
+            box-shadow:
+              0 0 0 1px rgba(255, 183, 3, 0.24),
+              0 10px 26px rgba(0, 0, 0, 0.38),
+              0 0 12px rgba(255, 183, 3, 0.18),
+              0 0 10px rgba(58, 134, 255, 0.14);
+          }
+          50% {
+            box-shadow:
+              0 0 0 1px rgba(255, 183, 3, 0.34),
+              0 16px 34px rgba(0, 0, 0, 0.44),
+              0 0 20px rgba(255, 183, 3, 0.28),
+              0 0 16px rgba(58, 134, 255, 0.22);
+          }
+          100% {
+            box-shadow:
+              0 0 0 1px rgba(255, 183, 3, 0.24),
+              0 10px 26px rgba(0, 0, 0, 0.38),
+              0 0 12px rgba(255, 183, 3, 0.18),
+              0 0 10px rgba(58, 134, 255, 0.14);
+          }
+        }
         .labs-grad {
           background: linear-gradient(90deg, #ffb703 0%, #fb5607 46%, #60a5fa 100%);
           -webkit-background-clip: text;
@@ -105,9 +128,23 @@ function LabsAura() {
           z-index: 0;
         }
         .labs-border-run > * { position: relative; z-index: 1; }
+        .labs-cta-glow {
+          animation: labsCtaPulse 2.8s ease-in-out infinite;
+        }
+        .labs-cta-glow::before {
+          opacity: 0.9 !important;
+          animation-duration: 2.2s !important;
+        }
+        .labs-cta-glow::after {
+          opacity: 0.56 !important;
+        }
+        .labs-cta-glow:hover::after {
+          opacity: 0.72 !important;
+        }
         @media (prefers-reduced-motion: reduce) {
           .labs-anim,
-          .labs-border-run::after {
+          .labs-border-run::after,
+          .labs-cta-glow {
             animation: none !important;
           }
         }
@@ -212,6 +249,7 @@ export default function LabsMarketingPage() {
 
   const activePrompt = prompts[index] || prompts[0]!;
   const activeClip = clips[index % clips.length] || clips[0]!;
+  const activePreviewTab = index % 3;
 
   return (
     <div ref={revealRef as any} className="theme-labs relative overflow-x-hidden">
@@ -252,7 +290,7 @@ export default function LabsMarketingPage() {
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge">
+                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge labs-cta-glow">
                       Open AI Lab
                     </Link>
                     <Link href="/pricing" className="btn-ghost">
@@ -285,7 +323,7 @@ export default function LabsMarketingPage() {
                         key={tab}
                         className={[
                           "rounded-xl border px-2 py-2 text-center text-[11px] font-semibold",
-                          tabIndex === (index % 4)
+                          tabIndex === activePreviewTab
                             ? "border-amber-300/55 bg-amber-400/10 text-amber-100"
                             : "border-white/10 bg-white/[0.03] text-white/70",
                         ].join(" ")}
@@ -460,7 +498,7 @@ export default function LabsMarketingPage() {
 
         <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>(c) 2026 - {BRAND.name} by Sakib LLC. All rights reserved.</div>
+            <div>© 2026 - {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((item) => (
                 <a key={item.href} href={item.href} className="hover:text-white/75">
