@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { SocialBrandRow } from "@/components/SocialBrand";
 import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -37,6 +36,14 @@ const steps = [
 ];
 
 export default function WhopPage() {
+  const footerLinks = [
+    { label: "How it works", href: "/#how-it-works" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Contact", href: "/contact" },
+    { label: "Privacy", href: "/privacy-policy" },
+    { label: "Terms", href: "/terms-of-service" },
+  ];
+
   return (
     <div className="relative overflow-x-hidden">
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
@@ -100,9 +107,6 @@ export default function WhopPage() {
         <section id="how-it-works" className="mt-7 surface-soft p-6 sm:p-8">
           <div className="flex items-end justify-between gap-4">
             <h2 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">How it works</h2>
-            <div className="hidden sm:block">
-              <SocialBrandRow platforms={["tiktok", "reels", "shorts", "facebook"]} compact />
-            </div>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -141,6 +145,19 @@ export default function WhopPage() {
             </a>
           </div>
         </section>
+
+        <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
+          <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {footerLinks.map((item) => (
+                <a key={item.href} href={item.href} className="hover:text-white/75">
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
