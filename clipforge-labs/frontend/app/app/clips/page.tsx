@@ -488,17 +488,19 @@ export default function ClipsPage() {
   }
 
   function openSchedule(clipRow: ClipRow) {
-    // Use Orbito's full scheduling drawer flow.
-    // This keeps one canonical scheduling UX and behavior.
-    const origin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
-    const next = new URL("/app/clips", origin);
-    next.searchParams.set("openSchedule", "1");
-    next.searchParams.set("clipId", String(clipRow.id));
-    next.searchParams.set("source", "labs");
-    if (clipRow.storage_key) {
-      next.searchParams.set("clipKey", String(clipRow.storage_key));
-    }
-    window.location.assign(next.toString());
+    setEditorOpen(false);
+    setPreviewClip(null);
+    setScheduleError(null);
+    setScheduleNotice(null);
+    setScheduleBusy(false);
+    setScheduleWhen("");
+    setScheduleCaption(String(clipRow.title || clipRow.hook || "").trim());
+    setScheduleSelectedProviders((prev) => {
+      const validPrev = prev.filter((p) => connectedScheduleProviders.includes(p));
+      const seed = validPrev.length ? validPrev : connectedScheduleProviders;
+      return limitSelectedProviders(seed);
+    });
+    setScheduleClip(clipRow);
   }
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {
@@ -1023,9 +1025,9 @@ export default function ClipsPage() {
       ) : null}
 
       {scheduleClip ? (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setScheduleClip(null)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-3xl border border-white/15 bg-[#070b16]/95 p-5 shadow-[0_-24px_80px_rgba(0,0,0,0.6)] sm:inset-x-6 sm:bottom-6 sm:mx-auto sm:max-w-3xl sm:rounded-3xl">
+          <div className="relative z-10 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl border border-white/15 bg-[#070b16]/95 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.62)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[11px] text-white/55">Schedule / Post</div>
@@ -1059,7 +1061,7 @@ export default function ClipsPage() {
                     </>
                   ) : (
                     <>
-                      No connected platforms yet. Connect accounts in <a href="/app/studio" className="underline underline-offset-2">Connections</a>.
+                      No connected platforms yet. Connect accounts in <a href="/app/connections" className="underline underline-offset-2">Connections</a>.
                     </>
                   )}
                 </div>
