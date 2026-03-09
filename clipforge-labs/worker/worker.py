@@ -1922,6 +1922,36 @@ def _file_has_data(path: str) -> bool:
         return False
 
 
+def _file_has_video_stream(path: str) -> bool:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=codec_type",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+    ]
+    proc = _run_media_cmd(cmd, timeout_seconds=max(30, _media_cmd_timeout_seconds()))
+    if proc.returncode != 0:
+        return False
+    return "video" in (proc.stdout or "").strip().lower()
+
+
+def _valid_video_file(path: str, *, min_duration_seconds: float = 0.45) -> tuple[bool, float]:
+    if not _file_has_data(path):
+        return False, 0.0
+    if not _file_has_video_stream(path):
+        return False, 0.0
+    duration = _probe_media_duration(path)
+    if duration < float(min_duration_seconds):
+        return False, duration
+    return True, duration
+
+
 def _voice_language_code(voice_name: str) -> str:
     raw = (voice_name or "").replace("_", "-").strip()
     if not raw:
@@ -2895,6 +2925,11 @@ def _process_job(job: dict) -> dict[str, Any]:
                         except Exception:
                             pass
 
+                final_ok, probed_final_duration = _valid_video_file(out_path)
+                if not final_ok:
+                    raise RuntimeError("Generated post output is invalid or unreadable (video stream missing).")
+                final_duration = probed_final_duration if probed_final_duration > 0 else final_duration
+
                 key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
                 _upload_file(out_path, key, content_type="video/mp4")
 
@@ -3166,6 +3201,11 @@ def _process_job(job: dict) -> dict[str, Any]:
                     except Exception:
                         pass
 
+            final_ok, probed_final_duration = _valid_video_file(out_path)
+            if not final_ok:
+                raise RuntimeError("Generated post output is invalid or unreadable (video stream missing).")
+            final_duration = probed_final_duration if probed_final_duration > 0 else final_duration
+
             key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
             _upload_file(out_path, key, content_type="video/mp4")
 
@@ -3238,7 +3278,7 @@ def _process_job(job: dict) -> dict[str, Any]:
         content_type = "video/mp4"
         provider_duration: float | None = None
         provider_title: str | None = None
-        provider_capacity_error = False
+        provider_generated = False
 
         if use_google_provider:
             try:
@@ -3267,20 +3307,21 @@ def _process_job(job: dict) -> dict[str, Any]:
                         style_preset=style_preset,
                     )
                 _write_bytes(out_path, media_bytes)
+                provider_generated = True
                 if (remote_type or "").startswith("video/"):
                     content_type = remote_type
                 if isinstance(remote_duration, (int, float)) and float(remote_duration) > 0:
                     provider_duration = float(remote_duration)
                 provider_title = remote_title
             except Exception as exc:
-                provider_capacity_error = _is_provider_capacity_error(exc)
                 if strict_provider or not allow_demo_fallback:
                     raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
-        if not _file_has_data(out_path):
-            if use_google_provider and not allow_demo_fallback:
-                raise RuntimeError("Google video generation returned no media payload")
+        valid_video, detected_duration = _valid_video_file(out_path)
+        if not valid_video:
+            if provider_generated and (strict_provider or not allow_demo_fallback):
+                raise RuntimeError("Google video generation produced an invalid video payload")
             prep_delay = _video_mode_prep_delay_seconds(generation_speed)
             if prep_delay > 0:
                 time.sleep(prep_delay)
@@ -3290,6 +3331,9 @@ def _process_job(job: dict) -> dict[str, Any]:
                 aspect_ratio=aspect_ratio,
                 out_path=out_path,
             )
+            valid_video, detected_duration = _valid_video_file(out_path)
+            if not valid_video:
+                raise RuntimeError("Fallback video renderer produced an invalid output")
 
         if watermark_enabled:
             fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-video-overlay-{job_id}-", suffix=".mp4")
@@ -3311,10 +3355,20 @@ def _process_job(job: dict) -> dict[str, Any]:
                     except Exception:
                         pass
 
+        valid_video, detected_duration = _valid_video_file(out_path)
+        if not valid_video:
+            raise RuntimeError("Video post-processing produced an unreadable output")
+
         ext = _extension_for_content_type(content_type, ".mp4")
         key = f"clips/generated/{job_id}-{uuid.uuid4().hex}{ext}"
         _upload_file(out_path, key, content_type=content_type)
-        final_duration = provider_duration if provider_duration and provider_duration > 0 else float(max(2, duration))
+        final_duration = (
+            detected_duration
+            if detected_duration > 0
+            else provider_duration
+            if provider_duration and provider_duration > 0
+            else float(max(2, duration))
+        )
         return {
             "storage_key": key,
             "content_type": content_type,
