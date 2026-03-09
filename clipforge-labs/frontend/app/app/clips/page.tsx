@@ -488,19 +488,17 @@ export default function ClipsPage() {
   }
 
   function openSchedule(clipRow: ClipRow) {
-    setEditorOpen(false);
-    setPreviewClip(null);
-    setScheduleError(null);
-    setScheduleNotice(null);
-    setScheduleBusy(false);
-    setScheduleWhen("");
-    setScheduleCaption(String(clipRow.title || clipRow.hook || "").trim());
-    setScheduleSelectedProviders((prev) => {
-      const validPrev = prev.filter((p) => connectedScheduleProviders.includes(p));
-      const seed = validPrev.length ? validPrev : connectedScheduleProviders;
-      return limitSelectedProviders(seed);
-    });
-    setScheduleClip(clipRow);
+    // Use Orbito's full scheduling drawer flow.
+    // This keeps one canonical scheduling UX and behavior.
+    const origin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
+    const next = new URL("/app/clips", origin);
+    next.searchParams.set("openSchedule", "1");
+    next.searchParams.set("clipId", String(clipRow.id));
+    next.searchParams.set("source", "labs");
+    if (clipRow.storage_key) {
+      next.searchParams.set("clipKey", String(clipRow.storage_key));
+    }
+    window.location.assign(next.toString());
   }
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {

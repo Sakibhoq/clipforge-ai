@@ -2042,13 +2042,90 @@ def _file_has_video_stream(path: str) -> bool:
     return "video" in (proc.stdout or "").strip().lower()
 
 
-def _valid_video_file(path: str, *, min_duration_seconds: float = 0.45) -> tuple[bool, float]:
+def _blackdetect_duration_seconds(
+    path: str,
+    *,
+    min_segment_seconds: float,
+    pixel_threshold: float,
+    picture_ratio_threshold: float,
+) -> float:
+    vf = (
+        "blackdetect="
+        f"d={max(0.01, float(min_segment_seconds)):.3f}:"
+        f"pix_th={max(0.0, min(1.0, float(pixel_threshold))):.3f}:"
+        f"pic_th={max(0.5, min(1.0, float(picture_ratio_threshold))):.3f}"
+    )
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-nostats",
+        "-i",
+        path,
+        "-vf",
+        vf,
+        "-an",
+        "-f",
+        "null",
+        "-",
+    ]
+    proc = _run_media_cmd(cmd, timeout_seconds=max(60, _media_cmd_timeout_seconds()))
+    if proc.returncode != 0:
+        return 0.0
+    raw = f"{proc.stdout or ''}\n{proc.stderr or ''}"
+    total = 0.0
+    for match in re.finditer(r"black_duration:(\d+(?:\.\d+)?)", raw):
+        try:
+            total += max(0.0, float(match.group(1)))
+        except Exception:
+            continue
+    return total
+
+
+def _is_mostly_black_video(path: str, *, duration_seconds: float) -> bool:
+    safe_duration = max(0.0, float(duration_seconds or 0.0))
+    if safe_duration <= 0.0:
+        return False
+    min_segment_seconds = _env_float(
+        "WORKER_BLACKDETECT_MIN_SEGMENT_SECONDS",
+        0.18,
+        min_value=0.05,
+        max_value=2.0,
+    )
+    pixel_threshold = _env_float("WORKER_BLACKDETECT_PIXEL_THRESHOLD", 0.10, min_value=0.0, max_value=1.0)
+    picture_ratio_threshold = _env_float("WORKER_BLACKDETECT_PICTURE_RATIO", 0.98, min_value=0.5, max_value=1.0)
+    reject_ratio = _env_float("WORKER_REJECT_BLACK_VIDEO_RATIO", 0.97, min_value=0.5, max_value=1.0)
+    black_duration = _blackdetect_duration_seconds(
+        path,
+        min_segment_seconds=min_segment_seconds,
+        pixel_threshold=pixel_threshold,
+        picture_ratio_threshold=picture_ratio_threshold,
+    )
+    if black_duration <= 0.0:
+        return False
+    black_ratio = min(1.0, black_duration / max(0.001, safe_duration))
+    if black_ratio >= reject_ratio:
+        print(
+            f"[worker] rejecting mostly-black video file={os.path.basename(path)} "
+            f"duration={safe_duration:.2f}s black={black_duration:.2f}s ratio={black_ratio:.3f}"
+        )
+        return True
+    return False
+
+
+def _valid_video_file(
+    path: str,
+    *,
+    min_duration_seconds: float = 0.45,
+    reject_mostly_black: bool = False,
+) -> tuple[bool, float]:
     if not _file_has_data(path):
         return False, 0.0
     if not _file_has_video_stream(path):
         return False, 0.0
     duration = _probe_media_duration(path)
     if duration < float(min_duration_seconds):
+        return False, duration
+    if reject_mostly_black and _is_mostly_black_video(path, duration_seconds=duration):
         return False, duration
     return True, duration
 
@@ -3446,6 +3523,7 @@ def _process_job(job: dict) -> dict[str, Any]:
         provider_duration: float | None = None
         provider_title: str | None = None
         provider_generated = False
+        used_fallback_renderer = False
 
         if use_google_provider:
             try:
@@ -3485,7 +3563,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                     raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
-        valid_video, detected_duration = _valid_video_file(out_path)
+        valid_video, detected_duration = _valid_video_file(out_path, reject_mostly_black=provider_generated)
         if not valid_video:
             if provider_generated and (strict_provider or not allow_video_fallback):
                 raise RuntimeError("Google video generation produced an invalid video payload")
@@ -3498,6 +3576,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                 aspect_ratio=aspect_ratio,
                 out_path=out_path,
             )
+            used_fallback_renderer = True
             valid_video, detected_duration = _valid_video_file(out_path)
             if not valid_video:
                 raise RuntimeError("Fallback video renderer produced an invalid output")
@@ -3522,7 +3601,10 @@ def _process_job(job: dict) -> dict[str, Any]:
                     except Exception:
                         pass
 
-        valid_video, detected_duration = _valid_video_file(out_path)
+        valid_video, detected_duration = _valid_video_file(
+            out_path,
+            reject_mostly_black=provider_generated and not used_fallback_renderer,
+        )
         if not valid_video:
             raise RuntimeError("Video post-processing produced an unreadable output")
 

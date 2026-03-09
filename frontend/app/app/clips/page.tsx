@@ -1033,11 +1033,12 @@ function ClipsWorkspace() {
   const openScheduleParam = String(sp.get("openSchedule") || "").trim().toLowerCase();
   const scheduleRequested = openScheduleParam === "1" || openScheduleParam === "true" || openScheduleParam === "yes";
   const scheduleClipParam = Number(sp.get("clipId") || 0);
+  const scheduleClipKeyParam = String(sp.get("clipKey") || "").trim();
   const [scheduleIntentHandled, setScheduleIntentHandled] = useState(false);
 
   useEffect(() => {
     setScheduleIntentHandled(false);
-  }, [scheduleRequested, scheduleClipParam]);
+  }, [scheduleRequested, scheduleClipParam, scheduleClipKeyParam]);
 
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
@@ -1249,23 +1250,31 @@ function ClipsWorkspace() {
 
     const allVisibleClips =
       clips.length > 0 ? clips : groups.flatMap((group) => (Array.isArray(group.clips) ? group.clips : []));
-    const target = allVisibleClips.find((c) => Number(c.id) === scheduleClipParam) || null;
+    const normalizedClipKey = scheduleClipKeyParam.trim().toLowerCase();
+    const target =
+      allVisibleClips.find((c) => Number(c.id) === scheduleClipParam) ||
+      (normalizedClipKey
+        ? allVisibleClips.find((c) => String(c.storage_key || "").trim().toLowerCase() === normalizedClipKey)
+        : null) ||
+      null;
     if (target) {
       openSchedule(target);
     } else {
-      setActionError(`Clip #${scheduleClipParam} is not available in Orbito Clips. Pick a clip and use Schedule.`);
+      const hint = scheduleClipParam > 0 ? `Clip #${scheduleClipParam}` : "Requested clip";
+      setActionError(`${hint} is not available in Orbito Clips. Pick a clip and use Schedule.`);
     }
 
     const next = new URLSearchParams(sp.toString());
     next.delete("openSchedule");
     next.delete("clipId");
+    next.delete("clipKey");
     if (String(next.get("source") || "").toLowerCase() === "labs") {
       next.set("source", "orbito");
     }
     const qs = next.toString();
     router.replace(qs ? `/app/clips?${qs}` : "/app/clips", { scroll: false });
     setScheduleIntentHandled(true);
-  }, [clips, groups, loadedOnce, loading, router, scheduleClipParam, scheduleIntentHandled, scheduleRequested, sp]);
+  }, [clips, groups, loadedOnce, loading, router, scheduleClipKeyParam, scheduleClipParam, scheduleIntentHandled, scheduleRequested, sp]);
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {
     if (providerOptionLoading[provider]) return;
