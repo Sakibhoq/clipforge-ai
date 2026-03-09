@@ -512,7 +512,7 @@ export default function Navbar() {
               <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 <Link
                   href={whopPageHref}
-                  className="hidden xl:inline-flex btn-whop text-xs"
+                  className="hidden xl:inline-flex btn-whop btn-whop-nav text-xs"
                   title="Monetize your clips with Whop"
                 >
                   {whopLabel}
@@ -659,7 +659,7 @@ export default function Navbar() {
                   <Link
                     href={whopPageHref}
                     onClick={() => setOpen(false)}
-                    className="btn-whop w-full text-xs"
+                    className="btn-whop btn-whop-nav w-full text-xs"
                     title="Monetize your clips with Whop"
                   >
                     {whopLabel}
