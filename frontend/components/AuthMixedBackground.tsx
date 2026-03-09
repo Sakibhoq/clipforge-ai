@@ -4,8 +4,7 @@ export default function AuthMixedBackground() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-black" />
-      <div className="absolute inset-y-0 left-0 w-[58%] bg-[radial-gradient(980px_620px_at_20%_16%,rgba(155,140,255,0.28),transparent_66%),radial-gradient(900px_560px_at_34%_72%,rgba(70,215,255,0.18),transparent_70%),radial-gradient(760px_520px_at_42%_38%,rgba(53,242,166,0.13),transparent_72%)]" />
-      <div className="absolute inset-y-0 right-0 w-[58%] bg-[radial-gradient(980px_620px_at_80%_16%,rgba(255,183,3,0.24),transparent_66%),radial-gradient(900px_560px_at_66%_72%,rgba(251,86,7,0.18),transparent_70%),radial-gradient(760px_520px_at_58%_38%,rgba(58,134,255,0.13),transparent_72%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(1120px_700px_at_12%_14%,rgba(155,140,255,0.28),transparent_68%),radial-gradient(1120px_700px_at_88%_14%,rgba(255,183,3,0.24),transparent_68%),radial-gradient(980px_620px_at_18%_80%,rgba(70,215,255,0.17),transparent_70%),radial-gradient(980px_620px_at_84%_80%,rgba(251,86,7,0.16),transparent_72%),radial-gradient(980px_620px_at_52%_46%,rgba(58,134,255,0.12),transparent_72%)]" />
       <div className="absolute inset-0 opacity-[0.22]">
         <div className="aurora" />
       </div>
@@ -15,4 +14,3 @@ export default function AuthMixedBackground() {
     </div>
   );
 }
-

@@ -316,7 +316,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-2">
+          <nav className="hidden lg:flex items-center gap-2">
             {navItem("/app/generate", "Generator")}
             {navItem("/app/clips", "Clips")}
             {navItem("/app/editor", "Editor")}
@@ -328,7 +328,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:block text-right">
+            <div className="hidden lg:block text-right">
               <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
               <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
             </div>
@@ -345,7 +345,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Mobile toggle */}
             <button
               onClick={() => setMobileOpen((v) => !v)}
-              className="md:hidden rounded-xl border border-white/15 bg-white/[0.06] p-2 text-white/80 hover:bg-white/[0.10] active:scale-[0.99]"
+              className="lg:hidden rounded-xl border border-white/15 bg-white/[0.06] p-2 text-white/80 hover:bg-white/[0.10] active:scale-[0.99]"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
             >
@@ -354,7 +354,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <a
               href={orbitoConsoleUrl()}
-              className="btn-orbito hidden md:inline-flex text-[12px]"
+              className="btn-orbito hidden lg:inline-flex text-[12px]"
               title={`Go to ${BRAND.orbitoName} Console`}
             >
               {BRAND.orbitoName} <span aria-hidden="true">↗</span>
@@ -362,7 +362,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             <button
               onClick={logout}
-              className="hidden md:inline-flex rounded-xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/[0.10]"
+              className="hidden lg:inline-flex rounded-xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/[0.10]"
             >
               Log out
             </button>
@@ -371,7 +371,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Mobile nav */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/15 bg-[#01030aee] shadow-[0_20px_55px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+          <div className="lg:hidden border-t border-white/15 bg-[#01030aee] shadow-[0_20px_55px_rgba(0,0,0,0.75)] backdrop-blur-xl">
             <div
               className={cx(
                 "mx-auto grid max-w-6xl gap-2 px-4 py-4",
