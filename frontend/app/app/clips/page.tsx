@@ -2154,7 +2154,7 @@ function ClipsWorkspace() {
 
       {/* SETTINGS DRAWER (UI-only) */}
       <Drawer
-        open={settingsClipId !== null}
+        open={settingsClipId !== null && cropClip === null}
         onClose={() => setSettingsClipId(null)}
         title={settingsClipId ? `Output settings - Clip #${settingsClipId}` : "Output settings"}
       >
@@ -2170,7 +2170,7 @@ function ClipsWorkspace() {
 
       {/* SCHEDULE DRAWER */}
       <Drawer
-        open={scheduleClipId !== null}
+        open={scheduleClipId !== null && cropClip === null}
         onClose={() => setScheduleClipId(null)}
         title={scheduleClipId ? `Schedule - Clip #${scheduleClipId}` : "Schedule"}
         subtitle="Publish to social platforms"
@@ -4044,7 +4044,7 @@ function Drawer({
             : scheduleCard
               ? "left-1/2 top-1/2 h-[min(90svh,860px)] w-[min(1040px,calc(100vw-1.25rem))] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border shadow-[0_30px_120px_rgba(0,0,0,0.65),0_0_0_1px_rgba(125,211,252,0.09)] bg-[radial-gradient(130%_110%_at_18%_0%,rgba(125,211,252,0.14),transparent_54%),radial-gradient(100%_120%_at_82%_0%,rgba(167,139,250,0.11),transparent_48%),rgba(7,10,15,0.92)]"
             : variant === "studio"
-              ? "left-1/2 top-1/2 h-[min(94dvh,980px)] w-[min(1680px,calc(100vw-1rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden overscroll-contain [scrollbar-gutter:stable] rounded-3xl border shadow-[0_30px_115px_rgba(0,0,0,0.64),0_0_0_1px_rgba(125,211,252,0.08)]"
+              ? "left-1/2 top-1/2 h-[min(94dvh,980px)] w-[min(1680px,calc(100vw-1rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden overscroll-contain [scrollbar-gutter:stable] rounded-3xl border-0 bg-transparent p-0 sm:p-0 backdrop-blur-0 shadow-none"
               : "right-0 top-0 h-full w-full max-w-md border-l"
         )}
       >

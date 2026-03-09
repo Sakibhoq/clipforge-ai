@@ -1188,6 +1188,54 @@ def clamp(v: float, lo: float, hi: float) -> float:
 def overlaps(a_start, a_end, b_start, b_end) -> bool:
     return not (a_end <= b_start or b_end <= a_start)
 
+
+def _derive_clip_length_profile(
+    *,
+    utterances: List[Dict[str, float]],
+    video_duration: float,
+) -> Dict[str, float]:
+    """
+    Build an adaptive clip length profile so output lengths are topic-driven
+    instead of collapsing to one static duration.
+    """
+    base_min = max(6.0, float(CLIP_MIN_SECONDS))
+    base_target = max(base_min, float(CLIP_TARGET_SECONDS))
+    base_max = max(base_target, float(CLIP_MAX_SECONDS))
+    safe_video_duration = max(1.0, float(video_duration or 0.0))
+
+    lengths = [
+        max(0.0, float(u.get("end", 0.0)) - float(u.get("start", 0.0)))
+        for u in (utterances or [])
+        if float(u.get("end", 0.0)) > float(u.get("start", 0.0))
+    ]
+    if not lengths:
+        return {"min": base_min, "target": base_target, "max": base_max}
+
+    lengths.sort()
+    total_speech = sum(lengths)
+    speech_density = max(0.0, min(1.0, total_speech / safe_video_duration))
+    median_len = lengths[len(lengths) // 2]
+    p75_len = lengths[min(len(lengths) - 1, int(round((len(lengths) - 1) * 0.75)))]
+
+    natural_target = (median_len * 2.8) + (p75_len * 0.8) + 8.0
+    if speech_density < 0.38:
+        natural_target += 5.0
+    elif speech_density > 0.72:
+        natural_target -= 4.0
+
+    timeline_count = max(1, int(math.ceil(safe_video_duration / max(10.0, base_target))))
+    timeline_target = safe_video_duration / float(timeline_count)
+
+    target = clamp(
+        (natural_target * 0.68) + (timeline_target * 0.32),
+        max(10.0, base_min * 0.55),
+        base_max,
+    )
+    minimum = clamp(min(base_min, max(8.0, target * 0.62)), 6.0, target)
+    maximum = clamp(max(target + 6.0, min(base_max, target * 1.35)), target, base_max)
+
+    return {"min": minimum, "target": target, "max": maximum}
+
 # -----------------------------------------------------
 # Silence snapping
 # -----------------------------------------------------
@@ -1250,6 +1298,9 @@ def refine_clip_boundaries(
     clip_plans: List[Dict[str, float]],
     words: List[Dict[str, Any]],
     video_duration: float,
+    min_seconds: Optional[float] = None,
+    target_seconds: Optional[float] = None,
+    max_seconds: Optional[float] = None,
 ) -> List[Dict[str, float]]:
     """
     Refine boundaries so clips end on natural speech boundaries
@@ -1257,6 +1308,16 @@ def refine_clip_boundaries(
     """
     if not clip_plans or not words:
         return clip_plans
+
+    clip_min_seconds = max(1.0, float(min_seconds if min_seconds is not None else CLIP_MIN_SECONDS))
+    clip_target_seconds = max(
+        clip_min_seconds,
+        float(target_seconds if target_seconds is not None else CLIP_TARGET_SECONDS),
+    )
+    clip_max_seconds = max(
+        clip_target_seconds,
+        float(max_seconds if max_seconds is not None else CLIP_MAX_SECONDS),
+    )
 
     refined: List[Dict[str, float]] = []
     safe_video_duration = max(0.0, float(video_duration))
@@ -1287,7 +1348,7 @@ def refine_clip_boundaries(
         natural_end = end
         for i in range(last_idx, max_search + 1):
             cand_end = float(words[i].get("end", natural_end))
-            if cand_end - start > (CLIP_MAX_SECONDS + 0.35):
+            if cand_end - start > (clip_max_seconds + 0.35):
                 break
             if cand_end + 0.10 < orig_end:
                 continue
@@ -1297,8 +1358,8 @@ def refine_clip_boundaries(
         end = natural_end
 
         # Enforce minimum duration by extending to the next word boundary.
-        if end - start < CLIP_MIN_SECONDS:
-            target = min(safe_video_duration, start + CLIP_MIN_SECONDS)
+        if end - start < clip_min_seconds:
+            target = min(safe_video_duration, start + clip_min_seconds)
             i = last_idx
             while i < len(words) and float(words[i].get("end", 0.0)) < target:
                 i += 1
@@ -1308,8 +1369,8 @@ def refine_clip_boundaries(
                 end = target
 
         # Enforce maximum duration while preferring natural endpoints.
-        if end - start > CLIP_MAX_SECONDS:
-            target = start + CLIP_MAX_SECONDS
+        if end - start > clip_max_seconds:
+            target = start + clip_max_seconds
             best_end: Optional[float] = None
             i = first_idx
             while i < len(words):
@@ -1319,7 +1380,7 @@ def refine_clip_boundaries(
                 if _is_natural_end(words, i):
                     best_end = cand_end
                 i += 1
-            if best_end is not None and (best_end - start) >= max(1.0, CLIP_MIN_SECONDS * 0.75):
+            if best_end is not None and (best_end - start) >= max(1.0, clip_min_seconds * 0.75):
                 end = best_end
             else:
                 end = target
@@ -1349,7 +1410,7 @@ def refine_clip_boundaries(
         prev = no_overlap[-1]
         if clip["start"] < prev["end"]:
             trimmed_start = prev["end"]
-            if clip["end"] - trimmed_start < max(2.0, CLIP_MIN_SECONDS * 0.5):
+            if clip["end"] - trimmed_start < max(2.0, clip_min_seconds * 0.5):
                 continue
             clip = {
                 "start": trimmed_start,
@@ -1369,6 +1430,9 @@ def generate_clip_plans(
     utterances: List[Dict[str, float]],
     silences: List[tuple],
     video_duration: float,
+    min_seconds: Optional[float] = None,
+    target_seconds: Optional[float] = None,
+    max_seconds: Optional[float] = None,
 ) -> List[Dict[str, float]]:
     """
     Returns a list of clip plans:
@@ -1381,12 +1445,23 @@ def generate_clip_plans(
     """
 
     clips: List[Dict[str, float]] = []
+    if min_seconds is None or target_seconds is None or max_seconds is None:
+        profile = _derive_clip_length_profile(utterances=utterances, video_duration=video_duration)
+    else:
+        profile = {
+            "min": float(min_seconds),
+            "target": float(target_seconds),
+            "max": float(max_seconds),
+        }
+    clip_min_seconds = max(1.0, float(min_seconds if min_seconds is not None else profile["min"]))
+    clip_target_seconds = max(clip_min_seconds, float(target_seconds if target_seconds is not None else profile["target"]))
+    clip_max_seconds = max(clip_target_seconds, float(max_seconds if max_seconds is not None else profile["max"]))
 
     # -------------------------------------------------
     # Absolute fallback (short or silent videos)
     # -------------------------------------------------
-    if not utterances or video_duration < CLIP_MIN_SECONDS:
-        end = min(video_duration, CLIP_TARGET_SECONDS)
+    if not utterances or video_duration < clip_min_seconds:
+        end = min(video_duration, clip_target_seconds)
         return [
             {
                 "start": 0.0,
@@ -1407,7 +1482,7 @@ def generate_clip_plans(
         proposed_dur = utt["end"] - cur_start
 
         # Merge if gap small and target not exceeded
-        if gap <= MAX_GAP_MERGE and proposed_dur <= CLIP_TARGET_SECONDS:
+        if gap <= MAX_GAP_MERGE and proposed_dur <= clip_target_seconds:
             cur_end = utt["end"]
             continue
 
@@ -1415,7 +1490,7 @@ def generate_clip_plans(
         s, e = snap_to_silence(cur_start, cur_end, silences)
         dur = e - s
 
-        if dur >= CLIP_MIN_SECONDS:
+        if dur >= clip_min_seconds:
             clips.append(
                 {
                     "start": clamp(s, 0.0, video_duration),
@@ -1430,7 +1505,7 @@ def generate_clip_plans(
     # Last clip
     s, e = snap_to_silence(cur_start, cur_end, silences)
     dur = e - s
-    if dur >= CLIP_MIN_SECONDS:
+    if dur >= clip_min_seconds:
         clips.append(
             {
                 "start": clamp(s, 0.0, video_duration),
@@ -1446,14 +1521,14 @@ def generate_clip_plans(
     normalized: List[Dict[str, float]] = []
 
     for c in clips:
-        if c["duration"] <= CLIP_MAX_SECONDS:
+        if c["duration"] <= clip_max_seconds:
             normalized.append(c)
             continue
 
         s = c["start"]
         while s < c["end"]:
-            e = min(s + CLIP_MAX_SECONDS, c["end"])
-            if e - s >= CLIP_MIN_SECONDS:
+            e = min(s + clip_max_seconds, c["end"])
+            if e - s >= clip_min_seconds:
                 normalized.append(
                     {
                         "start": s,
@@ -1468,7 +1543,7 @@ def generate_clip_plans(
     # -------------------------------------------------
 
     if not normalized:
-        end = min(video_duration, CLIP_TARGET_SECONDS)
+        end = min(video_duration, clip_target_seconds)
         return [
             {
                 "start": 0.0,
@@ -1503,15 +1578,15 @@ def generate_clip_plans(
     except Exception:
         min_clips = 1
 
-    if len(final) < min_clips and video_duration >= CLIP_MIN_SECONDS:
+    if len(final) < min_clips and video_duration >= clip_min_seconds:
         # Fallback segmentation should not hard-cap at CLIP_MAX_SECONDS,
         # otherwise long videos collapse into identical 60s chunks.
-        seg_len = max(CLIP_MIN_SECONDS, video_duration / float(min_clips))
+        seg_len = max(clip_min_seconds, video_duration / float(min_clips))
         generated: List[Dict[str, float]] = []
         s = 0.0
         while s < video_duration and len(generated) < min_clips:
             e = min(s + seg_len, video_duration)
-            if e - s >= CLIP_MIN_SECONDS:
+            if e - s >= clip_min_seconds:
                 generated.append(
                     {
                         "start": s,
@@ -1530,6 +1605,9 @@ def generate_even_timeline_plans(
     *,
     video_duration: float,
     min_clips: int,
+    min_seconds: Optional[float] = None,
+    target_seconds: Optional[float] = None,
+    max_seconds: Optional[float] = None,
 ) -> List[Dict[str, float]]:
     """
     Deterministic non-overlapping fallback plans spread across the full timeline.
@@ -1539,20 +1617,24 @@ def generate_even_timeline_plans(
     if safe_duration <= 0.25:
         return []
 
+    clip_min_seconds = max(1.0, float(min_seconds if min_seconds is not None else CLIP_MIN_SECONDS))
+    clip_target_seconds = max(clip_min_seconds, float(target_seconds if target_seconds is not None else CLIP_TARGET_SECONDS))
+    clip_max_seconds = max(clip_target_seconds, float(max_seconds if max_seconds is not None else CLIP_MAX_SECONDS))
+
     desired_min = max(1, int(min_clips or 1))
-    preferred_len = max(CLIP_MIN_SECONDS, min(CLIP_MAX_SECONDS, CLIP_TARGET_SECONDS))
+    preferred_len = max(clip_min_seconds, min(clip_max_seconds, clip_target_seconds))
     preferred_count = max(1, int(math.ceil(safe_duration / max(1.0, preferred_len))))
     target_count = max(desired_min, preferred_count)
 
-    max_possible = max(1, int(math.floor(safe_duration / max(1.0, CLIP_MIN_SECONDS))))
+    max_possible = max(1, int(math.floor(safe_duration / max(1.0, clip_min_seconds))))
     count = max(1, min(target_count, max_possible))
 
     seg_len = safe_duration / float(count)
-    if seg_len > CLIP_MAX_SECONDS:
-        count = max(1, int(math.ceil(safe_duration / max(1.0, CLIP_MAX_SECONDS))))
+    if seg_len > clip_max_seconds:
+        count = max(1, int(math.ceil(safe_duration / max(1.0, clip_max_seconds))))
         seg_len = safe_duration / float(count)
-    if seg_len < CLIP_MIN_SECONDS and count > 1:
-        count = max(1, int(math.floor(safe_duration / max(1.0, CLIP_MIN_SECONDS))))
+    if seg_len < clip_min_seconds and count > 1:
+        count = max(1, int(math.floor(safe_duration / max(1.0, clip_min_seconds))))
         seg_len = safe_duration / float(count)
 
     plans: List[Dict[str, float]] = []
@@ -1560,12 +1642,12 @@ def generate_even_timeline_plans(
     for i in range(count):
         e = safe_duration if i == (count - 1) else min(safe_duration, s + seg_len)
         dur = max(0.0, e - s)
-        if dur >= max(1.0, min(CLIP_MIN_SECONDS, safe_duration)):
+        if dur >= max(1.0, min(clip_min_seconds, safe_duration)):
             plans.append({"start": s, "end": e, "duration": dur})
         s = e
 
     if not plans:
-        e = min(safe_duration, max(CLIP_MIN_SECONDS, CLIP_TARGET_SECONDS))
+        e = min(safe_duration, max(clip_min_seconds, clip_target_seconds))
         plans = [{"start": 0.0, "end": e, "duration": e}]
     return plans
 
@@ -1589,6 +1671,7 @@ def compute_clip_quality_score(
     audio_energy: float,
     motion_metrics: dict,
     voice_segments: Optional[List[tuple]] = None,
+    duration_target_seconds: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Launch-safe heuristic score in [0..1].
@@ -1602,9 +1685,14 @@ def compute_clip_quality_score(
     e = float(clip.get("end", 0.0))
     dur = max(0.01, e - s)
 
-    # duration score: prefer near CLIP_TARGET_SECONDS, penalize very short/long
-    dur_err = abs(dur - float(CLIP_TARGET_SECONDS))
-    dur_score = 1.0 / (1.0 + (dur_err / 12.0))
+    # duration score: prefer near adaptive target, penalize very short/long
+    target_seconds = max(
+        4.0,
+        float(duration_target_seconds if duration_target_seconds is not None else CLIP_TARGET_SECONDS),
+    )
+    dur_err = abs(dur - target_seconds)
+    dur_norm = max(8.0, target_seconds * 0.30)
+    dur_score = 1.0 / (1.0 + (dur_err / dur_norm))
 
     # speech density: words per second (cap)
     cw = words_in_range(words, s, e)
@@ -4859,16 +4947,26 @@ def run_job(job_id: int) -> None:
 
         words = extract_words(transcript)
         utterances = build_utterances(words)
+        length_profile = _derive_clip_length_profile(
+            utterances=utterances,
+            video_duration=float(video_duration),
+        )
 
         clip_plans = generate_clip_plans(
             utterances=utterances,
             silences=audio["silences"],
             video_duration=float(video_duration),
+            min_seconds=float(length_profile["min"]),
+            target_seconds=float(length_profile["target"]),
+            max_seconds=float(length_profile["max"]),
         )
         clip_plans = refine_clip_boundaries(
             clip_plans=clip_plans,
             words=words,
             video_duration=float(video_duration),
+            min_seconds=float(length_profile["min"]),
+            target_seconds=float(length_profile["target"]),
+            max_seconds=float(length_profile["max"]),
         )
 
         try:
@@ -4883,6 +4981,9 @@ def run_job(job_id: int) -> None:
             fallback_plans = generate_even_timeline_plans(
                 video_duration=float(video_duration),
                 min_clips=min_clips_for_duration,
+                min_seconds=float(length_profile["min"]),
+                target_seconds=float(length_profile["target"]),
+                max_seconds=float(length_profile["max"]),
             )
             if fallback_plans:
                 log(
@@ -4914,6 +5015,7 @@ def run_job(job_id: int) -> None:
                     audio_energy=audio["energy"],
                     motion_metrics=motion,
                     voice_segments=audio.get("voice_segments", []),
+                    duration_target_seconds=float(length_profile["target"]),
                 )
             )
 

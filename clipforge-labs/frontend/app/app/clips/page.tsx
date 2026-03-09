@@ -488,7 +488,19 @@ export default function ClipsPage() {
   }
 
   function openSchedule(clipRow: ClipRow) {
-    window.location.assign(`/app/clips?source=orbito&openSchedule=1&clipId=${clipRow.id}`);
+    setEditorOpen(false);
+    setPreviewClip(null);
+    setScheduleError(null);
+    setScheduleNotice(null);
+    setScheduleBusy(false);
+    setScheduleWhen("");
+    setScheduleCaption(String(clipRow.title || clipRow.hook || "").trim());
+    setScheduleSelectedProviders((prev) => {
+      const validPrev = prev.filter((p) => connectedScheduleProviders.includes(p));
+      const seed = validPrev.length ? validPrev : connectedScheduleProviders;
+      return limitSelectedProviders(seed);
+    });
+    setScheduleClip(clipRow);
   }
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {

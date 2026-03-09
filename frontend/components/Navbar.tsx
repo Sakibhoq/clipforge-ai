@@ -467,8 +467,8 @@ export default function Navbar() {
       ? "btn-orbito-cta w-full text-xs"
       : "btn-whop btn-whop-nav w-full text-xs";
   const labsButtonIsOrbito = isLabsMarketing;
-  const labsButtonText = isOrbitoMarketing ? "Orbito Labs" : "Orbito";
-  const showLabsBadge = !labsButtonIsOrbito && !isOrbitoMarketing;
+  const labsButtonText = "Orbito";
+  const showLabsBadge = !labsButtonIsOrbito;
 
   // Always card/glass
   const shellClass =

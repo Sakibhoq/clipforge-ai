@@ -272,6 +272,15 @@ def _labs_generation_provider() -> str:
     return _env("LABS_GENERATION_PROVIDER", "stub").strip().lower()
 
 
+def _runtime_env_name() -> str:
+    return (
+        _env("LABS_RUNTIME_ENV", "")
+        or _env("APP_ENV", "")
+        or _env("ENVIRONMENT", "")
+        or _env("NODE_ENV", "")
+    ).strip().lower()
+
+
 def _provider_strict_mode() -> bool:
     return _env_bool("LABS_GENERATION_STRICT", False)
 
@@ -281,7 +290,18 @@ def _allow_demo_fallback() -> bool:
     Demo fallback generates placeholder media when provider calls fail.
     Keep disabled by default for production so users only receive real AI output.
     """
-    return _env_bool("LABS_ALLOW_DEMO_FALLBACK", False)
+    if not _env_bool("LABS_ALLOW_DEMO_FALLBACK", False):
+        return False
+
+    runtime = _runtime_env_name()
+    if runtime in {"prod", "production", "live"}:
+        return False
+
+    # Safety default: when using real providers, only allow placeholder media
+    # in explicit non-production runtime modes.
+    if _labs_generation_provider() in {"google", "vertex"}:
+        return runtime in {"local", "dev", "development", "test", "staging", "preview"}
+    return True
 
 
 def _allow_placeholder_fallback(kind: str) -> bool:
@@ -2598,6 +2618,14 @@ def _process_job(job: dict) -> dict[str, Any]:
     allow_voice_fallback = _allow_placeholder_fallback(JOB_KIND_VOICEOVER)
     allow_post_fallback = _allow_placeholder_fallback(JOB_KIND_POST)
     allow_video_fallback = _allow_placeholder_fallback(JOB_KIND_VIDEO)
+
+    # Prevent silent "fake success" outputs (black/text placeholders) for real
+    # provider jobs. If provider generation fails, fail the job explicitly.
+    if use_google_provider:
+        allow_image_fallback = False
+        allow_voice_fallback = False
+        allow_post_fallback = False
+        allow_video_fallback = False
 
     if kind == JOB_KIND_IMAGE:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-image-{job_id}-", suffix=".png")

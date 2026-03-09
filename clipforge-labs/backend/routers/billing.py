@@ -246,6 +246,17 @@ def _safe_int(value: object, default: int = 0) -> int:
         return int(default)
 
 
+def _is_new_user_trial_eligible(user: User) -> bool:
+    plan_token = _canonical_checkout_plan(str(getattr(user, "plan", "free") or "free"))
+    if plan_token != "free":
+        return False
+    if bool(getattr(user, "trial_used", False)):
+        return False
+    if bool(getattr(user, "stripe_customer_id", None)):
+        return False
+    return True
+
+
 def _apply_plan_grant(
     *,
     user: User,
@@ -414,8 +425,14 @@ def create_checkout_session(
 
     user = _reload_user(db, current_user)
 
-    if plan == "free" and getattr(user, "trial_used", False):
-        raise HTTPException(status_code=400, detail="Free trial already used")
+    if plan == "free":
+        if not _is_new_user_trial_eligible(user):
+            if bool(getattr(user, "trial_used", False)):
+                raise HTTPException(status_code=400, detail="Free trial already used")
+            raise HTTPException(
+                status_code=400,
+                detail="Free trial is only available once for brand-new accounts with a new payment method",
+            )
 
     customer_id = _ensure_stripe_customer(db, user)
 
