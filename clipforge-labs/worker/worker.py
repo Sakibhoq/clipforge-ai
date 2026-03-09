@@ -2472,12 +2472,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                     provider_title = remote_title
                 except Exception as exc:
                     provider_capacity_error = _is_provider_capacity_error(exc)
-                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
+                    if strict_provider or not allow_demo_fallback:
                         raise RuntimeError(f"Google image generation failed: {exc}") from exc
                     print(f"[worker] image provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
+                if use_google_provider and not allow_demo_fallback:
                     raise RuntimeError("Google image generation returned no media payload")
                 _run_ffmpeg_text_image(prompt=styled_prompt or "Generated image", aspect_ratio=aspect_ratio, out_path=out_path)
 
@@ -2520,12 +2520,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                     )
                 except Exception as exc:
                     provider_capacity_error = _is_provider_capacity_error(exc)
-                    if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
+                    if strict_provider or not allow_demo_fallback:
                         raise RuntimeError(f"Google voiceover generation failed: {exc}") from exc
                     print(f"[worker] voiceover provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
             if not _file_has_data(out_path):
-                if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
+                if use_google_provider and not allow_demo_fallback:
                     raise RuntimeError("Google voiceover generation returned no audio payload")
                 _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
 
@@ -2646,13 +2646,13 @@ def _process_job(job: dict) -> dict[str, Any]:
                                 )
                                 time.sleep(wait_seconds)
                                 continue
-                        if strict_provider or (not allow_demo_fallback and not provider_capacity_error_voice):
+                        if strict_provider or not allow_demo_fallback:
                             raise RuntimeError(f"Google post voiceover generation failed: {exc}") from exc
                         print(f"[worker] post voiceover fallback job_id={job_id} err={type(exc).__name__}: {exc}")
                         break
 
             if not _file_has_data(audio_path):
-                if use_google_provider and not allow_demo_fallback and not provider_capacity_error_voice:
+                if use_google_provider and not allow_demo_fallback:
                     raise RuntimeError("Google post voiceover generation returned no audio payload")
                 _run_voiceover(
                     script=voice_script or "Untitled voiceover",
@@ -3274,12 +3274,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                 provider_title = remote_title
             except Exception as exc:
                 provider_capacity_error = _is_provider_capacity_error(exc)
-                if strict_provider or (not allow_demo_fallback and not provider_capacity_error):
+                if strict_provider or not allow_demo_fallback:
                     raise RuntimeError(f"Google video generation failed: {exc}") from exc
                 print(f"[worker] video provider fallback job_id={job_id} err={type(exc).__name__}: {exc}")
 
         if not _file_has_data(out_path):
-            if use_google_provider and not allow_demo_fallback and not provider_capacity_error:
+            if use_google_provider and not allow_demo_fallback:
                 raise RuntimeError("Google video generation returned no media payload")
             prep_delay = _video_mode_prep_delay_seconds(generation_speed)
             if prep_delay > 0:

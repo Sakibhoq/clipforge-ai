@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import os
+import re
 import smtplib
 from email.message import EmailMessage
 from urllib.parse import urlsplit
@@ -27,6 +28,25 @@ def _smtp_config() -> dict:
 
 def _support_email() -> str:
     return (os.getenv("CONTACT_TO_EMAIL") or "support@clipforge.ai").strip()
+
+
+def _plan_display_name(plan: str) -> str:
+    token = str(plan or "").strip().lower()
+    aliases = {
+        "free": "Free",
+        "starter": "Starter",
+        "creator": "Creator",
+        "studio": "Studio",
+        "labs_spark": "Labs Starter",
+        "labs_starter": "Labs Starter",
+        "labs_velocity": "Labs Creator",
+        "labs_creator": "Labs Creator",
+    }
+    mapped = aliases.get(token)
+    if mapped:
+        return mapped
+    cleaned = re.sub(r"[_\-]+", " ", token).strip()
+    return cleaned.title() if cleaned else "Plan"
 
 
 def _frontend_base_url() -> str:
@@ -211,6 +231,7 @@ def send_billing_confirmation_email(
     support = _support_email()
     app_url = _frontend_base_url()
     logo_url = _email_logo_url()
+    plan_label = _plan_display_name(plan)
     interval_label = "monthly" if interval in {"month", "monthly"} else "yearly"
     balance_line = (
         f"Current credits balance: {int(credits_balance)}"
@@ -222,7 +243,7 @@ def send_billing_confirmation_email(
         [
             "Your Orbito Labs billing update is complete.",
             "",
-            f"Plan: {plan.capitalize()} ({interval_label})",
+            f"Plan: {plan_label} ({interval_label})",
             f"Credits added: {int(credits_granted)}",
             balance_line,
             "",
@@ -231,7 +252,7 @@ def send_billing_confirmation_email(
         ]
     )
     esc_support = html.escape(support)
-    esc_plan = html.escape(plan.capitalize())
+    esc_plan = html.escape(plan_label)
     esc_interval = html.escape(interval_label)
     esc_credits_granted = html.escape(str(int(credits_granted)))
     esc_balance = html.escape(balance_line)
