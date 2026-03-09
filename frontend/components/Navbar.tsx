@@ -425,7 +425,7 @@ export default function Navbar() {
       const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
 
       return [
-        { href: "/app", label: "Overview" },
+        { href: "/app", label: "Console" },
         { href: "/app/clips?source=orbito", label: "Clips" },
         {
           href: generatorLocked ? "/app/billing?intent=labs" : `${orbitoAppOrigin}/app/labs/app/generate`,

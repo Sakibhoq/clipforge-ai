@@ -7,7 +7,7 @@ from .base import Storage
 
 BASE_STORAGE_PATH = os.getenv(
     "LOCAL_STORAGE_PATH",
-    os.path.join(os.path.dirname(__file__), "..", "data", "storage"),
+    "/data/storage",
 )
 BASE_STORAGE_PATH = os.path.abspath(BASE_STORAGE_PATH)
 

@@ -29,6 +29,8 @@ services:
     env_file:
       - .env.prod
     environment:
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "${LOCAL_STORAGE_PATH:-/data/storage}"
       LABS_FRONTEND_URL: "${LABS_FRONTEND_URL:-https://app.orbito.cc/app/labs}"
       LABS_API_URL: "${LABS_API_URL:-https://api.orbito.cc}"
       LABS_MODE: "${LABS_MODE:-external_bridge}"
@@ -68,6 +70,8 @@ services:
       - ./data:/data
     environment:
       PYTHONFAULTHANDLER: "1"
+      STORAGE_BACKEND: "${STORAGE_BACKEND:-local}"
+      LOCAL_STORAGE_PATH: "${LOCAL_STORAGE_PATH:-/data/storage}"
       BACKEND_URL: "http://backend:8000"
       # Watermark defaults (override in .env.prod if needed)
       WORKER_WATERMARK_PNG: /app/assets/orbito-mark.png

@@ -35,7 +35,7 @@ legacy_router = APIRouter(prefix="/upload", tags=["upload"])
 
 # local storage target (same as LocalStorage)
 DEFAULT_STORAGE_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "data", "storage")
+    "/data/storage"
 )
 BASE_STORAGE_PATH = os.getenv("LOCAL_STORAGE_PATH", DEFAULT_STORAGE_PATH)
 
