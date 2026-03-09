@@ -445,6 +445,7 @@ export default function Navbar() {
 
   const navLinks = inApp ? appLinks : marketingLinks;
   const whopPageHref = "/whop";
+  const isOrbitoMarketing = !inApp && !isLabsMarketing;
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
@@ -459,9 +460,15 @@ export default function Navbar() {
     ? "inline-flex btn-clipforge text-xs"
     : isLabsMarketing
       ? "hidden xl:inline-flex btn-orbito-cta text-xs"
-      : "hidden xl:inline-flex btn-clipforge text-xs";
-  const labsMobileButtonClass = isLabsMarketing ? "btn-orbito-cta w-full text-xs" : "btn-clipforge w-full text-xs";
+      : "hidden xl:inline-flex btn-whop btn-whop-nav text-xs";
+  const labsMobileButtonClass = inApp
+    ? "btn-clipforge w-full text-xs"
+    : isLabsMarketing
+      ? "btn-orbito-cta w-full text-xs"
+      : "btn-whop btn-whop-nav w-full text-xs";
   const labsButtonIsOrbito = isLabsMarketing;
+  const labsButtonText = isOrbitoMarketing ? "Orbito Labs" : "Orbito";
+  const showLabsBadge = !labsButtonIsOrbito && !isOrbitoMarketing;
 
   // Always card/glass
   const shellClass =
@@ -523,8 +530,8 @@ export default function Navbar() {
                   className={labsDesktopButtonClass}
                   title={labsNavTitle}
                 >
-                  <span>Orbito</span>
-                  {!labsButtonIsOrbito && (
+                  <span>{labsButtonText}</span>
+                  {showLabsBadge && (
                     <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                       LABS
                     </span>
@@ -670,8 +677,8 @@ export default function Navbar() {
                     className={labsMobileButtonClass}
                     title={labsNavTitle}
                   >
-                    <span>Orbito</span>
-                    {!labsButtonIsOrbito && (
+                    <span>{labsButtonText}</span>
+                    {showLabsBadge && (
                       <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
                         LABS
                       </span>
