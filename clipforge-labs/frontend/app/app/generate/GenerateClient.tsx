@@ -84,7 +84,7 @@ const VOICE_MIN_CREDITS = 1;
 const VOICE_BASE_WPM = 165;
 const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
-const POST_IMAGE_DEFAULT_COUNT = 8;
+const POST_IMAGE_DEFAULT_COUNT = 6;
 const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
 const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
 const VIDEO_PROMPT_MAX_CHARS = 1200;
@@ -116,8 +116,10 @@ const CAPTION_STYLE_OPTIONS: Array<{ value: CaptionStylePreset; label: string; h
 ];
 
 const VOICE_OPTIONS = [
-  { value: "en-US-Studio-Q", label: "Vale (US • Studio male • cinematic)" },
-  { value: "en-US-Studio-O", label: "Selene (US • Studio female • premium)" },
+  { value: "en-US-Standard-C", label: "Core (US • Standard female • lowest cost)" },
+  { value: "en-US-Standard-D", label: "Atlas (US • Standard male • lowest cost)" },
+  { value: "en-US-Standard-E", label: "Mira (US • Standard female)" },
+  { value: "en-US-Standard-F", label: "Rowan (US • Standard male)" },
   { value: "en-US-Neural2-H", label: "Iris (US • expressive female)" },
   { value: "en-US-Neural2-I", label: "Noir (US • dramatic male)" },
   { value: "en-US-Neural2-A", label: "Ember (US • narrative female)" },
@@ -1406,9 +1408,7 @@ export default function GenerateClient() {
                 {mode === "post" ? (
                   <>
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/72">
-                      {lowCostStyleSelected
-                        ? "Anime, cartoon, and comic AI Post run in video + voice mode."
-                        : "Real style AI Post runs in image + voice mode."}
+                      AI Post runs in image + voice mode by default for the lowest Google API cost.
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>

@@ -39,23 +39,25 @@ ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {5, 6, 7}
 POST_ALLOWED_DURATIONS = {60, 90, 120}
 POST_DEFAULT_DURATION_SECONDS = 60
-POST_DEFAULT_IMAGE_COUNT = 8
+POST_DEFAULT_IMAGE_COUNT = 6
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
-DEFAULT_TTS_VOICE = "en-US-Studio-Q"
-FALLBACK_TTS_VOICE = "en-US-Neural2-A"
+DEFAULT_TTS_VOICE = "en-US-Standard-C"
+FALLBACK_TTS_VOICE = "en-US-Standard-D"
 TTS_VOICE_FALLBACK_CHAIN = [
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
+    "en-US-Standard-C",
+    "en-US-Standard-D",
+    "en-US-Standard-E",
+    "en-US-Standard-F",
     "en-US-Neural2-A",
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
     "en-US-Neural2-J",
     "en-US-Wavenet-A",
     "en-US-Wavenet-C",
     "en-US-Wavenet-E",
-    "en-US-Standard-C",
-    "en-US-Standard-D",
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
 ]
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None

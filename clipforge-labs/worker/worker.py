@@ -29,20 +29,22 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
-DEFAULT_TTS_VOICE = "en-US-Studio-Q"
-FALLBACK_TTS_VOICE = "en-US-Neural2-A"
+DEFAULT_TTS_VOICE = "en-US-Standard-C"
+FALLBACK_TTS_VOICE = "en-US-Standard-D"
 TTS_VOICE_FALLBACK_CHAIN = [
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
+    "en-US-Standard-C",
+    "en-US-Standard-D",
+    "en-US-Standard-E",
+    "en-US-Standard-F",
     "en-US-Neural2-A",
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
     "en-US-Neural2-J",
     "en-US-Wavenet-A",
     "en-US-Wavenet-C",
     "en-US-Wavenet-E",
-    "en-US-Standard-C",
-    "en-US-Standard-D",
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
 ]
 
 
@@ -425,6 +427,9 @@ def _normalize_style_preset(style_preset: str | None) -> str:
 
 
 def _is_low_cost_style(style_preset: str | None) -> bool:
+    # Hard low-cost mode: route every style to low-cost provider models unless explicitly disabled.
+    if _env_bool("GOOGLE_FORCE_LOW_COST_MODELS", True):
+        return True
     style = _normalize_style_preset(style_preset)
     if style not in LOW_COST_STYLE_PRESETS:
         return False
@@ -2566,7 +2571,7 @@ def _extract_tts_error_detail(data: Any) -> str:
 
 
 def _polish_voiceover_audio(path: str) -> None:
-    if not _env_bool("GOOGLE_TTS_POLISH_AUDIO", True):
+    if not _env_bool("GOOGLE_TTS_POLISH_AUDIO", False):
         return
     fd, polished_path = tempfile.mkstemp(prefix="cflabs-tts-polish-", suffix=".mp3")
     os.close(fd)
@@ -3438,7 +3443,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             try:
                 image_count = int(image_count_raw)
             except Exception:
-                image_count = 10
+                image_count = _env_int("LABS_POST_DEFAULT_IMAGE_COUNT", 6, min_value=6, max_value=10)
             image_count = max(6, min(10, image_count))
             retry_image_counts: list[int] = [image_count]
             for candidate in (8, 6):
@@ -3510,7 +3515,8 @@ def _process_job(job: dict) -> dict[str, Any]:
             if audio_duration > target_duration:
                 target_duration = audio_duration
 
-            use_video_scene_mode = _is_low_cost_style(style_preset)
+            # Lowest-cost default: image-scene mode. Enable video-scene mode only if explicitly turned on.
+            use_video_scene_mode = _env_bool("LABS_POST_USE_VIDEO_SCENE_MODE", False) and _is_low_cost_style(style_preset)
 
             if use_video_scene_mode:
                 def _clear_scene_video_paths() -> None:
