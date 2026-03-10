@@ -806,6 +806,72 @@ def _split_tts_sentences(script: str) -> list[str]:
     return [chunk for chunk in chunks if chunk]
 
 
+def _tts_style_profile(script: str) -> dict[str, float]:
+    style = (os.getenv("GOOGLE_TTS_STYLE") or "narrative").strip().lower()
+    profiles: dict[str, dict[str, float]] = {
+        "narrative": {"rate": -3.0, "pitch": 0.3, "volume": 2.0},
+        "conversational": {"rate": 0.0, "pitch": 0.6, "volume": 2.2},
+        "energetic": {"rate": 4.0, "pitch": 1.2, "volume": 2.4},
+        "cinematic": {"rate": -5.0, "pitch": 0.1, "volume": 2.3},
+    }
+    base = dict(profiles.get(style, profiles["narrative"]))
+    low = (script or "").lower()
+    if any(k in low for k in ("urgent", "hurry", "breaking", "now")):
+        base["rate"] += 2.0
+        base["pitch"] += 0.6
+    if any(k in low for k in ("calm", "gentle", "soft", "quiet", "peaceful")):
+        base["rate"] -= 1.5
+        base["pitch"] -= 0.3
+    return base
+
+
+def _tts_sentence_prosody(
+    sentence: str,
+    *,
+    idx: int,
+    total: int,
+    base_rate: float,
+    base_pitch: float,
+    base_volume: float,
+) -> tuple[float, float, float, str]:
+    low = (sentence or "").lower()
+    rate = float(base_rate)
+    pitch = float(base_pitch)
+    volume = float(base_volume)
+    emphasis = "none"
+
+    if sentence.endswith("?"):
+        rate -= 1.0
+        pitch += 0.7
+        emphasis = "moderate"
+    elif "!" in sentence:
+        rate += 3.0
+        pitch += 1.4
+        volume += 0.4
+        emphasis = "strong"
+    elif any(k in low for k in ("wow", "amazing", "incredible", "epic", "legendary")):
+        rate += 2.0
+        pitch += 1.0
+        emphasis = "strong"
+    elif any(k in low for k in ("sad", "loss", "grief", "fear", "tension", "serious")):
+        rate -= 2.0
+        pitch -= 0.5
+        emphasis = "reduced"
+
+    if idx == 0:
+        rate -= 1.0
+        emphasis = "moderate" if emphasis == "none" else emphasis
+    if idx == max(0, total - 1):
+        rate -= 1.0
+
+    return (
+        max(-20.0, min(20.0, rate)),
+        max(-10.0, min(10.0, pitch)),
+        max(-10.0, min(6.0, volume)),
+        emphasis,
+    )
+
+
 def _build_expressive_tts_ssml(script: str) -> str:
     sentences = _split_tts_sentences(script)
     if not sentences:
@@ -822,15 +888,34 @@ def _build_expressive_tts_ssml(script: str) -> str:
     except Exception:
         phrase_pause_ms = 130
 
+    profile = _tts_style_profile(script)
+    base_rate = float(profile.get("rate", -3.0))
+    base_pitch = float(profile.get("pitch", 0.3))
+    base_volume = float(profile.get("volume", 2.0))
+
     parts: list[str] = ["<speak>"]
     for idx, sentence in enumerate(sentences):
         escaped = _xml_escape(sentence)
-        if idx == 0:
-            parts.append(f"<emphasis level='moderate'>{escaped}</emphasis>")
+        rate, pitch, volume, emphasis = _tts_sentence_prosody(
+            sentence,
+            idx=idx,
+            total=len(sentences),
+            base_rate=base_rate,
+            base_pitch=base_pitch,
+            base_volume=base_volume,
+        )
+        prosody_open = f"<prosody rate='{rate:+.1f}%' pitch='{pitch:+.1f}st' volume='{volume:+.1f}dB'>"
+        if emphasis in {"reduced", "moderate", "strong"}:
+            parts.append(f"{prosody_open}<emphasis level='{emphasis}'>{escaped}</emphasis></prosody>")
         else:
-            parts.append(escaped)
+            parts.append(f"{prosody_open}{escaped}</prosody>")
         if idx < len(sentences) - 1:
-            parts.append(f"<break time='{pause_ms}ms'/>")
+            pause_for_sentence = pause_ms
+            if sentence.endswith("?"):
+                pause_for_sentence = max(80, int(round(pause_ms * 0.85)))
+            elif "!" in sentence:
+                pause_for_sentence = max(80, int(round(pause_ms * 0.75)))
+            parts.append(f"<break time='{pause_for_sentence}ms'/>")
         elif sentence and not sentence.endswith((".", "!", "?")):
             parts.append(f"<break time='{phrase_pause_ms}ms'/>")
     parts.append("</speak>")
@@ -838,22 +923,21 @@ def _build_expressive_tts_ssml(script: str) -> str:
 
 
 def _tts_audio_config(speaking_rate: float) -> dict[str, float | str]:
-    pitch_raw = (os.getenv("GOOGLE_TTS_PITCH") or "").strip()
-    volume_raw = (os.getenv("GOOGLE_TTS_VOLUME_GAIN_DB") or "").strip()
-    try:
-        pitch = max(-20.0, min(20.0, float(pitch_raw or "1.6")))
-    except Exception:
-        pitch = 1.6
-    try:
-        volume = max(-96.0, min(16.0, float(volume_raw or "1.5")))
-    except Exception:
-        volume = 1.5
-    return {
+    pitch = _env_float("GOOGLE_TTS_PITCH", 0.4, min_value=-20.0, max_value=20.0)
+    volume = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 2.0, min_value=-96.0, max_value=16.0)
+    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 24000, min_value=8000, max_value=48000)
+    cfg: dict[str, float | str | int | list[str]] = {
         "audioEncoding": "MP3",
         "speakingRate": speaking_rate,
         "pitch": pitch,
         "volumeGainDb": volume,
     }
+    if sample_rate_hz > 0:
+        cfg["sampleRateHertz"] = sample_rate_hz
+    profile_ids = [p.strip() for p in (os.getenv("GOOGLE_TTS_EFFECT_PROFILE_ID") or "").split(",") if p.strip()]
+    if profile_ids:
+        cfg["effectsProfileId"] = profile_ids
+    return cfg
 
 
 def _preview_tts_payload(*, text: str, selected_voice: str, speaking_rate: float, use_ssml: bool) -> dict:
@@ -892,6 +976,44 @@ def _resolve_google_tts_endpoint() -> str:
     return raw
 
 
+def _preview_voice_candidates(selected: str, fallback: str) -> list[str]:
+    extra = [v.strip() for v in (os.getenv("GOOGLE_TTS_EXTRA_FALLBACK_VOICES") or "").split(",") if v.strip()]
+    defaults = [
+        os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or "en-US-Neural2-F",
+        os.getenv("GOOGLE_TTS_FALLBACK_VOICE") or "en-US-Neural2-J",
+        "en-US-Neural2-F",
+        "en-US-Neural2-J",
+        "en-US-Wavenet-F",
+        "en-US-Wavenet-D",
+    ]
+    ordered = [selected, fallback, *extra, *defaults]
+    out: list[str] = []
+    seen: set[str] = set()
+    for voice in ordered:
+        v = (voice or "").strip()[:64]
+        key = v.lower()
+        if not v or key in {"auto", "default", "en-us", "en_us"}:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v)
+    return out or ["en-US-Neural2-F"]
+
+
+def _preview_error_detail(resp: requests.Response) -> str:
+    try:
+        data = resp.json()
+        err = data.get("error") if isinstance(data, dict) else None
+        if isinstance(err, dict):
+            return str(err.get("message") or "").strip()
+        if err:
+            return str(err).strip()
+    except Exception:
+        pass
+    return (resp.text or "")[:200]
+
+
 def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> tuple[str, bytes]:
     endpoint = _resolve_google_tts_endpoint()
     safe_speed = max(80, min(330, int(speed_wpm or 165)))
@@ -901,65 +1023,72 @@ def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> 
     selected_voice = (voice_name or "").strip()[:64] or default_voice_name
     if selected_voice.lower() in {"auto", "default", "en-us", "en_us"}:
         selected_voice = default_voice_name
+    fallback_voice = (os.getenv("GOOGLE_TTS_FALLBACK_VOICE") or default_voice_name).strip()[:64] or default_voice_name
     safe_text = (text or "").strip()[:240] or "This is a quick voice preview."
     use_ssml = (os.getenv("GOOGLE_TTS_USE_SSML") or "1").strip().lower() in {"1", "true", "yes", "on"}
-    payload = _preview_tts_payload(
-        text=safe_text,
-        selected_voice=selected_voice,
-        speaking_rate=speaking_rate,
-        use_ssml=use_ssml,
-    )
+    last_status = 502
+    last_detail = "Voice preview provider request failed."
 
-    try:
-        resp = requests.post(endpoint, json=payload, timeout=20)
-    except requests.RequestException:
-        raise HTTPException(status_code=502, detail="Voice preview provider request failed.")
-
-    if resp.status_code >= 400 and use_ssml:
-        fallback_payload = _preview_tts_payload(
+    for candidate_voice in _preview_voice_candidates(selected_voice, fallback_voice):
+        payload = _preview_tts_payload(
             text=safe_text,
-            selected_voice=selected_voice,
+            selected_voice=candidate_voice,
             speaking_rate=speaking_rate,
-            use_ssml=False,
+            use_ssml=use_ssml,
         )
         try:
-            resp = requests.post(endpoint, json=fallback_payload, timeout=20)
+            resp = requests.post(endpoint, json=payload, timeout=20)
         except requests.RequestException:
-            raise HTTPException(status_code=502, detail="Voice preview provider request failed.")
+            last_status = 502
+            last_detail = "Voice preview provider request failed."
+            continue
 
-    content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if resp.status_code >= 400 and use_ssml:
+            fallback_payload = _preview_tts_payload(
+                text=safe_text,
+                selected_voice=candidate_voice,
+                speaking_rate=speaking_rate,
+                use_ssml=False,
+            )
+            try:
+                resp = requests.post(endpoint, json=fallback_payload, timeout=20)
+            except requests.RequestException:
+                last_status = 502
+                last_detail = "Voice preview provider request failed."
+                continue
 
-    if resp.status_code >= 400:
-        detail = ""
+        content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if resp.status_code >= 400:
+            last_status = int(resp.status_code)
+            last_detail = _preview_error_detail(resp)
+            continue
+
+        if content_type.startswith("audio/") and resp.content:
+            return content_type, resp.content
+
         try:
             data = resp.json()
-            err = data.get("error") if isinstance(data, dict) else None
-            if isinstance(err, dict):
-                detail = str(err.get("message") or "")
-            elif err:
-                detail = str(err)
         except Exception:
-            detail = resp.text[:200]
-        raise HTTPException(status_code=502, detail=f"Voice preview failed ({resp.status_code}). {detail}".strip())
+            last_status = 502
+            last_detail = "Voice preview response could not be parsed."
+            continue
 
-    if content_type.startswith("audio/") and resp.content:
-        return content_type, resp.content
+        audio_b64 = data.get("audioContent") if isinstance(data, dict) else None
+        if not isinstance(audio_b64, str) or not audio_b64.strip():
+            last_status = 502
+            last_detail = "Voice preview response had no audio content."
+            continue
 
-    try:
-        data = resp.json()
-    except Exception:
-        raise HTTPException(status_code=502, detail="Voice preview response could not be parsed.")
+        try:
+            audio_bytes = base64.b64decode(audio_b64.strip())
+        except Exception:
+            last_status = 502
+            last_detail = "Voice preview payload was invalid."
+            continue
 
-    audio_b64 = data.get("audioContent") if isinstance(data, dict) else None
-    if not isinstance(audio_b64, str) or not audio_b64.strip():
-        raise HTTPException(status_code=502, detail="Voice preview response had no audio content.")
+        return "audio/mpeg", audio_bytes
 
-    try:
-        audio_bytes = base64.b64decode(audio_b64.strip())
-    except Exception:
-        raise HTTPException(status_code=502, detail="Voice preview payload was invalid.")
-
-    return "audio/mpeg", audio_bytes
+    raise HTTPException(status_code=502, detail=f"Voice preview failed ({last_status}). {last_detail}".strip())
 
 
 def _check_model_supported(model: str | None) -> str:

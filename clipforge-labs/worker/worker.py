@@ -2260,6 +2260,72 @@ def _split_tts_sentences(script: str) -> list[str]:
     return [chunk for chunk in chunks if chunk]
 
 
+def _tts_style_profile(script: str) -> dict[str, float]:
+    style = _env("GOOGLE_TTS_STYLE", "narrative").strip().lower()
+    profiles: dict[str, dict[str, float]] = {
+        "narrative": {"rate": -3.0, "pitch": 0.3, "volume": 2.0},
+        "conversational": {"rate": 0.0, "pitch": 0.6, "volume": 2.2},
+        "energetic": {"rate": 4.0, "pitch": 1.2, "volume": 2.4},
+        "cinematic": {"rate": -5.0, "pitch": 0.1, "volume": 2.3},
+    }
+    base = dict(profiles.get(style, profiles["narrative"]))
+    low = (script or "").lower()
+    if any(k in low for k in ("urgent", "hurry", "breaking", "now")):
+        base["rate"] += 2.0
+        base["pitch"] += 0.6
+    if any(k in low for k in ("calm", "gentle", "soft", "quiet", "peaceful")):
+        base["rate"] -= 1.5
+        base["pitch"] -= 0.3
+    return base
+
+
+def _tts_sentence_prosody(
+    sentence: str,
+    *,
+    idx: int,
+    total: int,
+    base_rate: float,
+    base_pitch: float,
+    base_volume: float,
+) -> tuple[float, float, float, str]:
+    low = (sentence or "").lower()
+    rate = float(base_rate)
+    pitch = float(base_pitch)
+    volume = float(base_volume)
+    emphasis = "none"
+
+    if sentence.endswith("?"):
+        rate -= 1.0
+        pitch += 0.7
+        emphasis = "moderate"
+    elif "!" in sentence:
+        rate += 3.0
+        pitch += 1.4
+        volume += 0.4
+        emphasis = "strong"
+    elif any(k in low for k in ("wow", "amazing", "incredible", "epic", "legendary")):
+        rate += 2.0
+        pitch += 1.0
+        emphasis = "strong"
+    elif any(k in low for k in ("sad", "loss", "grief", "fear", "tension", "serious")):
+        rate -= 2.0
+        pitch -= 0.5
+        emphasis = "reduced"
+
+    if idx == 0:
+        rate -= 1.0
+        emphasis = "moderate" if emphasis == "none" else emphasis
+    if idx == max(0, total - 1):
+        rate -= 1.0
+
+    return (
+        max(-20.0, min(20.0, rate)),
+        max(-10.0, min(10.0, pitch)),
+        max(-10.0, min(6.0, volume)),
+        emphasis,
+    )
+
+
 def _build_expressive_tts_ssml(script: str) -> str:
     sentences = _split_tts_sentences(script)
     if not sentences:
@@ -2267,16 +2333,34 @@ def _build_expressive_tts_ssml(script: str) -> str:
 
     pause_ms = _env_int("GOOGLE_TTS_SENTENCE_BREAK_MS", 220, min_value=80, max_value=800)
     phrase_pause_ms = _env_int("GOOGLE_TTS_PHRASE_BREAK_MS", 130, min_value=40, max_value=400)
+    profile = _tts_style_profile(script)
+    base_rate = float(profile.get("rate", -3.0))
+    base_pitch = float(profile.get("pitch", 0.3))
+    base_volume = float(profile.get("volume", 2.0))
     parts: list[str] = ["<speak>"]
 
     for idx, sentence in enumerate(sentences):
         escaped = _xml_escape(sentence)
-        if idx == 0:
-            parts.append(f"<emphasis level='moderate'>{escaped}</emphasis>")
+        rate, pitch, volume, emphasis = _tts_sentence_prosody(
+            sentence,
+            idx=idx,
+            total=len(sentences),
+            base_rate=base_rate,
+            base_pitch=base_pitch,
+            base_volume=base_volume,
+        )
+        prosody_open = f"<prosody rate='{rate:+.1f}%' pitch='{pitch:+.1f}st' volume='{volume:+.1f}dB'>"
+        if emphasis in {"reduced", "moderate", "strong"}:
+            parts.append(f"{prosody_open}<emphasis level='{emphasis}'>{escaped}</emphasis></prosody>")
         else:
-            parts.append(escaped)
+            parts.append(f"{prosody_open}{escaped}</prosody>")
         if idx < len(sentences) - 1:
-            parts.append(f"<break time='{pause_ms}ms'/>")
+            pause_for_sentence = pause_ms
+            if sentence.endswith("?"):
+                pause_for_sentence = max(80, int(round(pause_ms * 0.85)))
+            elif "!" in sentence:
+                pause_for_sentence = max(80, int(round(pause_ms * 0.75)))
+            parts.append(f"<break time='{pause_for_sentence}ms'/>")
         elif sentence and not sentence.endswith((".", "!", "?")):
             parts.append(f"<break time='{phrase_pause_ms}ms'/>")
 
@@ -2285,14 +2369,25 @@ def _build_expressive_tts_ssml(script: str) -> str:
 
 
 def _google_tts_audio_config(speaking_rate: float) -> dict[str, Any]:
-    pitch = _env_float("GOOGLE_TTS_PITCH", 1.6, min_value=-20.0, max_value=20.0)
-    volume_gain_db = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 1.5, min_value=-96.0, max_value=16.0)
-    return {
+    pitch = _env_float("GOOGLE_TTS_PITCH", 0.4, min_value=-20.0, max_value=20.0)
+    volume_gain_db = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 2.0, min_value=-96.0, max_value=16.0)
+    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 24000, min_value=8000, max_value=48000)
+    cfg: dict[str, Any] = {
         "audioEncoding": "MP3",
         "speakingRate": speaking_rate,
         "pitch": pitch,
         "volumeGainDb": volume_gain_db,
     }
+    if sample_rate_hz > 0:
+        cfg["sampleRateHertz"] = sample_rate_hz
+    profile_ids = [
+        p.strip()
+        for p in _env("GOOGLE_TTS_EFFECT_PROFILE_ID", "").split(",")
+        if p.strip()
+    ]
+    if profile_ids:
+        cfg["effectsProfileId"] = profile_ids
+    return cfg
 
 
 def _google_tts_payload(
@@ -2319,6 +2414,81 @@ def _google_tts_payload(
     return payload
 
 
+def _google_tts_voice_candidates(selected: str, fallback: str) -> list[str]:
+    defaults = [
+        _env("GOOGLE_TTS_DEFAULT_VOICE", "en-US-Neural2-F"),
+        _env("GOOGLE_TTS_FALLBACK_VOICE", "en-US-Neural2-J"),
+        "en-US-Neural2-F",
+        "en-US-Neural2-J",
+        "en-US-Wavenet-F",
+        "en-US-Wavenet-D",
+    ]
+    extra = [v.strip() for v in _env("GOOGLE_TTS_EXTRA_FALLBACK_VOICES", "").split(",") if v.strip()]
+    ordered = [selected, fallback, *extra, *defaults]
+    out: list[str] = []
+    seen: set[str] = set()
+    for voice in ordered:
+        v = (voice or "").strip()
+        key = v.lower()
+        if not v or key in {"auto", "default", "en-us", "en_us"}:
+            continue
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(v[:64])
+    return out or ["en-US-Neural2-F"]
+
+
+def _extract_tts_error_detail(data: Any) -> str:
+    if not isinstance(data, dict):
+        return ""
+    err = data.get("error")
+    if isinstance(err, dict):
+        return str(err.get("message") or "").strip()
+    if err:
+        return str(err).strip()
+    return ""
+
+
+def _polish_voiceover_audio(path: str) -> None:
+    if not _env_bool("GOOGLE_TTS_POLISH_AUDIO", True):
+        return
+    fd, polished_path = tempfile.mkstemp(prefix="cflabs-tts-polish-", suffix=".mp3")
+    os.close(fd)
+    try:
+        af_chain = _env(
+            "GOOGLE_TTS_AUDIO_FILTER",
+            (
+                "highpass=f=70,"
+                "lowpass=f=12500,"
+                "acompressor=threshold=-20dB:ratio=2.2:attack=12:release=120:makeup=3,"
+                "loudnorm=I=-16:TP=-1.5:LRA=9"
+            ),
+        )
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            path,
+            "-af",
+            af_chain,
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            _env("GOOGLE_TTS_OUTPUT_BITRATE", "192k"),
+            polished_path,
+        ]
+        proc = _run_media_cmd(cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))
+        if proc.returncode == 0 and _file_has_data(polished_path):
+            shutil.move(polished_path, path)
+    finally:
+        if os.path.exists(polished_path):
+            try:
+                os.unlink(polished_path)
+            except Exception:
+                pass
+
+
 def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
     raw_endpoint = _env("GOOGLE_TTS_API_URL", "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}")
 
@@ -2335,17 +2505,8 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
         else default_voice_name
     )
 
-    language_code = _voice_language_code(selected_voice_name)
     speaking_rate = max(0.5, min(2.0, float(speed_wpm or 165) / 165.0))
     use_ssml = _env_bool("GOOGLE_TTS_USE_SSML", True)
-
-    payload = _google_tts_payload(
-        script=safe_script,
-        selected_voice_name=selected_voice_name,
-        language_code=language_code,
-        speaking_rate=speaking_rate,
-        use_ssml=use_ssml,
-    )
 
     endpoint = raw_endpoint
     use_google_auth = False
@@ -2371,58 +2532,48 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
             )
         return _http_post_json(endpoint, req_payload)
 
-    status, content_type, data, raw_bytes = call_tts(payload)
-    if status >= 400 and use_ssml:
-        plain_payload = _google_tts_payload(
+    last_error = "google tts failed"
+    for candidate_voice in _google_tts_voice_candidates(selected_voice_name, fallback_voice_name):
+        candidate_language = _voice_language_code(candidate_voice)
+        payload = _google_tts_payload(
             script=safe_script,
-            selected_voice_name=selected_voice_name,
-            language_code=language_code,
-            speaking_rate=speaking_rate,
-            use_ssml=False,
-        )
-        status, content_type, data, raw_bytes = call_tts(plain_payload)
-    if status >= 400 and selected_voice_name != fallback_voice_name:
-        retry_language = _voice_language_code(fallback_voice_name)
-        retry_payload = _google_tts_payload(
-            script=safe_script,
-            selected_voice_name=fallback_voice_name,
-            language_code=retry_language,
+            selected_voice_name=candidate_voice,
+            language_code=candidate_language,
             speaking_rate=speaking_rate,
             use_ssml=use_ssml,
         )
-        status, content_type, data, raw_bytes = call_tts(retry_payload)
+        status, content_type, data, raw_bytes = call_tts(payload)
         if status >= 400 and use_ssml:
-            retry_plain_payload = _google_tts_payload(
+            plain_payload = _google_tts_payload(
                 script=safe_script,
-                selected_voice_name=fallback_voice_name,
-                language_code=retry_language,
+                selected_voice_name=candidate_voice,
+                language_code=candidate_language,
                 speaking_rate=speaking_rate,
                 use_ssml=False,
             )
-            status, content_type, data, raw_bytes = call_tts(retry_plain_payload)
+            status, content_type, data, raw_bytes = call_tts(plain_payload)
 
-    if status >= 400:
-        detail = ""
+        if status >= 400:
+            detail = _extract_tts_error_detail(data)
+            last_error = f"google tts failed: {status} {detail}".strip()
+            continue
+
         if isinstance(data, dict):
-            err = data.get("error")
-            if isinstance(err, dict):
-                detail = str(err.get("message") or "")
-            elif err:
-                detail = str(err)
-        raise RuntimeError(f"google tts failed: {status} {detail}".strip())
+            audio_b64 = data.get("audioContent")
+            if isinstance(audio_b64, str) and audio_b64.strip():
+                _write_bytes(out_path, _decode_base64_payload(audio_b64.strip()))
+                _polish_voiceover_audio(out_path)
+                return
 
-    if isinstance(data, dict):
-        audio_b64 = data.get("audioContent")
-        if isinstance(audio_b64, str) and audio_b64.strip():
-            _write_bytes(out_path, _decode_base64_payload(audio_b64.strip()))
+        # Some gateways may return direct MP3 bytes.
+        if content_type.startswith("audio/") and raw_bytes:
+            _write_bytes(out_path, raw_bytes)
+            _polish_voiceover_audio(out_path)
             return
 
-    # Some gateways may return direct MP3 bytes.
-    if content_type.startswith("audio/") and raw_bytes:
-        _write_bytes(out_path, raw_bytes)
-        return
+        last_error = "google tts response missing audio payload"
 
-    raise RuntimeError("google tts response missing audio payload")
+    raise RuntimeError(last_error)
 
 
 def _call_google_generation_endpoint(
