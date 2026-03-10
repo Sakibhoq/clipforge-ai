@@ -1415,6 +1415,30 @@ def _post_scene_beat_for_index(*, scene_beats: list[str], scene_index: int, scen
     return scene_beats[beat_pos]
 
 
+def _post_scene_camera_motion(*, scene_index: int, scene_count: int) -> str:
+    ratio = float(scene_index + 1) / float(max(1, scene_count))
+    if ratio <= 0.2:
+        return "tight close-up opener with subtle handheld energy"
+    if ratio <= 0.45:
+        return "smooth pull-back reveal with depth layering"
+    if ratio <= 0.75:
+        return "mid-shot tracking move tied to the action beat"
+    if ratio <= 0.92:
+        return "hero push-in for payoff emphasis"
+    return "stable final hold for a clean end frame"
+
+
+def _post_scene_intensity(*, scene_index: int, scene_count: int) -> str:
+    ratio = float(scene_index + 1) / float(max(1, scene_count))
+    if ratio <= 0.25:
+        return "high hook energy"
+    if ratio <= 0.65:
+        return "rising tension"
+    if ratio <= 0.9:
+        return "peak payoff"
+    return "confident resolution"
+
+
 def _build_post_scene_prompt(
     *,
     raw_visual_prompt: str,
@@ -1464,6 +1488,12 @@ def _build_post_scene_prompt(
     if character_lock_id:
         pieces.append(f"Character lock id: {character_lock_id}.")
     pieces.append(f"Primary scene direction: {scene_beat}.")
+    pieces.append(
+        f"Camera direction: {_post_scene_camera_motion(scene_index=scene_index, scene_count=scene_count)}."
+    )
+    pieces.append(
+        f"Pacing target: {_post_scene_intensity(scene_index=scene_index, scene_count=scene_count)}."
+    )
     if story_summary and scene_beat.lower() not in story_summary.lower():
         pieces.append(f"Overall story context: {story_summary}.")
     if style_hint:
@@ -3088,16 +3118,73 @@ def _style_hint(style_preset: str | None) -> str:
     return hints.get(style, "")
 
 
+def _style_quality_directive(style_preset: str | None) -> str:
+    style = (style_preset or "").strip().lower()
+    base = (
+        "Quality lock: keep one consistent main character identity across frames; clean anatomy and hands; "
+        "stable face geometry; sharp subject focus; no unintended text, logos, watermarks, or subtitle artifacts."
+    )
+    if style == "anime":
+        return f"{base} Preserve anime line quality and avoid flicker between frames."
+    if style == "cartoon":
+        return f"{base} Preserve clean outlines and stable color palette across shots."
+    if style == "comic":
+        return f"{base} Preserve inked contour consistency and controlled contrast."
+    return f"{base} Preserve realistic skin texture, lighting continuity, and natural motion."
+
+
+def _compose_negative_prompt(user_negative: str, style_preset: str | None) -> str:
+    style = (style_preset or "").strip().lower()
+    defaults = [
+        "blurry",
+        "low detail",
+        "artifact",
+        "jpeg noise",
+        "duplicate people",
+        "deformed face",
+        "bad anatomy",
+        "extra fingers",
+        "text overlay",
+        "subtitle text",
+        "logo watermark",
+        "frame glitch",
+        "flicker",
+    ]
+    if style == "anime":
+        defaults.extend(["off-model character", "line wobble", "muddy shading"])
+    elif style == "cartoon":
+        defaults.extend(["dirty outlines", "inconsistent proportions", "muddy colors"])
+    elif style == "comic":
+        defaults.extend(["washed contrast", "broken ink lines", "halftone moire"])
+    else:
+        defaults.extend(["uncanny face", "plastic skin", "over-smoothed texture"])
+
+    existing_tokens = [t.strip() for t in re.split(r"[,\n;]+", (user_negative or "").strip()) if t.strip()]
+    seen = {t.lower() for t in existing_tokens}
+    merged = list(existing_tokens)
+    for token in defaults:
+        low = token.lower()
+        if low in seen:
+            continue
+        seen.add(low)
+        merged.append(token)
+    value = ", ".join(merged).strip(" ,")
+    return value[:1200].strip()
+
+
 def _apply_style_preset(prompt: str, style_preset: str | None) -> str:
     base = (prompt or "").strip()
     if not base:
         return base
     hint = _style_hint(style_preset)
-    if not hint:
-        return base
-    if hint.lower() in base.lower():
-        return base
-    return f"{base}. Visual style: {hint}."
+    quality = _style_quality_directive(style_preset)
+    parts = [base]
+    if hint and hint.lower() not in base.lower():
+        parts.append(f"Visual style: {hint}.")
+    if "quality lock:" not in base.lower():
+        parts.append(quality)
+    composed = " ".join(p.strip() for p in parts if p and p.strip())
+    return composed[:1180].rstrip()
 
 
 def _video_mode_prep_delay_seconds(speed: str) -> int:
@@ -3128,6 +3215,7 @@ def _process_job(job: dict) -> dict[str, Any]:
     model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
     style_preset = str(settings.get("style_preset") or "").strip().lower()
+    negative_prompt = _compose_negative_prompt(negative_prompt, style_preset)
     job_seed = _normalize_seed(settings.get("seed"))
     watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
     captions_enabled = bool(settings.get("captions_enabled", bool(job.get("captions_enabled", False))))

@@ -35,6 +35,14 @@ type PromptHelperResponse = {
   aspect_ratio: string;
   duration_seconds: number;
   style_preset: string;
+  analysis?: PromptHelperAnalysis | null;
+};
+
+type PromptHelperAnalysis = {
+  continuity_anchor?: string;
+  hook_focus?: string;
+  quality_guardrails?: string[];
+  camera_plan?: string[];
 };
 
 type JobRow = {
@@ -429,6 +437,7 @@ export default function GenerateClient() {
   const [postIdeaSeed, setPostIdeaSeed] = useState("");
   const [postIdeaLoading, setPostIdeaLoading] = useState(false);
   const [postIdeaError, setPostIdeaError] = useState<string | null>(null);
+  const [postIdeaAnalysis, setPostIdeaAnalysis] = useState<PromptHelperAnalysis | null>(null);
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
@@ -1012,6 +1021,7 @@ export default function GenerateClient() {
       }
       setPostVisualPrompt(visual);
       setPostVoiceScript(voice);
+      setPostIdeaAnalysis(res && typeof res.analysis === "object" ? (res.analysis as PromptHelperAnalysis) : null);
     } catch (err: any) {
       const detail = String(err?.detail || err?.message || "Could not generate a prompt pack.");
       setPostIdeaError(detail);
@@ -1161,6 +1171,7 @@ export default function GenerateClient() {
                             value={postIdeaSeed}
                             onChange={(e) => {
                               setPostIdeaSeed(e.target.value);
+                              setPostIdeaAnalysis(null);
                               if (postIdeaError) setPostIdeaError(null);
                             }}
                             rows={4}
@@ -1191,6 +1202,33 @@ export default function GenerateClient() {
                         </div>
 
                         {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
+                        {postIdeaAnalysis ? (
+                          <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-[11px] text-cyan-50/90">
+                            {postIdeaAnalysis.hook_focus ? (
+                              <div>
+                                <span className="font-semibold text-cyan-100">Hook focus:</span> {postIdeaAnalysis.hook_focus}
+                              </div>
+                            ) : null}
+                            {postIdeaAnalysis.continuity_anchor ? (
+                              <div className="mt-1">
+                                <span className="font-semibold text-cyan-100">Continuity anchor:</span>{" "}
+                                {postIdeaAnalysis.continuity_anchor}
+                              </div>
+                            ) : null}
+                            {Array.isArray(postIdeaAnalysis.quality_guardrails) && postIdeaAnalysis.quality_guardrails.length > 0 ? (
+                              <div className="mt-1 text-cyan-50/85">
+                                <span className="font-semibold text-cyan-100">Quality checks:</span>{" "}
+                                {postIdeaAnalysis.quality_guardrails.slice(0, 3).join(" • ")}
+                              </div>
+                            ) : null}
+                            {Array.isArray(postIdeaAnalysis.camera_plan) && postIdeaAnalysis.camera_plan.length > 0 ? (
+                              <div className="mt-1 text-cyan-50/85">
+                                <span className="font-semibold text-cyan-100">Camera plan:</span>{" "}
+                                {postIdeaAnalysis.camera_plan.slice(0, 2).join(" | ")}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 

@@ -202,6 +202,8 @@ PROMPT_HELPER_TITLE_STOP_WORDS = PROMPT_HELPER_STOP_WORDS | {
     "simple",
 }
 
+PROMPT_HELPER_VISUAL_MAX_CHARS = 1180
+
 
 def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int = 1_000_000) -> int:
     raw = (os.getenv(name) or "").strip()
@@ -587,6 +589,47 @@ def _scene_ranges(duration_seconds: int, scene_count: int) -> list[tuple[int, in
     return out
 
 
+def _camera_directive_for_scene(*, style: str, scene_index: int, scene_count: int) -> str:
+    ratio = float(scene_index + 1) / float(max(1, scene_count))
+    if ratio <= 0.18:
+        base = "tight close-up, strong eye contact, subtle handheld energy"
+    elif ratio <= 0.4:
+        base = "fast pull-back reveal, smooth dolly, foreground-to-background depth"
+    elif ratio <= 0.65:
+        base = "mid shot with lateral tracking, motivated movement tied to action"
+    elif ratio <= 0.88:
+        base = "hero push-in, stable horizon, controlled motion for payoff"
+    else:
+        base = "locked final frame, premium hold for 0.8s to 1.2s"
+
+    if style == "anime":
+        return f"{base}, dynamic low-angle perspective, kinetic anime framing"
+    if style == "cartoon":
+        return f"{base}, playful timing, readable silhouettes, clean shape language"
+    if style == "comic":
+        return f"{base}, dramatic panel-style framing, hard contrast, graphic composition"
+    return f"{base}, cinematic composition, natural lens behavior"
+
+
+def _lighting_directive_for_style(style: str) -> str:
+    if style == "anime":
+        return "high-contrast key light, cel-shaded highlights, controlled bloom"
+    if style == "cartoon":
+        return "bright key + soft fill, saturated color separation, clean edges"
+    if style == "comic":
+        return "hard key light, deep shadows, punchy contrast with halftone mood"
+    return "cinematic motivated lighting, clean skin tone rendering, premium contrast"
+
+
+def _character_anchor(subject: str, trait: str) -> str:
+    subject_clean = _clean_spaces(subject).lower() or "protagonist"
+    trait_clean = _trait_display(trait)
+    return (
+        f"{subject_clean} with {trait_clean}; keep identical face structure, hairstyle, outfit palette, "
+        "age range, and body build across every scene."
+    )
+
+
 def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_ratio: str, duration_seconds: int) -> str:
     concept = _core_idea_phrase(idea) or _clean_spaces(idea)
     subject, trait = _extract_subject_and_trait(concept)
@@ -594,83 +637,87 @@ def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_rat
     title = _idea_title(concept, style_preset)
     style_text = _style_label(style_preset)
     style = _normalize_style_preset(style_preset)
-    scene_count = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
-    ranges = _scene_ranges(duration_seconds, scene_count)
+    scene_count_target = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
+    lighting = _lighting_directive_for_style(style)
+    character_anchor = _character_anchor(subject, trait_display)
 
     if style == "anime":
         scene_templates = [
-            "Hook: dynamic close-up of {subject}, wind and motion lines framing the face.",
-            "World setup: establish a high-stakes setting with layered depth and dramatic perspective.",
-            "Inciting conflict: a visible threat enters frame and pressure spikes instantly.",
-            "Power reveal: {subject} counters with {trait}; bright aura and shockwave reaction.",
-            "Escalation: rapid action montage, clean cuts, and camera pushes on impact moments.",
-            "Control beat: tempo slows; {subject} stays calm while the world reacts.",
-            "Payoff: threat is neutralized with a decisive, cinematic finishing moment.",
-            "Final frame: bold title card and confident pose to close the story arc.",
-            "Extension beat: aftermath shot with subtle particles and emotional reset.",
-            "Extension beat: secondary angle that reinforces scale and dominance.",
-            "Extension beat: team or crowd reaction to the outcome.",
-            "Outro: hold a clean branded frame for one final second.",
+            "Hook: intense eye-level intro of {subject}; instant tension in the first second.",
+            "World setup: reveal the arena and stakes with layered depth and environmental motion.",
+            "Inciting conflict: clear threat enters frame and pressure spikes immediately.",
+            "Power reveal: {subject} counters with {trait}; impact energy and visible momentum shift.",
+            "Escalation: fast but readable action chain with continuity-safe transitions.",
+            "Control beat: brief calm reset to amplify the next impact.",
+            "Payoff: decisive finishing move with hero clarity and strong silhouette.",
+            "Final frame: confident hold pose, clean composition, scroll-stopping close.",
         ]
     elif style == "cartoon":
         scene_templates = [
-            "Hook: bright, expressive intro shot of {subject} with strong silhouette.",
-            "Setup: playful environment reveal with readable props and color contrast.",
-            "Conflict: challenge appears fast and creates immediate visual tension.",
-            "Reveal: {subject} uses {trait} in a bold, stylized action beat.",
-            "Escalation: rhythmic montage with snappy transitions and squash-and-stretch motion.",
-            "Reaction: comedic pause, then a confident reset before the final push.",
-            "Payoff: challenge solved in one clear, satisfying visual move.",
-            "Final frame: upbeat end card with strong composition and takeaway text.",
-            "Extension beat: add a reaction gag or secondary character response.",
-            "Extension beat: polished hold shot with subtle camera drift.",
-            "Extension beat: reinforce the core message with icon-driven visuals.",
-            "Outro: finish with clean framing ready for captions.",
+            "Hook: expressive opener of {subject} with bright contrast and clean silhouette.",
+            "Setup: playful world reveal with readable props and color separation.",
+            "Conflict: challenge appears fast and creates immediate visual stakes.",
+            "Reveal: {subject} uses {trait} in a bold stylized action beat.",
+            "Escalation: rhythmic progression with snappy transitions and clear motion arcs.",
+            "Reaction: comedic or emotional pause that resets pacing.",
+            "Payoff: challenge solved in one satisfying visual move.",
+            "Final frame: polished hero hold with clean spacing for platform-safe framing.",
         ]
     elif style == "comic":
         scene_templates = [
-            "Hook: high-contrast opener with inked outlines and dramatic negative space.",
-            "Setup: panel-like world reveal with foreground, midground, and background layers.",
-            "Conflict: threat enters like a splash panel and sets the stakes.",
-            "Reveal: {subject} unleashes {trait} with punchy impact framing.",
-            "Escalation: rapid panel montage, angled composition, and halftone texture cues.",
-            "Reaction: tight facial close-up to emphasize emotional control.",
-            "Payoff: final strike lands in a hero-frame composition.",
-            "Final frame: clean title overlay, iconic pose, and story resolution.",
-            "Extension beat: aftermath panel with environmental detail.",
-            "Extension beat: secondary angle for scale and continuity.",
-            "Extension beat: visual callback to the opening hook.",
-            "Outro: linger on a polished final panel for platform-safe posting.",
+            "Hook: high-contrast opener with graphic negative space and bold subject lock.",
+            "Setup: panel-like environment reveal with foreground/midground/background depth.",
+            "Conflict: threat enters like a splash panel and sets clear stakes.",
+            "Reveal: {subject} unleashes {trait} in a punchy impact composition.",
+            "Escalation: rapid sequence with strong directional flow and readability.",
+            "Reaction: tight emotional beat that heightens narrative control.",
+            "Payoff: final strike lands in iconic hero framing.",
+            "Final frame: cinematic hold panel with premium finish and strong closure.",
         ]
     else:
         scene_templates = [
-            "Hook: cinematic opener on {subject} with clear intent and motion.",
-            "Setup: environment establishing shot with practical detail and depth.",
-            "Conflict: pressure rises as a clear obstacle enters the scene.",
-            "Reveal: {subject} leverages {trait} to shift momentum.",
-            "Escalation: focused montage with motivated camera movement and continuity.",
-            "Reaction: brief emotional beat to humanize the turning point.",
-            "Payoff: obstacle is resolved in a grounded, believable action.",
-            "Final frame: clean close with bold text and memorable composition.",
-            "Extension beat: aftermath detail that reinforces progress.",
-            "Extension beat: secondary angle to improve visual variety.",
-            "Extension beat: quick callback to the opening hook.",
-            "Outro: hold a stable ending frame for captions and branding.",
+            "Hook: cinematic opener on {subject} with clear intent and immediate movement.",
+            "Setup: grounded environment reveal with practical detail and depth.",
+            "Conflict: pressure rises as a visible obstacle enters the scene.",
+            "Reveal: {subject} uses {trait} to shift momentum.",
+            "Escalation: focused sequence with motivated camera movement and clean continuity.",
+            "Reaction: short human beat to build emotional connection.",
+            "Payoff: obstacle resolves with believable action and visual clarity.",
+            "Final frame: premium hero hold, clean composition, strong finish.",
         ]
 
-    lines = [
-        f"Title: {title}",
-        f"Concept: {concept}",
-        f"Aspect ratio: {aspect_ratio}",
-        f"Duration: {duration_seconds}s",
-        f"Visual style: {style_text}",
-        "",
-    ]
-    for idx, (start, end) in enumerate(ranges):
-        template = scene_templates[idx] if idx < len(scene_templates) else scene_templates[-1]
-        beat = template.format(subject=subject, trait=trait_display)
-        lines.append(f"{start}-{end}s: {beat}")
-    return "\n".join(lines).strip()
+    def build_for_scene_count(scene_count: int) -> str:
+        ranges = _scene_ranges(duration_seconds, scene_count)
+        lines = [
+            f"Title: {title}",
+            f"Concept: {concept}",
+            f"Character: {character_anchor}",
+            f"Aspect ratio: {aspect_ratio}",
+            f"Duration: {duration_seconds}s",
+            f"Visual style: {style_text}",
+            "",
+        ]
+        for idx, (start, end) in enumerate(ranges):
+            template = scene_templates[idx] if idx < len(scene_templates) else scene_templates[-1]
+            beat = template.format(subject=subject, trait=trait_display)
+            camera = _camera_directive_for_scene(style=style, scene_index=idx, scene_count=scene_count)
+            lines.append(
+                f"{start}-{end}s: {beat} Camera: {camera}. Lighting: {lighting}. "
+                "Continuity lock: same protagonist identity, same wardrobe palette, same environment family."
+            )
+        return "\n".join(lines).strip()
+
+    best = build_for_scene_count(scene_count_target)
+    if len(best) <= PROMPT_HELPER_VISUAL_MAX_CHARS:
+        return best
+
+    for scene_count in range(scene_count_target - 1, 5, -1):
+        candidate = build_for_scene_count(scene_count)
+        if len(candidate) <= PROMPT_HELPER_VISUAL_MAX_CHARS:
+            return candidate
+        best = candidate
+
+    return best[: PROMPT_HELPER_VISUAL_MAX_CHARS - 3].rstrip() + "..."
 
 
 def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_seconds: int) -> str:
@@ -785,6 +832,30 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
     if script and script[-1] not in ".!?":
         script = f"{script}."
     return script
+
+
+def _build_prompt_helper_analysis(*, idea: str, style_preset: str | None, duration_seconds: int) -> dict[str, object]:
+    concept = _core_idea_phrase(idea) or _clean_spaces(idea)
+    subject, trait = _extract_subject_and_trait(concept)
+    trait_display = _trait_display(trait)
+    style = _normalize_style_preset(style_preset)
+    scene_count = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
+    ranges = _scene_ranges(duration_seconds, scene_count)
+    camera_plan = [
+        f"{start}-{end}s: {_camera_directive_for_scene(style=style, scene_index=idx, scene_count=scene_count)}"
+        for idx, (start, end) in enumerate(ranges[: min(8, len(ranges))])
+    ]
+    return {
+        "continuity_anchor": _character_anchor(subject, trait_display),
+        "hook_focus": f"Open on {subject} quickly and reveal {trait_display} within the first 3 seconds.",
+        "quality_guardrails": [
+            "Keep one protagonist identity across all scenes (no character swaps).",
+            "Avoid random text, logos, subtitle artifacts, and watermark artifacts.",
+            "Maintain consistent lighting direction and environment family.",
+            "Use clean subject framing so captions and platform UI remain readable.",
+        ],
+        "camera_plan": camera_plan,
+    }
 
 
 def _post_credits_needed(
@@ -1474,6 +1545,7 @@ class PromptHelperResponse(BaseModel):
     aspect_ratio: str
     duration_seconds: int
     style_preset: str
+    analysis: dict[str, object] | None = None
 
 
 class VoicePreviewRequest(BaseModel):
@@ -1521,6 +1593,11 @@ def prompt_helper(
         style_preset=style,
         duration_seconds=duration_seconds,
     )
+    analysis = _build_prompt_helper_analysis(
+        idea=idea,
+        style_preset=style,
+        duration_seconds=duration_seconds,
+    )
     return PromptHelperResponse(
         title=_idea_title(idea, style),
         visual_prompt=visual_prompt,
@@ -1528,6 +1605,7 @@ def prompt_helper(
         aspect_ratio=aspect,
         duration_seconds=duration_seconds,
         style_preset=style,
+        analysis=analysis,
     )
 
 
