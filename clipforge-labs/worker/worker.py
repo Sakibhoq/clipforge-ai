@@ -1378,9 +1378,16 @@ def _merge_narration_with_dialogue(narration: str, dialogue_script: str | None) 
     dialogue_clean = _compact_dialogue_script(dialogue_script, max_chars=2000)
     if not dialogue_clean:
         return narration_clean
+    lip_sync_lock = (
+        "Speech and lip-sync lock (critical):\n"
+        "- Use the dialogue lines exactly, no added or missing words.\n"
+        "- Keep speaker mouth visible and facing camera while speaking.\n"
+        "- Align lip/jaw movement tightly to the spoken timing.\n"
+        "- Keep expression and tone realistic for each line."
+    )
     if narration_clean:
-        return f"{narration_clean}\n\nDialogue:\n{dialogue_clean}".strip()
-    return f"Dialogue:\n{dialogue_clean}".strip()
+        return f"{narration_clean}\n\n{lip_sync_lock}\n\nDialogue:\n{dialogue_clean}".strip()
+    return f"{lip_sync_lock}\n\nDialogue:\n{dialogue_clean}".strip()
 
 
 def _post_scene_beat_for_index(*, scene_beats: list[str], scene_index: int, scene_count: int) -> str:
@@ -1466,8 +1473,8 @@ def _build_post_scene_prompt(
     dialogue_hint = _compact_dialogue_script(dialogue_script, max_chars=420)
     if dialogue_hint:
         pieces.append(
-            "Dialogue guidance (important): match speaker emotion and mouth movement to the dialogue lines while"
-            " preserving the same protagonist identity."
+            "Dialogue guidance (critical): speak these lines exactly and keep mouth/jaw movement tightly synced"
+            " to each word while preserving the same protagonist identity."
         )
         pieces.append(f"Dialogue lines:\n{dialogue_hint}")
 

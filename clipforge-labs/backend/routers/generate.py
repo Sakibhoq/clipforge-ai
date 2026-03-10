@@ -357,7 +357,11 @@ def _compose_prompt_with_dialogue(prompt: str, dialogue_script: str | None) -> s
         f"{clean_prompt}\n\n"
         "Character dialogue and speaking cues:\n"
         f"{dialogue}\n\n"
-        "Generate clear talking performance with expressive delivery and matching lip movement."
+        "Speech and lip-sync lock (critical):\n"
+        "- Speak the dialogue lines exactly as written, same order, no extra narration.\n"
+        "- Keep the active speaker's mouth clearly visible while speaking.\n"
+        "- Match mouth and jaw motion to each spoken word with tight timing.\n"
+        "- Preserve natural emotion, breathing, and realistic conversational pacing."
     ).strip()
 
 

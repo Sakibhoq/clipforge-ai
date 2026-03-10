@@ -417,12 +417,13 @@ export default function Navbar() {
     ],
     [isLabsMarketing]
   );
+  const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
+  const aiLabGeneratorHref = `${orbitoAppOrigin}/app/labs/app/generate`;
 
   const appLinks = useMemo(
     () => {
       const generatorLocked = authed && !labsPlanAccess;
       const labsClipsLocked = authed && !labsPlanAccess;
-      const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
 
       return [
         { href: "/app", label: "Console" },
@@ -586,9 +587,15 @@ export default function Navbar() {
                 ) : (
                   <>
                     {!inApp && (
-                      <Link href="/app" className="btn-ghost text-xs">
-                        Console
-                      </Link>
+                      isLabsMarketing ? (
+                        <Link href={aiLabGeneratorHref} className="btn-clipforge text-xs">
+                          AI Lab
+                        </Link>
+                      ) : (
+                        <Link href="/app" className="btn-ghost text-xs">
+                          Console
+                        </Link>
+                      )
                     )}
 
                     <button type="button" onClick={logout} className="btn-ghost text-xs">
@@ -728,9 +735,15 @@ export default function Navbar() {
                 ) : (
                   <div className="mt-2 grid gap-2 p-2">
                     {!inApp && (
-                      <Link href="/app" onClick={() => setOpen(false)} className="btn-ghost text-xs text-center">
-                        Console
-                      </Link>
+                      isLabsMarketing ? (
+                        <Link href={aiLabGeneratorHref} onClick={() => setOpen(false)} className="btn-clipforge text-xs text-center">
+                          AI Lab
+                        </Link>
+                      ) : (
+                        <Link href="/app" onClick={() => setOpen(false)} className="btn-ghost text-xs text-center">
+                          Console
+                        </Link>
+                      )
                     )}
 
                     <button type="button" onClick={logout} className="btn-solid-dark text-xs">
