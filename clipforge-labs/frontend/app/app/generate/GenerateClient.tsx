@@ -11,7 +11,7 @@ type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "fast";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 type StylePreset = "real" | "anime" | "cartoon" | "comic";
-type CaptionStylePreset = "bold_center" | "clean_bottom" | "minimal";
+type CaptionStylePreset = "none" | "bold_center" | "clean_bottom" | "minimal";
 
 type GenerateResponse = {
   upload_id: number;
@@ -101,23 +101,23 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
   { value: "comic", label: "Comic" },
 ];
 const CAPTION_STYLE_OPTIONS: Array<{ value: CaptionStylePreset; label: string; hint: string }> = [
+  { value: "none", label: "No captions", hint: "Disable burned-in captions for this render." },
   { value: "bold_center", label: "Bold center", hint: "High contrast, centered lower-third." },
   { value: "clean_bottom", label: "Clean bottom", hint: "Bottom aligned with softer background." },
   { value: "minimal", label: "Minimal", hint: "Smaller clean text with light highlight." },
 ];
 
 const VOICE_OPTIONS = [
-  { value: "en-US-Neural2-F", label: "Luna (US • Natural female)" },
-  { value: "en-US-Neural2-J", label: "Atlas (US • Natural male)" },
-  { value: "en-US-Neural2-D", label: "Ryder (US • Natural male)" },
-  { value: "en-US-Standard-B", label: "Milo (US • Classic male)" },
-  { value: "en-US-Standard-D", label: "Theo (US • Classic male)" },
-  { value: "en-US-Neural2-C", label: "Nova (US • Balanced female)" },
-  { value: "en-GB-Neural2-A", label: "Aria (UK • Natural female)" },
-  { value: "en-GB-Standard-B", label: "Felix (UK • Classic male)" },
-  { value: "en-GB-Standard-D", label: "Noah (UK • Classic male)" },
-  { value: "en-AU-Neural2-A", label: "Kai (AU • Natural male)" },
-  { value: "en-AU-Standard-B", label: "Levi (AU • Classic male)" },
+  { value: "en-US-Studio-Q", label: "Vale (US • Studio male • cinematic)" },
+  { value: "en-US-Studio-O", label: "Selene (US • Studio female • premium)" },
+  { value: "en-US-Neural2-H", label: "Iris (US • expressive female)" },
+  { value: "en-US-Neural2-I", label: "Noir (US • dramatic male)" },
+  { value: "en-US-Neural2-A", label: "Ember (US • narrative female)" },
+  { value: "en-US-Neural2-G", label: "Riven (US • deep male)" },
+  { value: "en-GB-Neural2-B", label: "Aster (UK • polished male)" },
+  { value: "en-GB-Neural2-A", label: "Lyra (UK • polished female)" },
+  { value: "en-AU-Neural2-B", label: "Cove (AU • warm male)" },
+  { value: "en-AU-Neural2-A", label: "Skye (AU • warm female)" },
 ] as const;
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
@@ -542,9 +542,15 @@ export default function GenerateClient() {
         setPostDurationSeconds(postDurationRaw);
       }
 
+      const captionsEnabled =
+        typeof settings.captions_enabled === "boolean" ? settings.captions_enabled : true;
       const captionPreset = typeof settings.caption_style_preset === "string" ? settings.caption_style_preset : "";
-      if (CAPTION_STYLE_VALUES.has(captionPreset as CaptionStylePreset)) {
+      if (!captionsEnabled) {
+        setPostCaptionStylePreset("none");
+      } else if (CAPTION_STYLE_VALUES.has(captionPreset as CaptionStylePreset)) {
         setPostCaptionStylePreset(captionPreset as CaptionStylePreset);
+      } else {
+        setPostCaptionStylePreset("bold_center");
       }
       return;
     }
@@ -610,13 +616,26 @@ export default function GenerateClient() {
     try {
       let src = voicePreviewSrcByKey[key];
       if (!src) {
-        const payload = await apiFetch<VoicePreviewResponse>("/labs/voice-preview", {
-          method: "POST",
-          body: {
-            voice_name: targetVoice,
-            speed_wpm: targetSpeedWpm,
-          },
-        });
+        const previewPaths = ["/labs/voice-preview", "/labs/generate/voice-preview"];
+        let payload: VoicePreviewResponse | null = null;
+        let lastErr: any = null;
+        for (const previewPath of previewPaths) {
+          try {
+            payload = await apiFetch<VoicePreviewResponse>(previewPath, {
+              method: "POST",
+              body: {
+                voice_name: targetVoice,
+                speed_wpm: targetSpeedWpm,
+              },
+            });
+            break;
+          } catch (err: any) {
+            lastErr = err;
+          }
+        }
+        if (!payload) {
+          throw lastErr || new Error("Could not load voice preview.");
+        }
         src = `data:${payload.content_type || "audio/mpeg"};base64,${payload.audio_base64 || ""}`;
         setVoicePreviewSrcByKey((prev) => ({ ...prev, [key]: src! }));
       }
@@ -850,6 +869,7 @@ export default function GenerateClient() {
       let body: Record<string, string | number | boolean | undefined> = {};
 
       if (mode === "post") {
+        const captionsEnabled = postCaptionStylePreset !== "none";
         endpoint = "/labs/generate/post";
         body = {
           visual_prompt: postPrompt,
@@ -861,8 +881,8 @@ export default function GenerateClient() {
           model: "google",
           voice_name: voiceName,
           style_preset: stylePreset,
-          caption_style_preset: postCaptionStylePreset,
-          captions_enabled: true,
+          caption_style_preset: captionsEnabled ? postCaptionStylePreset : "none",
+          captions_enabled: captionsEnabled,
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
         };
       } else if (mode === "image") {

@@ -29,6 +29,21 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
+DEFAULT_TTS_VOICE = "en-US-Studio-Q"
+FALLBACK_TTS_VOICE = "en-US-Neural2-A"
+TTS_VOICE_FALLBACK_CHAIN = [
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Neural2-A",
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
+    "en-US-Neural2-J",
+    "en-US-Wavenet-A",
+    "en-US-Wavenet-C",
+    "en-US-Wavenet-E",
+    "en-US-Standard-C",
+    "en-US-Standard-D",
+]
 
 
 def _env(name: str, default: str = "") -> str:
@@ -2489,12 +2504,9 @@ def _google_tts_payload(
 
 def _google_tts_voice_candidates(selected: str, fallback: str) -> list[str]:
     defaults = [
-        _env("GOOGLE_TTS_DEFAULT_VOICE", "en-US-Neural2-F"),
-        _env("GOOGLE_TTS_FALLBACK_VOICE", "en-US-Neural2-J"),
-        "en-US-Neural2-F",
-        "en-US-Neural2-J",
-        "en-US-Wavenet-F",
-        "en-US-Wavenet-D",
+        _env("GOOGLE_TTS_DEFAULT_VOICE", DEFAULT_TTS_VOICE),
+        _env("GOOGLE_TTS_FALLBACK_VOICE", FALLBACK_TTS_VOICE),
+        *TTS_VOICE_FALLBACK_CHAIN,
     ]
     extra = [v.strip() for v in _env("GOOGLE_TTS_EXTRA_FALLBACK_VOICES", "").split(",") if v.strip()]
     ordered = [selected, fallback, *extra, *defaults]
@@ -2509,7 +2521,7 @@ def _google_tts_voice_candidates(selected: str, fallback: str) -> list[str]:
             continue
         seen.add(key)
         out.append(v[:64])
-    return out or ["en-US-Neural2-F"]
+    return out or [DEFAULT_TTS_VOICE]
 
 
 def _extract_tts_error_detail(data: Any) -> str:
@@ -2569,7 +2581,7 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
     if not safe_script:
         safe_script = "Untitled voiceover."
 
-    default_voice_name = (_env("GOOGLE_TTS_DEFAULT_VOICE", "en-US-Neural2-F") or "").strip() or "en-US-Neural2-F"
+    default_voice_name = (_env("GOOGLE_TTS_DEFAULT_VOICE", DEFAULT_TTS_VOICE) or "").strip() or DEFAULT_TTS_VOICE
     fallback_voice_name = (_env("GOOGLE_TTS_FALLBACK_VOICE", default_voice_name) or "").strip() or default_voice_name
     explicit_voice = (voice_name or "").strip()
     selected_voice_name = (
@@ -3119,6 +3131,9 @@ def _process_job(job: dict) -> dict[str, Any]:
     job_seed = _normalize_seed(settings.get("seed"))
     watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
     captions_enabled = bool(settings.get("captions_enabled", bool(job.get("captions_enabled", False))))
+    caption_style_raw = str(settings.get("caption_style_preset") or "").strip().lower()
+    if caption_style_raw in {"none", "off", "disabled"}:
+        captions_enabled = False
     styled_prompt = _apply_style_preset(prompt, style_preset)
     dialogue_script = _compact_dialogue_script(str(settings.get("dialogue_script") or "").strip(), max_chars=5000)
     styled_prompt_with_dialogue = _merge_narration_with_dialogue(styled_prompt, dialogue_script)
@@ -3216,7 +3231,7 @@ def _process_job(job: dict) -> dict[str, Any]:
         fd, out_path = tempfile.mkstemp(prefix=f"cflabs-voice-{job_id}-", suffix=".mp3")
         os.close(fd)
         try:
-            voice_name = str(settings.get("voice_name") or "en-US-Neural2-F")
+            voice_name = str(settings.get("voice_name") or DEFAULT_TTS_VOICE)
             speed = int(settings.get("speed_wpm") or 165)
             provider_capacity_error = False
 
@@ -3272,8 +3287,6 @@ def _process_job(job: dict) -> dict[str, Any]:
         image_paths: list[str] = []
         scene_video_paths: list[str] = []
         try:
-            # AI Post always ships with burned captions in current product UX.
-            captions_enabled = True
             raw_visual_prompt = str(settings.get("visual_prompt") or prompt or "Generated visual story").strip()
             visual_prompt = _apply_style_preset(raw_visual_prompt, style_preset)
             scene_beats = _extract_post_scene_beats(raw_visual_prompt)
@@ -3299,7 +3312,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             )
             if not character_profile:
                 character_profile = "single recurring protagonist, keep same face, hair, age range, and wardrobe palette"
-            voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
+            voice_name = str(settings.get("voice_name") or DEFAULT_TTS_VOICE).strip() or DEFAULT_TTS_VOICE
             speed = int(settings.get("speed_wpm") or 165)
             provider_capacity_error_voice = False
             post_voice_capacity_retries = _env_int(

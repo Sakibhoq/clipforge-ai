@@ -41,6 +41,21 @@ POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 8
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
+DEFAULT_TTS_VOICE = "en-US-Studio-Q"
+FALLBACK_TTS_VOICE = "en-US-Neural2-A"
+TTS_VOICE_FALLBACK_CHAIN = [
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Neural2-A",
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
+    "en-US-Neural2-J",
+    "en-US-Wavenet-A",
+    "en-US-Wavenet-C",
+    "en-US-Wavenet-E",
+    "en-US-Standard-C",
+    "en-US-Standard-D",
+]
 
 PLAN_MAX_VIDEO_DURATION_SECONDS_HD = {
     "free": 5,
@@ -661,7 +676,26 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
     subject_narration = _subject_narration(subject)
     trait_display = _trait_display(trait)
     style = _normalize_style_preset(style_preset)
-    target_words = max(105, min(260, int(round(float(duration_seconds) * 2.2))))
+    safe_duration = max(60, min(120, int(duration_seconds or POST_DEFAULT_DURATION_SECONDS)))
+    target_wpm = _env_int(
+        "LABS_PROMPT_HELPER_TARGET_WPM",
+        150,
+        min_value=130,
+        max_value=230,
+    )
+    pause_buffer = _env_float(
+        "LABS_PROMPT_HELPER_PAUSE_BUFFER",
+        1.06,
+        min_value=1.0,
+        max_value=1.25,
+    )
+    target_words = max(
+        130,
+        min(
+            420,
+            int(round((float(safe_duration) / 60.0) * float(target_wpm) * float(pause_buffer))),
+        ),
+    )
 
     if style == "anime":
         sentences = [
@@ -725,18 +759,22 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
         )
 
     final_sentences = list(sentences)
-    while _word_count(" ".join(final_sentences)) > target_words and len(final_sentences) > 1:
+    upper_target = target_words + 8
+    while _word_count(" ".join(final_sentences)) > upper_target and len(final_sentences) > 1:
         final_sentences.pop()
 
     words_now = _word_count(" ".join(final_sentences))
-    if words_now < (target_words - 12):
+    lower_target = max(90, target_words - 4)
+    if words_now < lower_target:
         fillers = [
             "Keep the tempo steady and commit to each move before switching.",
             "Small disciplined steps create bigger outcomes than random bursts.",
             "Hold focus, finish strong, and let your actions speak clearly.",
+            "Build pressure with intention, then release with total control.",
+            "A strong finish comes from rhythm, clarity, and repeated precision.",
         ]
         idx = 0
-        while _word_count(" ".join(final_sentences)) < (target_words - 6):
+        while _word_count(" ".join(final_sentences)) < lower_target:
             final_sentences.append(fillers[idx % len(fillers)])
             idx += 1
 
@@ -983,12 +1021,9 @@ def _resolve_google_tts_endpoint() -> str:
 def _preview_voice_candidates(selected: str, fallback: str) -> list[str]:
     extra = [v.strip() for v in (os.getenv("GOOGLE_TTS_EXTRA_FALLBACK_VOICES") or "").split(",") if v.strip()]
     defaults = [
-        os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or "en-US-Neural2-F",
-        os.getenv("GOOGLE_TTS_FALLBACK_VOICE") or "en-US-Neural2-J",
-        "en-US-Neural2-F",
-        "en-US-Neural2-J",
-        "en-US-Wavenet-F",
-        "en-US-Wavenet-D",
+        os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or DEFAULT_TTS_VOICE,
+        os.getenv("GOOGLE_TTS_FALLBACK_VOICE") or FALLBACK_TTS_VOICE,
+        *TTS_VOICE_FALLBACK_CHAIN,
     ]
     ordered = [selected, fallback, *extra, *defaults]
     out: list[str] = []
@@ -1002,7 +1037,7 @@ def _preview_voice_candidates(selected: str, fallback: str) -> list[str]:
             continue
         seen.add(key)
         out.append(v)
-    return out or ["en-US-Neural2-F"]
+    return out or [DEFAULT_TTS_VOICE]
 
 
 def _preview_error_detail(resp: requests.Response) -> str:
@@ -1023,7 +1058,7 @@ def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> 
     safe_speed = max(80, min(330, int(speed_wpm or 165)))
     speaking_rate = max(0.5, min(2.0, float(safe_speed) / 165.0))
 
-    default_voice_name = (os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
+    default_voice_name = (os.getenv("GOOGLE_TTS_DEFAULT_VOICE") or DEFAULT_TTS_VOICE).strip() or DEFAULT_TTS_VOICE
     selected_voice = (voice_name or "").strip()[:64] or default_voice_name
     if selected_voice.lower() in {"auto", "default", "en-us", "en_us"}:
         selected_voice = default_voice_name
@@ -1290,7 +1325,7 @@ class GenerateImageRequest(BaseModel):
 class GenerateVoiceoverRequest(BaseModel):
     script: str = Field(min_length=3, max_length=6000)
     model: str | None = Field(default="google", max_length=64)
-    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
+    voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int = Field(default=POST_BASE_VOICE_WPM, ge=80, le=330)
 
 
@@ -1302,7 +1337,7 @@ class GeneratePostRequest(BaseModel):
     duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
     model: str | None = Field(default="google", max_length=64)
-    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
+    voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int | None = Field(default=None, ge=80, le=330)
     style_preset: str | None = Field(default="social-native", max_length=64)
     caption_style_preset: str | None = Field(default="bold_center", max_length=64)
@@ -1337,7 +1372,7 @@ class PromptHelperResponse(BaseModel):
 
 
 class VoicePreviewRequest(BaseModel):
-    voice_name: str | None = Field(default="en-US-Neural2-F", max_length=64)
+    voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int = Field(default=POST_BASE_VOICE_WPM, ge=80, le=330)
     text: str | None = Field(default=None, max_length=240)
 
@@ -1399,7 +1434,7 @@ def voice_preview(
     # Auth is required to avoid anonymous abuse of the preview endpoint.
     _ = current_user.id
 
-    selected_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
+    selected_voice = (payload.voice_name or DEFAULT_TTS_VOICE).strip()[:64] or DEFAULT_TTS_VOICE
     sample_text = (payload.text or "").strip()[:240] or "This is a quick voice preview for your next post."
     content_type, audio_bytes = _synthesize_voice_preview(
         voice_name=selected_voice,
@@ -1411,6 +1446,14 @@ def voice_preview(
         content_type=content_type,
         audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
     )
+
+
+@router.post("/generate/voice-preview", response_model=VoicePreviewResponse)
+def voice_preview_generate_alias(
+    payload: VoicePreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    return voice_preview(payload, current_user)
 
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -1555,7 +1598,7 @@ def create_voiceover_generation(
     credits_needed = _voiceover_credits_needed(script)
     text_length = len(script)
     safe_speed = max(80, min(330, int(payload.speed_wpm or POST_BASE_VOICE_WPM)))
-    safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
+    safe_voice = (payload.voice_name or DEFAULT_TTS_VOICE).strip()[:64] or DEFAULT_TTS_VOICE
 
     def _plan_guard(plan: str) -> None:
         max_chars = int(PLAN_MAX_VOICE_CHARS.get(plan, 300))
@@ -1638,7 +1681,7 @@ def create_post_generation(
         safe_speed = target_wpm
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
-    safe_voice = (payload.voice_name or "en-US-Neural2-F").strip()[:64] or "en-US-Neural2-F"
+    safe_voice = (payload.voice_name or DEFAULT_TTS_VOICE).strip()[:64] or DEFAULT_TTS_VOICE
     credits_needed = _post_credits_needed(image_count, voice_script, style_preset, duration_seconds)
 
     def _plan_guard(plan: str) -> None:
@@ -1672,7 +1715,11 @@ def create_post_generation(
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
         "style_preset": style_preset,
-        "caption_style_preset": (payload.caption_style_preset or "bold_center"),
+        "caption_style_preset": (
+            "none"
+            if not bool(payload.captions_enabled)
+            else (payload.caption_style_preset or "bold_center")
+        ),
         "captions_enabled": bool(payload.captions_enabled),
         "watermark_enabled": bool(payload.watermark_enabled),
     }
