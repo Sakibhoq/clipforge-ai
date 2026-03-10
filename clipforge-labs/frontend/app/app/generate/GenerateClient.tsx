@@ -381,6 +381,36 @@ function wpmToSpeedMultiplier(wpm: number): number {
   return closest;
 }
 
+async function postJsonWithCredentials<T = any>(url: string, body: Record<string, unknown>): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const raw = await res.text();
+  let parsed: any = null;
+  if (raw) {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = raw;
+    }
+  }
+
+  if (!res.ok) {
+    const detail =
+      (parsed && typeof parsed === "object" && (parsed.detail || parsed.message || parsed.error)) ||
+      (typeof parsed === "string" ? parsed : "") ||
+      `Request failed (${res.status})`;
+    throw { status: res.status, detail: String(detail) };
+  }
+
+  return parsed as T;
+}
+
 export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
@@ -616,18 +646,29 @@ export default function GenerateClient() {
     try {
       let src = voicePreviewSrcByKey[key];
       if (!src) {
-        const previewPaths = ["/labs/voice-preview", "/labs/generate/voice-preview"];
+        const body = {
+          voice_name: targetVoice,
+          speed_wpm: targetSpeedWpm,
+        };
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const previewPaths = [
+          `${origin}/app/labs/lapi/labs/voice-preview`,
+          `${origin}/lapi/labs/voice-preview`,
+          `${origin}/app/labs/api/labs/voice-preview`,
+          "/labs/voice-preview",
+          "/labs/generate/voice-preview",
+        ];
+        const uniquePaths = Array.from(new Set(previewPaths.filter(Boolean)));
         let payload: VoicePreviewResponse | null = null;
         let lastErr: any = null;
-        for (const previewPath of previewPaths) {
+        for (const previewPath of uniquePaths) {
           try {
-            payload = await apiFetch<VoicePreviewResponse>(previewPath, {
-              method: "POST",
-              body: {
-                voice_name: targetVoice,
-                speed_wpm: targetSpeedWpm,
-              },
-            });
+            payload = previewPath.startsWith("http")
+              ? await postJsonWithCredentials<VoicePreviewResponse>(previewPath, body)
+              : await apiFetch<VoicePreviewResponse>(previewPath, {
+                  method: "POST",
+                  body,
+                });
             break;
           } catch (err: any) {
             lastErr = err;

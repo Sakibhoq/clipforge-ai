@@ -6,7 +6,7 @@ from typing import Any, List, Literal
 from urllib.parse import quote
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 import requests
 from sqlalchemy.orm import Session
@@ -413,7 +413,7 @@ def labs_social_accounts_full(
     )
 
 
-def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest) -> LabsVoicePreviewResponse:
+def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest, request: Request) -> LabsVoicePreviewResponse:
     url = f"{_labs_runtime_api_url().rstrip('/')}/labs/voice-preview"
     body: dict[str, Any] = {
         "voice_name": payload.voice_name,
@@ -421,9 +421,16 @@ def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest) -> LabsVoicePrev
     }
     if payload.text:
         body["text"] = str(payload.text)[:240]
+    headers: dict[str, str] = {}
+    auth_header = (request.headers.get("authorization") or "").strip()
+    cookie_header = (request.headers.get("cookie") or "").strip()
+    if auth_header:
+        headers["authorization"] = auth_header
+    if cookie_header:
+        headers["cookie"] = cookie_header
 
     try:
-        resp = requests.post(url, json=body, timeout=30)
+        resp = requests.post(url, json=body, headers=headers or None, timeout=30)
     except requests.RequestException:
         raise HTTPException(status_code=502, detail="Voice preview relay failed")
 
@@ -458,16 +465,14 @@ def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest) -> LabsVoicePrev
 @router.post("/voice-preview", response_model=LabsVoicePreviewResponse)
 def labs_voice_preview(
     payload: LabsVoicePreviewRequest,
-    current_user: User = Depends(get_current_user),
+    request: Request,
 ):
-    _ = current_user.id
-    return _relay_labs_voice_preview(payload)
+    return _relay_labs_voice_preview(payload, request)
 
 
 @router.post("/generate/voice-preview", response_model=LabsVoicePreviewResponse)
 def labs_voice_preview_generate_alias(
     payload: LabsVoicePreviewRequest,
-    current_user: User = Depends(get_current_user),
+    request: Request,
 ):
-    _ = current_user.id
-    return _relay_labs_voice_preview(payload)
+    return _relay_labs_voice_preview(payload, request)
