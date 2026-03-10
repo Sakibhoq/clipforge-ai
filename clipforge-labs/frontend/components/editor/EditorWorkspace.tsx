@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 
 type AssetType = "video" | "image" | "audio";
 type TrackKey = "visual" | "voiceover" | "music" | "captions";
@@ -65,6 +65,13 @@ type ClipRow = {
   title?: string | null;
   hook?: string | null;
 };
+
+function clipDownloadUrl(clipId: number): string {
+  const base = String(getApiBase() || "").trim().replace(/\/+$/, "");
+  const path = `/clips/${clipId}/download`;
+  if (!base) return path;
+  return `${base}${path}`;
+}
 
 type WordCaptionEvent = {
   word: string;
@@ -1180,7 +1187,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       setLastExportClipId(Number(created?.id || 0) || null);
       await loadAssets();
       if (download && created?.id) {
-        window.open(`/api/clips/${created.id}/download`, "_blank", "noopener,noreferrer");
+        window.open(clipDownloadUrl(Number(created.id)), "_blank", "noopener,noreferrer");
       }
     } catch (err: any) {
       setError(err?.detail || err?.message || "Could not export clip.");
@@ -2104,7 +2111,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                             Open Clips
                           </Link>
                           <a
-                            href={`/api/clips/${lastExportClipId}/download`}
+                            href={clipDownloadUrl(lastExportClipId)}
                             className="btn-ghost px-3 py-1.5 text-[11px]"
                           >
                             Download Clip

@@ -170,6 +170,13 @@ function normalizeClipMediaUrl(rawUrl: string): string {
   return withBase(value);
 }
 
+function clipDownloadUrl(clipId: number): string {
+  const base = String(getApiBase() || "").trim().replace(/\/+$/, "");
+  const path = `/clips/${clipId}/download`;
+  if (!base) return path;
+  return `${base}${path}`;
+}
+
 function isLegacyPostComponent(row: ClipRow): boolean {
   const key = String(row.storage_key || "").toLowerCase();
   const title = String(row.title || "").toLowerCase();
@@ -1038,7 +1045,7 @@ export default function ClipsPage() {
                       <div className="mt-1 text-[11px] text-white/60">{c.hook ? clip(c.hook, 72) : `Upload #${c.upload_id}`}</div>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <ActionIconButton onClick={() => openEditor(c.id)} icon="edit" label="Open editor" />
-                        <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
+                        <ActionIconButton href={clipDownloadUrl(c.id)} icon="download" label="Download" />
                         <ActionIconButton onClick={() => openPreview(c)} icon="play" label="Open preview" />
                         {assetType === "video" ? (
                           <ActionIconButton onClick={() => openSchedule(c)} icon="schedule" label="Schedule / Post" />
@@ -1094,7 +1101,7 @@ export default function ClipsPage() {
 
                     <div className="mt-auto pt-4">
                       <div className={cx("flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 p-2", clipsSurfaceInsetClass)}>
-                        <ActionIconButton href={`/api/clips/${c.id}/download`} icon="download" label="Download" />
+                        <ActionIconButton href={clipDownloadUrl(c.id)} icon="download" label="Download" />
                         <ActionIconButton onClick={() => openPreview(c)} icon="play" label="Open preview" />
                       </div>
                     </div>
