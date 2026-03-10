@@ -374,7 +374,7 @@ export default function LabsMarketingPage() {
                         {activeClip.aspect} - {activeClip.duration}
                       </span>
                     </div>
-                    <div className="h-[220px] overflow-hidden rounded-xl border border-white/12 bg-black/45">
+                    <div className="flex h-[220px] items-center justify-center overflow-hidden rounded-xl border border-white/12 bg-black/50">
                       <video
                         src={activeClip.src}
                         autoPlay
@@ -382,7 +382,8 @@ export default function LabsMarketingPage() {
                         muted
                         playsInline
                         preload="metadata"
-                        className="h-full w-full object-cover"
+                        className="max-h-full max-w-full"
+                        style={{ objectFit: "contain", objectPosition: "center center" }}
                       />
                     </div>
                   </div>
@@ -475,7 +476,7 @@ export default function LabsMarketingPage() {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {clips.map((clip) => (
                 <article key={clip.title} className="surface-soft labs-surface-soft overflow-hidden p-0">
-                  <div className="relative h-[170px] overflow-hidden border-b border-white/10 bg-black/40">
+                  <div className="relative flex h-[170px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/55">
                     <video
                       src={clip.src}
                       autoPlay
@@ -483,7 +484,8 @@ export default function LabsMarketingPage() {
                       muted
                       playsInline
                       preload="metadata"
-                      className="h-full w-full object-cover"
+                      className="max-h-full max-w-full"
+                      style={{ objectFit: "contain", objectPosition: "center center" }}
                     />
                     <div className="absolute left-2 top-2 flex gap-2">
                       <span className="chip">{clip.aspect}</span>
