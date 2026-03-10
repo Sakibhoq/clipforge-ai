@@ -1651,9 +1651,15 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.72, min_value=0.45, max_value=1.0)
+
+    def _scaled_font(base: int, min_value: int) -> int:
+        scaled = int(round(float(base) * caption_scale))
+        return max(min_value, scaled)
+
     style = (preset or "").strip().lower()
     if style == "minimal":
-        font_size = min(30, max(22, int(video_h * 0.016)))
+        font_size = _scaled_font(min(30, max(22, int(video_h * 0.016))), 14)
         margin_v = max(52, int(video_h * 0.048))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
@@ -1661,7 +1667,7 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
             "BorderStyle=1,Outline=2,Shadow=1,Bold=0,MarginL=34,MarginR=34,WrapStyle=2"
         )
     if style == "clean_bottom":
-        font_size = min(34, max(24, int(video_h * 0.018)))
+        font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
         margin_v = max(58, int(video_h * 0.052))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
@@ -1669,7 +1675,7 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
             "BorderStyle=1,Outline=2,Shadow=1,Bold=1,MarginL=40,MarginR=40,WrapStyle=2"
         )
     # default: bold_center
-    font_size = min(36, max(26, int(video_h * 0.020)))
+    font_size = _scaled_font(min(36, max(26, int(video_h * 0.020))), 17)
     margin_v = max(64, int(video_h * 0.056))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
