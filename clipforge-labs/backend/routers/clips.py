@@ -194,12 +194,34 @@ def _even_floor(v: int) -> int:
     return max(2, iv)
 
 
+def _public_api_base() -> str:
+    return (
+        (
+            os.getenv("PUBLIC_API_BASE")
+            or os.getenv("API_BASE_URL")
+            or os.getenv("BACKEND_PUBLIC_BASE")
+            or ""
+        )
+        .strip()
+        .rstrip("/")
+    )
+
+
 def _clip_url(storage, key: str, request: Optional[Request]) -> str:
-    url = storage.presign_get(key)  # type: ignore[attr-defined]
-    if isinstance(url, str) and url.startswith("/") and request is not None:
-        base = str(request.base_url).rstrip("/")
-        return f"{base}{url}"
-    return str(url)
+    try:
+        url = storage.presign_get(key, expires_in=3600)  # type: ignore[attr-defined]
+    except TypeError:
+        url = storage.presign_get(key)  # type: ignore[attr-defined]
+    value = str(url)
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    if value.startswith("/"):
+        base = _public_api_base()
+        if not base and request is not None:
+            base = str(request.base_url).rstrip("/")
+        if base:
+            return f"{base}{value}"
+    return value
 
 
 def _clip_dict(clip: Clip, storage, request: Optional[Request]):

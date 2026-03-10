@@ -40,6 +40,8 @@ type SocialPostDTO = {
 type ProviderPublishOptionsDTO = {
   provider: string;
   account_name?: string | null;
+  post_blocked?: boolean;
+  post_block_reason?: string | null;
   options?: Record<string, any>;
 };
 
@@ -82,6 +84,7 @@ function fallbackPublishOptions(provider: SupportedSocialProvider): ProviderPubl
         allow_comments: { value: false },
         allow_duet: { value: false },
         allow_stitch: { value: false },
+        commercial_content_disclosure: { value: false },
         branded_content: { value: false },
         brand_organic: { value: false },
         is_aigc: { value: false },
@@ -529,11 +532,50 @@ export default function ClipsPage() {
   }
 
   function updateProviderOption(provider: SupportedSocialProvider, key: string, value: any) {
+    const current = providerOptionValues[provider] || {};
+    if (provider === "tiktok" && key === "privacy_level" && String(value || "").trim().toUpperCase() === "SELF_ONLY") {
+      const hadInteraction = Boolean(current.allow_comments) || Boolean(current.allow_duet) || Boolean(current.allow_stitch);
+      const hadPaidPartnership = Boolean(current.branded_content);
+      if (hadInteraction || hadPaidPartnership) {
+        setScheduleNotice("TikTok private posts disable comments, duet, stitch, and paid partnership disclosure.");
+      }
+    }
     setProviderOptionValues((prev) => ({
       ...prev,
       [provider]: {
-        ...(prev[provider] || {}),
-        [key]: value,
+        ...(() => {
+          const base = { ...(prev[provider] || {}), [key]: value };
+          if (provider !== "tiktok") return base;
+
+          const next = { ...base };
+          const privacy = String(next.privacy_level || "").trim().toUpperCase();
+
+          if (key === "commercial_content_disclosure" && !Boolean(value)) {
+            next.branded_content = false;
+            next.brand_organic = false;
+            next.confirm_branded_content = false;
+          }
+
+          if (key === "branded_content" || key === "brand_organic") {
+            const hasDisclosureType = Boolean(next.branded_content) || Boolean(next.brand_organic);
+            next.commercial_content_disclosure = hasDisclosureType || Boolean(next.commercial_content_disclosure);
+            if (!hasDisclosureType) {
+              next.confirm_branded_content = false;
+            }
+          }
+
+          if (privacy === "SELF_ONLY") {
+            next.allow_comments = false;
+            next.allow_duet = false;
+            next.allow_stitch = false;
+            if (Boolean(next.branded_content)) {
+              next.branded_content = false;
+              next.confirm_branded_content = false;
+            }
+          }
+
+          return next;
+        })(),
       },
     }));
   }
@@ -552,6 +594,13 @@ export default function ClipsPage() {
       setScheduleError("Social publishing is locked on Free Trial. Upgrade to Starter or Creator.");
       return;
     }
+    if (schedulePlatformLimit !== null && scheduleSelectedProviders.length > schedulePlatformLimit) {
+      const suffix = schedulePlatformLimit === 1 ? "" : "s";
+      setScheduleError(
+        `${schedulePlanLabel} plan allows up to ${schedulePlatformLimit} platform${suffix} per clip.`
+      );
+      return;
+    }
     if (scheduleSelectedProviders.length === 0) {
       setScheduleError("Select at least one connected platform.");
       return;
@@ -566,6 +615,13 @@ export default function ClipsPage() {
         return;
       }
       if (provider === "tiktok") {
+        const tiktokCatalog = providerOptionCatalog.tiktok;
+        const tiktokBlocked = Boolean(tiktokCatalog?.post_blocked);
+        const tiktokBlockedReason = String(tiktokCatalog?.post_block_reason || "").trim();
+        if (tiktokBlocked) {
+          setScheduleError(tiktokBlockedReason || "TikTok cannot post from this account right now. Please try again later.");
+          return;
+        }
         const tiktokMeta = providerOptionCatalog.tiktok?.options || {};
         const rawMax =
           tiktokMeta.max_video_post_duration_sec && typeof tiktokMeta.max_video_post_duration_sec === "object"
@@ -578,11 +634,21 @@ export default function ClipsPage() {
         const tkValues = providerOptionValues[provider] || {};
         const publishMode = String(tkValues.publish_mode || "DIRECT_POST").toUpperCase();
         const privacyLevel = String(tkValues.privacy_level || "").trim();
+        const disclosureEnabled = Boolean(tkValues.commercial_content_disclosure);
+        const hasDisclosureType = Boolean(tkValues.branded_content) || Boolean(tkValues.brand_organic);
         const confirmMusic = Boolean(tkValues.confirm_music_usage);
-        const needsBrandedConfirm = Boolean(tkValues.branded_content) || Boolean(tkValues.brand_organic);
+        const needsBrandedConfirm = hasDisclosureType;
         const confirmBranded = Boolean(tkValues.confirm_branded_content);
         if (publishMode === "DIRECT_POST" && !privacyLevel) {
           setScheduleError("TikTok: choose a privacy level before posting.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && disclosureEnabled && !hasDisclosureType) {
+          setScheduleError("TikTok: select Paid partnership or Your brand, or turn off content disclosure.");
+          return;
+        }
+        if (publishMode === "DIRECT_POST" && privacyLevel.toUpperCase() === "SELF_ONLY" && Boolean(tkValues.branded_content)) {
+          setScheduleError("TikTok: Paid partnership disclosure is not available for private posts.");
           return;
         }
         if (publishMode === "DIRECT_POST" && !confirmMusic) {
@@ -716,6 +782,20 @@ export default function ClipsPage() {
     () => filtered.filter((row) => detectAssetType(row) === "audio"),
     [filtered]
   );
+  const scheduleSelectedSet = useMemo(() => new Set(scheduleSelectedProviders), [scheduleSelectedProviders]);
+  const tiktokScheduleCatalog = providerOptionCatalog.tiktok;
+  const tiktokBlocked = scheduleSelectedSet.has("tiktok") && Boolean(tiktokScheduleCatalog?.post_blocked);
+  const tiktokBlockReason = tiktokBlocked
+    ? String(tiktokScheduleCatalog?.post_block_reason || "TikTok cannot post from this account right now. Please try again later.")
+    : "";
+  const tiktokScheduleValues = (providerOptionValues.tiktok || {}) as Record<string, any>;
+  const tiktokDisclosureInvalid =
+    scheduleSelectedSet.has("tiktok") &&
+    Boolean(tiktokScheduleValues.commercial_content_disclosure) &&
+    !Boolean(tiktokScheduleValues.branded_content) &&
+    !Boolean(tiktokScheduleValues.brand_organic);
+  const tiktokDisclosureReason =
+    "TikTok: select Paid partnership or Your brand, or turn off content disclosure.";
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -1120,6 +1200,11 @@ export default function ClipsPage() {
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="text-sm font-semibold text-white/90">Platform settings</div>
                 <div className="mt-1 text-[12px] text-white/58">Required publish controls vary by platform and account capabilities.</div>
+                {tiktokBlocked ? (
+                  <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
+                    {tiktokBlockReason}
+                  </div>
+                ) : null}
                 <div className="mt-3 grid gap-3">
                   {scheduleSelectedProviders.map((provider) => {
                     const fallback = fallbackPublishOptions(provider);
@@ -1164,29 +1249,40 @@ export default function ClipsPage() {
                         : TIKTOK_PRIVACY_CHOICES;
                       const publishMode = String(values.publish_mode || "DIRECT_POST").toUpperCase();
                       const isDirectPost = publishMode === "DIRECT_POST";
+                      const privacyLevel = String(values.privacy_level || "").trim().toUpperCase();
+                      const isPrivatePrivacy = privacyLevel === "SELF_ONLY";
                       const interactionLocks: Record<string, boolean> = {
                         allow_comments: Boolean((options.allow_comments as any)?.locked),
                         allow_duet: Boolean((options.allow_duet as any)?.locked),
                         allow_stitch: Boolean((options.allow_stitch as any)?.locked),
                       };
-                      const needsBrandedConfirm = Boolean(values.branded_content) || Boolean(values.brand_organic);
+                      const disclosureEnabled = Boolean(values.commercial_content_disclosure);
+                      const hasDisclosureType = Boolean(values.branded_content) || Boolean(values.brand_organic);
+                      const needsBrandedConfirm = hasDisclosureType;
                       const maxDuration =
                         options.max_video_post_duration_sec && typeof options.max_video_post_duration_sec === "object"
                           ? Number((options.max_video_post_duration_sec as any).value || 0)
                           : Number(options.max_video_post_duration_sec || 0);
+                      const postBlocked = Boolean(catalog.post_blocked);
+                      const postBlockReason = String(catalog.post_block_reason || "").trim();
                       return (
                         <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="text-[12px] font-semibold text-white/86">TikTok</div>
                             {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
                           </div>
+                          {postBlocked ? (
+                            <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/90">
+                              {postBlockReason || "TikTok cannot post from this account right now. Please try again later."}
+                            </div>
+                          ) : null}
                           <div className="mt-2 grid gap-2 sm:grid-cols-2">
                             <label className="grid gap-1">
                               <span className="text-[11px] text-white/60">Post destination</span>
                               <select
                                 value={String(values.publish_mode || "DIRECT_POST")}
                                 onChange={(e) => updateProviderOption(provider, "publish_mode", e.target.value)}
-                                disabled={loading || scheduleBusy}
+                                disabled={loading || scheduleBusy || postBlocked}
                                 className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
                               >
                                 {modeChoices.map((choice: string) => (
@@ -1201,7 +1297,7 @@ export default function ClipsPage() {
                               <select
                                 value={String(values.privacy_level || "")}
                                 onChange={(e) => updateProviderOption(provider, "privacy_level", e.target.value)}
-                                disabled={loading || scheduleBusy}
+                                disabled={loading || scheduleBusy || postBlocked}
                                 className="h-10 rounded-xl border border-white/12 bg-black/35 px-3 text-sm text-white/90 outline-none"
                               >
                                 <option value="">Select privacy level</option>
@@ -1229,44 +1325,95 @@ export default function ClipsPage() {
                                   type="checkbox"
                                   checked={Boolean(values[toggle.key])}
                                   onChange={(e) => updateProviderOption(provider, toggle.key, e.target.checked)}
-                                  disabled={loading || scheduleBusy || interactionLocks[toggle.key]}
+                                  disabled={loading || scheduleBusy || postBlocked || interactionLocks[toggle.key] || isPrivatePrivacy}
                                   className="h-4 w-4 accent-orange-500"
                                 />
                                 <span>{toggle.label}</span>
                               </label>
                             ))}
                           </div>
+                          {isPrivatePrivacy ? (
+                            <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
+                              Privacy is set to <strong>Private</strong>: comments, duet, and stitch are disabled.
+                            </div>
+                          ) : null}
                           {(interactionLocks.allow_comments || interactionLocks.allow_duet || interactionLocks.allow_stitch) ? (
                             <div className="mt-2 text-[11px] text-white/55">
                               One or more interaction toggles are locked by this TikTok account’s current creator settings.
                             </div>
                           ) : null}
-                          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                            {[
-                              { key: "branded_content", label: "Paid partnership" },
-                              { key: "brand_organic", label: "Your brand" },
-                              { key: "is_aigc", label: "AI-generated" },
-                            ].map((toggle) => (
-                              <label key={toggle.key} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(values[toggle.key])}
-                                  onChange={(e) => updateProviderOption(provider, toggle.key, e.target.checked)}
-                                  disabled={loading || scheduleBusy}
-                                  className="h-4 w-4 accent-orange-500"
-                                />
-                                <span>{toggle.label}</span>
-                              </label>
-                            ))}
-                          </div>
+                          <div className="mt-3 text-[11px] font-medium text-white/58">Content disclosure setting</div>
+                          <label className="mt-2 flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={disclosureEnabled}
+                              onChange={(e) => updateProviderOption(provider, "commercial_content_disclosure", e.target.checked)}
+                              disabled={loading || scheduleBusy || postBlocked}
+                              className="h-4 w-4 accent-orange-500"
+                            />
+                            <span>Enable commercial content disclosure</span>
+                          </label>
+                          {disclosureEnabled ? (
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              {[
+                                { key: "branded_content", label: "Paid partnership", disabled: isPrivatePrivacy },
+                                { key: "brand_organic", label: "Your brand", disabled: false },
+                              ].map((toggle) => (
+                                <label key={toggle.key} className="flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(values[toggle.key])}
+                                    onChange={(e) => updateProviderOption(provider, toggle.key, e.target.checked)}
+                                    disabled={loading || scheduleBusy || postBlocked || toggle.disabled}
+                                    className="h-4 w-4 accent-orange-500"
+                                  />
+                                  <span>{toggle.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : null}
+                          {disclosureEnabled ? (
+                            <div
+                              className={cx(
+                                "mt-2 rounded-xl px-3 py-2 text-[11px]",
+                                hasDisclosureType
+                                  ? "border border-emerald-300/25 bg-emerald-300/10 text-emerald-100/85"
+                                  : "border border-amber-300/25 bg-amber-300/10 text-amber-100/85"
+                              )}
+                            >
+                              {!hasDisclosureType
+                                ? "Select at least one disclosure type: Paid partnership or Your brand."
+                                : Boolean(values.branded_content) && Boolean(values.brand_organic)
+                                  ? "Paid partnership and Your brand disclosures are enabled."
+                                  : Boolean(values.branded_content)
+                                    ? "Paid partnership disclosure is enabled."
+                                    : "Your brand disclosure is enabled."}
+                            </div>
+                          ) : (
+                            <div className="mt-2 text-[11px] text-white/55">
+                              Disclosure is off by default. Turn it on if this post includes paid partnership or your own brand promotion.
+                            </div>
+                          )}
+                          <div className="mt-3 text-[11px] font-medium text-white/58">AI disclosure</div>
+                          <label className="mt-2 flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(values.is_aigc)}
+                              onChange={(e) => updateProviderOption(provider, "is_aigc", e.target.checked)}
+                              disabled={loading || scheduleBusy || postBlocked}
+                              className="h-4 w-4 accent-orange-500"
+                            />
+                            <span>AI-generated</span>
+                          </label>
                           {isDirectPost ? (
                             <div className="mt-2 grid gap-2">
+                              <div className="text-[11px] font-medium text-white/58">Required confirmations</div>
                               <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
                                 <input
                                   type="checkbox"
                                   checked={Boolean(values.confirm_music_usage)}
                                   onChange={(e) => updateProviderOption(provider, "confirm_music_usage", e.target.checked)}
-                                  disabled={loading || scheduleBusy}
+                                  disabled={loading || scheduleBusy || postBlocked}
                                   className="mt-0.5 h-4 w-4 accent-orange-500"
                                 />
                                 <span>
@@ -1279,7 +1426,7 @@ export default function ClipsPage() {
                                     type="checkbox"
                                     checked={Boolean(values.confirm_branded_content)}
                                     onChange={(e) => updateProviderOption(provider, "confirm_branded_content", e.target.checked)}
-                                    disabled={loading || scheduleBusy}
+                                    disabled={loading || scheduleBusy || postBlocked}
                                     className="mt-0.5 h-4 w-4 accent-orange-500"
                                   />
                                   <span>
@@ -1371,18 +1518,31 @@ export default function ClipsPage() {
             ) : null}
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button type="button" onClick={() => submitSocialPosts("post_now")} disabled={scheduleBusy} className="btn-aurora px-4 py-2 text-sm">
+              <button
+                type="button"
+                onClick={() => submitSocialPosts("post_now")}
+                disabled={scheduleBusy || tiktokBlocked || tiktokDisclosureInvalid}
+                title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+                className="btn-aurora px-4 py-2 text-sm"
+              >
                 {scheduleBusy ? "Posting..." : "Post now"}
               </button>
               <button
                 type="button"
                 onClick={() => submitSocialPosts("schedule")}
-                disabled={scheduleBusy || !scheduleWhen}
+                disabled={scheduleBusy || !scheduleWhen || tiktokBlocked || tiktokDisclosureInvalid}
+                title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
                 className="btn-ghost px-4 py-2 text-sm"
               >
                 {scheduleBusy ? "Scheduling..." : "Schedule post"}
               </button>
-              <div className="text-[12px] text-white/55">Set a time to schedule, or use Post now for immediate publish.</div>
+              <div className="text-[12px] text-white/55">
+                {tiktokBlocked
+                  ? tiktokBlockReason
+                  : tiktokDisclosureInvalid
+                    ? tiktokDisclosureReason
+                    : "Set a time to schedule, or use Post now for immediate publish."}
+              </div>
             </div>
           </div>
         </div>
