@@ -8,6 +8,7 @@ from urllib.parse import quote
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+import requests
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -48,6 +49,14 @@ def _labs_api_url() -> str:
     return _clean_url(
         os.getenv("LABS_API_URL") or "",
         "https://api.orbito.cc",
+    )
+
+
+def _labs_runtime_api_url() -> str:
+    # Internal service URL for server-to-server relay calls.
+    return _clean_url(
+        os.getenv("LABS_RUNTIME_API_URL") or os.getenv("LABS_INTERNAL_API_ORIGIN") or "",
+        "http://labs-backend:8000",
     )
 
 
@@ -167,6 +176,18 @@ class LabsSocialAccountsBridgeResponse(BaseModel):
     ok: bool
     email: str
     accounts: List[LabsSocialAccountBridgeRow] = Field(default_factory=list)
+
+
+class LabsVoicePreviewRequest(BaseModel):
+    voice_name: str | None = Field(default=None, max_length=64)
+    speed_wpm: int = Field(default=165, ge=80, le=330)
+    text: str | None = Field(default=None, max_length=240)
+
+
+class LabsVoicePreviewResponse(BaseModel):
+    voice_name: str
+    content_type: str
+    audio_base64: str
 
 
 @router.get("/health", response_model=LabsHealthResponse)
@@ -390,3 +411,63 @@ def labs_social_accounts_full(
             for r in rows
         ],
     )
+
+
+def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest) -> LabsVoicePreviewResponse:
+    url = f"{_labs_runtime_api_url().rstrip('/')}/labs/voice-preview"
+    body: dict[str, Any] = {
+        "voice_name": payload.voice_name,
+        "speed_wpm": int(payload.speed_wpm or 165),
+    }
+    if payload.text:
+        body["text"] = str(payload.text)[:240]
+
+    try:
+        resp = requests.post(url, json=body, timeout=30)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Voice preview relay failed")
+
+    raw_text = (resp.text or "").strip()
+    data: Any = None
+    try:
+        data = resp.json()
+    except Exception:
+        data = None
+
+    if resp.status_code >= 400:
+        detail: Any = "Voice preview failed"
+        if isinstance(data, dict):
+            detail = data.get("detail") or data.get("message") or data.get("error") or detail
+        elif raw_text:
+            detail = raw_text[:240]
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="Voice preview relay returned invalid response")
+
+    try:
+        return LabsVoicePreviewResponse(
+            voice_name=str(data.get("voice_name") or ""),
+            content_type=str(data.get("content_type") or "audio/mpeg"),
+            audio_base64=str(data.get("audio_base64") or ""),
+        )
+    except Exception:
+        raise HTTPException(status_code=502, detail="Voice preview relay payload is malformed")
+
+
+@router.post("/voice-preview", response_model=LabsVoicePreviewResponse)
+def labs_voice_preview(
+    payload: LabsVoicePreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    _ = current_user.id
+    return _relay_labs_voice_preview(payload)
+
+
+@router.post("/generate/voice-preview", response_model=LabsVoicePreviewResponse)
+def labs_voice_preview_generate_alias(
+    payload: LabsVoicePreviewRequest,
+    current_user: User = Depends(get_current_user),
+):
+    _ = current_user.id
+    return _relay_labs_voice_preview(payload)
