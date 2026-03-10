@@ -326,8 +326,12 @@ def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
     default_credits = _credits_from_usd(base_usd * markup)
     if low_cost and speed == "fast":
         env_name = "LABS_VIDEO_LOW_COST_4K_CREDITS_PER_SECOND"
+        # Target profit tuning for low-cost 7s clips: ~3.5 USD profit at 0.10 USD/credit.
+        default_credits = max(default_credits, 6)
     elif low_cost:
         env_name = "LABS_VIDEO_LOW_COST_HD_CREDITS_PER_SECOND"
+        # Target profit tuning for low-cost 7s clips: ~2.8 USD profit at 0.10 USD/credit.
+        default_credits = max(default_credits, 5)
     elif speed == "fast":
         env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
     else:
