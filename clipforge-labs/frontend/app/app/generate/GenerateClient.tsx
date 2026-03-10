@@ -79,6 +79,11 @@ const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 8;
 const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
 const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
+const VIDEO_PROMPT_MAX_CHARS = 1200;
+const IMAGE_PROMPT_MAX_CHARS = 1200;
+const POST_VISUAL_PROMPT_MAX_CHARS = 1200;
+const POST_VOICE_SCRIPT_MAX_CHARS = 12000;
+const VOICEOVER_SCRIPT_MAX_CHARS = 6000;
 const LOW_COST_STYLES = new Set<StylePreset>(["anime", "cartoon", "comic"]);
 const VOICE_SPEED_OPTIONS = [
   { value: 0.5, label: "0.5x" },
@@ -271,6 +276,28 @@ function generationRecoveryAction(raw: string | null | undefined): string {
     return "Start a new generation when ready.";
   }
   return "Retry once. If it fails again, slightly simplify prompt details and try again.";
+}
+
+function generationErrorDetail(err: any): string {
+  const detail = err?.detail ?? err?.message;
+  if (typeof detail === "string" && detail.trim()) return detail.trim();
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0];
+    if (typeof first === "string" && first.trim()) return first.trim();
+    if (first && typeof first === "object") {
+      const path = Array.isArray(first.loc)
+        ? first.loc
+            .map((v: unknown) => String(v ?? "").trim())
+            .filter(Boolean)
+            .join(".")
+        : "";
+      const msg = String(first.msg || "").trim();
+      if (path && msg) return `${path}: ${msg}`;
+      if (msg) return msg;
+    }
+    return "Validation failed. Check prompt length and required fields.";
+  }
+  return "Could not start generation.";
 }
 
 function conciseError(raw: string | null | undefined, maxChars = 170): string {
@@ -786,13 +813,35 @@ export default function GenerateClient() {
         setError("Describe the visual story first.");
         return;
       }
+      if (postPrompt.length > POST_VISUAL_PROMPT_MAX_CHARS) {
+        setError(`Visual prompt is too long (${postPrompt.length}/${POST_VISUAL_PROMPT_MAX_CHARS}).`);
+        return;
+      }
       if (postScript.length < 30) {
         setError("Write at least a short voiceover script (30+ characters).");
         return;
       }
-    } else if (p.length < 3) {
-      setError(mode === "voiceover" ? "Write voiceover text first." : "Write a prompt first.");
-      return;
+      if (postScript.length > POST_VOICE_SCRIPT_MAX_CHARS) {
+        setError(`Voice script is too long (${postScript.length}/${POST_VOICE_SCRIPT_MAX_CHARS}).`);
+        return;
+      }
+    } else {
+      if (p.length < 3) {
+        setError(mode === "voiceover" ? "Write voiceover text first." : "Write a prompt first.");
+        return;
+      }
+      if (mode === "video" && p.length > VIDEO_PROMPT_MAX_CHARS) {
+        setError(`Video prompt is too long (${p.length}/${VIDEO_PROMPT_MAX_CHARS}).`);
+        return;
+      }
+      if (mode === "image" && p.length > IMAGE_PROMPT_MAX_CHARS) {
+        setError(`Image prompt is too long (${p.length}/${IMAGE_PROMPT_MAX_CHARS}).`);
+        return;
+      }
+      if (mode === "voiceover" && p.length > VOICEOVER_SCRIPT_MAX_CHARS) {
+        setError(`Voiceover script is too long (${p.length}/${VOICEOVER_SCRIPT_MAX_CHARS}).`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -862,8 +911,7 @@ export default function GenerateClient() {
       await refreshJobs();
       await pollJob(jobId);
     } catch (err: any) {
-      const detail = err?.detail || err?.message || "Could not start generation.";
-      const msg = typeof detail === "string" ? detail : "Could not start generation.";
+      const msg = generationErrorDetail(err);
       const low = String(msg || "").toLowerCase();
       const outOfCredits = err?.status === 402 || low.includes("insufficient credits");
       if (outOfCredits) {
