@@ -227,10 +227,10 @@ export default function LabsMarketingPage() {
 
   const clips = useMemo<ClipDemo[]>(
     () => [
-      { title: "Quick hook ad", src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4", duration: "6s", aspect: "9:16" },
-      { title: "Story clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4", duration: "8s", aspect: "9:16" },
-      { title: "Product teaser", src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4", duration: "6s", aspect: "1:1" },
-      { title: "Wide promo", src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4", duration: "10s", aspect: "16:9" },
+      { title: "Real clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4", duration: "7s", aspect: "9:16" },
+      { title: "Cartoon clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4", duration: "7s", aspect: "16:9" },
+      { title: "Anime clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4", duration: "7s", aspect: "9:16" },
+      { title: "Comic clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4", duration: "7s", aspect: "9:16" },
     ],
     []
   );

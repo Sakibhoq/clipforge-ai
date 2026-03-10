@@ -877,12 +877,12 @@ def _run_google_vertex_video_generation(
 
         b64_val = _find_first_string_by_keys(result_obj, {"bytesBase64Encoded"})
         if b64_val:
-            return _decode_base64_payload(b64_val), "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+            return _decode_base64_payload(b64_val), "video/mp4", float(safe_duration), None
 
         gcs_uri = _find_first_string_by_keys(result_obj, {"gcsUri"})
         if gcs_uri:
             media = _download_gcs_uri_bytes(gcs_uri, headers=headers)
-            return media, "video/mp4", float(safe_duration), _title_from_prompt(prompt)
+            return media, "video/mp4", float(safe_duration), None
 
         raise RuntimeError("Vertex Veo operation completed without video payload")
     except Exception as exc:
@@ -974,7 +974,7 @@ def _run_google_vertex_image_generation(
         if not media_bytes:
             raise RuntimeError("Vertex Imagen response missing image payload")
 
-        return media_bytes, media_type, None, _title_from_prompt(prompt)
+        return media_bytes, media_type, None, None
     except Exception as exc:
         should_retry_default = (
             _allow_model_fallback
@@ -2948,6 +2948,51 @@ def _title_from_prompt(prompt: str) -> str | None:
     return candidate
 
 
+def _style_title_token(style_preset: str | None) -> str:
+    token = (style_preset or "").strip().lower()
+    style_map = {
+        "real": "Real",
+        "photo-real": "Real",
+        "social-native": "Social",
+        "cinematic": "Cinematic",
+        "cartoon": "Cartoon",
+        "anime": "Anime",
+        "comic": "Comic",
+        "illustration": "Illustration",
+    }
+    return style_map.get(token, "Original")
+
+
+def _aspect_title_token(aspect_ratio: str | None) -> str:
+    ar = (aspect_ratio or "").strip()
+    if ar == "16:9":
+        return "Landscape"
+    if ar == "1:1":
+        return "Square"
+    return "Vertical"
+
+
+def _generated_asset_title(
+    *,
+    kind: str,
+    job_id: int,
+    style_preset: str | None = None,
+    aspect_ratio: str | None = None,
+) -> str:
+    kind_token = (kind or JOB_KIND_VIDEO).strip().lower()
+    if kind_token == JOB_KIND_VOICEOVER:
+        return f"Voiceover #{int(job_id)}"
+
+    style_token = _style_title_token(style_preset)
+    aspect_token = _aspect_title_token(aspect_ratio)
+
+    if kind_token == JOB_KIND_IMAGE:
+        return f"{style_token} {aspect_token} Image #{int(job_id)}"
+    if kind_token == JOB_KIND_POST:
+        return f"{style_token} {aspect_token} AI Post #{int(job_id)}"
+    return f"{style_token} {aspect_token} Clip #{int(job_id)}"
+
+
 def _parse_settings(raw: str) -> dict:
     text_value = (raw or "").strip()
     if not text_value:
@@ -3145,7 +3190,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                 "storage_key": key,
                 "content_type": content_type,
                 "duration_seconds": 0.0,
-                "title": provider_title or _title_from_prompt(styled_prompt) or f"Image {job_id}",
+                "title": _generated_asset_title(
+                    kind=JOB_KIND_IMAGE,
+                    job_id=job_id,
+                    style_preset=style_preset,
+                    aspect_ratio=aspect_ratio,
+                ),
                 "extra_clips": [],
                 "settings_patch": None,
             }
@@ -3192,7 +3242,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                 "storage_key": key,
                 "content_type": content_type,
                 "duration_seconds": float(final_duration),
-                "title": _title_from_prompt(prompt) or f"Voiceover {job_id}",
+                "title": _generated_asset_title(
+                    kind=JOB_KIND_VOICEOVER,
+                    job_id=job_id,
+                    style_preset=style_preset,
+                    aspect_ratio=aspect_ratio,
+                ),
                 "extra_clips": [],
                 "settings_patch": None,
             }
@@ -3546,7 +3601,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                     target_duration=target_duration,
                     out_path=out_path,
                 )
-                base_title = _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
+                base_title = _generated_asset_title(
+                    kind=JOB_KIND_POST,
+                    job_id=job_id,
+                    style_preset=style_preset,
+                    aspect_ratio=aspect_ratio,
+                )
                 caption_style_preset = str(settings.get("caption_style_preset") or "bold_center").strip().lower()
                 word_caption_events: list[dict[str, float | str]] = []
                 if captions_enabled:
@@ -3829,7 +3889,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                 target_duration=target_duration,
                 out_path=out_path,
             )
-            base_title = _title_from_prompt(raw_visual_prompt) or f"AI Post {job_id}"
+            base_title = _generated_asset_title(
+                kind=JOB_KIND_POST,
+                job_id=job_id,
+                style_preset=style_preset,
+                aspect_ratio=aspect_ratio,
+            )
             caption_style_preset = str(settings.get("caption_style_preset") or "bold_center").strip().lower()
             word_caption_events: list[dict[str, float | str]] = []
             if captions_enabled:
@@ -4045,7 +4110,12 @@ def _process_job(job: dict) -> dict[str, Any]:
             "storage_key": key,
             "content_type": content_type,
             "duration_seconds": float(final_duration),
-            "title": provider_title or _title_from_prompt(prompt),
+            "title": _generated_asset_title(
+                kind=JOB_KIND_VIDEO,
+                job_id=job_id,
+                style_preset=style_preset,
+                aspect_ratio=aspect_ratio,
+            ),
             "extra_clips": [],
             "settings_patch": None,
         }
