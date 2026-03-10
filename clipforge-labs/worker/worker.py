@@ -1467,28 +1467,28 @@ def _watermark_logo_path() -> str:
 def _caption_force_style(preset: str | None, video_h: int) -> str:
     style = (preset or "").strip().lower()
     if style == "minimal":
-        font_size = max(32, int(video_h * 0.035))
-        margin_v = max(90, int(video_h * 0.12))
+        font_size = max(50, int(video_h * 0.052))
+        margin_v = max(70, int(video_h * 0.07))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H5A000000,"
-            "BorderStyle=3,Outline=1,Shadow=0,MarginL=36,MarginR=36"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H65000000,"
+            "BorderStyle=3,Outline=2,Shadow=1,Bold=1,MarginL=36,MarginR=36"
         )
     if style == "clean_bottom":
-        font_size = max(38, int(video_h * 0.041))
-        margin_v = max(74, int(video_h * 0.09))
+        font_size = max(56, int(video_h * 0.06))
+        margin_v = max(82, int(video_h * 0.08))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H66000000,"
-            "BorderStyle=3,Outline=1.5,Shadow=0,MarginL=42,MarginR=42"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H65000000,"
+            "BorderStyle=3,Outline=2,Shadow=1,Bold=1,MarginL=44,MarginR=44"
         )
     # default: bold_center
-    font_size = max(42, int(video_h * 0.048))
-    margin_v = max(122, int(video_h * 0.15))
+    font_size = max(62, int(video_h * 0.064))
+    margin_v = max(96, int(video_h * 0.10))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H78000000,"
-        "BorderStyle=3,Outline=2,Shadow=0,MarginL=44,MarginR=44"
+        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BackColour=&H5A000000,"
+        "BorderStyle=3,Outline=3,Shadow=1,Bold=1,MarginL=46,MarginR=46"
     )
 
 
@@ -1776,6 +1776,10 @@ def _render_image_slideshow_video(
             list_path,
             "-i",
             audio_path,
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a?",
             "-c:v",
             "libx264",
             "-preset",
@@ -1900,6 +1904,10 @@ def _render_video_scene_montage(
             list_path,
             "-i",
             audio_path,
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a?",
             "-c:v",
             "libx264",
             "-preset",
@@ -2937,6 +2945,14 @@ def _process_job(job: dict) -> dict[str, Any]:
 
             target_duration = max(30.0, float(duration or 60))
             audio_duration = _probe_audio_duration(audio_path)
+            if audio_duration <= 0:
+                _run_fallback_tone_voiceover(
+                    script=(voice_script or prompt or "Generated AI post voiceover."),
+                    out_path=audio_path,
+                )
+                audio_duration = _probe_audio_duration(audio_path)
+            if audio_duration <= 0:
+                raise RuntimeError("Generated AI post voiceover is empty")
             if audio_duration > target_duration:
                 target_duration = audio_duration
 

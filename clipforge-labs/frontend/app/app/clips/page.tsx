@@ -149,6 +149,11 @@ function normalizeClipMediaUrl(rawUrl: string): string {
       if (parsed.pathname.startsWith("/storage/local-get")) {
         return withBase(rewrittenPath);
       }
+      if (parsed.pathname.includes("/storage/local-get")) {
+        const idx = parsed.pathname.indexOf("/storage/local-get");
+        const tail = `${parsed.pathname.slice(idx)}${parsed.search}${parsed.hash}`;
+        return withBase(tail);
+      }
       if (host === "backend" || host === "labs-backend" || host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
         return withBase(rewrittenPath);
       }
@@ -156,6 +161,7 @@ function normalizeClipMediaUrl(rawUrl: string): string {
         parsed.protocol = "https:";
         return parsed.toString();
       }
+      return parsed.toString();
     } catch {
       return value;
     }
