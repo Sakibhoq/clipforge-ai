@@ -228,6 +228,13 @@ def _env_float(name: str, default: float, *, min_value: float = 0.0, max_value: 
     return max(min_value, min(max_value, parsed))
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = (os.getenv(name) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _plan_key(raw_plan: str | None) -> str:
     p = (raw_plan or "free").strip().lower()
     token = re.sub(r"[^a-z0-9]+", "_", p).strip("_")
@@ -291,6 +298,9 @@ def _normalize_style_preset(style_preset: str | None) -> str:
 
 
 def _is_low_cost_style(style_preset: str | None) -> bool:
+    # Keep billing aligned with worker model routing when low-cost mode is forced globally.
+    if _env_bool("GOOGLE_FORCE_LOW_COST_MODELS", True):
+        return True
     return _normalize_style_preset(style_preset) in LOW_COST_STYLE_PRESETS
 
 
