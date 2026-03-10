@@ -253,6 +253,32 @@ def _upload_file(path: str, key: str, *, content_type: str) -> None:
     shutil.copyfile(path, dest)
 
 
+def _delete_uploaded_key(key: str) -> None:
+    safe_key = (key or "").strip()
+    if not safe_key:
+        return
+
+    backend = _storage_backend()
+    if _uses_object_storage_backend(backend):
+        bucket = _env("S3_BUCKET", "")
+        if not bucket:
+            return
+        try:
+            s3 = _s3_client()
+            s3.delete_object(Bucket=bucket, Key=safe_key)
+        except Exception:
+            pass
+        return
+
+    path = os.path.join(_local_storage_path(), safe_key)
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+
 def _extension_for_content_type(content_type: str, default_ext: str) -> str:
     ct = (content_type or "").split(";")[0].strip().lower()
     mapping = {
@@ -2738,11 +2764,37 @@ def _claim_next_generate_job(db) -> dict | None:
     return None
 
 
-def _mark_job_status(db, job_id: int, status: str, error: str | None = None) -> None:
-    db.execute(
-        text("UPDATE jobs SET status = :s, error = :e WHERE id = :id"),
-        {"s": status, "e": error, "id": int(job_id)},
-    )
+def _mark_job_status(
+    db,
+    job_id: int,
+    status: str,
+    error: str | None = None,
+    *,
+    only_if_current: str | None = None,
+) -> int:
+    sql = "UPDATE jobs SET status = :s, error = :e WHERE id = :id"
+    params: dict[str, Any] = {
+        "s": status,
+        "e": error,
+        "id": int(job_id),
+    }
+    if only_if_current:
+        sql += " AND status = :cur"
+        params["cur"] = str(only_if_current)
+    updated = db.execute(text(sql), params)
+    return int(getattr(updated, "rowcount", 0) or 0)
+
+
+def _job_status(db, job_id: int) -> str:
+    row = db.execute(
+        text("SELECT COALESCE(status, '') AS status FROM jobs WHERE id = :id LIMIT 1"),
+        {"id": int(job_id)},
+    ).mappings().first()
+    return str((row or {}).get("status") or "").strip().lower()
+
+
+def _job_is_canceled(db, job_id: int) -> bool:
+    return _job_status(db, job_id) == "canceled"
 
 
 def _refund_reserved_credits(db, job_id: int) -> int:
@@ -2841,6 +2893,31 @@ def _insert_clip(
             "hook": (hook or None),
         },
     )
+
+
+def _delete_job_clips(db, job_id: int) -> int:
+    deleted = db.execute(
+        text("DELETE FROM clips WHERE job_id = :id"),
+        {"id": int(job_id)},
+    )
+    return int(getattr(deleted, "rowcount", 0) or 0)
+
+
+def _cleanup_result_storage(result: dict[str, Any]) -> None:
+    keys: list[str] = []
+    primary_key = str(result.get("storage_key") or "").strip()
+    if primary_key:
+        keys.append(primary_key)
+    extras = result.get("extra_clips")
+    if isinstance(extras, list):
+        for extra in extras:
+            if not isinstance(extra, dict):
+                continue
+            k = str(extra.get("storage_key") or "").strip()
+            if k:
+                keys.append(k)
+    for key in dict.fromkeys(keys):
+        _delete_uploaded_key(key)
 
 
 def _title_from_prompt(prompt: str) -> str | None:
@@ -4003,6 +4080,11 @@ def main() -> None:
                 kind = str(job.get("kind") or JOB_KIND_VIDEO)
 
                 try:
+                    if _job_is_canceled(db, job_id):
+                        db.commit()
+                        print(f"[worker] canceled before processing kind={kind} job_id={job_id}")
+                        continue
+
                     result = _process_job(job)
                     key = str(result.get("storage_key") or "")
                     content_type = str(result.get("content_type") or "application/octet-stream")
@@ -4013,6 +4095,12 @@ def main() -> None:
 
                     if not key:
                         raise RuntimeError("Generation returned no storage key")
+
+                    if _job_is_canceled(db, job_id):
+                        _cleanup_result_storage(result)
+                        db.commit()
+                        print(f"[worker] canceled after render; skipped publish kind={kind} job_id={job_id}")
+                        continue
 
                     _insert_clip(
                         db,
@@ -4040,14 +4128,58 @@ def main() -> None:
                         )
                     if settings_patch:
                         _merge_job_settings(db, job_id=job_id, patch=settings_patch)
-                    _mark_job_status(db, job_id, "done", None)
+
+                    if _job_is_canceled(db, job_id):
+                        removed = _delete_job_clips(db, job_id)
+                        db.commit()
+                        print(
+                            f"[worker] canceled during finalize; removed_clips={removed} "
+                            f"kind={kind} job_id={job_id}"
+                        )
+                        continue
+
+                    updated = _mark_job_status(
+                        db,
+                        job_id,
+                        "done",
+                        None,
+                        only_if_current="running",
+                    )
+                    if updated != 1:
+                        removed = _delete_job_clips(db, job_id)
+                        db.commit()
+                        print(
+                            f"[worker] finalize skipped (status changed); removed_clips={removed} "
+                            f"kind={kind} job_id={job_id}"
+                        )
+                        continue
+
                     db.commit()
                     print(f"[worker] generated asset kind={kind} job_id={job_id} key={key} content_type={content_type}")
                 except Exception as exc:
+                    if _job_is_canceled(db, job_id):
+                        try:
+                            removed = _delete_job_clips(db, job_id)
+                            db.commit()
+                        except Exception:
+                            db.rollback()
+                            removed = 0
+                        print(
+                            f"[worker] canceled during processing; removed_clips={removed} "
+                            f"kind={kind} job_id={job_id} err={type(exc).__name__}: {exc}"
+                        )
+                        continue
+
                     refunded = 0
                     try:
                         refunded = _refund_reserved_credits(db, job_id)
-                        _mark_job_status(db, job_id, "failed", str(exc)[:500])
+                        _mark_job_status(
+                            db,
+                            job_id,
+                            "failed",
+                            str(exc)[:500],
+                            only_if_current="running",
+                        )
                         db.commit()
                     except Exception:
                         db.rollback()
