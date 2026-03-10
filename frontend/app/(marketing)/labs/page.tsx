@@ -42,6 +42,7 @@ type PromptDemo = {
 
 type ClipDemo = {
   title: string;
+  text: string;
   src: string;
   duration: string;
   aspect: string;
@@ -227,10 +228,34 @@ export default function LabsMarketingPage() {
 
   const clips = useMemo<ClipDemo[]>(
     () => [
-      { title: "Real clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4", duration: "7s", aspect: "9:16" },
-      { title: "Cartoon clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4", duration: "7s", aspect: "16:9" },
-      { title: "Anime clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4", duration: "7s", aspect: "9:16" },
-      { title: "Comic clip", src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4", duration: "7s", aspect: "9:16" },
+      {
+        title: "Real clip",
+        text: "Cinematic founder opener with premium framing, stable pacing, and publish-safe composition.",
+        src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4",
+        duration: "7s",
+        aspect: "9:16",
+      },
+      {
+        title: "Cartoon clip",
+        text: "High-contrast product hook in 16:9, tuned for ads, landing pages, and wide social placements.",
+        src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
+        duration: "7s",
+        aspect: "16:9",
+      },
+      {
+        title: "Anime clip",
+        text: "Stylized hero teaser with clean subject lock, strong silhouette, and first-second retention focus.",
+        src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4",
+        duration: "7s",
+        aspect: "9:16",
+      },
+      {
+        title: "Comic clip",
+        text: "Graphic crime-style cold open with readable contrast, sharp edges, and post-ready visual rhythm.",
+        src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4",
+        duration: "7s",
+        aspect: "9:16",
+      },
     ],
     []
   );
@@ -465,12 +490,12 @@ export default function LabsMarketingPage() {
 
         <section className="mt-12">
           <div data-reveal className="reveal surface-inset labs-surface p-6 sm:p-8">
-            <div className="text-xs text-white/60">Preview gallery</div>
+            <div className="text-xs font-medium uppercase tracking-[0.14em] text-white/62">Publish-ready gallery</div>
             <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
-              Same polished shell. <span className="labs-grad">Labs-native output.</span>
+              Final-quality clips. <span className="labs-grad">Ready to post, schedule, and scale.</span>
             </h3>
             <p className="mt-3 max-w-3xl text-sm text-white/68 sm:text-base">
-              This page now follows the Generator visual language: structured panels, strong borders, and clean conversion flow.
+              These are actual Labs outputs with platform-safe framing, premium pacing, and conversion-first hooks built for real publishing workflows.
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -494,7 +519,7 @@ export default function LabsMarketingPage() {
                   </div>
                   <div className="p-4">
                     <div className="text-sm font-semibold text-white/90">{clip.title}</div>
-                    <div className="mt-1 text-xs text-white/58">Built for attention in the first second.</div>
+                    <div className="mt-1 text-xs leading-relaxed text-white/62">{clip.text}</div>
                   </div>
                 </article>
               ))}
