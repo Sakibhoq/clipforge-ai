@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -742,6 +743,7 @@ def _run_google_vertex_video_generation(
     aspect_ratio: str,
     duration_seconds: int,
     style_preset: str | None = None,
+    seed: int | None = None,
     _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
@@ -784,6 +786,8 @@ def _run_google_vertex_video_generation(
     }
     if negative_prompt:
         params["negativePrompt"] = negative_prompt[:1200]
+    if isinstance(seed, int) and seed > 0:
+        params["seed"] = int(seed)
     if output_storage_uri:
         params["storageUri"] = output_storage_uri
 
@@ -872,6 +876,7 @@ def _run_google_vertex_video_generation(
                 aspect_ratio=aspect_ratio,
                 duration_seconds=duration_seconds,
                 style_preset="real",
+                seed=seed,
                 _allow_model_fallback=False,
             )
         raise
@@ -883,6 +888,7 @@ def _run_google_vertex_image_generation(
     negative_prompt: str,
     aspect_ratio: str,
     style_preset: str | None = None,
+    seed: int | None = None,
     task: str = "image",
     _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
@@ -907,6 +913,8 @@ def _run_google_vertex_image_generation(
     }
     if negative_prompt:
         payload["parameters"]["negativePrompt"] = negative_prompt[:1200]
+    if isinstance(seed, int) and seed > 0:
+        payload["parameters"]["seed"] = int(seed)
 
     try:
         status, content_type, data, raw_bytes = _http_post_json_custom(endpoint, payload, headers=headers)
@@ -957,6 +965,7 @@ def _run_google_vertex_image_generation(
                 negative_prompt=negative_prompt,
                 aspect_ratio=aspect_ratio,
                 style_preset="real",
+                seed=seed,
                 task=task,
                 _allow_model_fallback=False,
             )
@@ -1251,6 +1260,20 @@ def _normalize_post_line(line: str) -> str:
 
 def _parse_post_prompt_metadata(raw_visual_prompt: str) -> dict[str, str]:
     out: dict[str, str] = {}
+    allowed_keys = {
+        "title",
+        "concept",
+        "aspect ratio",
+        "duration",
+        "visual style",
+        "style",
+        "character",
+        "protagonist",
+        "main character",
+        "hero",
+        "lead",
+        "subject",
+    }
     for raw_line in (raw_visual_prompt or "").replace("\r", "\n").split("\n"):
         line = raw_line.strip()
         if ":" not in line:
@@ -1260,14 +1283,29 @@ def _parse_post_prompt_metadata(raw_visual_prompt: str) -> dict[str, str]:
         val_norm = re.sub(r"\s+", " ", value).strip()
         if not val_norm:
             continue
-        if key_norm in {"title", "concept", "aspect ratio", "duration", "visual style", "style"}:
+        if key_norm in allowed_keys:
             out[key_norm] = val_norm
     return out
 
 
 def _is_post_metadata_line(line: str) -> bool:
     lower = (line or "").strip().lower()
-    return lower.startswith(("title:", "concept:", "aspect ratio:", "duration:", "visual style:", "style:"))
+    return lower.startswith(
+        (
+            "title:",
+            "concept:",
+            "aspect ratio:",
+            "duration:",
+            "visual style:",
+            "style:",
+            "character:",
+            "protagonist:",
+            "main character:",
+            "hero:",
+            "lead:",
+            "subject:",
+        )
+    )
 
 
 def _extract_post_scene_beats(raw_visual_prompt: str) -> list[str]:
@@ -1335,11 +1373,22 @@ def _build_post_scene_prompt(
     scene_index: int,
     scene_count: int,
     dialogue_script: str | None = None,
+    character_profile: str | None = None,
+    character_lock_id: str | None = None,
 ) -> str:
     metadata = _parse_post_prompt_metadata(raw_visual_prompt)
     story_title = metadata.get("title", "")
     story_concept = metadata.get("concept", "")
     story_visual_style = metadata.get("visual style", "") or metadata.get("style", "")
+    profile = (
+        (character_profile or "").strip()
+        or metadata.get("main character", "")
+        or metadata.get("protagonist", "")
+        or metadata.get("character", "")
+        or metadata.get("hero", "")
+        or metadata.get("lead", "")
+        or metadata.get("subject", "")
+    )
 
     story_summary_source = story_concept or _strip_style_suffix(raw_visual_prompt)
     story_summary = _normalize_post_line(story_summary_source)
@@ -1360,6 +1409,10 @@ def _build_post_scene_prompt(
         pieces.append(f"Story title: {story_title}.")
     if story_concept:
         pieces.append(f"Core story premise: {story_concept}.")
+    if profile:
+        pieces.append(f"Main character profile (must stay identical): {profile}.")
+    if character_lock_id:
+        pieces.append(f"Character lock id: {character_lock_id}.")
     pieces.append(f"Primary scene direction: {scene_beat}.")
     if story_summary and scene_beat.lower() not in story_summary.lower():
         pieces.append(f"Overall story context: {story_summary}.")
@@ -1377,7 +1430,7 @@ def _build_post_scene_prompt(
         "Continuity lock (critical): keep one single protagonist across all scenes with the exact same face,"
         " hair color/style, age range, body type, outfit palette, and art style."
         " Keep the setting family consistent unless this beat explicitly changes location."
-        " Do not switch character, gender, or era."
+        " Do not switch character, gender, ethnicity, or era."
     )
     pieces.append(
         "Avoid unintended text artifacts, subtitles, logos, and watermarks unless the scene explicitly asks for visible text."
@@ -2606,6 +2659,23 @@ def _parse_settings(raw: str) -> dict:
         return {}
 
 
+def _normalize_seed(raw: Any) -> int | None:
+    try:
+        value = int(raw)
+    except Exception:
+        return None
+    if value < 0:
+        return None
+    return value % 2_147_483_647
+
+
+def _stable_seed_from_text(text: str, *, salt: str = "") -> int:
+    payload = f"{salt}|{text}".encode("utf-8", errors="ignore")
+    digest = hashlib.sha256(payload).hexdigest()
+    value = int(digest[:12], 16) % 2_147_483_647
+    return value if value > 0 else 1
+
+
 def _merge_job_settings(db, *, job_id: int, patch: dict[str, Any]) -> None:
     if not patch:
         return
@@ -2694,6 +2764,7 @@ def _process_job(job: dict) -> dict[str, Any]:
     model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
     style_preset = str(settings.get("style_preset") or "").strip().lower()
+    job_seed = _normalize_seed(settings.get("seed"))
     watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
     captions_enabled = bool(settings.get("captions_enabled", bool(job.get("captions_enabled", False))))
     styled_prompt = _apply_style_preset(prompt, style_preset)
@@ -2734,6 +2805,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                 "aspect_ratio": aspect_ratio,
                                 "model": model or "google",
                                 "provider_model_id": image_model_id,
+                                "seed": job_seed,
                                 "settings": settings,
                                 "kind": JOB_KIND_IMAGE,
                             },
@@ -2744,6 +2816,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             negative_prompt=negative_prompt,
                             aspect_ratio=aspect_ratio,
                             style_preset=style_preset,
+                            seed=job_seed,
                             task="image",
                         )
                     _write_bytes(out_path, media_bytes)
@@ -2846,6 +2919,24 @@ def _process_job(job: dict) -> dict[str, Any]:
             raw_dialogue_script = _compact_dialogue_script(str(settings.get("dialogue_script") or dialogue_script), max_chars=5000)
             voice_script = str(settings.get("voice_script") or prompt or "Untitled voiceover").strip()
             voice_script = _merge_narration_with_dialogue(voice_script, raw_dialogue_script)
+            post_seed = _normalize_seed(settings.get("seed"))
+            if post_seed is None:
+                post_seed = _stable_seed_from_text(
+                    f"{raw_visual_prompt}\n{raw_dialogue_script}\n{voice_script}",
+                    salt=f"post:{job_id}",
+                )
+            character_lock_id = f"CHAR-{post_seed}"
+            post_meta = _parse_post_prompt_metadata(raw_visual_prompt)
+            character_profile = (
+                post_meta.get("main character", "")
+                or post_meta.get("protagonist", "")
+                or post_meta.get("character", "")
+                or post_meta.get("hero", "")
+                or post_meta.get("lead", "")
+                or post_meta.get("subject", "")
+            )
+            if not character_profile:
+                character_profile = "single recurring protagonist, keep same face, hair, age range, and wardrobe palette"
             voice_name = str(settings.get("voice_name") or "en-US-Neural2-F").strip() or "en-US-Neural2-F"
             speed = int(settings.get("speed_wpm") or 165)
             provider_capacity_error_voice = False
@@ -2985,6 +3076,8 @@ def _process_job(job: dict) -> dict[str, Any]:
                             scene_index=idx,
                             scene_count=attempt_scene_count,
                             dialogue_script=raw_dialogue_script,
+                            character_profile=character_profile,
+                            character_lock_id=character_lock_id,
                         )
 
                         if use_google_provider:
@@ -3001,12 +3094,15 @@ def _process_job(job: dict) -> dict[str, Any]:
                                                 "generation_speed": "relax",
                                                 "model": model or "google",
                                                 "provider_model_id": _resolve_google_video_model_id(style_preset),
+                                                "seed": post_seed,
                                                 "settings": {
                                                     **settings,
                                                     "scene_index": idx + 1,
                                                     "scene_count": attempt_scene_count,
                                                     "scene_duration_seconds": scene_video_duration,
                                                     "mode": "post_video",
+                                                    "seed": post_seed,
+                                                    "character_lock_id": character_lock_id,
                                                 },
                                                 "kind": JOB_KIND_POST,
                                             },
@@ -3018,6 +3114,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             aspect_ratio=aspect_ratio,
                                             duration_seconds=scene_video_duration,
                                             style_preset=style_preset,
+                                            seed=post_seed,
                                         )
                                     _write_bytes(scene_path, media_bytes)
                                     break
@@ -3267,6 +3364,8 @@ def _process_job(job: dict) -> dict[str, Any]:
                         scene_index=idx,
                         scene_count=attempt_image_count,
                         dialogue_script=raw_dialogue_script,
+                        character_profile=character_profile,
+                        character_lock_id=character_lock_id,
                     )
 
                     if use_google_provider:
@@ -3281,11 +3380,14 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             "aspect_ratio": aspect_ratio,
                                             "model": model or "google",
                                             "provider_model_id": post_image_model_id,
+                                            "seed": post_seed,
                                             "settings": {
                                                 **settings,
                                                 "scene_index": idx + 1,
                                                 "scene_count": attempt_image_count,
                                                 "mode": "post",
+                                                "seed": post_seed,
+                                                "character_lock_id": character_lock_id,
                                             },
                                             "kind": JOB_KIND_POST,
                                         },
@@ -3296,6 +3398,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                         negative_prompt=negative_prompt,
                                         aspect_ratio=aspect_ratio,
                                         style_preset=style_preset,
+                                        seed=post_seed,
                                         task="post",
                                     )
                                 _write_bytes(img_path, media_bytes)
@@ -3557,6 +3660,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             "generation_speed": generation_speed,
                             "model": model or "google",
                             "provider_model_id": video_model_id,
+                            "seed": job_seed,
                             "settings": settings,
                             "kind": JOB_KIND_VIDEO,
                         },
@@ -3568,6 +3672,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         aspect_ratio=aspect_ratio,
                         duration_seconds=duration,
                         style_preset=style_preset,
+                        seed=job_seed,
                     )
                 _write_bytes(out_path, media_bytes)
                 provider_generated = True
