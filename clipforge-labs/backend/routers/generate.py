@@ -94,7 +94,7 @@ PLAN_ALLOWED_VIDEO_SPEEDS = {
     "free": {"relax"},
     "starter": {"relax"},
     "creator": {"relax", "fast"},
-    "studio": {"relax", "fast"},
+    "studio": {"relax"},
 }
 
 PLAN_MAX_POST_DURATION_SECONDS = {
@@ -311,6 +311,9 @@ def _credits_from_usd(usd_value: float) -> int:
 
 def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
     low_cost = _is_low_cost_style(style_preset)
+    # 4K should always use premium routing/pricing, not low-cost style pricing.
+    if speed == "fast":
+        low_cost = False
     base_usd = _env_float(
         "LABS_VIDEO_LOW_COST_USD_PER_SECOND" if low_cost else "LABS_VIDEO_REAL_USD_PER_SECOND",
         0.10 if low_cost else 0.50,
@@ -324,16 +327,14 @@ def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
         max_value=20.0,
     )
     default_credits = _credits_from_usd(base_usd * markup)
-    if low_cost and speed == "fast":
-        env_name = "LABS_VIDEO_LOW_COST_4K_CREDITS_PER_SECOND"
-        # Target profit tuning for low-cost 7s clips: ~3.5 USD profit at 0.10 USD/credit.
-        default_credits = max(default_credits, 6)
+    if speed == "fast":
+        env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
+        # Target ~1.50 USD profit for 7s premium 4K runs (about 7 credits/sec at 0.10 USD/credit).
+        default_credits = 7
     elif low_cost:
         env_name = "LABS_VIDEO_LOW_COST_HD_CREDITS_PER_SECOND"
         # Target profit tuning for low-cost 7s clips: ~2.8 USD profit at 0.10 USD/credit.
         default_credits = max(default_credits, 5)
-    elif speed == "fast":
-        env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
     else:
         env_name = "LABS_VIDEO_REAL_HD_CREDITS_PER_SECOND"
     return _env_int(env_name, default_credits, min_value=1, max_value=10_000)

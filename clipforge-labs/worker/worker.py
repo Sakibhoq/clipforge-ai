@@ -440,6 +440,19 @@ def _style_env_suffix(style_preset: str | None) -> str:
     return _normalize_style_preset(style_preset).replace("-", "_").upper()
 
 
+def _normalize_video_speed(raw_speed: str | None) -> str:
+    speed = (raw_speed or "relax").strip().lower()
+    aliases = {
+        "hd": "relax",
+        "standard": "relax",
+        "4k": "fast",
+        "uhd": "fast",
+        "premium": "fast",
+    }
+    speed = aliases.get(speed, speed)
+    return "fast" if speed == "fast" else "relax"
+
+
 def _resolve_google_image_model_id(style_preset: str | None, *, task: str = "image") -> str:
     task_key = (task or "image").strip().lower()
     style_suffix = _style_env_suffix(style_preset)
@@ -464,8 +477,16 @@ def _resolve_google_image_model_id(style_preset: str | None, *, task: str = "ima
     return low_cost_model or default_model
 
 
-def _resolve_google_video_model_id(style_preset: str | None) -> str:
+def _resolve_google_video_model_id(style_preset: str | None, *, generation_speed: str | None = None) -> str:
+    speed = _normalize_video_speed(generation_speed)
     style_suffix = _style_env_suffix(style_preset)
+    if speed == "fast":
+        premium_style_model = _env(f"GOOGLE_VIDEO_4K_MODEL_ID_{style_suffix}", "")
+        if premium_style_model:
+            return premium_style_model
+        premium_model = _env("GOOGLE_VIDEO_4K_MODEL_ID", "veo-2.0-generate-001")
+        return premium_model or "veo-2.0-generate-001"
+
     default_model = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
     style_model = _env(f"GOOGLE_VIDEO_MODEL_ID_{style_suffix}", "")
     if style_model:
@@ -788,14 +809,15 @@ def _run_google_vertex_video_generation(
     negative_prompt: str,
     aspect_ratio: str,
     duration_seconds: int,
+    generation_speed: str | None = None,
     style_preset: str | None = None,
     seed: int | None = None,
     _allow_model_fallback: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
-    default_model_id = _resolve_google_video_model_id("real")
-    model_id = _resolve_google_video_model_id(style_preset)
+    default_model_id = _resolve_google_video_model_id("real", generation_speed=generation_speed)
+    model_id = _resolve_google_video_model_id(style_preset, generation_speed=generation_speed)
     headers = _google_auth_headers()
 
     endpoint_base = (
@@ -921,6 +943,7 @@ def _run_google_vertex_video_generation(
                 negative_prompt=negative_prompt,
                 aspect_ratio=aspect_ratio,
                 duration_seconds=duration_seconds,
+                generation_speed=generation_speed,
                 style_preset="real",
                 seed=seed,
                 _allow_model_fallback=False,
@@ -1651,7 +1674,7 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
-    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.72, min_value=0.45, max_value=1.0)
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.65, min_value=0.45, max_value=1.0)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
@@ -3568,7 +3591,10 @@ def _process_job(job: dict) -> dict[str, Any]:
                                                 "duration_seconds": scene_video_duration,
                                                 "generation_speed": "relax",
                                                 "model": model or "google",
-                                                "provider_model_id": _resolve_google_video_model_id(style_preset),
+                                                "provider_model_id": _resolve_google_video_model_id(
+                                                    style_preset,
+                                                    generation_speed="relax",
+                                                ),
                                                 "seed": post_seed,
                                                 "settings": {
                                                     **settings,
@@ -3588,6 +3614,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             negative_prompt=negative_prompt,
                                             aspect_ratio=aspect_ratio,
                                             duration_seconds=scene_video_duration,
+                                            generation_speed="relax",
                                             style_preset=style_preset,
                                             seed=post_seed,
                                         )
@@ -4133,7 +4160,7 @@ def _process_job(job: dict) -> dict[str, Any]:
 
         if use_google_provider:
             try:
-                video_model_id = _resolve_google_video_model_id(style_preset)
+                video_model_id = _resolve_google_video_model_id(style_preset, generation_speed=generation_speed)
                 if _env("GOOGLE_VIDEO_API_URL", ""):
                     media_bytes, remote_type, remote_duration, remote_title = _call_google_generation_endpoint(
                         endpoint_env="GOOGLE_VIDEO_API_URL",
@@ -4156,6 +4183,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         negative_prompt=negative_prompt,
                         aspect_ratio=aspect_ratio,
                         duration_seconds=duration,
+                        generation_speed=generation_speed,
                         style_preset=style_preset,
                         seed=job_seed,
                     )

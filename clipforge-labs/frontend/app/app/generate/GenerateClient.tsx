@@ -8,7 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { normalizeAppPlan } from "@/lib/plans";
 
 type GenerationMode = "post" | "video" | "image" | "voiceover";
-type VideoSpeedMode = "relax" | "fast";
+type VideoSpeedMode = "relax" | "4k";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 type StylePreset = "real" | "anime" | "cartoon" | "comic";
 type CaptionStylePreset = "none" | "bold_center" | "clean_bottom" | "minimal";
@@ -75,12 +75,12 @@ const CREDIT_USD_VALUE = 0.10;
 const VIDEO_REAL_USD_PER_SECOND = 0.50;
 const VIDEO_LOW_COST_USD_PER_SECOND = 0.10;
 const VIDEO_HD_MARKUP = 2.7;
-const VIDEO_4K_MARKUP = 3.0;
 const IMAGE_REAL_USD_PER_IMAGE = 0.04;
 const IMAGE_LOW_COST_USD_PER_IMAGE = 0.02;
 const IMAGE_MARKUP = 6.0;
 const VOICE_WORDS_PER_CREDIT = 300;
 const VOICE_MIN_CREDITS = 1;
+const VIDEO_4K_CREDITS_PER_SECOND = 7;
 const VOICE_BASE_WPM = 165;
 const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
@@ -334,8 +334,9 @@ function estimateImageCredits(stylePreset: StylePreset): number {
 }
 
 function estimateVideoCreditsPerSecond(speed: VideoSpeedMode, stylePreset: StylePreset): number {
+  if (speed === "4k") return VIDEO_4K_CREDITS_PER_SECOND;
   const base = isLowCostStyle(stylePreset) ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND;
-  const markup = speed === "fast" ? VIDEO_4K_MARKUP : VIDEO_HD_MARKUP;
+  const markup = VIDEO_HD_MARKUP;
   return creditsFromUsd(base * markup);
 }
 
@@ -498,7 +499,7 @@ export default function GenerateClient() {
     [lowCostStyleSelected, postPlanMaxDuration]
   );
   const maxVideoDuration = useMemo(() => {
-    const extended = lowCostStyleSelected || videoSpeed === "fast";
+    const extended = lowCostStyleSelected || videoSpeed === "4k";
     const hdCaps: Record<string, number> = { free: 5, free_trial: 5, trial: 5, starter: 6, creator: 7, studio: 7 };
     const extendedCaps: Record<string, number> = { free: 5, free_trial: 5, trial: 5, starter: 7, creator: 7, studio: 7 };
     const fallback = extended ? 5 : 5;
@@ -520,7 +521,7 @@ export default function GenerateClient() {
   }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds]);
 
   const fastEligible = useMemo(() => {
-    return normalizedPlan === "creator" || normalizedPlan === "studio";
+    return normalizedPlan === "creator";
   }, [normalizedPlan]);
   const freeTrialWatermarkLocked = useMemo(() => {
     return normalizedPlan === "free";
@@ -624,12 +625,12 @@ export default function GenerateClient() {
       setDuration(durationSeconds);
     }
     const generationSpeed = typeof settings.generation_speed === "string" ? settings.generation_speed : "";
-    if (generationSpeed === "relax" || generationSpeed === "fast") {
+    if (generationSpeed === "relax" || generationSpeed === "4k") {
       setVideoSpeed(generationSpeed);
     } else if (generationSpeed === "hd" || generationSpeed === "standard") {
       setVideoSpeed("relax");
-    } else if (generationSpeed === "4k" || generationSpeed === "uhd") {
-      setVideoSpeed("fast");
+    } else if (generationSpeed === "4k" || generationSpeed === "uhd" || generationSpeed === "fast") {
+      setVideoSpeed("4k");
     }
   }
 
@@ -1482,12 +1483,12 @@ export default function GenerateClient() {
                         <button
                           type="button"
                           onClick={() => {
-                            if (fastEligible) setVideoSpeed("fast");
+                            if (fastEligible) setVideoSpeed("4k");
                           }}
                           disabled={!fastEligible}
                           className={cx(
                             "rounded-xl border px-3 py-2 text-xs font-semibold transition",
-                            videoSpeed === "fast"
+                            videoSpeed === "4k"
                               ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
                               : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
                             !fastEligible && "cursor-not-allowed opacity-55"
@@ -1497,7 +1498,7 @@ export default function GenerateClient() {
                           4K
                         </button>
                       </div>
-                      {!fastEligible ? <div className="text-[11px] text-white/55">Creator or Studio required for 4K.</div> : null}
+                      {!fastEligible ? <div className="text-[11px] text-white/55">Creator plan required for 4K.</div> : null}
                     </div>
                   </>
                 ) : null}
