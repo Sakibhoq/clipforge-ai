@@ -387,6 +387,7 @@ export default function ClipsPage() {
   const [providerOptionCatalog, setProviderOptionCatalog] = useState<Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>>({});
   const [providerOptionValues, setProviderOptionValues] = useState<Partial<Record<SupportedSocialProvider, Record<string, any>>>>({});
   const [providerOptionLoading, setProviderOptionLoading] = useState<Partial<Record<SupportedSocialProvider, boolean>>>({});
+  const [tiktokFinalConsent, setTiktokFinalConsent] = useState(false);
 
   function openEditor(clipId?: number) {
     setScheduleClip(null);
@@ -559,6 +560,7 @@ export default function ClipsPage() {
     setPreviewClip(null);
     setScheduleError(null);
     setScheduleNotice(null);
+    setTiktokFinalConsent(false);
     setScheduleBusy(false);
     setScheduleWhen("");
     setScheduleCaption(String(clipRow.title || clipRow.hook || "").trim());
@@ -652,6 +654,12 @@ export default function ClipsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleClip, scheduleSelectedProviders]);
 
+  useEffect(() => {
+    if (!scheduleSelectedProviders.includes("tiktok")) {
+      setTiktokFinalConsent(false);
+    }
+  }, [scheduleSelectedProviders]);
+
   async function submitSocialPosts(mode: "post_now" | "schedule") {
     if (!scheduleClip || scheduleBusy) return;
     if (schedulePlatformLimit === 0) {
@@ -723,6 +731,11 @@ export default function ClipsPage() {
           return;
         }
       }
+    }
+
+    if (scheduleSelectedProviders.includes("tiktok") && !tiktokFinalConsent) {
+      setScheduleError("TikTok: confirm the final posting declaration before posting.");
+      return;
     }
 
     setScheduleBusy(true);
@@ -873,8 +886,19 @@ export default function ClipsPage() {
     Boolean(tiktokScheduleValues.commercial_content_disclosure) &&
     !Boolean(tiktokScheduleValues.branded_content) &&
     !Boolean(tiktokScheduleValues.brand_organic);
+  const tiktokDisclosureEnabled =
+    scheduleSelectedSet.has("tiktok") && Boolean(tiktokScheduleValues.commercial_content_disclosure);
+  const tiktokHasDisclosureType =
+    Boolean(tiktokScheduleValues.branded_content) || Boolean(tiktokScheduleValues.brand_organic);
   const tiktokDisclosureReason =
     "TikTok: select Paid partnership or Your brand, or turn off content disclosure.";
+  const tiktokConsentReason =
+    "TikTok: check the final posting declaration before posting.";
+  const tiktokConsentDeclaration =
+    tiktokDisclosureEnabled && tiktokHasDisclosureType
+      ? "I confirm this TikTok post includes accurate music usage and branded content disclosures."
+      : "I confirm this TikTok post complies with TikTok Music Usage Confirmation and content rights requirements.";
+  const tiktokConsentMissing = scheduleSelectedSet.has("tiktok") && !tiktokFinalConsent;
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -1222,6 +1246,49 @@ export default function ClipsPage() {
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white/90">To be posted</div>
+                <div className="text-[11px] text-white/60">{durationChip(scheduleClip, detectAssetType(scheduleClip))}</div>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-black" style={{ aspectRatio: "9 / 16" }}>
+                  <div className="flex h-full w-full items-center justify-center bg-black">
+                    {detectAssetType(scheduleClip) === "image" ? (
+                      <img
+                        src={scheduleClip.url}
+                        alt={scheduleClip.title || `Clip #${scheduleClip.id}`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : detectAssetType(scheduleClip) === "audio" ? (
+                      <audio src={scheduleClip.url} controls preload="metadata" className="w-full px-2" />
+                    ) : (
+                      <video
+                        src={scheduleClip.url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[12px] uppercase tracking-wide text-white/55">
+                    {detectAssetType(scheduleClip).toUpperCase()}
+                  </div>
+                  <div className="mt-1 truncate text-sm font-semibold text-white/90">{scheduleClip.title || `Clip #${scheduleClip.id}`}</div>
+                  <div className="mt-1 text-[12px] text-white/60">
+                    Upload #{scheduleClip.upload_id}
+                    {scheduleClip.hook ? ` • ${clip(scheduleClip.hook, 72)}` : ""}
+                  </div>
+                  <div className="mt-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[11px] text-white/62">
+                    This preview is exactly the media being sent to the selected platform(s).
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-white/90">Platforms</div>
                 <div className="text-[11px] text-white/60">
                   {scheduleSelectedProviders.length} selected{schedulePlatformLimit !== null ? ` / ${schedulePlatformLimit}` : ""}
@@ -1360,11 +1427,22 @@ export default function ClipsPage() {
                           : Number(options.max_video_post_duration_sec || 0);
                       const postBlocked = Boolean(catalog.post_blocked);
                       const postBlockReason = String(catalog.post_block_reason || "").trim();
+                      const creatorNickname = String((options.creator_nickname as any)?.value || "").trim();
+                      const creatorUsernameRaw = String((options.creator_username as any)?.value || "").trim();
+                      const creatorUsername = creatorUsernameRaw.replace(/^@+/, "");
+                      const creatorIdentity =
+                        creatorNickname && creatorUsername
+                          ? `${creatorNickname} (@${creatorUsername})`
+                          : creatorNickname
+                            ? creatorNickname
+                            : creatorUsername
+                              ? `@${creatorUsername}`
+                              : String(catalog.account_name || "").trim();
                       return (
                         <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="text-[12px] font-semibold text-white/86">TikTok</div>
-                            {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
+                            {creatorIdentity ? <div className="text-[11px] text-white/55">{creatorIdentity}</div> : null}
                           </div>
                           {postBlocked ? (
                             <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/90">
@@ -1632,12 +1710,35 @@ export default function ClipsPage() {
               </div>
             ) : null}
 
+            {scheduleSelectedSet.has("tiktok") ? (
+              <div className="mt-4 rounded-2xl border border-cyan-300/25 bg-cyan-400/10 px-4 py-3">
+                <label className="flex items-start gap-2 text-[12px] text-cyan-50/90">
+                  <input
+                    type="checkbox"
+                    checked={tiktokFinalConsent}
+                    onChange={(e) => setTiktokFinalConsent(e.target.checked)}
+                    disabled={scheduleBusy}
+                    className="mt-0.5 h-4 w-4 accent-cyan-300"
+                  />
+                  <span>{tiktokConsentDeclaration}</span>
+                </label>
+              </div>
+            ) : null}
+
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => submitSocialPosts("post_now")}
-                disabled={scheduleBusy || hasProviderBlock || tiktokDisclosureInvalid}
-                title={hasProviderBlock ? providerBlockSummary : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+                disabled={scheduleBusy || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
+                title={
+                  hasProviderBlock
+                    ? providerBlockSummary
+                    : tiktokDisclosureInvalid
+                      ? tiktokDisclosureReason
+                      : tiktokConsentMissing
+                        ? tiktokConsentReason
+                        : undefined
+                }
                 className="btn-aurora px-4 py-2 text-sm"
               >
                 {scheduleBusy ? "Posting..." : "Post now"}
@@ -1645,8 +1746,16 @@ export default function ClipsPage() {
               <button
                 type="button"
                 onClick={() => submitSocialPosts("schedule")}
-                disabled={scheduleBusy || !scheduleWhen || hasProviderBlock || tiktokDisclosureInvalid}
-                title={hasProviderBlock ? providerBlockSummary : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+                disabled={scheduleBusy || !scheduleWhen || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
+                title={
+                  hasProviderBlock
+                    ? providerBlockSummary
+                    : tiktokDisclosureInvalid
+                      ? tiktokDisclosureReason
+                      : tiktokConsentMissing
+                        ? tiktokConsentReason
+                        : undefined
+                }
                 className="btn-ghost px-4 py-2 text-sm"
               >
                 {scheduleBusy ? "Scheduling..." : "Schedule post"}
@@ -1656,6 +1765,8 @@ export default function ClipsPage() {
                   ? providerBlockSummary
                   : tiktokDisclosureInvalid
                     ? tiktokDisclosureReason
+                    : tiktokConsentMissing
+                      ? tiktokConsentReason
                     : "Set a time to schedule, or use Post now for immediate publish."}
               </div>
             </div>

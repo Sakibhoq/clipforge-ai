@@ -1091,6 +1091,7 @@ function ClipsWorkspace() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+  const [tiktokFinalConsent, setTiktokFinalConsent] = useState(false);
   const [providerOptionCatalog, setProviderOptionCatalog] = useState<
     Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>
   >({});
@@ -1251,6 +1252,7 @@ function ClipsWorkspace() {
     setScheduleWhen("");
     setScheduleError(null);
     setScheduleNotice(null);
+    setTiktokFinalConsent(false);
     setProviderOptionCatalog({});
     setProviderOptionValues({});
     setProviderOptionLoading({});
@@ -1392,6 +1394,12 @@ function ClipsWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleClipId, scheduleSelectedProviders]);
 
+  useEffect(() => {
+    if (!scheduleSelectedProviders.includes("tiktok")) {
+      setTiktokFinalConsent(false);
+    }
+  }, [scheduleSelectedProviders]);
+
   function openCrop(clip: ClipDTO) {
     if (!editorDesktopOnly) {
       setActionError("Editor is desktop-only. Open Clips from a laptop or desktop browser.");
@@ -1473,7 +1481,10 @@ function ClipsWorkspace() {
       setScheduleError("Choose a schedule time, or use Post now.");
       return;
     }
-    const scheduleClip = clips.find((c) => c.id === scheduleClipId);
+    const scheduleClip =
+      clips.find((c) => c.id === scheduleClipId) ||
+      groups.flatMap((g) => g.clips || []).find((c) => c.id === scheduleClipId) ||
+      null;
     for (const provider of scheduleSelectedProviders) {
       if (providerOptionLoading[provider]) {
         setScheduleError(`Loading ${socialLabel(provider)} publish settings. Try again in a second.`);
@@ -1525,6 +1536,11 @@ function ClipsWorkspace() {
           return;
         }
       }
+    }
+
+    if (scheduleSelectedProviders.includes("tiktok") && !tiktokFinalConsent) {
+      setScheduleError("TikTok: confirm the final posting declaration before posting.");
+      return;
     }
 
     setScheduleBusy(true);
@@ -1776,6 +1792,17 @@ function ClipsWorkspace() {
 
     return out;
   }, [clips, query, sort]);
+
+  const scheduleClip = useMemo(() => {
+    if (!scheduleClipId) return null;
+    const inClips = clips.find((c) => c.id === scheduleClipId);
+    if (inClips) return inClips;
+    for (const group of groups) {
+      const match = (group.clips || []).find((c) => c.id === scheduleClipId);
+      if (match) return match;
+    }
+    return null;
+  }, [clips, groups, scheduleClipId]);
 
   const hasAny = isGroupedMode ? visibleGroups.length > 0 : visibleClips.length > 0;
 
@@ -2198,8 +2225,9 @@ function ClipsWorkspace() {
         subtitle="Publish to social platforms"
         variant="schedule"
       >
-        {scheduleClipId ? (
+        {scheduleClip ? (
           <ScheduleForm
+            clip={scheduleClip}
             providers={connectedScheduleProviders}
             selectedProviders={scheduleSelectedProviders}
             maxPlatforms={schedulePlatformLimit}
@@ -2208,11 +2236,13 @@ function ClipsWorkspace() {
             when={scheduleWhen}
             busy={scheduleBusy}
             error={scheduleError}
+            tiktokFinalConsent={tiktokFinalConsent}
             onProvidersChange={(v) => setScheduleSelectedProviders(limitSelectedProviders(v))}
             onCaptionChange={setScheduleCaption}
             onWhenChange={setScheduleWhen}
             onSchedule={createSchedule}
             onPostNow={createPostNow}
+            onTiktokFinalConsentChange={setTiktokFinalConsent}
             providerOptionCatalog={providerOptionCatalog}
             providerOptionValues={providerOptionValues}
             providerOptionLoading={providerOptionLoading}
@@ -3295,6 +3325,7 @@ function CropForm({
    ScheduleForm
 ========================================================= */
 function ScheduleForm({
+  clip,
   providers,
   selectedProviders,
   maxPlatforms,
@@ -3303,17 +3334,20 @@ function ScheduleForm({
   when,
   busy,
   error,
+  tiktokFinalConsent,
   onProvidersChange,
   onCaptionChange,
   onWhenChange,
   onSchedule,
   onPostNow,
+  onTiktokFinalConsentChange,
   providerOptionCatalog,
   providerOptionValues,
   providerOptionLoading,
   onLoadProviderOptions,
   onUpdateProviderOption,
 }: {
+  clip: ClipDTO;
   providers: SupportedSocialProvider[];
   selectedProviders: SupportedSocialProvider[];
   maxPlatforms: number | null;
@@ -3322,11 +3356,13 @@ function ScheduleForm({
   when: string;
   busy: boolean;
   error: string | null;
+  tiktokFinalConsent: boolean;
   onProvidersChange: (v: SupportedSocialProvider[]) => void;
   onCaptionChange: (v: string) => void;
   onWhenChange: (v: string) => void;
   onSchedule: () => void;
   onPostNow: () => void;
+  onTiktokFinalConsentChange: (value: boolean) => void;
   providerOptionCatalog: Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>;
   providerOptionValues: Partial<Record<SupportedSocialProvider, Record<string, any>>>;
   providerOptionLoading: Partial<Record<SupportedSocialProvider, boolean>>;
@@ -3354,8 +3390,22 @@ function ScheduleForm({
     Boolean(tiktokValues.commercial_content_disclosure) &&
     !Boolean(tiktokValues.branded_content) &&
     !Boolean(tiktokValues.brand_organic);
+  const tiktokDisclosureEnabled =
+    selectedSet.has("tiktok") && Boolean(tiktokValues.commercial_content_disclosure);
+  const tiktokHasDisclosureType =
+    Boolean(tiktokValues.branded_content) || Boolean(tiktokValues.brand_organic);
   const tiktokDisclosureReason =
     "TikTok: select Paid partnership or Your brand, or turn off content disclosure.";
+  const tiktokConsentReason = "TikTok: check the final posting declaration before posting.";
+  const tiktokConsentDeclaration =
+    tiktokDisclosureEnabled && tiktokHasDisclosureType
+      ? "I confirm this TikTok post includes accurate music usage and branded content disclosures."
+      : "I confirm this TikTok post complies with TikTok Music Usage Confirmation and content rights requirements.";
+  const tiktokConsentMissing = selectedSet.has("tiktok") && !tiktokFinalConsent;
+  const previewAspect =
+    aspectStringToCss(clip.aspect_ratio) ??
+    whToCss(clip.width, clip.height) ??
+    "9 / 16";
 
   function toggleProvider(provider: SupportedSocialProvider) {
     if (!connectedSet.has(provider)) return;
@@ -3420,6 +3470,38 @@ function ScheduleForm({
 
   return (
     <div className="grid gap-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-white/90">To be posted</div>
+          <div className="text-[11px] text-white/60">{Math.max(0, Math.round(Number(clip.duration || 0)))}s</div>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[190px_minmax(0,1fr)]">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-black" style={{ aspectRatio: previewAspect as any }}>
+            <video
+              src={clip.url}
+              controls
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-contain bg-black"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-white/92">{autoTitle(clip)}</div>
+            <div className="mt-1 text-[12px] text-white/60">
+              Clip #{clip.id} • Upload #{clip.upload_id}
+            </div>
+            {clip.hook ? (
+              <div className="mt-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[12px] text-white/70">
+                {clip.hook}
+              </div>
+            ) : null}
+            <div className="mt-2 text-[11px] text-white/55">
+              This preview is exactly the media being sent to the selected platform(s).
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-400/12 via-sky-300/10 to-white/[0.03] p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-semibold text-white/90">Social publishing</div>
@@ -3621,11 +3703,22 @@ function ScheduleForm({
                     : Number(options.max_video_post_duration_sec || 0);
                 const postBlocked = Boolean(catalog.post_blocked);
                 const postBlockReason = String(catalog.post_block_reason || "").trim();
+                const creatorNickname = String((options.creator_nickname as any)?.value || "").trim();
+                const creatorUsernameRaw = String((options.creator_username as any)?.value || "").trim();
+                const creatorUsername = creatorUsernameRaw.replace(/^@+/, "");
+                const creatorIdentity =
+                  creatorNickname && creatorUsername
+                    ? `${creatorNickname} (@${creatorUsername})`
+                    : creatorNickname
+                      ? creatorNickname
+                      : creatorUsername
+                        ? `@${creatorUsername}`
+                        : String(catalog.account_name || "").trim();
                 return (
                   <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[12px] font-semibold tracking-wide text-white/86">TikTok</div>
-                      {catalog.account_name ? <div className="text-[11px] text-white/55">{catalog.account_name}</div> : null}
+                      {creatorIdentity ? <div className="text-[11px] text-white/55">{creatorIdentity}</div> : null}
                     </div>
                     {postBlocked ? (
                       <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[11px] text-amber-100/90">
@@ -3920,14 +4013,37 @@ function ScheduleForm({
         </div>
       )}
 
+      {selectedSet.has("tiktok") ? (
+        <div className="rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3">
+          <label className="flex items-start gap-2 text-[12px] text-cyan-50/90">
+            <input
+              type="checkbox"
+              checked={tiktokFinalConsent}
+              onChange={(e) => onTiktokFinalConsentChange(e.target.checked)}
+              disabled={busy}
+              className="mt-0.5 h-4 w-4 accent-cyan-300"
+            />
+            <span>{tiktokConsentDeclaration}</span>
+          </label>
+        </div>
+      ) : null}
+
       <div className="sticky bottom-0 z-20 rounded-2xl border border-cyan-300/25 bg-black/75 p-4 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={onPostNow}
             className="btn-aurora text-sm px-4 py-2"
-            disabled={busy || tiktokBlocked || tiktokDisclosureInvalid}
-            title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+            disabled={busy || tiktokBlocked || tiktokDisclosureInvalid || tiktokConsentMissing}
+            title={
+              tiktokBlocked
+                ? tiktokBlockReason
+                : tiktokDisclosureInvalid
+                  ? tiktokDisclosureReason
+                  : tiktokConsentMissing
+                    ? tiktokConsentReason
+                    : undefined
+            }
           >
             {busy ? "Posting..." : "Post now"}
           </button>
@@ -3935,8 +4051,16 @@ function ScheduleForm({
             type="button"
             onClick={onSchedule}
             className="btn-ghost text-sm px-4 py-2"
-            disabled={busy || !when || tiktokBlocked || tiktokDisclosureInvalid}
-            title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+            disabled={busy || !when || tiktokBlocked || tiktokDisclosureInvalid || tiktokConsentMissing}
+            title={
+              tiktokBlocked
+                ? tiktokBlockReason
+                : tiktokDisclosureInvalid
+                  ? tiktokDisclosureReason
+                  : tiktokConsentMissing
+                    ? tiktokConsentReason
+                    : undefined
+            }
           >
             {busy ? "Scheduling..." : "Schedule post"}
           </button>
@@ -3945,6 +4069,8 @@ function ScheduleForm({
               ? tiktokBlockReason
               : tiktokDisclosureInvalid
                 ? tiktokDisclosureReason
+                : tiktokConsentMissing
+                  ? tiktokConsentReason
                 : "Set a time to schedule, or use Post now to publish instantly."}
           </div>
         </div>

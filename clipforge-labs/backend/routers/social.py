@@ -1161,10 +1161,6 @@ def get_provider_publish_options(
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_publish_error("tiktok", str(e)))
 
-    blocked_reason = _tiktok_post_block_reason(creator)
-    if blocked_reason:
-        raise HTTPException(status_code=422, detail=blocked_reason)
-
     privacy_raw = creator.get("privacy_level_options")
     privacy_choices: List[str] = []
     if isinstance(privacy_raw, list):
@@ -1190,15 +1186,33 @@ def get_provider_publish_options(
     stitch_disabled = bool(creator.get("stitch_disabled", False))
     post_block_reason = _tiktok_post_block_reason(creator)
     post_blocked = bool(post_block_reason)
+    creator_nickname = _first_non_empty_text(
+        creator.get("creator_nickname"),
+        creator.get("display_name"),
+        creator.get("nickname"),
+    )
+    creator_username_raw = _first_non_empty_text(
+        creator.get("creator_username"),
+        creator.get("username"),
+        creator.get("handle"),
+    )
+    creator_username = creator_username_raw.lstrip("@")
+    creator_identity = _first_non_empty_text(
+        creator_nickname,
+        f"@{creator_username}" if creator_username else "",
+        account.account_name,
+    )
 
     return {
         "provider": p,
-        "account_name": account.account_name,
+        "account_name": creator_identity or account.account_name,
         "last_caption": str(prefill.get("caption") or "").strip() or None,
         "post_blocked": post_blocked,
         "post_block_reason": post_block_reason or None,
         "options": {
             "publish_mode": {"value": publish_mode_prefill, "choices": publish_mode_choices},
+            "creator_nickname": {"value": creator_nickname},
+            "creator_username": {"value": creator_username},
             # Keep privacy unselected until the user explicitly chooses one.
             "privacy_level": {"value": "", "choices": privacy_choices, "required": True},
             # Keep toggles off by default. If TikTok marks one disabled, lock it in the UI.
