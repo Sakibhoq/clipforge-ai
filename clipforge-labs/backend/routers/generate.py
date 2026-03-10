@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import time
 import uuid
 from typing import Callable
 
@@ -56,6 +57,8 @@ TTS_VOICE_FALLBACK_CHAIN = [
     "en-US-Standard-C",
     "en-US-Standard-D",
 ]
+GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+_GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 
 PLAN_MAX_VIDEO_DURATION_SECONDS_HD = {
     "free": 5,
@@ -998,24 +1001,125 @@ def _preview_tts_payload(*, text: str, selected_voice: str, speaking_rate: float
     }
 
 
-def _resolve_google_tts_endpoint() -> str:
+def _resolve_google_tts_endpoint() -> tuple[str, bool]:
     raw = (
         os.getenv("GOOGLE_TTS_API_URL")
         or "https://texttospeech.googleapis.com/v1/text:synthesize?key={API_KEY}"
     ).strip()
+    use_google_auth = False
 
     if "{API_KEY}" in raw:
         key = (os.getenv("GOOGLE_API_KEY") or "").strip()
-        if not key:
-            raise HTTPException(
-                status_code=503,
-                detail="Voice preview unavailable: GOOGLE_API_KEY is not configured.",
-            )
-        return raw.replace("{API_KEY}", key)
+        if key:
+            return raw.replace("{API_KEY}", key), False
+        # Fall back to service-account/ADC auth when API key is missing.
+        raw = raw.replace("?key={API_KEY}", "").replace("&key={API_KEY}", "").replace("key={API_KEY}", "")
+        raw = raw.rstrip("?&")
+        use_google_auth = True
 
     if not raw:
-        raise HTTPException(status_code=503, detail="Voice preview unavailable.")
-    return raw
+        raw = "https://texttospeech.googleapis.com/v1/text:synthesize"
+        use_google_auth = True
+    return raw, use_google_auth
+
+
+def _google_access_token() -> str:
+    global _GOOGLE_TOKEN_CACHE
+
+    raw = (os.getenv("GOOGLE_API_BEARER_TOKEN") or "").strip()
+    if raw:
+        token = raw.replace("Bearer ", "").strip()
+        if token:
+            return token
+
+    now_ts = time.time()
+    if _GOOGLE_TOKEN_CACHE:
+        cached_token, cached_expiry = _GOOGLE_TOKEN_CACHE
+        if cached_token and cached_expiry > (now_ts + 60):
+            return cached_token
+
+    scope = (os.getenv("GOOGLE_AUTH_SCOPE") or GOOGLE_CLOUD_PLATFORM_SCOPE).strip() or GOOGLE_CLOUD_PLATFORM_SCOPE
+    auth_error: str | None = None
+
+    # Preferred path: ADC / service account creds via google-auth package.
+    try:
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        import google.auth
+        from google.oauth2 import service_account
+
+        creds = None
+        raw_sa = (os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON") or "").strip()
+        raw_sa_b64 = (os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_B64") or "").strip()
+        if raw_sa_b64 and not raw_sa:
+            try:
+                raw_sa = base64.b64decode(raw_sa_b64.encode("utf-8")).decode("utf-8")
+            except Exception:
+                raw_sa = ""
+
+        if raw_sa:
+            try:
+                sa_info = json.loads(raw_sa)
+                creds = service_account.Credentials.from_service_account_info(sa_info, scopes=[scope])
+            except Exception as exc:
+                auth_error = f"service-account-json failed: {exc}"
+
+        if creds is None:
+            gac_path = (os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+            if gac_path and os.path.exists(gac_path):
+                try:
+                    creds = service_account.Credentials.from_service_account_file(gac_path, scopes=[scope])
+                except Exception as exc:
+                    auth_error = f"service-account-file failed: {exc}"
+
+        if creds is None:
+            try:
+                creds, _ = google.auth.default(scopes=[scope])
+            except Exception as exc:
+                auth_error = f"adc default failed: {exc}"
+                creds = None
+
+        if creds is not None:
+            creds.refresh(GoogleAuthRequest())
+            token = str(getattr(creds, "token", "") or "").strip()
+            if token:
+                expiry_dt = getattr(creds, "expiry", None)
+                expiry_ts = float(expiry_dt.timestamp()) if expiry_dt else (now_ts + 300)
+                _GOOGLE_TOKEN_CACHE = (token, expiry_ts)
+                return token
+    except Exception as exc:
+        auth_error = f"google-auth unavailable/failed: {exc}"
+
+    # Last resort: GCE metadata token.
+    md_url = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
+    try:
+        resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, params={"scopes": scope}, timeout=2)
+        if resp.status_code >= 400:
+            resp = requests.get(md_url, headers={"Metadata-Flavor": "Google"}, timeout=2)
+        if resp.status_code < 400:
+            data = resp.json() if resp.content else {}
+            token = str((data or {}).get("access_token") or "").strip()
+            if token:
+                expires_in = int((data or {}).get("expires_in") or 0)
+                if expires_in > 0:
+                    _GOOGLE_TOKEN_CACHE = (token, now_ts + max(60, expires_in - 30))
+                return token
+    except requests.RequestException:
+        pass
+
+    detail = (
+        "Voice preview unavailable: configure GOOGLE_API_KEY or Google credentials "
+        "(GOOGLE_APPLICATION_CREDENTIALS / GOOGLE_SERVICE_ACCOUNT_JSON)."
+    )
+    if auth_error:
+        detail = f"{detail} ({auth_error})"
+    raise HTTPException(status_code=503, detail=detail)
+
+
+def _google_auth_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {_google_access_token()}",
+        "Content-Type": "application/json; charset=utf-8",
+    }
 
 
 def _preview_voice_candidates(selected: str, fallback: str) -> list[str]:
@@ -1054,7 +1158,8 @@ def _preview_error_detail(resp: requests.Response) -> str:
 
 
 def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> tuple[str, bytes]:
-    endpoint = _resolve_google_tts_endpoint()
+    endpoint, use_google_auth = _resolve_google_tts_endpoint()
+    request_headers = _google_auth_headers() if use_google_auth else None
     safe_speed = max(80, min(330, int(speed_wpm or 165)))
     speaking_rate = max(0.5, min(2.0, float(safe_speed) / 165.0))
 
@@ -1076,7 +1181,7 @@ def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> 
             use_ssml=use_ssml,
         )
         try:
-            resp = requests.post(endpoint, json=payload, timeout=20)
+            resp = requests.post(endpoint, json=payload, headers=request_headers, timeout=20)
         except requests.RequestException:
             last_status = 502
             last_detail = "Voice preview provider request failed."
@@ -1090,7 +1195,7 @@ def _synthesize_voice_preview(*, voice_name: str, speed_wpm: int, text: str) -> 
                 use_ssml=False,
             )
             try:
-                resp = requests.post(endpoint, json=fallback_payload, timeout=20)
+                resp = requests.post(endpoint, json=fallback_payload, headers=request_headers, timeout=20)
             except requests.RequestException:
                 last_status = 502
                 last_detail = "Voice preview provider request failed."

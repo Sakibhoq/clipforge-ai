@@ -14,5 +14,6 @@ boto3==1.34.162
 python-dotenv
 yt-dlp>=2025.1.26
 requests
+google-auth
 pytest
 httpx
