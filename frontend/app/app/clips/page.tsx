@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 
@@ -2238,75 +2238,10 @@ function ClipsWorkspace() {
   );
 }
 
-function LabsClipsPanel() {
-  return (
-    <div className="surface rounded-[28px] border border-white/15 p-5 sm:p-6">
-      <div className="text-xs text-white/55">AI Generated Library</div>
-      <h2 className="mt-2 text-xl font-semibold text-white/92">Open your AI-generated clips</h2>
-      <p className="mt-2 max-w-2xl text-sm text-white/65">
-        AI clips and Orbito clips are separated by source. AI clips are edited in the Labs editor. Publishing is handled from Orbito Connections.
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="https://app.orbito.cc/app/labs/app/clips" className="btn-clipforge px-4 py-2 text-xs">
-          Open AI Clips
-        </Link>
-        <Link href="/app/connections" className="btn-ghost px-4 py-2 text-xs">
-          Open Connections
-        </Link>
-      </div>
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs text-white/60">
-        Orbito editor is for Orbito clips. Labs editor is for AI clips.
-      </div>
-    </div>
-  );
-}
-
-function ClipsPageShell() {
-  const pathname = usePathname() || "";
-  const searchParams = useSearchParams();
-  const onClipsRoute = pathname === "/app/clips" || pathname.startsWith("/app/clips/");
-  if (!onClipsRoute) return null;
-
-  const source = String(searchParams?.get("source") || "orbito").toLowerCase() === "labs" ? "labs" : "orbito";
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/app/clips?source=orbito"
-          className={cx(
-            "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-            source === "orbito" ? "border-white/25 bg-white/[0.12] text-white" : "border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08]"
-          )}
-        >
-          Orbito Clips
-        </Link>
-        <Link
-          href="/app/clips?source=labs"
-          className={cx(
-            "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-            source === "labs" ? "border-[#fb560780] bg-[#fb560724] text-[#ffd7b0]" : "border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08]"
-          )}
-        >
-          AI Clips
-        </Link>
-      </div>
-
-      {source === "labs" ? (
-        <LabsClipsPanel />
-      ) : (
-        <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
-          <ClipsWorkspace />
-        </Suspense>
-      )}
-    </div>
-  );
-}
-
 export default function ClipsPage() {
   return (
     <Suspense fallback={<div className="text-sm text-white/60">Loading clips…</div>}>
-      <ClipsPageShell />
+      <ClipsWorkspace />
     </Suspense>
   );
 }

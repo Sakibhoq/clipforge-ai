@@ -26,7 +26,12 @@ from models.social_account import SocialAccount
 from models.social_post import SocialPost
 from models.clip import Clip
 from models.upload import Upload
-from routers.auth import get_current_user, cookie_options
+from routers.auth import (
+    _build_entitlements_token,
+    _orbi_api_base,
+    cookie_options,
+    get_current_user,
+)
 from storage import get_storage
 
 router = APIRouter(prefix="/social", tags=["social"])
@@ -667,6 +672,135 @@ class ProviderPublishOptionsResponse(BaseModel):
     options: Dict[str, Any] = Field(default_factory=dict)
 
 
+def _use_orbito_connections_bridge() -> bool:
+    return (os.getenv("LABS_SHARE_USE_ORBITO_CONNECTIONS") or "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _sync_orbito_connections(db: Session, current_user: User) -> bool:
+    """
+    Mirror connected social accounts from Orbito API into Labs DB when unified
+    connections are enabled. This keeps Labs schedule/publish flow using the same
+    account tokens as Console.
+    """
+    if not _use_orbito_connections_bridge():
+        return False
+
+    email = str(getattr(current_user, "email", "") or "").strip().lower()
+    if not email:
+        return False
+
+    base = _orbi_api_base()
+    if not base:
+        return False
+
+    try:
+        token = _build_entitlements_token(email=email, issuer="orbito-labs-api")
+    except Exception:
+        return False
+
+    url = f"{base.rstrip('/')}/labs/social/accounts/full"
+    try:
+        resp = requests.post(url, json={"token": token}, timeout=8)
+    except requests.RequestException:
+        return False
+    if resp.status_code >= 400:
+        return False
+
+    try:
+        payload = resp.json()
+    except Exception:
+        return False
+
+    raw_accounts = payload.get("accounts") if isinstance(payload, dict) else None
+    if not isinstance(raw_accounts, list):
+        return False
+
+    remote_by_provider: Dict[str, Dict[str, Any]] = {}
+    for item in raw_accounts:
+        if not isinstance(item, dict):
+            continue
+        provider = str(item.get("provider") or "").strip().lower()
+        if provider not in PROVIDERS:
+            continue
+        remote_by_provider[provider] = item
+
+    existing_rows = (
+        db.query(SocialAccount)
+        .filter(SocialAccount.user_id == current_user.id)
+        .all()
+    )
+    existing_by_provider: Dict[str, SocialAccount] = {
+        str(row.provider or "").strip().lower(): row
+        for row in existing_rows
+        if str(row.provider or "").strip()
+    }
+
+    changed = False
+    for provider, item in remote_by_provider.items():
+        row = existing_by_provider.get(provider)
+        if not row:
+            row = SocialAccount(user_id=current_user.id, provider=provider)
+            db.add(row)
+            existing_by_provider[provider] = row
+            changed = True
+
+        new_status = str(item.get("status") or "disconnected").strip().lower() or "disconnected"
+        new_account_id = item.get("account_id")
+        new_account_name = item.get("account_name")
+        new_access_token = item.get("access_token")
+        new_refresh_token = item.get("refresh_token")
+        raw_exp = item.get("token_expires_at")
+        try:
+            new_expires = int(raw_exp) if raw_exp is not None else None
+        except Exception:
+            new_expires = None
+        new_scopes = item.get("scopes")
+
+        if row.status != new_status:
+            row.status = new_status
+            changed = True
+        if row.account_id != new_account_id:
+            row.account_id = new_account_id
+            changed = True
+        if row.account_name != new_account_name:
+            row.account_name = new_account_name
+            changed = True
+        if row.access_token != new_access_token:
+            row.access_token = new_access_token
+            changed = True
+        if row.refresh_token != new_refresh_token:
+            row.refresh_token = new_refresh_token
+            changed = True
+        if row.token_expires_at != new_expires:
+            row.token_expires_at = new_expires
+            changed = True
+        if row.scopes != new_scopes:
+            row.scopes = new_scopes
+            changed = True
+
+    # If provider vanished remotely, mark local row disconnected.
+    for provider, row in existing_by_provider.items():
+        if provider in remote_by_provider:
+            continue
+        if (row.status or "").strip().lower() != "disconnected":
+            row.status = "disconnected"
+            row.access_token = None
+            row.refresh_token = None
+            row.token_expires_at = None
+            row.scopes = None
+            changed = True
+
+    if changed:
+        db.commit()
+
+    return True
+
+
 def _serialize_social_post(post: SocialPost) -> dict:
     options = _safe_json_loads(getattr(post, "post_options_json", None))
     if not isinstance(options, dict):
@@ -914,6 +1048,13 @@ def list_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Keep Labs social status aligned with shared Orbito connections.
+    try:
+        _sync_orbito_connections(db, current_user)
+    except Exception:
+        # Non-fatal: fall back to local account rows if bridge sync is unavailable.
+        db.rollback()
+
     rows = (
         db.query(SocialAccount)
         .filter(SocialAccount.user_id == current_user.id)
@@ -965,6 +1106,11 @@ def get_provider_publish_options(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    try:
+        _sync_orbito_connections(db, current_user)
+    except Exception:
+        db.rollback()
+
     p = (provider or "").strip().lower()
     if p not in PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown provider")
@@ -1603,6 +1749,11 @@ def create_post(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    try:
+        _sync_orbito_connections(db, current_user)
+    except Exception:
+        db.rollback()
+
     provider = (req.provider or "").lower().strip()
     if provider not in PROVIDERS:
         raise HTTPException(400, "Unsupported provider")
@@ -1971,4 +2122,8 @@ def sync_posts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    try:
+        _sync_orbito_connections(db, current_user)
+    except Exception:
+        db.rollback()
     return _sync_tiktok_post_statuses(db, user_id=current_user.id, limit=limit)

@@ -1599,6 +1599,8 @@ def _apply_video_overlays(
             "veryfast",
             "-crf",
             "20",
+            "-pix_fmt",
+            "yuv420p",
             "-c:a",
             "aac",
             "-b:a",

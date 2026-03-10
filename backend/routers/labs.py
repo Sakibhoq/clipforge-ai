@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -145,6 +145,28 @@ class LabsEntitlementsResponse(BaseModel):
     email: str
     plan: str
     credits: int
+
+
+class LabsSocialAccountsBridgeRequest(BaseModel):
+    token: str
+
+
+class LabsSocialAccountBridgeRow(BaseModel):
+    id: int
+    provider: str
+    account_id: str | None = None
+    account_name: str | None = None
+    status: str
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_expires_at: int | None = None
+    scopes: str | None = None
+
+
+class LabsSocialAccountsBridgeResponse(BaseModel):
+    ok: bool
+    email: str
+    accounts: List[LabsSocialAccountBridgeRow] = Field(default_factory=list)
 
 
 @router.get("/health", response_model=LabsHealthResponse)
@@ -335,4 +357,36 @@ def labs_entitlements_adjust(
         email=str(user.email),
         plan=str(getattr(user, "plan", "free") or "free"),
         credits=int(user.credits or 0),
+    )
+
+
+@router.post("/social/accounts/full", response_model=LabsSocialAccountsBridgeResponse)
+def labs_social_accounts_full(
+    payload: LabsSocialAccountsBridgeRequest,
+    db: Session = Depends(get_db),
+):
+    user = _user_by_entitlements_token(db, payload.token)
+    rows = (
+        db.query(SocialAccount)
+        .filter(SocialAccount.user_id == user.id)
+        .order_by(SocialAccount.id.desc())
+        .all()
+    )
+    return LabsSocialAccountsBridgeResponse(
+        ok=True,
+        email=str(user.email),
+        accounts=[
+            LabsSocialAccountBridgeRow(
+                id=int(r.id),
+                provider=str(r.provider or "").strip().lower(),
+                account_id=r.account_id,
+                account_name=r.account_name,
+                status=str(r.status or "disconnected").strip().lower() or "disconnected",
+                access_token=r.access_token,
+                refresh_token=r.refresh_token,
+                token_expires_at=int(r.token_expires_at) if r.token_expires_at is not None else None,
+                scopes=r.scopes,
+            )
+            for r in rows
+        ],
     )
