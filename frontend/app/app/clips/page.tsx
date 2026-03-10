@@ -139,6 +139,19 @@ const SUPPORTED_SOCIAL_PROVIDERS = ["youtube", "tiktok", "instagram", "facebook"
 type SupportedSocialProvider = (typeof SUPPORTED_SOCIAL_PROVIDERS)[number];
 
 const TIKTOK_PRIVACY_CHOICES = ["PUBLIC_TO_EVERYONE", "FOLLOWER_OF_CREATOR", "SELF_ONLY"];
+const TIKTOK_REQUIRED_UX_GUIDELINES_URL =
+  "https://developers.tiktok.com/doc/content-sharing-guidelines#required_ux_implementation_in_your_app";
+const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
+  PUBLIC_TO_EVERYONE: "Everyone",
+  MUTUAL_FOLLOW_FRIENDS: "Friends",
+  FOLLOWER_OF_CREATOR: "Followers",
+  SELF_ONLY: "Only me",
+};
+
+function tiktokPrivacyChoiceLabel(choice: string): string {
+  const key = String(choice || "").trim().toUpperCase();
+  return TIKTOK_PRIVACY_LABELS[key] || key;
+}
 
 function extractOptionDefaults(options: Record<string, any> | undefined): Record<string, any> {
   const out: Record<string, any> = {};
@@ -3619,6 +3632,10 @@ function ScheduleForm({
                         {postBlockReason || "TikTok cannot post from this account right now. Please try again later."}
                       </div>
                     ) : null}
+                    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/62">
+                      TikTok Direct Post setup (in required order): 1) Privacy level, 2) Interaction settings, 3) Max duration, 4)
+                      Music usage confirmation, 5) Content disclosure.
+                    </div>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <label className="grid gap-1">
                         <span className="text-[11px] font-medium text-white/58">Post destination</span>
@@ -3636,7 +3653,7 @@ function ScheduleForm({
                         </select>
                       </label>
                       <label className="grid gap-1">
-                        <span className="text-[11px] font-medium text-white/58">Privacy level</span>
+                        <span className="text-[11px] font-medium text-white/58">1. Privacy level</span>
                         <select
                           value={String(values.privacy_level || "")}
                           onChange={(e) => onUpdateProviderOption(provider, "privacy_level", e.target.value)}
@@ -3646,7 +3663,7 @@ function ScheduleForm({
                           <option value="">Select privacy level</option>
                           {privacyChoices.map((choice: string) => (
                             <option key={choice} value={choice}>
-                              {choice}
+                              {tiktokPrivacyChoiceLabel(choice)}
                             </option>
                           ))}
                         </select>
@@ -3657,7 +3674,7 @@ function ScheduleForm({
                         TikTok requires you to choose a privacy level before posting.
                       </div>
                     ) : null}
-                    <div className="mt-3 text-[11px] font-medium text-white/58">Interaction settings</div>
+                    <div className="mt-3 text-[11px] font-medium text-white/58">2. Interaction settings</div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {[
                         { key: "allow_comments", label: "Allow comments" },
@@ -3689,7 +3706,40 @@ function ScheduleForm({
                         One or more interaction toggles are locked by this TikTok account’s current creator settings.
                       </div>
                     ) : null}
-                    <div className="mt-3 text-[11px] font-medium text-white/58">Content disclosure setting</div>
+                    <div className="mt-3 text-[11px] font-medium text-white/58">3. Max video duration</div>
+                    <div className="mt-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
+                      {maxDuration > 0
+                        ? `This TikTok account can post up to ${maxDuration}s per video.`
+                        : "TikTok account limit will be applied at publish time."}
+                    </div>
+                    {isDirectPost ? (
+                      <div className="mt-3 grid gap-2">
+                        <div className="text-[11px] font-medium text-white/58">4. Music usage confirmation</div>
+                        <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-relaxed text-white/80">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(values.confirm_music_usage)}
+                            onChange={(e) => onUpdateProviderOption(provider, "confirm_music_usage", e.target.checked)}
+                            disabled={loading || busy || postBlocked}
+                            className="mt-0.5 h-4 w-4 accent-cyan-400"
+                          />
+                          <span>
+                            I confirm this post complies with{" "}
+                            <a
+                              href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="underline underline-offset-2 hover:text-white"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              TikTok Music Usage Confirmation
+                            </a>{" "}
+                            and content rights requirements.
+                          </span>
+                        </label>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 text-[11px] font-medium text-white/58">5. Content disclosure setting</div>
                     <label className="mt-2 flex min-h-[52px] items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-snug text-white/80">
                       <input
                         type="checkbox"
@@ -3755,19 +3805,18 @@ function ScheduleForm({
                       />
                       <span>AI-generated</span>
                     </label>
-                    {isDirectPost ? (
-                      <div className="mt-3 grid gap-2">
-                        <div className="text-[11px] font-medium text-white/58">Required confirmations</div>
+                    {isDirectPost && needsBrandedConfirm ? (
+                      <div className="mt-2 grid gap-2">
                         <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-relaxed text-white/80">
                           <input
                             type="checkbox"
-                            checked={Boolean(values.confirm_music_usage)}
-                            onChange={(e) => onUpdateProviderOption(provider, "confirm_music_usage", e.target.checked)}
+                            checked={Boolean(values.confirm_branded_content)}
+                            onChange={(e) => onUpdateProviderOption(provider, "confirm_branded_content", e.target.checked)}
                             disabled={loading || busy || postBlocked}
                             className="mt-0.5 h-4 w-4 accent-cyan-400"
                           />
                           <span>
-                            I confirm this post complies with{" "}
+                            I confirm branded content disclosure is accurate and follows{" "}
                             <a
                               href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
                               target="_blank"
@@ -3775,42 +3824,25 @@ function ScheduleForm({
                               className="underline underline-offset-2 hover:text-white"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              TikTok Music Usage Confirmation
-                            </a>{" "}
-                            and content rights requirements.
+                              TikTok Branded Content Policy
+                            </a>
+                            .
                           </span>
                         </label>
-                        {needsBrandedConfirm ? (
-                          <label className="flex items-start gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] leading-relaxed text-white/80">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(values.confirm_branded_content)}
-                                onChange={(e) => onUpdateProviderOption(provider, "confirm_branded_content", e.target.checked)}
-                                disabled={loading || busy || postBlocked}
-                                className="mt-0.5 h-4 w-4 accent-cyan-400"
-                              />
-                            <span>
-                              I confirm branded content disclosure is accurate and follows{" "}
-                              <a
-                                href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="underline underline-offset-2 hover:text-white"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                TikTok Branded Content Policy
-                              </a>
-                              .
-                            </span>
-                          </label>
-                        ) : null}
                       </div>
-                    ) : null}
-                    {maxDuration > 0 ? (
-                      <div className="mt-2 text-[11px] text-white/55">Account max duration: {maxDuration}s.</div>
                     ) : null}
                     <div className="mt-2 border-t border-white/8 pt-2 text-[11px] text-white/50">
                       Direct posts may remain in processing for a few minutes while TikTok finalizes publication.
+                      {" "}
+                      <a
+                        href={TIKTOK_REQUIRED_UX_GUIDELINES_URL}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline underline-offset-2 hover:text-white"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Review TikTok required UX checklist.
+                      </a>
                     </div>
                   </div>
                 );
