@@ -223,7 +223,7 @@ export default function Page() {
                   <div className="text-xs text-white/55">MP4 • ready to post</div>
                 </div>
 
-                <div className="mt-3 h-[220px] w-full overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                <div className="mt-3 flex h-[220px] w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-black/50">
                   <video
                     src={heroClip.src}
                     autoPlay
@@ -231,7 +231,8 @@ export default function Page() {
                     muted
                     playsInline
                     preload="metadata"
-                    className="h-full w-full object-cover"
+                    className="max-h-full max-w-full"
+                    style={{ objectFit: "contain", objectPosition: "center center" }}
                   />
                 </div>
 
@@ -314,7 +315,7 @@ export default function Page() {
                   key={ex.title}
                   className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] transition hover:-translate-y-0.5 hover:border-white/16 hover:bg-white/[0.03]"
                 >
-                  <div className="relative h-[190px] overflow-hidden border-b border-white/10 bg-black/30">
+                  <div className="relative flex h-[190px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/45">
                     <video
                       src={ex.src}
                       autoPlay
@@ -322,7 +323,8 @@ export default function Page() {
                       muted
                       playsInline
                       preload="metadata"
-                      className="h-full w-full object-cover"
+                      className="max-h-full max-w-full"
+                      style={{ objectFit: "contain", objectPosition: "center center" }}
                     />
                     <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.00),rgba(0,0,0,0.35))]" />
 

@@ -2609,6 +2609,32 @@ def smooth_camera_samples(
 # Camera path builder
 # -----------------------------------------------------
 
+def _target_is_landscape(target_w: int, target_h: int) -> bool:
+    try:
+        return float(target_w) >= float(target_h)
+    except Exception:
+        return False
+
+
+def _fallback_center_bias_for_target(target_w: int, target_h: int) -> float:
+    # Keep landscape outputs truly centered; portrait keeps talking-head bias.
+    if _target_is_landscape(target_w, target_h):
+        return 0.5
+    return float(FALLBACK_CENTER_BIAS_Y)
+
+
+def _reframe_center_bias_for_target(target_w: int, target_h: int) -> float:
+    if _target_is_landscape(target_w, target_h):
+        return 0.5
+    return float(REFRAME_CENTER_BIAS_Y)
+
+
+def _object_center_bias_for_target(target_w: int, target_h: int) -> float:
+    if _target_is_landscape(target_w, target_h):
+        return 0.5
+    return float(OBJECT_CENTER_BIAS_Y)
+
+
 def build_camera_path(
     *,
     source_video: Path,
@@ -2629,6 +2655,10 @@ def build_camera_path(
 
     cam_x/cam_y return SOURCE-PIXEL centers for the crop window.
     """
+    fallback_center_bias = _fallback_center_bias_for_target(int(target_w), int(target_h))
+    reframe_center_bias = _reframe_center_bias_for_target(int(target_w), int(target_h))
+    object_center_bias = _object_center_bias_for_target(int(target_w), int(target_h))
+
     # If CV isn't present, return stable center path in SOURCE PIXELS.
     if not _HAS_CV2:
         # Try to read source dims via ffprobe so samples/meta are correct.
@@ -2649,7 +2679,7 @@ def build_camera_path(
         )
 
         cx = src_w / 2.0
-        cy = src_h * float(FALLBACK_CENTER_BIAS_Y)
+        cy = src_h * float(fallback_center_bias)
         cx, cy = clamp_center_to_bounds(
             cx=cx, cy=cy,
             crop_w=crop_w, crop_h=crop_h,
@@ -2727,7 +2757,7 @@ def build_camera_path(
 
     # Initialize center
     last_x = src_w / 2.0
-    last_y = src_h * float(FALLBACK_CENTER_BIAS_Y)
+    last_y = src_h * float(fallback_center_bias)
 
     samples = []
     sample_idx = 0
@@ -2809,7 +2839,7 @@ def build_camera_path(
                 person_only_hits += 1
                 x, y, w, h = max(people, key=lambda p: float(p[2]) * float(p[3]))
                 cx = float(x) + float(w) / 2.0
-                cy = float(y) + float(h) * float(OBJECT_CENTER_BIAS_Y)
+                cy = float(y) + float(h) * float(object_center_bias)
                 subject_mode = "person"
                 person_hits += 1
             else:
@@ -2821,7 +2851,7 @@ def build_camera_path(
                     prefer_context = True
                 # Bias to upper-middle for speaking content
                 cx = src_w / 2.0
-                cy = src_h * float(REFRAME_CENTER_BIAS_Y)
+                cy = src_h * float(reframe_center_bias)
                 fallback_hits += 1
 
         if not ADAPTIVE_CONTEXT_MODE:
@@ -2884,7 +2914,7 @@ def build_camera_path(
     if not samples:
         # Fail-safe: still return stable clamped center
         cx = src_w / 2.0
-        cy = src_h * float(FALLBACK_CENTER_BIAS_Y)
+        cy = src_h * float(fallback_center_bias)
         cx, cy = clamp_center_to_bounds(
             cx=cx, cy=cy,
             crop_w=crop_w, crop_h=crop_h,

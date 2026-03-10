@@ -1022,13 +1022,29 @@ export default function ClipsPage() {
                     key={c.id}
                     className={cx("surface-soft group overflow-hidden rounded-[20px] border border-[#fb560740] shadow-[0_16px_40px_rgba(0,0,0,0.36)]", clipsSurfacePrimaryClass)}
                   >
-                    <div className="relative aspect-[9/12] bg-black/50">
-                      {assetType === "image" ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.url} alt={c.title || `Image ${c.id}`} className="h-full w-full object-cover" />
-                      ) : (
-                        <video src={c.url} playsInline muted autoPlay loop preload="metadata" className="h-full w-full object-cover" />
-                      )}
+                    <div className="relative aspect-[9/12] bg-black/60">
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/55">
+                        {assetType === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.url}
+                            alt={c.title || `Image ${c.id}`}
+                            className="max-h-full max-w-full"
+                            style={{ objectFit: "contain", objectPosition: "center center" }}
+                          />
+                        ) : (
+                          <video
+                            src={c.url}
+                            playsInline
+                            muted
+                            autoPlay
+                            loop
+                            preload="metadata"
+                            className="max-h-full max-w-full"
+                            style={{ objectFit: "contain", objectPosition: "center center" }}
+                          />
+                        )}
+                      </div>
 
                       <div className="absolute left-3 top-3 z-10 flex gap-2">
                         <span className={cx("rounded-full border px-2.5 py-1 text-[10px] font-semibold", typeTone(assetType))}>
