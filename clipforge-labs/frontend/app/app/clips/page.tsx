@@ -145,8 +145,12 @@ function normalizeClipMediaUrl(rawUrl: string): string {
     try {
       const parsed = new URL(value);
       const host = parsed.hostname.toLowerCase();
+      const rewrittenPath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      if (parsed.pathname.startsWith("/storage/local-get")) {
+        return withBase(rewrittenPath);
+      }
       if (host === "backend" || host === "labs-backend" || host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
-        return withBase(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+        return withBase(rewrittenPath);
       }
       if (typeof window !== "undefined" && window.location.protocol === "https:" && parsed.protocol === "http:") {
         parsed.protocol = "https:";
@@ -648,14 +652,13 @@ export default function ClipsPage() {
         setScheduleError(`Loading ${socialLabel(provider)} publish settings. Try again in a second.`);
         return;
       }
+      const catalog = providerOptionCatalog[provider];
+      if (Boolean(catalog?.post_blocked)) {
+        const reason = String(catalog?.post_block_reason || "").trim();
+        setScheduleError(reason || `${socialLabel(provider)} cannot post from this account right now. Please try again later.`);
+        return;
+      }
       if (provider === "tiktok") {
-        const tiktokCatalog = providerOptionCatalog.tiktok;
-        const tiktokBlocked = Boolean(tiktokCatalog?.post_blocked);
-        const tiktokBlockedReason = String(tiktokCatalog?.post_block_reason || "").trim();
-        if (tiktokBlocked) {
-          setScheduleError(tiktokBlockedReason || "TikTok cannot post from this account right now. Please try again later.");
-          return;
-        }
         const tiktokMeta = providerOptionCatalog.tiktok?.options || {};
         const rawMax =
           tiktokMeta.max_video_post_duration_sec && typeof tiktokMeta.max_video_post_duration_sec === "object"
@@ -817,11 +820,27 @@ export default function ClipsPage() {
     [filtered]
   );
   const scheduleSelectedSet = useMemo(() => new Set(scheduleSelectedProviders), [scheduleSelectedProviders]);
-  const tiktokScheduleCatalog = providerOptionCatalog.tiktok;
-  const tiktokBlocked = scheduleSelectedSet.has("tiktok") && Boolean(tiktokScheduleCatalog?.post_blocked);
-  const tiktokBlockReason = tiktokBlocked
-    ? String(tiktokScheduleCatalog?.post_block_reason || "TikTok cannot post from this account right now. Please try again later.")
-    : "";
+  const providerBlocks = useMemo(
+    () =>
+      scheduleSelectedProviders
+        .map((provider) => {
+          const catalog = providerOptionCatalog[provider];
+          const blocked = Boolean(catalog?.post_blocked);
+          const reason = String(catalog?.post_block_reason || "").trim();
+          return {
+            provider,
+            blocked,
+            reason:
+              reason ||
+              `${socialLabel(provider)} cannot post from this account right now. Please try again later.`,
+          };
+        })
+        .filter((item) => item.blocked),
+    [scheduleSelectedProviders, providerOptionCatalog]
+  );
+  const hasProviderBlock = providerBlocks.length > 0;
+  const providerBlockReason = providerBlocks.map((item) => `${socialLabel(item.provider)}: ${item.reason}`).join("\n");
+  const providerBlockSummary = providerBlocks[0]?.reason || "";
   const tiktokScheduleValues = (providerOptionValues.tiktok || {}) as Record<string, any>;
   const tiktokDisclosureInvalid =
     scheduleSelectedSet.has("tiktok") &&
@@ -1234,9 +1253,9 @@ export default function ClipsPage() {
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="text-sm font-semibold text-white/90">Platform settings</div>
                 <div className="mt-1 text-[12px] text-white/58">Required publish controls vary by platform and account capabilities.</div>
-                {tiktokBlocked ? (
-                  <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90">
-                    {tiktokBlockReason}
+                {providerBlocks.length > 0 ? (
+                  <div className="mt-2 rounded-xl border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] text-amber-100/90 whitespace-pre-line">
+                    {providerBlockReason}
                   </div>
                 ) : null}
                 <div className="mt-3 grid gap-3">
@@ -1555,8 +1574,8 @@ export default function ClipsPage() {
               <button
                 type="button"
                 onClick={() => submitSocialPosts("post_now")}
-                disabled={scheduleBusy || tiktokBlocked || tiktokDisclosureInvalid}
-                title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+                disabled={scheduleBusy || hasProviderBlock || tiktokDisclosureInvalid}
+                title={hasProviderBlock ? providerBlockSummary : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
                 className="btn-aurora px-4 py-2 text-sm"
               >
                 {scheduleBusy ? "Posting..." : "Post now"}
@@ -1564,15 +1583,15 @@ export default function ClipsPage() {
               <button
                 type="button"
                 onClick={() => submitSocialPosts("schedule")}
-                disabled={scheduleBusy || !scheduleWhen || tiktokBlocked || tiktokDisclosureInvalid}
-                title={tiktokBlocked ? tiktokBlockReason : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
+                disabled={scheduleBusy || !scheduleWhen || hasProviderBlock || tiktokDisclosureInvalid}
+                title={hasProviderBlock ? providerBlockSummary : tiktokDisclosureInvalid ? tiktokDisclosureReason : undefined}
                 className="btn-ghost px-4 py-2 text-sm"
               >
                 {scheduleBusy ? "Scheduling..." : "Schedule post"}
               </button>
               <div className="text-[12px] text-white/55">
-                {tiktokBlocked
-                  ? tiktokBlockReason
+                {hasProviderBlock
+                  ? providerBlockSummary
                   : tiktokDisclosureInvalid
                     ? tiktokDisclosureReason
                     : "Set a time to schedule, or use Post now for immediate publish."}

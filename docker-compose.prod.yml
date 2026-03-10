@@ -120,7 +120,7 @@ services:
       AUTO_CREATE_DB: "${LABS_AUTO_CREATE_DB:-1}"
       FRONTEND_ORIGIN: "${LABS_FRONTEND_ORIGIN:-https://app.orbito.cc}"
       FRONTEND_BASE_URL: "${LABS_FRONTEND_BASE_URL:-https://app.orbito.cc/app/labs}"
-      PUBLIC_API_BASE: "${LABS_PUBLIC_API_BASE:-https://api.orbito.cc}"
+      PUBLIC_API_BASE: "${LABS_PUBLIC_API_BASE:-https://app.orbito.cc/app/labs/lapi}"
       LOCAL_STORAGE_PATH: "${LABS_LOCAL_STORAGE_PATH:-/data/labs/storage}"
       LABS_USE_ORBITO_ENTITLEMENTS: "${LABS_USE_ORBITO_ENTITLEMENTS:-1}"
       LABS_USE_ORBITO_ENTITLEMENTS_STRICT: "${LABS_USE_ORBITO_ENTITLEMENTS_STRICT:-1}"
