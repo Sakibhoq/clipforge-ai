@@ -1514,15 +1514,43 @@ def _watermark_drawtext_filter(
     x_expr: str,
     y_expr: str,
 ) -> str:
-    # Premium watermark style: softer plate, cleaner edge, subtle depth.
+    # Premium watermark style with stronger readability on bright highlights.
     return (
         f"drawtext=fontfile={fontfile}:text='{text_escaped}':"
-        f"fontcolor=white@0.95:fontsize={font_size}:"
-        "borderw=2:bordercolor=black@0.42:"
-        "shadowx=0:shadowy=2:shadowcolor=black@0.35:"
-        f"box=1:boxcolor=black@0.22:boxborderw={box_border}:"
+        f"fontcolor=white@0.98:fontsize={font_size}:"
+        "borderw=1:bordercolor=black@0.62:"
+        "shadowx=0:shadowy=1:shadowcolor=black@0.42:"
+        f"box=1:boxcolor=black@0.36:boxborderw={box_border}:"
         f"x={x_expr}:y={y_expr}"
     )
+
+
+def _watermark_fontfile(default_fontfile: str) -> str:
+    candidates = [
+        _env("WORKER_WATERMARK_FONTFILE", ""),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        default_fontfile,
+    ]
+    for candidate in candidates:
+        path = (candidate or "").strip()
+        if path and os.path.exists(path):
+            return path
+    return default_fontfile
+
+
+def _watermark_text_position(
+    *,
+    margin: int,
+    logo_width: int,
+    text_offset: int,
+    font_size: int,
+    has_logo: bool,
+) -> tuple[int, int]:
+    if has_logo:
+        x = margin + logo_width + max(10, text_offset)
+        y = margin + max(2, int((logo_width - font_size) * 0.5))
+        return x, y
+    return margin, margin
 
 
 def _watermark_logo_path() -> str:
@@ -1625,13 +1653,19 @@ def _apply_video_overlays(
 ) -> None:
     logo_path = _watermark_logo_path() if (watermark_enabled and allow_logo) else ""
     watermark_text = _brand_text_env("WORKER_WATERMARK_TEXT")
-    draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    draw_font = _watermark_fontfile(_env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
-    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
-    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
-    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 6, min_value=1, max_value=24)
+    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 96, min_value=40, max_value=512)
+    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 34, min_value=16, max_value=128)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 8, min_value=2, max_value=30)
     wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
-    wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
+    wm_text_x, wm_text_y = _watermark_text_position(
+        margin=wm_margin,
+        logo_width=wm_logo_width,
+        text_offset=wm_text_offset,
+        font_size=wm_font_size,
+        has_logo=bool(logo_path),
+    )
     label = "[0:v]"
     graph_parts: list[str] = []
     if subtitles_path:
@@ -1649,7 +1683,7 @@ def _apply_video_overlays(
         text_escaped = _ff_drawtext_escape(watermark_text)
         graph_parts.append(
             f"{label}"
-            f"{_watermark_drawtext_filter(fontfile=draw_font, text_escaped=text_escaped, font_size=wm_font_size, box_border=wm_box_border, x_expr=str(wm_margin), y_expr=str(wm_text_y))}"
+            f"{_watermark_drawtext_filter(fontfile=draw_font, text_escaped=text_escaped, font_size=wm_font_size, box_border=wm_box_border, x_expr=str(wm_text_x), y_expr=str(wm_text_y))}"
             "[vout]"
         )
         label = "[vout]"
@@ -1707,20 +1741,26 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
     fd, tmp_path = tempfile.mkstemp(prefix="cflabs-watermark-img-", suffix=".png")
     os.close(fd)
     logo_path = _watermark_logo_path()
-    draw_font = _env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    draw_font = _watermark_fontfile(_env("WORKER_DRAWTEXT_FONTFILE", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
     text_escaped = _ff_drawtext_escape(_brand_text_env("WORKER_WATERMARK_TEXT"))
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
-    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
-    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
-    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 6, min_value=1, max_value=24)
+    wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 96, min_value=40, max_value=512)
+    wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 34, min_value=16, max_value=128)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 8, min_value=2, max_value=30)
     wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
-    wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
+    wm_text_x, wm_text_y = _watermark_text_position(
+        margin=wm_margin,
+        logo_width=wm_logo_width,
+        text_offset=wm_text_offset,
+        font_size=wm_font_size,
+        has_logo=bool(logo_path),
+    )
     draw_with_logo = _watermark_drawtext_filter(
         fontfile=draw_font,
         text_escaped=text_escaped,
         font_size=wm_font_size,
         box_border=wm_box_border,
-        x_expr=str(wm_margin),
+        x_expr=str(wm_text_x),
         y_expr=str(wm_text_y),
     )
     draw_without_logo = _watermark_drawtext_filter(
