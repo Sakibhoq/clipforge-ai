@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBase } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
 import EditorWorkspace from "@/components/editor/EditorWorkspace";
 
@@ -126,6 +126,38 @@ function detectAssetType(row: ClipRow): "video" | "image" | "audio" {
   if ([".png", ".jpg", ".jpeg", ".webp", ".gif"].includes(ext)) return "image";
   if ([".mp3", ".wav", ".m4a", ".ogg"].includes(ext)) return "audio";
   return "video";
+}
+
+function normalizeClipMediaUrl(rawUrl: string): string {
+  const value = String(rawUrl || "").trim();
+  if (!value) return value;
+
+  const base = String(getApiBase() || "").trim().replace(/\/+$/, "");
+  const withBase = (path: string) => {
+    if (!base) return path;
+    if (path.startsWith("/")) return `${base}${path}`;
+    return `${base}/${path.replace(/^\/+/, "")}`;
+  };
+
+  if (value.startsWith("/")) return withBase(value);
+
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.toLowerCase();
+      if (host === "backend" || host === "labs-backend" || host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
+        return withBase(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+      }
+      if (typeof window !== "undefined" && window.location.protocol === "https:" && parsed.protocol === "http:") {
+        parsed.protocol = "https:";
+        return parsed.toString();
+      }
+    } catch {
+      return value;
+    }
+  }
+
+  return withBase(value);
 }
 
 function isLegacyPostComponent(row: ClipRow): boolean {
@@ -372,7 +404,9 @@ export default function ClipsPage() {
       const data = (await apiFetch<ClipRow[]>(path, { method: "GET" })) || [];
       const normalized = Array.isArray(data) ? data : [];
       // Hide legacy AI Post component assets (scene fragments + voice stems) from old jobs.
-      const cleaned = normalized.filter((row) => !isLegacyPostComponent(row));
+      const cleaned = normalized
+        .filter((row) => !isLegacyPostComponent(row))
+        .map((row) => ({ ...row, url: normalizeClipMediaUrl(row.url) }));
       setRows(cleaned);
     } catch (err: any) {
       setRows([]);

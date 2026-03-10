@@ -350,6 +350,7 @@ def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
         allow_comments = _as_bool(opts.get("allow_comments"), False)
         allow_duet = _as_bool(opts.get("allow_duet"), False)
         allow_stitch = _as_bool(opts.get("allow_stitch"), False)
+        commercial_content_disclosure = _as_bool(opts.get("commercial_content_disclosure"), False)
         branded_content = _as_bool(opts.get("branded_content"), False)
         brand_organic = _as_bool(opts.get("brand_organic"), False)
         is_aigc = _as_bool(opts.get("is_aigc"), False)
@@ -362,6 +363,7 @@ def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
             "allow_comments": allow_comments,
             "allow_duet": allow_duet,
             "allow_stitch": allow_stitch,
+            "commercial_content_disclosure": commercial_content_disclosure,
             "branded_content": branded_content,
             "brand_organic": brand_organic,
             "is_aigc": is_aigc,
@@ -669,6 +671,9 @@ class SocialDisconnectResponse(BaseModel):
 class ProviderPublishOptionsResponse(BaseModel):
     provider: str
     account_name: Optional[str] = None
+    last_caption: Optional[str] = None
+    post_blocked: bool = False
+    post_block_reason: Optional[str] = None
     options: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -1156,6 +1161,10 @@ def get_provider_publish_options(
     except Exception as e:
         raise HTTPException(status_code=400, detail=_friendly_publish_error("tiktok", str(e)))
 
+    blocked_reason = _tiktok_post_block_reason(creator)
+    if blocked_reason:
+        raise HTTPException(status_code=422, detail=blocked_reason)
+
     privacy_raw = creator.get("privacy_level_options")
     privacy_choices: List[str] = []
     if isinstance(privacy_raw, list):
@@ -1169,21 +1178,37 @@ def get_provider_publish_options(
     scope_set = _as_scope_set(account.scopes)
     has_publish_scope = "video.publish" in scope_set if scope_set else True
     publish_mode_choices = ["DIRECT_POST", "MEDIA_UPLOAD"] if has_publish_scope else ["MEDIA_UPLOAD"]
+    prefill = _last_tiktok_post_prefill(db, user_id=current_user.id)
+    publish_mode_prefill = str(prefill.get("publish_mode") or "").strip().upper()
+    if publish_mode_prefill not in publish_mode_choices:
+        publish_mode_prefill = publish_mode_choices[0]
+    allow_comments_prefill = bool(prefill.get("allow_comments", False))
+    allow_duet_prefill = bool(prefill.get("allow_duet", False))
+    allow_stitch_prefill = bool(prefill.get("allow_stitch", False))
     comment_disabled = bool(creator.get("comment_disabled", False))
     duet_disabled = bool(creator.get("duet_disabled", False))
     stitch_disabled = bool(creator.get("stitch_disabled", False))
+    post_block_reason = _tiktok_post_block_reason(creator)
+    post_blocked = bool(post_block_reason)
 
     return {
         "provider": p,
         "account_name": account.account_name,
+        "last_caption": str(prefill.get("caption") or "").strip() or None,
+        "post_blocked": post_blocked,
+        "post_block_reason": post_block_reason or None,
         "options": {
-            "publish_mode": {"value": publish_mode_choices[0], "choices": publish_mode_choices},
+            "publish_mode": {"value": publish_mode_prefill, "choices": publish_mode_choices},
             # Keep privacy unselected until the user explicitly chooses one.
             "privacy_level": {"value": "", "choices": privacy_choices, "required": True},
             # Keep toggles off by default. If TikTok marks one disabled, lock it in the UI.
-            "allow_comments": {"value": False, "locked": comment_disabled},
-            "allow_duet": {"value": False, "locked": duet_disabled},
-            "allow_stitch": {"value": False, "locked": stitch_disabled},
+            "allow_comments": {"value": False if comment_disabled else allow_comments_prefill, "locked": comment_disabled},
+            "allow_duet": {"value": False if duet_disabled else allow_duet_prefill, "locked": duet_disabled},
+            "allow_stitch": {"value": False if stitch_disabled else allow_stitch_prefill, "locked": stitch_disabled},
+            "commercial_content_disclosure": {"value": False},
+            "branded_content": {"value": False},
+            "brand_organic": {"value": False},
+            "is_aigc": {"value": False},
             "confirm_music_usage": {"value": False, "required": True},
             "confirm_branded_content": {"value": False, "required_if_branded": True},
             "max_video_post_duration_sec": int(creator.get("max_video_post_duration_sec") or 0),
@@ -1306,6 +1331,98 @@ def _tiktok_query_creator_info(access_token: str) -> dict:
     if not isinstance(info, dict):
         info = {}
     return info
+
+
+def _first_non_empty_text(*values: Any) -> str:
+    for value in values:
+        s = str(value or "").strip()
+        if s:
+            return s
+    return ""
+
+
+def _tiktok_post_block_reason(creator: Any) -> str:
+    """
+    Interpret TikTok creator_info capability flags.
+    If TikTok indicates the creator cannot post right now, return a user-safe reason.
+    """
+    if not isinstance(creator, dict):
+        return ""
+
+    default_reason = "TikTok reports this account cannot post right now. Please try again later."
+    reason = _first_non_empty_text(
+        creator.get("post_disabled_reason"),
+        creator.get("post_restriction_reason"),
+        creator.get("cannot_post_reason"),
+        creator.get("publish_disabled_reason"),
+        creator.get("reason"),
+        creator.get("message"),
+    )
+
+    false_means_blocked = (
+        "can_post",
+        "can_post_now",
+        "can_publish",
+        "can_publish_now",
+        "can_post_video",
+        "can_make_more_posts",
+    )
+    for key in false_means_blocked:
+        if key in creator and not _as_bool(creator.get(key), True):
+            return reason or default_reason
+
+    true_means_blocked = (
+        "post_disabled",
+        "posting_disabled",
+        "publish_disabled",
+        "cannot_post",
+        "post_restricted",
+        "posting_restricted",
+        "publish_restricted",
+        "reached_post_limit",
+        "reached_posting_limit",
+        "reached_active_user_cap",
+    )
+    for key in true_means_blocked:
+        if _as_bool(creator.get(key), False):
+            return reason or default_reason
+
+    post_state = _first_non_empty_text(creator.get("post_status"), creator.get("publish_status")).lower()
+    if post_state in {"blocked", "disabled", "restricted", "cannot_post", "not_allowed", "rate_limited"}:
+        return reason or default_reason
+
+    return ""
+
+
+def _last_tiktok_post_prefill(db: Session, *, user_id: int) -> dict:
+    row = (
+        db.query(SocialPost)
+        .filter(SocialPost.user_id == user_id, SocialPost.provider == "tiktok")
+        .order_by(SocialPost.id.desc())
+        .first()
+    )
+    if not row:
+        return {}
+
+    out: Dict[str, Any] = {}
+    opts = _normalize_provider_post_options("tiktok", _safe_json_loads(getattr(row, "post_options_json", None)))
+    if isinstance(opts, dict):
+        for key in (
+            "publish_mode",
+            "allow_comments",
+            "allow_duet",
+            "allow_stitch",
+            "branded_content",
+            "brand_organic",
+            "is_aigc",
+        ):
+            if key in opts:
+                out[key] = opts.get(key)
+
+    caption = str(getattr(row, "caption", "") or "").strip()
+    if caption:
+        out["caption"] = caption[:2200]
+    return out
 
 
 def _tiktok_fetch_publish_status(access_token: str, publish_id: str) -> dict:
@@ -1704,6 +1821,25 @@ def _validate_tiktok_post_options(
             detail=f"TikTok privacy level must be one of: {', '.join(privacy_choices)}",
         )
     options["privacy_level"] = privacy_level
+
+    if is_direct_post and privacy_level == "SELF_ONLY":
+        # Private posts cannot use paid partnership and do not support interaction toggles.
+        if bool(options.get("branded_content")):
+            raise HTTPException(
+                status_code=422,
+                detail="TikTok Paid partnership disclosure is unavailable for private posts.",
+            )
+        options["allow_comments"] = False
+        options["allow_duet"] = False
+        options["allow_stitch"] = False
+
+    disclosure_enabled = bool(options.get("commercial_content_disclosure"))
+    has_disclosure_type = bool(options.get("branded_content")) or bool(options.get("brand_organic"))
+    if is_direct_post and disclosure_enabled and not has_disclosure_type:
+        raise HTTPException(
+            status_code=422,
+            detail="Select TikTok Paid partnership or Your brand disclosure, or turn off content disclosure.",
+        )
 
     if is_direct_post and not bool(options.get("confirm_music_usage")):
         raise HTTPException(
