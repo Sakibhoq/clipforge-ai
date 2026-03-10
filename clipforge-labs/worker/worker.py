@@ -1089,13 +1089,15 @@ def _clip_dimensions(aspect_ratio: str) -> tuple[int, int]:
     return 1080, 1920  # default 9:16
 
 
-def _brand_text_env(key: str, default: str = "Orbito Labs") -> str:
+def _brand_text_env(key: str, default: str = "Orbito") -> str:
     raw = (_env(key, default) or "").strip()
     if not raw:
         return default
     normalized = re.sub(r"\s+", " ", raw).strip().lower()
-    if normalized in {"clipforge", "clipforge labs"}:
+    if normalized in {"clipforge", "clipforge labs", "orbito labs"}:
         return default
+    if normalized == "orbito":
+        return "Orbito"
     return raw
 
 
@@ -1503,6 +1505,26 @@ def _ff_path_escape(value: str) -> str:
     return str(value or "").replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
 
 
+def _watermark_drawtext_filter(
+    *,
+    fontfile: str,
+    text_escaped: str,
+    font_size: int,
+    box_border: int,
+    x_expr: str,
+    y_expr: str,
+) -> str:
+    # Premium watermark style: softer plate, cleaner edge, subtle depth.
+    return (
+        f"drawtext=fontfile={fontfile}:text='{text_escaped}':"
+        f"fontcolor=white@0.95:fontsize={font_size}:"
+        "borderw=2:bordercolor=black@0.42:"
+        "shadowx=0:shadowy=2:shadowcolor=black@0.35:"
+        f"box=1:boxcolor=black@0.22:boxborderw={box_border}:"
+        f"x={x_expr}:y={y_expr}"
+    )
+
+
 def _watermark_logo_path() -> str:
     candidates = [
         _env("WORKER_WATERMARK_LOGO_PATH", ""),
@@ -1607,7 +1629,7 @@ def _apply_video_overlays(
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
     wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
     wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
-    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 10, min_value=2, max_value=40)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 6, min_value=1, max_value=24)
     wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
     wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
     label = "[0:v]"
@@ -1626,9 +1648,9 @@ def _apply_video_overlays(
     if watermark_enabled:
         text_escaped = _ff_drawtext_escape(watermark_text)
         graph_parts.append(
-            f"{label}drawtext=fontfile={draw_font}:text='{text_escaped}':"
-            f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
-            f"x={wm_margin}:y={wm_text_y}[vout]"
+            f"{label}"
+            f"{_watermark_drawtext_filter(fontfile=draw_font, text_escaped=text_escaped, font_size=wm_font_size, box_border=wm_box_border, x_expr=str(wm_margin), y_expr=str(wm_text_y))}"
+            "[vout]"
         )
         label = "[vout]"
     if not graph_parts:
@@ -1690,9 +1712,25 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
     wm_margin = _env_int("WORKER_WATERMARK_MARGIN", 24, min_value=4, max_value=160)
     wm_logo_width = _env_int("WORKER_WATERMARK_LOGO_WIDTH", 112, min_value=48, max_value=512)
     wm_font_size = _env_int("WORKER_WATERMARK_FONT_SIZE", 30, min_value=16, max_value=128)
-    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 10, min_value=2, max_value=40)
+    wm_box_border = _env_int("WORKER_WATERMARK_BOX_BORDER", 6, min_value=1, max_value=24)
     wm_text_offset = _env_int("WORKER_WATERMARK_TEXT_OFFSET", 14, min_value=0, max_value=96)
     wm_text_y = wm_margin + (wm_logo_width + wm_text_offset if logo_path else 0)
+    draw_with_logo = _watermark_drawtext_filter(
+        fontfile=draw_font,
+        text_escaped=text_escaped,
+        font_size=wm_font_size,
+        box_border=wm_box_border,
+        x_expr=str(wm_margin),
+        y_expr=str(wm_text_y),
+    )
+    draw_without_logo = _watermark_drawtext_filter(
+        fontfile=draw_font,
+        text_escaped=text_escaped,
+        font_size=wm_font_size,
+        box_border=wm_box_border,
+        x_expr=str(wm_margin),
+        y_expr=str(wm_margin),
+    )
     try:
         if logo_path:
             cmd = [
@@ -1704,9 +1742,7 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 logo_path,
                 "-filter_complex",
                 f"[1:v]scale={wm_logo_width}:-1[wm];[0:v][wm]overlay=x={wm_margin}:y={wm_margin}:format=auto[v1];"
-                f"[v1]drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
-                f"x={wm_margin}:y={wm_text_y}[vout]",
+                f"[v1]{draw_with_logo}[vout]",
                 "-map",
                 "[vout]",
                 "-frames:v",
@@ -1720,9 +1756,7 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 "-i",
                 image_path,
                 "-vf",
-                f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
-                f"x={wm_margin}:y={wm_margin}",
+                draw_without_logo,
                 "-frames:v",
                 "1",
                 tmp_path,
@@ -1735,9 +1769,7 @@ def _apply_image_watermark(*, image_path: str, watermark_enabled: bool) -> None:
                 "-i",
                 image_path,
                 "-vf",
-                f"drawtext=fontfile={draw_font}:text='{text_escaped}':"
-                f"fontcolor=white@0.86:fontsize={wm_font_size}:box=1:boxcolor=black@0.38:boxborderw={wm_box_border}:"
-                f"x={wm_margin}:y={wm_margin}",
+                draw_without_logo,
                 "-frames:v",
                 "1",
                 tmp_path,
