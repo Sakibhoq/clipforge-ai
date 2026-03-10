@@ -715,7 +715,7 @@ export default function ClipsPage() {
           return;
         }
         if (publishMode === "DIRECT_POST" && disclosureEnabled && !hasDisclosureType) {
-          setScheduleError("TikTok: select Paid partnership or Your brand, or turn off content disclosure.");
+          setScheduleError("TikTok: You need to indicate if your content promotes yourself, a third party, or both.");
           return;
         }
         if (publishMode === "DIRECT_POST" && privacyLevel.toUpperCase() === "SELF_ONLY" && Boolean(tkValues.branded_content)) {
@@ -891,7 +891,7 @@ export default function ClipsPage() {
   const tiktokHasDisclosureType =
     Boolean(tiktokScheduleValues.branded_content) || Boolean(tiktokScheduleValues.brand_organic);
   const tiktokDisclosureReason =
-    "TikTok: select Paid partnership or Your brand, or turn off content disclosure.";
+    "You need to indicate if your content promotes yourself, a third party, or both.";
   const tiktokConsentReason =
     "TikTok: check the final posting declaration before posting.";
   const tiktokConsentDeclaration =
@@ -899,6 +899,22 @@ export default function ClipsPage() {
       ? "I confirm this TikTok post includes accurate music usage and branded content disclosures."
       : "I confirm this TikTok post complies with TikTok Music Usage Confirmation and content rights requirements.";
   const tiktokConsentMissing = scheduleSelectedSet.has("tiktok") && !tiktokFinalConsent;
+  const postNowDisabledReason = hasProviderBlock
+    ? providerBlockSummary
+    : tiktokDisclosureInvalid
+      ? tiktokDisclosureReason
+      : tiktokConsentMissing
+        ? tiktokConsentReason
+        : "";
+  const scheduleDisabledReason = !scheduleWhen
+    ? "Choose a schedule time before scheduling."
+    : hasProviderBlock
+      ? providerBlockSummary
+      : tiktokDisclosureInvalid
+        ? tiktokDisclosureReason
+        : tiktokConsentMissing
+          ? tiktokConsentReason
+          : "";
 
   return (
     <div className="relative overflow-x-hidden [max-width:100vw]">
@@ -1512,7 +1528,8 @@ export default function ClipsPage() {
                           </div>
                           {isPrivatePrivacy ? (
                             <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
-                              Privacy is set to <strong>Private</strong>: comments, duet, and stitch are disabled.
+                              Privacy is set to <strong>Private</strong>: comments, duet, and stitch are disabled, and Paid
+                              partnership is unavailable.
                             </div>
                           ) : null}
                           {(interactionLocks.allow_comments || interactionLocks.allow_duet || interactionLocks.allow_stitch) ? (
@@ -1538,7 +1555,17 @@ export default function ClipsPage() {
                                   className="mt-0.5 h-4 w-4 accent-orange-500"
                                 />
                                 <span>
-                                  I confirm this post complies with TikTok Music Usage Confirmation and content rights requirements.
+                                  I confirm this post complies with{" "}
+                                  <a
+                                    href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="underline underline-offset-2 hover:text-white"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    TikTok Music Usage Confirmation
+                                  </a>{" "}
+                                  and content rights requirements.
                                 </span>
                               </label>
                             </div>
@@ -1574,6 +1601,12 @@ export default function ClipsPage() {
                             </div>
                           ) : null}
                           {disclosureEnabled ? (
+                            <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/60">
+                              <strong>Mapping:</strong> Paid partnership = promotes a third party. Your brand = promotes
+                              yourself. You can select both.
+                            </div>
+                          ) : null}
+                          {disclosureEnabled ? (
                             <div
                               className={cx(
                                 "mt-2 rounded-xl px-3 py-2 text-[11px]",
@@ -1583,7 +1616,7 @@ export default function ClipsPage() {
                               )}
                             >
                               {!hasDisclosureType
-                                ? "Select at least one disclosure type: Paid partnership or Your brand."
+                                ? "You need to indicate if your content promotes yourself, a third party, or both."
                                 : Boolean(values.branded_content) && Boolean(values.brand_organic)
                                   ? "Paid partnership and Your brand disclosures are enabled."
                                   : Boolean(values.branded_content)
@@ -1617,13 +1650,24 @@ export default function ClipsPage() {
                                   className="mt-0.5 h-4 w-4 accent-orange-500"
                                 />
                                 <span>
-                                  I confirm branded content disclosure is accurate and follows TikTok Branded Content Policy.
+                                  I confirm branded content disclosure is accurate and follows{" "}
+                                  <a
+                                    href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="underline underline-offset-2 hover:text-white"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    TikTok Branded Content Policy
+                                  </a>
+                                  .
                                 </span>
                               </label>
                             </div>
                           ) : null}
                           <div className="mt-1 text-[11px] text-white/50">
-                            Direct posts may remain in processing for a few minutes while TikTok finalizes publication.
+                            After publishing, TikTok may take a few minutes to process your post before it is visible on your
+                            profile.
                             {" "}
                             <a
                               href={TIKTOK_REQUIRED_UX_GUIDELINES_URL}
@@ -1720,46 +1764,54 @@ export default function ClipsPage() {
                     disabled={scheduleBusy}
                     className="mt-0.5 h-4 w-4 accent-cyan-300"
                   />
-                  <span>{tiktokConsentDeclaration}</span>
+                  <span>
+                    {tiktokConsentDeclaration}{" "}
+                    <a
+                      href="https://developers.tiktok.com/doc/content-sharing-guidelines#compliance_requirements"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline underline-offset-2 hover:text-white"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Read TikTok Compliance Requirements
+                    </a>
+                    .
+                  </span>
                 </label>
               </div>
             ) : null}
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => submitSocialPosts("post_now")}
-                disabled={scheduleBusy || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
-                title={
-                  hasProviderBlock
-                    ? providerBlockSummary
-                    : tiktokDisclosureInvalid
-                      ? tiktokDisclosureReason
-                      : tiktokConsentMissing
-                        ? tiktokConsentReason
-                        : undefined
-                }
-                className="btn-aurora px-4 py-2 text-sm"
-              >
-                {scheduleBusy ? "Posting..." : "Post now"}
-              </button>
-              <button
-                type="button"
-                onClick={() => submitSocialPosts("schedule")}
-                disabled={scheduleBusy || !scheduleWhen || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
-                title={
-                  hasProviderBlock
-                    ? providerBlockSummary
-                    : tiktokDisclosureInvalid
-                      ? tiktokDisclosureReason
-                      : tiktokConsentMissing
-                        ? tiktokConsentReason
-                        : undefined
-                }
-                className="btn-ghost px-4 py-2 text-sm"
-              >
-                {scheduleBusy ? "Scheduling..." : "Schedule post"}
-              </button>
+              <div className="group relative inline-flex" title={postNowDisabledReason || undefined}>
+                <button
+                  type="button"
+                  onClick={() => submitSocialPosts("post_now")}
+                  disabled={scheduleBusy || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
+                  className="btn-aurora px-4 py-2 text-sm"
+                >
+                  {scheduleBusy ? "Posting..." : "Post now"}
+                </button>
+                {postNowDisabledReason ? (
+                  <div className="pointer-events-none absolute -top-9 left-0 z-20 min-w-[260px] rounded-lg border border-amber-300/40 bg-black/90 px-3 py-1.5 text-[11px] text-amber-100 opacity-0 transition-opacity group-hover:opacity-100">
+                    {postNowDisabledReason}
+                  </div>
+                ) : null}
+              </div>
+              <div className="group relative inline-flex" title={scheduleDisabledReason || undefined}>
+                <button
+                  type="button"
+                  onClick={() => submitSocialPosts("schedule")}
+                  disabled={scheduleBusy || !scheduleWhen || hasProviderBlock || tiktokDisclosureInvalid || tiktokConsentMissing}
+                  className="btn-ghost px-4 py-2 text-sm"
+                >
+                  {scheduleBusy ? "Scheduling..." : "Schedule post"}
+                </button>
+                {scheduleDisabledReason ? (
+                  <div className="pointer-events-none absolute -top-9 left-0 z-20 min-w-[260px] rounded-lg border border-amber-300/40 bg-black/90 px-3 py-1.5 text-[11px] text-amber-100 opacity-0 transition-opacity group-hover:opacity-100">
+                    {scheduleDisabledReason}
+                  </div>
+                ) : null}
+              </div>
               <div className="text-[12px] text-white/55">
                 {hasProviderBlock
                   ? providerBlockSummary
