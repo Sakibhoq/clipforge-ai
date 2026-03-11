@@ -1476,12 +1476,46 @@ def _post_scene_beat_for_index(*, scene_beats: list[str], scene_index: int, scen
     return scene_beats[beat_pos]
 
 
-def _post_scene_camera_motion(*, scene_index: int, scene_count: int) -> str:
+def _post_scene_has_dialogue(dialogue_script: str | None, raw_visual_prompt: str | None = None) -> bool:
+    dialogue_hint = _compact_dialogue_script(dialogue_script, max_chars=900)
+    if dialogue_hint:
+        return True
+    combined = f"{raw_visual_prompt or ''}".strip()
+    if not combined:
+        return False
+    if re.search(r"[\"'“”‘’][^\"'“”‘’]{6,}[\"'“”‘’]", combined):
+        return True
+    lower = combined.lower()
+    markers = (
+        "dialogue",
+        "conversation",
+        "interview",
+        "monologue",
+        "phone call",
+        "debate",
+        "argument",
+        "says",
+        "said",
+        "asks",
+        "replies",
+        "talking",
+        "talks to",
+        "lip-sync",
+        "lip sync",
+    )
+    return any(marker in lower for marker in markers)
+
+
+def _post_scene_camera_motion(*, scene_index: int, scene_count: int, dialogue_mode: bool = False) -> str:
     ratio = float(scene_index + 1) / float(max(1, scene_count))
     if ratio <= 0.2:
-        return "tight close-up opener with subtle handheld energy"
+        if dialogue_mode:
+            return "tight close-up opener with subtle handheld energy and clear mouth visibility"
+        return "wide establishing opener with clear environment context and subject readability"
     if ratio <= 0.45:
-        return "smooth pull-back reveal with depth layering"
+        if dialogue_mode:
+            return "medium close-up reveal with controlled camera motion and speaking readability"
+        return "smooth pull-back reveal with depth layering and full-body readability"
     if ratio <= 0.75:
         return "mid-shot tracking move tied to the action beat"
     if ratio <= 0.92:
@@ -1536,6 +1570,7 @@ def _build_post_scene_prompt(
         scene_count=scene_count,
     )
     style_hint = _style_hint(style_preset)
+    dialogue_mode = _post_scene_has_dialogue(dialogue_script, raw_visual_prompt)
 
     pieces: list[str] = [
         f"Scene {scene_index + 1} of {scene_count} for a vertical short-form video frame.",
@@ -1550,7 +1585,7 @@ def _build_post_scene_prompt(
         pieces.append(f"Character lock id: {character_lock_id}.")
     pieces.append(f"Primary scene direction: {scene_beat}.")
     pieces.append(
-        f"Camera direction: {_post_scene_camera_motion(scene_index=scene_index, scene_count=scene_count)}."
+        f"Camera direction: {_post_scene_camera_motion(scene_index=scene_index, scene_count=scene_count, dialogue_mode=dialogue_mode)}."
     )
     pieces.append(
         f"Pacing target: {_post_scene_intensity(scene_index=scene_index, scene_count=scene_count)}."
@@ -1583,6 +1618,11 @@ def _build_post_scene_prompt(
             " to each word while preserving the same protagonist identity."
         )
         pieces.append(f"Dialogue lines:\n{dialogue_hint}")
+    else:
+        pieces.append(
+            "Shot policy: no talking-head close-up framing unless direct spoken dialogue is present."
+            " Prioritize medium/wide cinematic framing with action and environmental context."
+        )
 
     composed = " ".join(piece.strip() for piece in pieces if piece.strip())
     return composed[:1180].rstrip()
@@ -3577,8 +3617,8 @@ def _process_job(job: dict) -> dict[str, Any]:
             if audio_duration > target_duration:
                 target_duration = audio_duration
 
-            # Lowest-cost default: image-scene mode. Enable video-scene mode only if explicitly turned on.
-            use_video_scene_mode = _env_bool("LABS_POST_USE_VIDEO_SCENE_MODE", False) and _is_low_cost_style(style_preset)
+            # AI Post is image-scene mode for all styles.
+            use_video_scene_mode = False
 
             if use_video_scene_mode:
                 def _clear_scene_video_paths() -> None:

@@ -385,6 +385,35 @@ def _clean_dialogue_script(value: str | None) -> str:
     return compact[:5000].strip()
 
 
+def _idea_implies_dialogue(idea: str | None) -> bool:
+    text = (idea or "").strip()
+    if not text:
+        return False
+    lower = text.lower()
+    if re.search(r"[\"'“”‘’][^\"'“”‘’]{6,}[\"'“”‘’]", text):
+        return True
+    dialogue_markers = (
+        "dialogue",
+        "conversation",
+        "interview",
+        "monologue",
+        "phone call",
+        "debate",
+        "argument",
+        "says",
+        "said",
+        "asks",
+        "replies",
+        "whispers",
+        "speaks",
+        "talking",
+        "talks to",
+        "lip-sync",
+        "lip sync",
+    )
+    return any(marker in lower for marker in dialogue_markers)
+
+
 def _compose_prompt_with_dialogue(prompt: str, dialogue_script: str | None) -> str:
     clean_prompt = _clean_spaces(prompt)
     dialogue = _clean_dialogue_script(dialogue_script)
@@ -606,12 +635,18 @@ def _scene_ranges(duration_seconds: int, scene_count: int) -> list[tuple[int, in
     return out
 
 
-def _camera_directive_for_scene(*, style: str, scene_index: int, scene_count: int) -> str:
+def _camera_directive_for_scene(*, style: str, scene_index: int, scene_count: int, dialogue_mode: bool = False) -> str:
     ratio = float(scene_index + 1) / float(max(1, scene_count))
     if ratio <= 0.18:
-        base = "tight close-up, strong eye contact, subtle handheld energy"
+        if dialogue_mode:
+            base = "tight close-up, strong eye contact, subtle handheld energy"
+        else:
+            base = "wide establishing shot with clear environment context and subject readability"
     elif ratio <= 0.4:
-        base = "fast pull-back reveal, smooth dolly, foreground-to-background depth"
+        if dialogue_mode:
+            base = "medium close-up reveal, smooth dolly, clear mouth readability for speech beats"
+        else:
+            base = "smooth pull-back reveal with layered depth and full-body readability"
     elif ratio <= 0.65:
         base = "mid shot with lateral tracking, motivated movement tied to action"
     elif ratio <= 0.88:
@@ -657,6 +692,7 @@ def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_rat
     scene_count_target = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
     lighting = _lighting_directive_for_style(style)
     character_anchor = _character_anchor(subject, trait_display)
+    dialogue_mode = _idea_implies_dialogue(concept)
 
     if style == "anime":
         scene_templates = [
@@ -717,7 +753,12 @@ def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_rat
         for idx, (start, end) in enumerate(ranges):
             template = scene_templates[idx] if idx < len(scene_templates) else scene_templates[-1]
             beat = template.format(subject=subject, trait=trait_display)
-            camera = _camera_directive_for_scene(style=style, scene_index=idx, scene_count=scene_count)
+            camera = _camera_directive_for_scene(
+                style=style,
+                scene_index=idx,
+                scene_count=scene_count,
+                dialogue_mode=dialogue_mode,
+            )
             lines.append(
                 f"{start}-{end}s: {beat} Camera: {camera}. Lighting: {lighting}. "
                 "Continuity lock: same protagonist identity, same wardrobe palette, same environment family."
@@ -982,10 +1023,11 @@ def _build_prompt_helper_analysis(*, idea: str, style_preset: str | None, durati
     subject, trait = _extract_subject_and_trait(concept)
     trait_display = _trait_display(trait)
     style = _normalize_style_preset(style_preset)
+    dialogue_mode = _idea_implies_dialogue(concept)
     scene_count = 8 if duration_seconds <= 60 else (10 if duration_seconds <= 90 else 12)
     ranges = _scene_ranges(duration_seconds, scene_count)
     camera_plan = [
-        f"{start}-{end}s: {_camera_directive_for_scene(style=style, scene_index=idx, scene_count=scene_count)}"
+        f"{start}-{end}s: {_camera_directive_for_scene(style=style, scene_index=idx, scene_count=scene_count, dialogue_mode=dialogue_mode)}"
         for idx, (start, end) in enumerate(ranges[: min(8, len(ranges))])
     ]
     return {
@@ -1008,17 +1050,6 @@ def _post_credits_needed(
     duration_seconds: int = POST_DEFAULT_DURATION_SECONDS,
 ) -> int:
     voice_credits = _voiceover_credits_needed(voice_script)
-    if _is_low_cost_style(style_preset):
-        safe_duration = max(60, min(120, int(duration_seconds or POST_DEFAULT_DURATION_SECONDS)))
-        default_video_credits_per_second = _video_credits_per_second("relax", style_preset)
-        post_video_credits_per_second = _env_int(
-            "LABS_POST_LOW_COST_VIDEO_CREDITS_PER_SECOND",
-            default_video_credits_per_second,
-            min_value=1,
-            max_value=10_000,
-        )
-        return (safe_duration * post_video_credits_per_second) + voice_credits
-
     safe_images = max(1, int(image_count or POST_DEFAULT_IMAGE_COUNT))
     image_credits = safe_images * _image_credits_needed(style_preset)
     return image_credits + voice_credits
