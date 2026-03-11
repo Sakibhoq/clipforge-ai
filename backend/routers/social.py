@@ -79,7 +79,6 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "userinfo_url": "https://graph.facebook.com/me",
         "scopes": [
             "pages_show_list",
-            "pages_read_engagement",
             "business_management",
             "instagram_basic",
             "instagram_content_publish",
@@ -93,7 +92,6 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "userinfo_url": "https://graph.facebook.com/me",
         "scopes": [
             "pages_show_list",
-            "pages_read_engagement",
             "pages_manage_posts",
             "business_management",
         ],
@@ -153,7 +151,6 @@ def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
         return out
 
     blocked = {
-        "pages_read_engagement",
         "pages_manage_posts",
         "instagram_basic",
         "instagram_content_publish",
@@ -676,8 +673,41 @@ class SocialDisconnectResponse(BaseModel):
     status: str
 
 
+class MetaPageOption(BaseModel):
+    page_id: str
+    page_name: str
+    has_page_access_token: bool = False
+    instagram_user_id: Optional[str] = None
+    instagram_username: Optional[str] = None
+    selected_for_facebook: bool = False
+    selected_for_instagram: bool = False
+
+
+class MetaPagesResponse(BaseModel):
+    pages: List[MetaPageOption] = Field(default_factory=list)
+    selected_facebook_page_id: Optional[str] = None
+    selected_instagram_page_id: Optional[str] = None
+    selected_instagram_user_id: Optional[str] = None
+    selected_instagram_username: Optional[str] = None
+
+
+class MetaPageTargetRequest(BaseModel):
+    page_id: str
+
+
+class MetaPageTargetResponse(BaseModel):
+    provider: str
+    page_id: str
+    page_name: str
+    instagram_user_id: Optional[str] = None
+    instagram_username: Optional[str] = None
+    account_id: Optional[str] = None
+    account_name: Optional[str] = None
+
+
 class ProviderPublishOptionsResponse(BaseModel):
     provider: str
+    account_id: Optional[str] = None
     account_name: Optional[str] = None
     last_caption: Optional[str] = None
     post_blocked: bool = False
@@ -697,6 +727,92 @@ def _serialize_social_post(post: SocialPost) -> dict:
         "posted_at": post.posted_at.isoformat() if post.posted_at else None,
         "last_error": post.last_error,
         "platform_options": options,
+    }
+
+
+def _get_connected_meta_account(
+    db: Session,
+    *,
+    user_id: int,
+    provider: Optional[str] = None,
+) -> Optional[SocialAccount]:
+    q = db.query(SocialAccount).filter(
+        SocialAccount.user_id == user_id,
+        SocialAccount.status == "connected",
+    )
+    if provider:
+        q = q.filter(SocialAccount.provider == provider)
+        rows = q.order_by(SocialAccount.id.desc()).all()
+        for row in rows:
+            if str(row.access_token or "").strip():
+                return row
+        return None
+
+    rows = q.filter(SocialAccount.provider.in_(["facebook", "instagram"])).order_by(SocialAccount.id.desc()).all()
+    # Prefer Facebook token for Meta page queries; both providers use the same Graph page APIs.
+    rows.sort(key=lambda row: 0 if str(row.provider or "").lower() == "facebook" else 1)
+    for row in rows:
+        if str(row.access_token or "").strip():
+            return row
+    return None
+
+
+def _build_meta_pages_payload(db: Session, *, user_id: int) -> dict:
+    source = _get_connected_meta_account(db, user_id=user_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Connect Facebook or Instagram first")
+
+    access_token = _refresh_access_token_if_needed(db, source)
+    pages = _meta_pages(access_token)
+    if not pages:
+        raise HTTPException(status_code=404, detail="No Facebook Pages found for this account")
+
+    fb_account = _get_connected_meta_account(db, user_id=user_id, provider="facebook")
+    ig_account = _get_connected_meta_account(db, user_id=user_id, provider="instagram")
+    fb_selected_id = str(getattr(fb_account, "account_id", "") or "").strip()
+    ig_selected_user_id = str(getattr(ig_account, "account_id", "") or "").strip()
+
+    out_pages: List[dict] = []
+    selected_facebook_page_id: Optional[str] = None
+    selected_instagram_page_id: Optional[str] = None
+    selected_instagram_user_id: Optional[str] = None
+    selected_instagram_username: Optional[str] = None
+
+    for page in pages:
+        page_id = str(page.get("id") or "").strip()
+        page_name = str(page.get("name") or "").strip() or page_id
+        page_token = str(page.get("access_token") or "").strip()
+        ig = page.get("instagram_business_account") or {}
+        ig_user_id = str(ig.get("id") or "").strip()
+        ig_username = str(ig.get("username") or "").strip()
+
+        selected_for_facebook = bool(page_id and fb_selected_id and page_id == fb_selected_id)
+        selected_for_instagram = bool(ig_user_id and ig_selected_user_id and ig_user_id == ig_selected_user_id)
+        if selected_for_facebook:
+            selected_facebook_page_id = page_id
+        if selected_for_instagram:
+            selected_instagram_page_id = page_id
+            selected_instagram_user_id = ig_user_id
+            selected_instagram_username = ig_username or None
+
+        out_pages.append(
+            {
+                "page_id": page_id,
+                "page_name": page_name,
+                "has_page_access_token": bool(page_token),
+                "instagram_user_id": ig_user_id or None,
+                "instagram_username": ig_username or None,
+                "selected_for_facebook": selected_for_facebook,
+                "selected_for_instagram": selected_for_instagram,
+            }
+        )
+
+    return {
+        "pages": out_pages,
+        "selected_facebook_page_id": selected_facebook_page_id,
+        "selected_instagram_page_id": selected_instagram_page_id,
+        "selected_instagram_user_id": selected_instagram_user_id,
+        "selected_instagram_username": selected_instagram_username,
     }
 
 
@@ -979,6 +1095,76 @@ def disconnect_account(
     return {"status": "disconnected"}
 
 
+@router.get("/meta/pages", response_model=MetaPagesResponse)
+def list_meta_pages(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _build_meta_pages_payload(db, user_id=current_user.id)
+
+
+@router.post("/accounts/{provider}/meta-target", response_model=MetaPageTargetResponse)
+def select_meta_page_target(
+    provider: str,
+    req: MetaPageTargetRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    p = str(provider or "").strip().lower()
+    if p not in {"facebook", "instagram"}:
+        raise HTTPException(status_code=404, detail="Unknown provider")
+
+    page_id = str(req.page_id or "").strip()
+    if not page_id:
+        raise HTTPException(status_code=422, detail="page_id is required")
+
+    account = _get_connected_meta_account(db, user_id=current_user.id, provider=p)
+    if not account:
+        raise HTTPException(status_code=404, detail=f"Connect {p.capitalize()} first")
+
+    access_token = _refresh_access_token_if_needed(db, account)
+    pages = _meta_pages(access_token)
+    selected_page = None
+    for page in pages:
+        if str(page.get("id") or "").strip() == page_id:
+            selected_page = page
+            break
+    if not selected_page:
+        raise HTTPException(status_code=404, detail="Selected Page was not found in this account")
+
+    page_name = str(selected_page.get("name") or "").strip() or page_id
+    page_access_token = str(selected_page.get("access_token") or "").strip()
+    ig = selected_page.get("instagram_business_account") or {}
+    ig_user_id = str(ig.get("id") or "").strip()
+    ig_username = str(ig.get("username") or "").strip()
+
+    if p == "facebook":
+        if not page_access_token:
+            raise HTTPException(status_code=422, detail="Selected Page is missing publish access token")
+        account.account_id = page_id
+        account.account_name = page_name
+    else:
+        if not ig_user_id:
+            raise HTTPException(
+                status_code=422,
+                detail="Selected Page has no linked Instagram Professional account",
+            )
+        account.account_id = ig_user_id
+        account.account_name = ig_username or page_name
+
+    db.commit()
+
+    return {
+        "provider": p,
+        "page_id": page_id,
+        "page_name": page_name,
+        "instagram_user_id": ig_user_id or None,
+        "instagram_username": ig_username or None,
+        "account_id": account.account_id,
+        "account_name": account.account_name,
+    }
+
+
 @router.get("/providers/{provider}/publish-options", response_model=ProviderPublishOptionsResponse)
 def get_provider_publish_options(
     provider: str,
@@ -989,9 +1175,24 @@ def get_provider_publish_options(
     if p not in PROVIDERS:
         raise HTTPException(status_code=404, detail="Unknown provider")
 
+    connected_account = (
+        db.query(SocialAccount)
+        .filter(
+            SocialAccount.user_id == current_user.id,
+            SocialAccount.provider == p,
+            SocialAccount.status == "connected",
+        )
+        .order_by(SocialAccount.id.desc())
+        .first()
+    )
+    connected_account_id = str(getattr(connected_account, "account_id", "") or "").strip() or None
+    connected_account_name = str(getattr(connected_account, "account_name", "") or "").strip() or None
+
     if p == "youtube":
         return {
             "provider": p,
+            "account_id": connected_account_id,
+            "account_name": connected_account_name,
             "options": {
                 "privacy_status": {
                     "value": "public",
@@ -1003,13 +1204,20 @@ def get_provider_publish_options(
     if p == "instagram":
         return {
             "provider": p,
+            "account_id": connected_account_id,
+            "account_name": connected_account_name,
             "options": {
                 "share_to_feed": {"value": True},
             },
         }
 
     if p == "facebook":
-        return {"provider": p, "options": {}}
+        return {
+            "provider": p,
+            "account_id": connected_account_id,
+            "account_name": connected_account_name,
+            "options": {},
+        }
 
     # TikTok: query creator capabilities for required posting UX controls.
     account = (

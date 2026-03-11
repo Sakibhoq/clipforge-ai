@@ -106,6 +106,7 @@ type SocialPostDTO = {
 
 type ProviderPublishOptionsDTO = {
   provider: string;
+  account_id?: string | null;
   account_name?: string | null;
   last_caption?: string | null;
   post_blocked?: boolean;
@@ -3966,9 +3967,19 @@ function ScheduleForm({
               }
 
               if (provider === "instagram") {
+                const accountName = String(catalog.account_name || "").trim();
+                const accountId = String(catalog.account_id || "").trim();
                 return (
                   <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
-                    <div className="text-[12px] font-semibold text-white/86">Instagram</div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[12px] font-semibold text-white/86">Instagram</div>
+                      {accountName || accountId ? (
+                        <div className="text-[11px] text-white/55">
+                          {accountName || accountId}
+                          {accountName && accountId ? ` (${accountId})` : ""}
+                        </div>
+                      ) : null}
+                    </div>
                     <label className="mt-2 flex items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white/80">
                       <input
                         type="checkbox"
@@ -3985,8 +3996,16 @@ function ScheduleForm({
 
               return (
                 <div key={provider} className="rounded-xl border border-white/12 bg-black/25 p-3">
-                  <div className="text-[12px] font-semibold text-white/86">Facebook</div>
-                  <div className="mt-2 text-[12px] text-white/60">Uses your connected Page settings.</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-[12px] font-semibold text-white/86">Facebook</div>
+                    {(catalog.account_name || catalog.account_id) ? (
+                      <div className="text-[11px] text-white/55">
+                        {catalog.account_name || catalog.account_id}
+                        {catalog.account_name && catalog.account_id ? ` (${catalog.account_id})` : ""}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-[12px] text-white/60">Uses your selected connected Page.</div>
                 </div>
               );
             })}

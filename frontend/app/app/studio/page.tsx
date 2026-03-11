@@ -14,6 +14,20 @@ type SocialAccount = {
   status?: string | null;
 };
 
+type MetaPageOption = {
+  page_id: string;
+  page_name: string;
+  has_page_access_token?: boolean;
+  instagram_user_id?: string | null;
+  instagram_username?: string | null;
+  selected_for_facebook?: boolean;
+  selected_for_instagram?: boolean;
+};
+
+type MetaPagesResponse = {
+  pages?: MetaPageOption[];
+};
+
 type MeResponse = {
   plan?: string | null;
 };
@@ -54,7 +68,9 @@ function StatPill({ label, value }: { label: string; value: string }) {
 
 export default function StudioPage() {
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [metaPages, setMetaPages] = useState<MetaPageOption[]>([]);
   const [socialBusy, setSocialBusy] = useState<string | null>(null);
+  const [metaBusy, setMetaBusy] = useState<string | null>(null);
   const [socialMsg, setSocialMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,8 +80,13 @@ export default function StudioPage() {
     setLoading(true);
     setError(null);
     try {
-      const [sa] = await Promise.allSettled([apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" })]);
+      const [sa, mp] = await Promise.allSettled([
+        apiFetch<SocialAccount[]>("/social/accounts", { method: "GET" }),
+        apiFetch<MetaPagesResponse>("/social/meta/pages", { method: "GET" }),
+      ]);
       if (sa.status === "fulfilled") setSocialAccounts(Array.isArray(sa.value) ? sa.value : []);
+      if (mp.status === "fulfilled") setMetaPages(Array.isArray(mp.value?.pages) ? mp.value.pages : []);
+      if (mp.status === "rejected") setMetaPages([]);
       if (sa.status === "rejected") setError("Could not load data right now. Please refresh.");
     } finally {
       setLoading(false);
@@ -130,6 +151,15 @@ export default function StudioPage() {
     setSocialAccounts(Array.isArray(data) ? data : []);
   }
 
+  async function refreshMetaPages() {
+    try {
+      const data = await apiFetch<MetaPagesResponse>("/social/meta/pages", { method: "GET" });
+      setMetaPages(Array.isArray(data?.pages) ? data.pages : []);
+    } catch {
+      setMetaPages([]);
+    }
+  }
+
   async function connectSocial(provider: string) {
     if (socialBusy) return;
     if (!allowedProviderSet.has(provider as SocialProviderKey)) {
@@ -162,11 +192,32 @@ export default function StudioPage() {
         method: "POST",
       })) as any;
       setSocialMsg(res?.status ? `${provider} ${res.status}` : `${provider} disconnected`);
-      await refreshSocialAccounts();
+      await Promise.all([refreshSocialAccounts(), refreshMetaPages()]);
     } catch (e: any) {
       setSocialMsg(e?.detail || e?.message || `Failed to disconnect ${provider}.`);
     } finally {
       setSocialBusy(null);
+    }
+  }
+
+  async function selectMetaTarget(provider: "facebook" | "instagram", pageId: string) {
+    if (socialBusy || metaBusy) return;
+    const pid = String(pageId || "").trim();
+    if (!pid) return;
+    setSocialMsg(null);
+    setMetaBusy(provider);
+    try {
+      const res = (await apiFetch<{ page_name?: string }>(`/social/accounts/${provider}/meta-target`, {
+        method: "POST",
+        body: { page_id: pid },
+      })) as any;
+      const targetLabel = provider === "facebook" ? "Facebook Page" : "Instagram Page";
+      setSocialMsg(`${targetLabel} set to ${res?.page_name || pid}`);
+      await Promise.all([refreshSocialAccounts(), refreshMetaPages()]);
+    } catch (e: any) {
+      setSocialMsg(e?.detail || e?.message || `Failed to select ${provider} page.`);
+    } finally {
+      setMetaBusy(null);
     }
   }
 
@@ -248,6 +299,28 @@ export default function StudioPage() {
                 const busyConnecting = socialBusy === provider.key;
                 const busyDisconnecting = socialBusy === `disconnect:${provider.key}`;
                 const canConnect = allowedProviderSet.has(provider.key);
+                const isMetaProvider = provider.key === "facebook" || provider.key === "instagram";
+                const eligiblePages = isMetaProvider
+                  ? metaPages.filter((page) =>
+                      provider.key === "facebook" ? Boolean(page.has_page_access_token) : Boolean(page.instagram_user_id)
+                    )
+                  : [];
+                const selectedMetaPage = isMetaProvider
+                  ? eligiblePages.find((page) =>
+                      provider.key === "facebook" ? Boolean(page.selected_for_facebook) : Boolean(page.selected_for_instagram)
+                    ) || null
+                  : null;
+                const metaSelectionBusy = metaBusy === provider.key;
+                const metaSelectedText = selectedMetaPage
+                  ? `${selectedMetaPage.page_name} (${selectedMetaPage.page_id})`
+                  : "No page selected";
+                const pageOptionLabel = (page: MetaPageOption) => {
+                  if (provider.key === "instagram") {
+                    const ig = String(page.instagram_username || "").trim();
+                    return ig ? `${page.page_name} (${page.page_id}) · @${ig}` : `${page.page_name} (${page.page_id})`;
+                  }
+                  return `${page.page_name} (${page.page_id})`;
+                };
 
                 return (
                   <div
@@ -280,6 +353,49 @@ export default function StudioPage() {
                             ? account?.account_name || account?.account_id || "Connected"
                             : provider.hint}
                         </div>
+                        {connected && isMetaProvider ? (
+                          <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3">
+                            <div className="text-[11px] text-white/55">
+                              {provider.key === "facebook"
+                                ? "Publishing Page (required for Facebook posts)"
+                                : "Linked Facebook Page for Instagram publishing"}
+                            </div>
+                            {eligiblePages.length > 0 ? (
+                              <>
+                                <div className="mt-2 text-[11px] text-white/65">
+                                  Selected: <span className="text-white/85">{metaSelectedText}</span>
+                                </div>
+                                <select
+                                  value={selectedMetaPage?.page_id || ""}
+                                  onChange={(e) => void selectMetaTarget(provider.key as "facebook" | "instagram", e.target.value)}
+                                  disabled={!!socialBusy || !!metaBusy}
+                                  className="mt-2 h-10 w-full rounded-xl border border-white/12 bg-black/40 px-3 text-sm text-white/90 outline-none focus:border-cyan-300/50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <option value="" disabled>
+                                    Select a Page
+                                  </option>
+                                  {eligiblePages.map((page) => (
+                                    <option key={page.page_id} value={page.page_id}>
+                                      {pageOptionLabel(page)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="mt-2 text-[11px] text-white/52">
+                                  Use this selector in your Meta review recording to show list + single Page selection.
+                                </div>
+                              </>
+                            ) : (
+                              <div className="mt-2 text-[11px] text-amber-200/85">
+                                {provider.key === "facebook"
+                                  ? "No publishable Pages found yet. Reconnect and approve Page access."
+                                  : "No Instagram Professional account is linked to your Pages yet."}
+                              </div>
+                            )}
+                            {metaSelectionBusy ? (
+                              <div className="mt-2 text-[11px] text-white/55">Saving selection...</div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div className="flex items-center gap-2">
