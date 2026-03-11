@@ -653,6 +653,8 @@ class SocialPostRequest(BaseModel):
 
 class SocialPostResponse(BaseModel):
     id: int
+    clip_id: int
+    caption: Optional[str]
     provider: str
     status: str
     scheduled_at: Optional[str]
@@ -842,6 +844,8 @@ def _serialize_social_post(post: SocialPost) -> dict:
         options = {}
     return {
         "id": post.id,
+        "clip_id": int(post.clip_id),
+        "caption": post.caption,
         "provider": post.provider,
         "status": post.status,
         "scheduled_at": post.scheduled_at.isoformat() if post.scheduled_at else None,
@@ -2189,6 +2193,52 @@ def list_posts(
         .all()
     )
     return [_serialize_social_post(r) for r in rows]
+
+
+@router.post("/posts/{post_id}/cancel", response_model=SocialPostResponse)
+def cancel_post(
+    post_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = (
+        db.query(SocialPost)
+        .filter(SocialPost.user_id == current_user.id, SocialPost.id == int(post_id))
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # Only queued/scheduled posts can be cancelled before dispatch.
+    claimed = (
+        db.query(SocialPost)
+        .filter(
+            SocialPost.id == row.id,
+            SocialPost.user_id == current_user.id,
+            SocialPost.status.in_(["queued", "scheduled"]),
+        )
+        .update(
+            {
+                SocialPost.status: "cancelled",
+                SocialPost.last_error: "Cancelled by user",
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    db.refresh(row)
+
+    if claimed == 0:
+        state = str(row.status or "").strip().lower()
+        if state == "posting":
+            raise HTTPException(status_code=409, detail="Post is already publishing and can no longer be cancelled.")
+        if state == "posted":
+            raise HTTPException(status_code=409, detail="Post is already published.")
+        if state in {"cancelled", "canceled"}:
+            raise HTTPException(status_code=409, detail="Post is already cancelled.")
+        raise HTTPException(status_code=409, detail=f"Post cannot be cancelled from status '{row.status}'.")
+
+    return _serialize_social_post(row)
 
 
 def _load_due_posts(

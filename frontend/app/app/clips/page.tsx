@@ -96,6 +96,8 @@ type SocialAccountDTO = {
 
 type SocialPostDTO = {
   id: number;
+  clip_id?: number;
+  caption?: string | null;
   provider: string;
   status: string;
   scheduled_at?: string | null;
@@ -228,6 +230,26 @@ function shortenErrorText(v: string, max = 240): string {
   const s = String(v || "").trim();
   if (!s) return "Failed";
   return s.length > max ? `${s.slice(0, max)}...` : s;
+}
+
+function shortText(v: string, max = 72): string {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  return s.length > max ? `${s.slice(0, max)}...` : s;
+}
+
+function formatScheduleDateTime(iso: string | null | undefined): string {
+  const raw = String(iso || "").trim();
+  if (!raw) return "No schedule time";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function socialPublishErrorHint(provider: string, raw: string): string {
@@ -1092,6 +1114,10 @@ function ClipsWorkspace() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+  const [scheduledPosts, setScheduledPosts] = useState<SocialPostDTO[]>([]);
+  const [scheduledLoading, setScheduledLoading] = useState(false);
+  const [scheduledError, setScheduledError] = useState<string | null>(null);
+  const [scheduledCancelBusyId, setScheduledCancelBusyId] = useState<number | null>(null);
   const [tiktokFinalConsent, setTiktokFinalConsent] = useState(false);
   const [providerOptionCatalog, setProviderOptionCatalog] = useState<
     Partial<Record<SupportedSocialProvider, ProviderPublishOptionsDTO>>
@@ -1202,6 +1228,11 @@ function ClipsWorkspace() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    void loadScheduledPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1335,6 +1366,36 @@ function ClipsWorkspace() {
       setProviderOptionValues((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), ...defaults } }));
     } finally {
       setProviderOptionLoading((prev) => ({ ...prev, [provider]: false }));
+    }
+  }
+
+  async function loadScheduledPosts() {
+    setScheduledLoading(true);
+    setScheduledError(null);
+    try {
+      const rows = await apiFetch<SocialPostDTO[]>("/social/posts?limit=120", { method: "GET" });
+      setScheduledPosts(Array.isArray(rows) ? rows : []);
+    } catch (e: any) {
+      setScheduledError(toErrorText(e));
+      setScheduledPosts([]);
+    } finally {
+      setScheduledLoading(false);
+    }
+  }
+
+  async function cancelScheduledPost(post: SocialPostDTO) {
+    const postId = Number(post?.id || 0);
+    if (!Number.isFinite(postId) || postId <= 0 || scheduledCancelBusyId !== null) return;
+    setScheduledCancelBusyId(postId);
+    setActionError(null);
+    try {
+      await apiFetch<SocialPostDTO>(`/social/posts/${postId}/cancel`, { method: "POST" });
+      setScheduleNotice(`${socialLabel(post.provider)} schedule cancelled.`);
+      await loadScheduledPosts();
+    } catch (e: any) {
+      setActionError(toErrorText(e));
+    } finally {
+      setScheduledCancelBusyId(null);
     }
   }
 
@@ -1640,6 +1701,7 @@ function ClipsWorkspace() {
       setScheduleError(toErrorText(e));
     } finally {
       setScheduleBusy(false);
+      void loadScheduledPosts();
     }
   }
 
@@ -1804,6 +1866,36 @@ function ClipsWorkspace() {
     }
     return null;
   }, [clips, groups, scheduleClipId]);
+
+  const clipById = useMemo(() => {
+    const map = new Map<number, ClipDTO>();
+    for (const c of clips) map.set(Number(c.id), c);
+    for (const g of groups) {
+      for (const c of g.clips || []) map.set(Number(c.id), c);
+    }
+    return map;
+  }, [clips, groups]);
+
+  const scheduledQueue = useMemo(() => {
+    return [...scheduledPosts]
+      .filter((post) => String(post.status || "").toLowerCase() === "scheduled")
+      .sort((a, b) => {
+        const ta = Date.parse(String(a.scheduled_at || "")) || Number.MAX_SAFE_INTEGER;
+        const tb = Date.parse(String(b.scheduled_at || "")) || Number.MAX_SAFE_INTEGER;
+        return ta - tb;
+      });
+  }, [scheduledPosts]);
+
+  function scheduledPostTitle(post: SocialPostDTO): string {
+    const clipId = Number(post.clip_id || 0);
+    if (Number.isFinite(clipId) && clipId > 0) {
+      const clipRow = clipById.get(clipId);
+      if (clipRow) return autoTitle(clipRow);
+      return `Clip #${clipId}`;
+    }
+    const caption = shortText(String(post.caption || "").trim(), 56);
+    return caption || `Post #${post.id}`;
+  }
 
   const hasAny = isGroupedMode ? visibleGroups.length > 0 : visibleClips.length > 0;
 
@@ -1975,6 +2067,76 @@ function ClipsWorkspace() {
             </span>
           ) : null}
         </div>
+      </div>
+
+      <div className="surface-soft p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-white/90">Scheduled posts queue</div>
+            <div className="mt-1 text-[12px] text-white/60">
+              View upcoming scheduled posts and cancel before publish.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-[12px] text-white/65">
+              {scheduledQueue.length} scheduled
+            </span>
+            <button
+              type="button"
+              onClick={() => void loadScheduledPosts()}
+              className="btn-ghost px-3 py-1.5 text-[11px]"
+              disabled={scheduledLoading}
+            >
+              {scheduledLoading ? "Refreshing..." : "Refresh queue"}
+            </button>
+          </div>
+        </div>
+
+        {scheduledError ? (
+          <div className="mt-3 rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-2 text-[12px] text-rose-100/90">
+            {scheduledError}
+          </div>
+        ) : null}
+
+        {scheduledQueue.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[12px] text-white/55">
+            No scheduled posts yet.
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            {scheduledQueue.map((post) => {
+              const isBusy = scheduledCancelBusyId === post.id;
+              return (
+                <div key={post.id} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-cyan-100">
+                          {socialLabel(post.provider)}
+                        </span>
+                        <span className="text-[11px] text-white/50">Post #{post.id}</span>
+                      </div>
+                      <div className="mt-1 truncate text-sm font-semibold text-white/90">
+                        {scheduledPostTitle(post)}
+                      </div>
+                      <div className="mt-1 text-[12px] text-white/60">
+                        Scheduled for {formatScheduleDateTime(post.scheduled_at)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void cancelScheduledPost(post)}
+                      disabled={isBusy || scheduledCancelBusyId !== null}
+                      className="btn-ghost px-3 py-1.5 text-[11px]"
+                    >
+                      {isBusy ? "Cancelling..." : "Cancel schedule"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* CONTENT */}
