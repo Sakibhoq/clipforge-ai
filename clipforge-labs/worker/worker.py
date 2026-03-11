@@ -520,6 +520,15 @@ def _is_model_unavailable_error(exc: Exception | str | None) -> bool:
     return any(marker in msg for marker in markers)
 
 
+def _is_seed_watermark_conflict_error(exc: Exception | str | None) -> bool:
+    msg = str(exc or "").strip().lower()
+    if not msg:
+        return False
+    if "seed is not supported when watermark is enabled" in msg:
+        return True
+    return "seed" in msg and "watermark" in msg and ("not supported" in msg or "unsupported" in msg)
+
+
 def _resolve_provider_url(raw_url: str) -> str:
     url = (raw_url or "").strip()
     if not url:
@@ -960,6 +969,7 @@ def _run_google_vertex_image_generation(
     seed: int | None = None,
     task: str = "image",
     _allow_model_fallback: bool = True,
+    _allow_seed_retry: bool = True,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
@@ -1019,6 +1029,28 @@ def _run_google_vertex_image_generation(
 
         return media_bytes, media_type, None, None
     except Exception as exc:
+        should_retry_without_seed = (
+            _allow_seed_retry
+            and isinstance(seed, int)
+            and seed > 0
+            and _is_seed_watermark_conflict_error(exc)
+        )
+        if should_retry_without_seed:
+            print(
+                f"[worker] image seed+watermark conflict model_id={model_id}; "
+                "retrying without seed"
+            )
+            return _run_google_vertex_image_generation(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                aspect_ratio=aspect_ratio,
+                style_preset=style_preset,
+                seed=None,
+                task=task,
+                _allow_model_fallback=_allow_model_fallback,
+                _allow_seed_retry=False,
+            )
+
         should_retry_default = (
             _allow_model_fallback
             and model_id != default_model_id
@@ -1037,6 +1069,7 @@ def _run_google_vertex_image_generation(
                 seed=seed,
                 task=task,
                 _allow_model_fallback=False,
+                _allow_seed_retry=_allow_seed_retry,
             )
         raise
 
