@@ -143,8 +143,9 @@ services:
       WORKER_WATERMARK_PNG: /app/assets/orbito-mark.png
       WORKER_WATERMARK_TEXT_FONTFILE: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
       WORKER_WATERMARK_TEXT: "Orbito"
-      WORKER_CLIP_TARGET_SECONDS: "55"
-      WORKER_CLIP_MAX_SECONDS: "65"
+      WORKER_CLIP_MIN_SECONDS: "32"
+      WORKER_CLIP_TARGET_SECONDS: "58"
+      WORKER_CLIP_MAX_SECONDS: "78"
       WORKER_MIN_CLIPS_PER_MINUTE: "0.6"
       WORKER_TOP_K_CLIPS: "0"
       WORKER_MAX_TOP_K_CLIPS: "0"

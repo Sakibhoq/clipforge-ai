@@ -1128,6 +1128,11 @@ function UploadWorkspace() {
 
     const sess = loadPersistedSession();
     let resumed = false;
+    let pendingInterrupted: {
+      fileName: string;
+      progress: number | null;
+      startedAt: number | null;
+    } | null = null;
     if (sess?.fileName) setLastKnownFileName(sess.fileName);
     if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
 
@@ -1142,20 +1147,39 @@ function UploadWorkspace() {
       setStatusText("Resuming…");
       pollJobUntilComplete(sess.jobId).catch(() => {});
     } else if (sess?.flow === "uploading" && sess.fileName) {
-      setInterruptedUpload({
+      pendingInterrupted = {
         fileName: sess.fileName,
         progress: Number.isFinite(sess.progress) ? Number(sess.progress) : null,
         startedAt: Number.isFinite(sess.startedAt) ? Number(sess.startedAt) : null,
-      });
-      clearPersistedSession();
+      };
     }
 
     const ac = new AbortController();
     const refresh = async () => {
       const active = await refreshActiveJobs(ac.signal);
       if (!resumed && active.length > 0) {
-        resumed = true;
-        trackServerJob(active[0]);
+        let resumable: JobRow | null = active[0] ?? null;
+        if (pendingInterrupted && Number.isFinite(pendingInterrupted.startedAt)) {
+          const startedAt = Number(pendingInterrupted.startedAt);
+          const windowStart = startedAt - (2 * 60 * 1000);
+          const windowEnd = startedAt + (15 * 60 * 1000);
+          resumable =
+            active.find((row) => {
+              const createdAtMs = Date.parse(row.created_at || "");
+              return Number.isFinite(createdAtMs) && createdAtMs >= windowStart && createdAtMs <= windowEnd;
+            }) ?? null;
+        }
+        if (resumable) {
+          resumed = true;
+          trackServerJob(resumable);
+          setInterruptedUpload(null);
+          clearPersistedSession();
+          return;
+        }
+      }
+      if (!resumed && pendingInterrupted) {
+        setInterruptedUpload(pendingInterrupted);
+        clearPersistedSession();
       }
     };
     void refresh();

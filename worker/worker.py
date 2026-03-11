@@ -1159,16 +1159,16 @@ from typing import List, Dict
 # -----------------------------------------------------
 
 CLIP_MIN_SECONDS = float(
-    os.getenv("WORKER_CLIP_MIN_SECONDS", "25.0")
+    os.getenv("WORKER_CLIP_MIN_SECONDS", "32.0")
 )
 CLIP_TARGET_SECONDS = float(
-    os.getenv("WORKER_CLIP_TARGET_SECONDS", "42.0")
+    os.getenv("WORKER_CLIP_TARGET_SECONDS", "58.0")
 )
 CLIP_MAX_SECONDS = float(
-    os.getenv("WORKER_CLIP_MAX_SECONDS", "50.0")
+    os.getenv("WORKER_CLIP_MAX_SECONDS", "78.0")
 )
 MIN_CLIPS_PER_MINUTE = float(
-    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "1.2")
+    os.getenv("WORKER_MIN_CLIPS_PER_MINUTE", "0.6")
 )
 
 SILENCE_PADDING = float(
@@ -1198,7 +1198,7 @@ def _derive_clip_length_profile(
     Build an adaptive clip length profile so output lengths are topic-driven
     instead of collapsing to one static duration.
     """
-    base_min = max(6.0, float(CLIP_MIN_SECONDS))
+    base_min = max(8.0, float(CLIP_MIN_SECONDS))
     base_target = max(base_min, float(CLIP_TARGET_SECONDS))
     base_max = max(base_target, float(CLIP_MAX_SECONDS))
     safe_video_duration = max(1.0, float(video_duration or 0.0))
@@ -1228,11 +1228,16 @@ def _derive_clip_length_profile(
 
     target = clamp(
         (natural_target * 0.68) + (timeline_target * 0.32),
-        max(10.0, base_min * 0.55),
+        max(18.0, base_min * 0.80),
         base_max,
     )
-    minimum = clamp(min(base_min, max(8.0, target * 0.62)), 6.0, target)
-    maximum = clamp(max(target + 6.0, min(base_max, target * 1.35)), target, base_max)
+    if safe_video_duration >= 150.0:
+        target = max(target, min(base_max, 60.0))
+    elif safe_video_duration >= 105.0:
+        target = max(target, min(base_max, 52.0))
+
+    minimum = clamp(max(base_min, target * 0.70), 8.0, target)
+    maximum = clamp(max(target + 10.0, min(base_max, target * 1.45)), target, base_max)
 
     return {"min": minimum, "target": target, "max": maximum}
 
@@ -1410,7 +1415,7 @@ def refine_clip_boundaries(
         prev = no_overlap[-1]
         if clip["start"] < prev["end"]:
             trimmed_start = prev["end"]
-            if clip["end"] - trimmed_start < max(2.0, clip_min_seconds * 0.5):
+            if clip["end"] - trimmed_start < max(3.0, clip_min_seconds * 0.85):
                 continue
             clip = {
                 "start": trimmed_start,

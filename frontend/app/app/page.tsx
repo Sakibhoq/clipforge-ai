@@ -2,7 +2,6 @@
 
 import React from "react";
 import UploadsPage from "@/app/app/upload/page";
-import ClipsPage from "@/app/app/clips/page";
 import { BRAND } from "@/lib/brand";
 
 export default function OverviewPage() {
@@ -64,10 +63,7 @@ export default function OverviewPage() {
         </section>
 
         <section className="mt-8">
-          <div className="grid gap-8">
-            <UploadsPage />
-            <ClipsPage />
-          </div>
+          <UploadsPage />
         </section>
 
         <footer className="mt-10 border-t border-white/10 pt-6 text-xs text-white/50">
