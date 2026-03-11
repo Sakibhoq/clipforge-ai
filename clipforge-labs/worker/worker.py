@@ -1715,28 +1715,28 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
 
     style = (preset or "").strip().lower()
     if style == "minimal":
-        font_size = _scaled_font(min(30, max(22, int(video_h * 0.016))), 14)
-        margin_v = max(52, int(video_h * 0.048))
+        font_size = _scaled_font(min(26, max(18, int(video_h * 0.013))), 12)
+        margin_v = max(46, int(video_h * 0.042))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H00000000,"
-            "BorderStyle=1,Outline=2,Shadow=1,Bold=0,MarginL=34,MarginR=34,WrapStyle=2"
+            "PrimaryColour=&H00F7F7F7,OutlineColour=&H00151515,BackColour=&H00000000,"
+            "BorderStyle=1,Outline=1,Shadow=0,Bold=0,Italic=0,MarginL=38,MarginR=38,WrapStyle=2"
         )
     if style == "clean_bottom":
-        font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
-        margin_v = max(58, int(video_h * 0.052))
+        font_size = _scaled_font(min(30, max(21, int(video_h * 0.016))), 14)
+        margin_v = max(54, int(video_h * 0.050))
         return (
             f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H00000000,"
-            "BorderStyle=1,Outline=2,Shadow=1,Bold=1,MarginL=40,MarginR=40,WrapStyle=2"
+            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00242424,BackColour=&H66202020,"
+            "BorderStyle=3,Outline=0,Shadow=0,Bold=1,MarginL=42,MarginR=42,WrapStyle=2"
         )
     # default: bold_center
-    font_size = _scaled_font(min(36, max(26, int(video_h * 0.020))), 17)
-    margin_v = max(64, int(video_h * 0.056))
+    font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
+    margin_v = max(80, int(video_h * 0.070))
     return (
-        f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H00000000,"
-        "BorderStyle=1,Outline=2,Shadow=1,Bold=1,MarginL=42,MarginR=42,WrapStyle=2"
+        f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=5,MarginV={margin_v},"
+        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H7A000000,"
+        "BorderStyle=3,Outline=0,Shadow=0,Bold=1,MarginL=46,MarginR=46,WrapStyle=2"
     )
 
 

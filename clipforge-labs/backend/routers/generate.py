@@ -764,68 +764,185 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
         ),
     )
 
+    def _genre_token() -> str:
+        low = (concept or "").lower()
+        if any(k in low for k in ("thriller", "crime", "killer", "detective", "mystery", "conspiracy", "betray")):
+            return "thriller"
+        if any(k in low for k in ("history", "historical", "ancient", "legend", "war", "desert")):
+            return "historical"
+        if any(k in low for k in ("horror", "haunted", "ghost", "dark")):
+            return "horror"
+        return "adventure"
+
+    def _narration_subject() -> str:
+        lowered = _clean_spaces(subject).lower()
+        generic_tokens = {"story", "clip", "video", "concept", "idea", "character", "hero"}
+        if not lowered or lowered in generic_tokens or len(lowered.split()) <= 1 and lowered in {"story", "concept"}:
+            if style == "anime":
+                return "the hunter"
+            if style == "cartoon":
+                return "the underdog hero"
+            if style == "comic":
+                return "the detective"
+            if _genre_token() == "thriller":
+                return "the lead investigator"
+            return "the protagonist"
+        return _subject_narration(subject)
+
+    def _pick(options: list[str], seed: int, offset: int) -> str:
+        if not options:
+            return ""
+        return options[(seed + offset) % len(options)]
+
+    genre = _genre_token()
+    narrator_subject = _narration_subject()
+    seed = sum(ord(ch) for ch in (concept or narrator_subject)) % 997
+    concept_hint = _truncate_words(_clean_spaces(concept), 8)
+
     if style == "anime":
-        sentences = [
-            f"In a world that ranks everyone by strength, {subject_narration} gets a second life.",
-            "At first, nobody sees the danger coming, and the city moves like nothing changed.",
-            f"Then the first attack hits, and {subject_narration} answers with {trait_display}.",
-            "One move turns panic into silence, and every eye locks on the new reality.",
-            "The threat escalates, faster and louder, but the hero stays calm and precise.",
-            "Every clash reveals more control, more confidence, and zero hesitation.",
-            "By the final beat, the strongest enemy is already out of options.",
-            "This is not luck or hype. This is preparation meeting power at the perfect moment.",
-            "When the dust settles, one truth remains: calm focus wins, even under impossible pressure.",
+        openings = [
+            f"Sirens cut through the night as {narrator_subject} steps into a city that already feels cursed.",
+            f"The gate opens above the skyline, and {narrator_subject} is the only one still moving forward.",
+        ]
+        rises = [
+            f"The first wave hits hard, but {narrator_subject} answers with {trait_display} and razor focus.",
+            "Every clash comes faster, louder, and closer, until the street turns into a battlefield.",
+            "Fear spreads through the crowd, then flips into silence the moment the momentum changes.",
+            "Even allies who doubted start following, because the plan is finally visible.",
+        ]
+        climax = [
+            "At the peak, the strongest threat tries to break the line in one final rush.",
+            "The counter lands in a single precise sequence, clean enough to change the entire fight.",
+        ]
+        close = [
+            "When dawn finally breaks, the city is still standing and the legend is just beginning.",
+            "The final look is calm, steady, and dangerous: power with discipline, not chaos.",
+        ]
+        expansion_pool = [
+            "The heartbeat stays high, but the camera keeps every move readable and deliberate.",
+            "A brief quiet beat lets the emotion breathe before the next impact detonates.",
+            "By the end, every earlier detail pays off in a way that feels earned, not random.",
+        ]
+        base_sentences = [
+            _pick(openings, seed, 0),
+            _pick(rises, seed, 1),
+            _pick(rises, seed, 2),
+            _pick(rises, seed, 3),
+            _pick(climax, seed, 4),
+            _pick(climax, seed, 5),
+            _pick(close, seed, 6),
         ]
     elif style == "cartoon":
-        sentences = [
-            f"Meet {subject_narration}, dropped into a chaotic world and expected to fail instantly.",
-            f"Instead, the first challenge gets flipped with {trait_display} and perfect timing.",
-            "The pace jumps fast, with big reactions, tight turns, and playful confidence.",
-            "Every beat raises the stakes, but the hero keeps solving problems one step at a time.",
-            "What starts as noise becomes a clean pattern, and momentum starts compounding.",
-            "By the final stretch, the crowd that doubted is now fully on board.",
-            "The ending lands with clarity: simple choices, steady execution, strong results.",
-            "Keep moving, keep adapting, and finish what you start.",
+        base_sentences = [
+            f"{narrator_subject.capitalize()} starts the day with a simple goal and immediately gets thrown into chaos.",
+            f"One bad turn leads to another, but {narrator_subject} keeps adapting with {trait_display}.",
+            "The world is colorful and playful, but the stakes are real and the clock is not slowing down.",
+            "Each new obstacle looks impossible for exactly one second, then gets solved with smart timing.",
+            "The midpoint stings, the comeback feels earned, and the momentum turns hard in the hero's favor.",
+            "By the final beat, the crowd is laughing, cheering, and fully invested in the finish.",
+            "The ending lands warm and satisfying: courage, heart, and one clean last move.",
+        ]
+        expansion_pool = [
+            "Small choices matter, and every callback from earlier scenes gets paid off.",
+            "The humor never kills the tension; it makes the turnaround hit even harder.",
+            "Underneath the fun, the story stays human: fear, recovery, and confidence rebuilt in public.",
         ]
     elif style == "comic":
-        sentences = [
-            f"The frame opens on {subject_narration}, underestimated and outnumbered.",
-            "Pressure builds fast, shadows stretch, and the threat fills the panel.",
-            f"Then the pivot hits: {trait_display}, executed with absolute control.",
-            "Impact after impact, the momentum shifts and never swings back.",
-            "Close-ups show calm focus while the world around the hero breaks formation.",
-            "The final exchange lands like a headline moment, clean and undeniable.",
-            "When the scene resolves, the message is clear: discipline creates power.",
-            "One minute, one arc, one result that speaks for itself.",
+        base_sentences = [
+            f"Rain hits the pavement as {narrator_subject} stares at a case no one else wants to touch.",
+            "A witness disappears, the timeline cracks, and every clue points in a different direction.",
+            f"Then {narrator_subject} spots the hidden pattern and moves with {trait_display}.",
+            "Panels tighten around every choice, and each reveal raises the cost of being wrong.",
+            "When the pressure peaks, the truth surfaces in one brutal, undeniable moment.",
+            "The final confrontation is short, sharp, and personal, exactly how this story needs to end.",
+            "Last frame: justice with a scar, victory with a price, and silence after the storm.",
+        ]
+        expansion_pool = [
+            "No monologue wastes time; every line either exposes motive or changes the next move.",
+            "The city feels alive, dangerous, and close enough to breathe against your neck.",
+            "By the end, the hero wins the case but loses the illusion that truth is clean.",
         ]
     else:
-        sentences = [
-            f"This one-minute story follows {subject_narration} as pressure rises fast.",
-            "The opening looks unstable, but the intent is clear from the first decision.",
-            f"When conflict arrives, {subject_narration} responds with {trait_display} and steady execution.",
-            "Each sequence tightens the focus, removes noise, and builds real momentum.",
-            "The midpoint turns hard, then the strategy locks in and the pace improves.",
-            "By the final section, progress is visible, measurable, and impossible to ignore.",
-            "The close is simple: clear priorities, clean action, and a strong finish.",
-            "Do the next right step, then repeat until the result is undeniable.",
-        ]
+        if genre == "thriller":
+            base_sentences = [
+                f"At 2:13 a.m., {narrator_subject} gets a message that should not exist: \"I'm already inside.\"",
+                "By the time the call ends, one witness is gone and the backup line is dead.",
+                f"{narrator_subject.capitalize()} follows a trail of small lies that suddenly connect into one terrifying plan.",
+                "Every room feels watched, every ally feels uncertain, and every second starts to matter.",
+                f"When the trap finally closes, {narrator_subject} survives by leaning into {trait_display}, not panic.",
+                "The twist is personal, the choice is ugly, and the wrong move costs a life.",
+                "In the final stretch, truth wins by inches, not miracles, and the escape barely holds.",
+                f"Last shot: {narrator_subject} breathing hard in the quiet, knowing this story is not really over.",
+            ]
+            expansion_pool = [
+                "A familiar face turns, then hesitates, and that half-second changes the whole outcome.",
+                "The score drops to almost nothing before the next reveal lands like a punch to the chest.",
+                "What makes it hit is not spectacle; it's the fear of choosing wrong with no time left.",
+            ]
+        elif genre == "historical":
+            base_sentences = [
+                f"{narrator_subject.capitalize()} begins with dust in the wind and a promise carved into memory.",
+                "The past is not distant here; it speaks through ruins, scars, and names people still whisper.",
+                f"When conflict rises, {narrator_subject} answers with {trait_display} and hard-earned patience.",
+                "Each chapter reveals sacrifice, strategy, and the weight of decisions that outlive a lifetime.",
+                "The midpoint brings loss, but not surrender, and the mission tightens with new urgency.",
+                "By the close, the lesson feels intimate: history is built by people who kept going while afraid.",
+                "Final beat: a quiet horizon, a steady breath, and a legacy carried forward.",
+            ]
+            expansion_pool = [
+                "The narration stays grounded in human cost, not empty hero worship.",
+                "Every detail points back to one theme: endurance with purpose.",
+                "The final line lands softly but lingers, like a story you keep replaying after it ends.",
+            ]
+        else:
+            base_sentences = [
+                f"{narrator_subject.capitalize()} starts with a clear goal, then everything begins to go wrong at once.",
+                f"Instead of freezing, {narrator_subject} reacts with {trait_display} and steady decision-making.",
+                "The pace builds naturally: problem, consequence, adjustment, then a smarter next move.",
+                "You can feel the emotion in the pauses, not just in the action beats.",
+                "By the midpoint, the stakes are personal and the outcome finally feels uncertain.",
+                "The comeback is earned through discipline, not luck, and that makes the turn believable.",
+                "The final section resolves with clarity: one strong choice, one clean finish, no wasted motion.",
+            ]
+            expansion_pool = [
+                "Every beat pushes the character forward while revealing something vulnerable and true.",
+                "Momentum stays high, but the story leaves enough breathing room for emotion to register.",
+                "The last line sounds human, confident, and grounded in what we just watched.",
+            ]
+
+    if concept_hint:
+        base_sentences.insert(
+            1,
+            f"The mission sounds simple on paper, but \"{concept_hint}\" becomes far more dangerous in real time.",
+        )
 
     if duration_seconds >= 90:
-        sentences.extend(
+        base_sentences.extend(
             [
-                "The extended arc adds one more test, then a sharper response under pressure.",
-                "Consistency wins because the process stays clear even when stakes rise.",
+                "The longer cut adds one more reversal, and the character has to choose under real pressure.",
+                "That extra decision gives the ending weight and makes the payoff feel earned.",
             ]
         )
     if duration_seconds >= 120:
-        sentences.extend(
+        base_sentences.extend(
             [
-                "Every extra beat reinforces the same rule: precision scales better than chaos.",
-                "End with intent, reset fast, and carry that momentum into the next run.",
+                "The final act slows just enough to let the emotion land before the last push.",
+                "When the ending arrives, it feels inevitable in hindsight and shocking in the moment.",
             ]
         )
 
-    final_sentences = list(sentences)
+    seen: set[str] = set()
+    final_sentences: list[str] = []
+    for sentence in base_sentences:
+        s = _clean_spaces(sentence).strip()
+        if not s:
+            continue
+        key = s.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        final_sentences.append(s if s.endswith((".", "!", "?")) else f"{s}.")
+
     upper_target = target_words + 8
     while _word_count(" ".join(final_sentences)) > upper_target and len(final_sentences) > 1:
         final_sentences.pop()
@@ -833,17 +950,26 @@ def _build_voice_script_pack(*, idea: str, style_preset: str | None, duration_se
     words_now = _word_count(" ".join(final_sentences))
     lower_target = max(90, target_words - 4)
     if words_now < lower_target:
-        fillers = [
-            "Keep the tempo steady and commit to each move before switching.",
-            "Small disciplined steps create bigger outcomes than random bursts.",
-            "Hold focus, finish strong, and let your actions speak clearly.",
-            "Build pressure with intention, then release with total control.",
-            "A strong finish comes from rhythm, clarity, and repeated precision.",
-        ]
         idx = 0
+        fallback_pool = list(expansion_pool)
         while _word_count(" ".join(final_sentences)) < lower_target:
-            final_sentences.append(fillers[idx % len(fillers)])
+            if idx < len(fallback_pool):
+                sentence = fallback_pool[idx]
+            else:
+                sentence = (
+                    f"The tension keeps climbing, but {narrator_subject} stays deliberate, human, and fully present."
+                    if (idx % 2 == 0)
+                    else "Every beat pays off because the choices feel emotional, specific, and real."
+                )
             idx += 1
+            s = _clean_spaces(sentence).strip()
+            if not s:
+                continue
+            key = s.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            final_sentences.append(s if s.endswith((".", "!", "?")) else f"{s}.")
 
     script = " ".join(final_sentences).strip()
     if script and script[-1] not in ".!?":
