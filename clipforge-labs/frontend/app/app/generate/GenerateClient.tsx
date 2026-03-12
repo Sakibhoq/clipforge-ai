@@ -1408,8 +1408,9 @@ export default function GenerateClient() {
 
                 {mode === "post" ? (
                   <>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/72">
-                      AI Post runs in image + voice mode for all styles (real, anime, cartoon, comic).
+                    <div className="rounded-xl border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-[11px] text-amber-100/95">
+                      Warning: AI Post currently runs in image + voice mode for all styles to keep user costs lower.
+                      If you want full video posts, generate in Video mode, then use Editor to turn that output into a post.
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>
