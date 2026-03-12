@@ -1402,7 +1402,7 @@ export default function GenerateClient() {
                       className="h-4 w-4 accent-orange-500"
                     />
                     <span className="text-xs text-white/80">
-                      Add Orbito Labs watermark
+                      Orbito Watermark
                       {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
                     </span>
                   </label>
