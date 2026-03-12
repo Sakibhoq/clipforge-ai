@@ -116,19 +116,21 @@ const CAPTION_STYLE_OPTIONS: Array<{ value: CaptionStylePreset; label: string; h
 ];
 
 const VOICE_OPTIONS = [
-  { value: "en-US-Standard-C", label: "Core (US • Standard female • lowest cost)" },
-  { value: "en-US-Standard-D", label: "Atlas (US • Standard male • lowest cost)" },
+  { value: "en-US-Neural2-H", label: "Iris (US • expressive female • premium)" },
+  { value: "en-US-Neural2-I", label: "Noir (US • dramatic male • premium)" },
+  { value: "en-US-Neural2-A", label: "Ember (US • narrative male • premium)" },
+  { value: "en-US-Neural2-G", label: "Riven (US • deep female • premium)" },
+  { value: "en-US-Standard-C", label: "Core (US • Standard female • lower cost)" },
+  { value: "en-US-Standard-D", label: "Atlas (US • Standard male • lower cost)" },
   { value: "en-US-Standard-E", label: "Mira (US • Standard female)" },
   { value: "en-US-Standard-F", label: "Rowan (US • Standard female)" },
-  { value: "en-US-Neural2-H", label: "Iris (US • expressive female)" },
-  { value: "en-US-Neural2-I", label: "Noir (US • dramatic male)" },
-  { value: "en-US-Neural2-A", label: "Ember (US • narrative male)" },
-  { value: "en-US-Neural2-G", label: "Riven (US • deep female)" },
   { value: "en-GB-Neural2-B", label: "Aster (UK • polished male)" },
   { value: "en-GB-Neural2-A", label: "Lyra (UK • polished female)" },
   { value: "en-AU-Neural2-B", label: "Cove (AU • warm male)" },
   { value: "en-AU-Neural2-A", label: "Skye (AU • warm female)" },
 ] as const;
+
+const DEFAULT_VOICE_NAME = "en-US-Neural2-H";
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
 const CAPTION_STYLE_VALUES = new Set<CaptionStylePreset>(CAPTION_STYLE_OPTIONS.map((opt) => opt.value));
@@ -445,7 +447,7 @@ export default function GenerateClient() {
   const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
-  const [voiceName, setVoiceName] = useState<string>(VOICE_OPTIONS[0].value);
+  const [voiceName, setVoiceName] = useState<string>(DEFAULT_VOICE_NAME);
   const [voiceSpeedMultiplier, setVoiceSpeedMultiplier] = useState<number>(1);
   const [videoDialogueScript, setVideoDialogueScript] = useState("");
   const [currentPlan, setCurrentPlan] = useState("free");

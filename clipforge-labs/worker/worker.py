@@ -29,22 +29,22 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
-DEFAULT_TTS_VOICE = "en-US-Standard-C"
-FALLBACK_TTS_VOICE = "en-US-Standard-D"
+DEFAULT_TTS_VOICE = "en-US-Neural2-H"
+FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Wavenet-A",
+    "en-US-Wavenet-C",
+    "en-US-Wavenet-E",
+    "en-US-Neural2-A",
+    "en-US-Neural2-J",
     "en-US-Standard-C",
     "en-US-Standard-D",
     "en-US-Standard-E",
     "en-US-Standard-F",
-    "en-US-Neural2-A",
-    "en-US-Neural2-J",
-    "en-US-Wavenet-A",
-    "en-US-Wavenet-C",
-    "en-US-Wavenet-E",
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
 ]
 
 
@@ -2596,7 +2596,7 @@ def _build_expressive_tts_ssml(script: str) -> str:
 def _google_tts_audio_config(speaking_rate: float) -> dict[str, Any]:
     pitch = _env_float("GOOGLE_TTS_PITCH", 0.4, min_value=-20.0, max_value=20.0)
     volume_gain_db = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 2.0, min_value=-96.0, max_value=16.0)
-    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 24000, min_value=8000, max_value=48000)
+    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 48000, min_value=8000, max_value=48000)
     cfg: dict[str, Any] = {
         "audioEncoding": "MP3",
         "speakingRate": speaking_rate,
@@ -2607,7 +2607,7 @@ def _google_tts_audio_config(speaking_rate: float) -> dict[str, Any]:
         cfg["sampleRateHertz"] = sample_rate_hz
     profile_ids = [
         p.strip()
-        for p in _env("GOOGLE_TTS_EFFECT_PROFILE_ID", "").split(",")
+        for p in _env("GOOGLE_TTS_EFFECT_PROFILE_ID", "headphone-class-device").split(",")
         if p.strip()
     ]
     if profile_ids:
@@ -2673,7 +2673,7 @@ def _extract_tts_error_detail(data: Any) -> str:
 
 
 def _polish_voiceover_audio(path: str) -> None:
-    if not _env_bool("GOOGLE_TTS_POLISH_AUDIO", False):
+    if not _env_bool("GOOGLE_TTS_POLISH_AUDIO", True):
         return
     fd, polished_path = tempfile.mkstemp(prefix="cflabs-tts-polish-", suffix=".mp3")
     os.close(fd)
@@ -2681,10 +2681,10 @@ def _polish_voiceover_audio(path: str) -> None:
         af_chain = _env(
             "GOOGLE_TTS_AUDIO_FILTER",
             (
-                "highpass=f=70,"
-                "lowpass=f=12500,"
-                "acompressor=threshold=-20dB:ratio=2.2:attack=12:release=120:makeup=3,"
-                "loudnorm=I=-16:TP=-1.5:LRA=9"
+                "highpass=f=60,"
+                "lowpass=f=14000,"
+                "acompressor=threshold=-18dB:ratio=2.0:attack=8:release=120:makeup=2.5,"
+                "loudnorm=I=-16:TP=-1.5:LRA=11"
             ),
         )
         cmd = [
@@ -2697,7 +2697,7 @@ def _polish_voiceover_audio(path: str) -> None:
             "-c:a",
             "libmp3lame",
             "-b:a",
-            _env("GOOGLE_TTS_OUTPUT_BITRATE", "192k"),
+            _env("GOOGLE_TTS_OUTPUT_BITRATE", "224k"),
             polished_path,
         ]
         proc = _run_media_cmd(cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))

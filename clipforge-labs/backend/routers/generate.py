@@ -42,22 +42,22 @@ POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 6
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
-DEFAULT_TTS_VOICE = "en-US-Standard-C"
-FALLBACK_TTS_VOICE = "en-US-Standard-D"
+DEFAULT_TTS_VOICE = "en-US-Neural2-H"
+FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
+    "en-US-Studio-Q",
+    "en-US-Studio-O",
+    "en-US-Wavenet-A",
+    "en-US-Wavenet-C",
+    "en-US-Wavenet-E",
+    "en-US-Neural2-A",
+    "en-US-Neural2-J",
     "en-US-Standard-C",
     "en-US-Standard-D",
     "en-US-Standard-E",
     "en-US-Standard-F",
-    "en-US-Neural2-A",
-    "en-US-Neural2-J",
-    "en-US-Wavenet-A",
-    "en-US-Wavenet-C",
-    "en-US-Wavenet-E",
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
 ]
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
@@ -1215,7 +1215,7 @@ def _build_expressive_tts_ssml(script: str) -> str:
 def _tts_audio_config(speaking_rate: float) -> dict[str, float | str]:
     pitch = _env_float("GOOGLE_TTS_PITCH", 0.4, min_value=-20.0, max_value=20.0)
     volume = _env_float("GOOGLE_TTS_VOLUME_GAIN_DB", 2.0, min_value=-96.0, max_value=16.0)
-    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 24000, min_value=8000, max_value=48000)
+    sample_rate_hz = _env_int("GOOGLE_TTS_SAMPLE_RATE_HZ", 48000, min_value=8000, max_value=48000)
     cfg: dict[str, float | str | int | list[str]] = {
         "audioEncoding": "MP3",
         "speakingRate": speaking_rate,
@@ -1224,7 +1224,11 @@ def _tts_audio_config(speaking_rate: float) -> dict[str, float | str]:
     }
     if sample_rate_hz > 0:
         cfg["sampleRateHertz"] = sample_rate_hz
-    profile_ids = [p.strip() for p in (os.getenv("GOOGLE_TTS_EFFECT_PROFILE_ID") or "").split(",") if p.strip()]
+    profile_ids = [
+        p.strip()
+        for p in (os.getenv("GOOGLE_TTS_EFFECT_PROFILE_ID") or "headphone-class-device").split(",")
+        if p.strip()
+    ]
     if profile_ids:
         cfg["effectsProfileId"] = profile_ids
     return cfg
