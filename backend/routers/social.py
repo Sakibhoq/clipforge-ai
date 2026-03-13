@@ -1758,7 +1758,7 @@ def _instagram_publish_reel(
             st_resp = requests.get(
                 f"https://graph.facebook.com/v20.0/{container_id}",
                 params={
-                    "fields": "status_code,status,error_message",
+                    "fields": "status_code,status",
                     "access_token": token,
                 },
                 timeout=25,
@@ -1770,7 +1770,8 @@ def _instagram_publish_reel(
             if status_code in {"FINISHED", "READY"}:
                 break
             if status_code in {"ERROR", "EXPIRED"}:
-                em = str(st.get("error_message") or "Instagram media processing failed")
+                err = st.get("error") if isinstance(st.get("error"), dict) else {}
+                em = str(st.get("error_message") or err.get("message") or "Instagram media processing failed")
                 raise RuntimeError(em[:300])
             time.sleep(3)
 
