@@ -1042,42 +1042,69 @@ function UploadWorkspace() {
 
     const sess = loadPersistedSession();
     let resumed = false;
-    let pendingInterrupted: {
-      fileName: string;
-      progress: number | null;
-      startedAt: number | null;
-    } | null = null;
-    if (sess?.fileName) setLastKnownFileName(sess.fileName);
-    if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
-
-    if (sess?.jobId) {
+    const applyProcessingSession = (session: NonNullable<ReturnType<typeof loadPersistedSession>>) => {
       resumed = true;
-      setUploadId(sess.uploadId);
-      setJobId(sess.jobId);
-      setStorageKey(sess.storageKey);
+      setUploadId(session.uploadId);
+      setJobId(session.jobId);
+      setStorageKey(session.storageKey);
       setFile(null);
       setFlow("processing");
       setProgress(92);
       setStatusText("Resuming…");
-      pollJobUntilComplete(sess.jobId).catch(() => {});
-    } else if (sess?.flow === "uploading" && sess.fileName) {
+      pollJobUntilComplete(session.jobId as number).catch(() => {});
+    };
+    const applyUploadingSession = (session: NonNullable<ReturnType<typeof loadPersistedSession>>) => {
       setFile(null);
       setFlow("uploading");
-      setProgress(
-        Number.isFinite(sess.progress)
-          ? Math.max(2, Math.min(90, Number(sess.progress)))
-          : 8
+      setProgress((prev) => {
+        const next = Number.isFinite(session.progress)
+          ? Math.max(2, Math.min(90, Number(session.progress)))
+          : 8;
+        return Math.max(prev, next);
+      });
+      setStatusText(
+        Number.isFinite(session.progress) && Number(session.progress) >= 88
+          ? "Registering upload…"
+          : "Resuming upload in background…"
       );
-      setStatusText("Resuming upload in background…");
-      pendingInterrupted = {
-        fileName: sess.fileName,
-        progress: Number.isFinite(sess.progress) ? Number(sess.progress) : null,
-        startedAt: Number.isFinite(sess.startedAt) ? Number(sess.startedAt) : null,
-      };
+      setInterruptedUpload(null);
+    };
+    if (sess?.fileName) setLastKnownFileName(sess.fileName);
+    if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
+
+    if (sess?.jobId) {
+      applyProcessingSession(sess);
+    } else if (sess?.flow === "uploading" && sess.fileName) {
+      applyUploadingSession(sess);
     }
 
     const ac = new AbortController();
     const refresh = async () => {
+      if (ac.signal.aborted) return;
+      const latestSess = loadPersistedSession();
+      const pendingInterrupted =
+        latestSess?.flow === "uploading" && latestSess.fileName
+          ? {
+              fileName: latestSess.fileName,
+              progress: Number.isFinite(latestSess.progress) ? Number(latestSess.progress) : null,
+              startedAt: Number.isFinite(latestSess.startedAt) ? Number(latestSess.startedAt) : null,
+            }
+          : null;
+
+      if (!resumed && latestSess?.fileName) setLastKnownFileName(latestSess.fileName);
+      if (!resumed && Number.isFinite(latestSess?.startedAt)) {
+        setUploadStartedAt(latestSess?.startedAt as number);
+      }
+
+      if (!resumed && latestSess?.jobId) {
+        applyProcessingSession(latestSess);
+        return;
+      }
+
+      if (!resumed && pendingInterrupted && latestSess) {
+        applyUploadingSession(latestSess);
+      }
+
       const active = await refreshActiveJobs(ac.signal);
       if (!resumed && active.length > 0) {
         let resumable: JobRow | null = active[0] ?? null;
@@ -1116,7 +1143,7 @@ function UploadWorkspace() {
 
     const timer = window.setInterval(() => {
       void refresh();
-    }, pendingInterrupted ? 3000 : 10000);
+    }, sess?.flow === "uploading" ? 1000 : 3000);
 
     return () => {
       ac.abort();
