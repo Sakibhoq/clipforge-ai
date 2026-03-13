@@ -75,12 +75,15 @@ const CREDIT_USD_VALUE = 0.10;
 const VIDEO_REAL_USD_PER_SECOND = 0.50;
 const VIDEO_LOW_COST_USD_PER_SECOND = 0.10;
 const VIDEO_HD_MARKUP = 2.7;
+const VIDEO_HD_MIN_CREDITS_PER_SECOND = 5;
 const IMAGE_REAL_USD_PER_IMAGE = 0.04;
 const IMAGE_LOW_COST_USD_PER_IMAGE = 0.02;
 const IMAGE_MARKUP = 6.0;
 const VOICE_WORDS_PER_CREDIT = 300;
 const VOICE_MIN_CREDITS = 1;
 const VIDEO_4K_CREDITS_PER_SECOND = 7;
+const VIDEO_FORCE_LOW_COST_MODELS =
+  (process.env.NEXT_PUBLIC_LABS_FORCE_LOW_COST_MODELS ?? "1") !== "0";
 const VOICE_BASE_WPM = 165;
 const POST_MAX_AUTO_WPM = 210;
 const POST_DURATION_SECONDS = 60;
@@ -337,9 +340,14 @@ function estimateImageCredits(stylePreset: StylePreset): number {
 
 function estimateVideoCreditsPerSecond(speed: VideoSpeedMode, stylePreset: StylePreset): number {
   if (speed === "4k") return VIDEO_4K_CREDITS_PER_SECOND;
-  const base = isLowCostStyle(stylePreset) ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND;
+  // Mirror backend pricing behavior where low-cost routing may be forced globally.
+  const lowCost = VIDEO_FORCE_LOW_COST_MODELS || isLowCostStyle(stylePreset);
+  const base = lowCost ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND;
   const markup = VIDEO_HD_MARKUP;
-  return creditsFromUsd(base * markup);
+  const estimated = creditsFromUsd(base * markup);
+  const hdCredits = Math.max(lowCost ? VIDEO_HD_MIN_CREDITS_PER_SECOND : 1, estimated);
+  // Keep estimate hierarchy sane in UI: HD must be cheaper than 4K.
+  return Math.min(hdCredits, Math.max(1, VIDEO_4K_CREDITS_PER_SECOND - 1));
 }
 
 function estimateVoiceCredits(wordCount: number): number {

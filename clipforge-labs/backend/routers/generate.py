@@ -331,13 +331,20 @@ def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
         env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
         # Target ~1.50 USD profit for 7s premium 4K runs (about 7 credits/sec at 0.10 USD/credit).
         default_credits = 7
+        return _env_int(env_name, default_credits, min_value=1, max_value=10_000)
     elif low_cost:
         env_name = "LABS_VIDEO_LOW_COST_HD_CREDITS_PER_SECOND"
         # Target profit tuning for low-cost 7s clips: ~2.8 USD profit at 0.10 USD/credit.
         default_credits = max(default_credits, 5)
     else:
         env_name = "LABS_VIDEO_REAL_HD_CREDITS_PER_SECOND"
-    return _env_int(env_name, default_credits, min_value=1, max_value=10_000)
+
+    hd_credits = _env_int(env_name, default_credits, min_value=1, max_value=10_000)
+    fast_credits = _env_int("LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND", 7, min_value=1, max_value=10_000)
+    # Keep pricing hierarchy sane: HD must never cost more than 4K.
+    if hd_credits >= fast_credits:
+        return max(1, fast_credits - 1)
+    return hd_credits
 
 
 def _video_credits_needed(duration_seconds: int, speed: str, style_preset: str | None) -> int:
