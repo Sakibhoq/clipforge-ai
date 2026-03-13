@@ -2006,8 +2006,19 @@ function UploadWorkspace() {
                     </div>
                     <div className="mt-3 text-[12px] text-white/45">{statusText || "Uploading..."}</div>
                     {detachedUploadingView ? (
-                      <div className="mt-3 text-[12px] text-white/45">
-                        Upload is still running. This view will switch to Processing once the job is registered.
+                      <div className="mt-3 space-y-3">
+                        <div className="text-[12px] text-white/45">
+                          Upload is still running. This view will switch to Processing once the job is registered.
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void cancelUpload()}
+                            className="btn-ghost text-[12px] px-4 py-2"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="mt-5 flex flex-wrap items-center gap-2">
