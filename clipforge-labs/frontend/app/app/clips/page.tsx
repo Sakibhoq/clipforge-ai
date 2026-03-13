@@ -259,15 +259,26 @@ function socialPublishErrorHint(provider: string, raw: string): string {
   const msg = String(raw || "").trim();
   const low = msg.toLowerCase();
   const p = String(provider || "").toLowerCase();
+  const looksLikePermissionError =
+    low.includes("permission") ||
+    low.includes("not authorized") ||
+    low.includes("unauthorized") ||
+    low.includes("insufficient");
 
   if (p === "tiktok" && low.includes("unaudited_client_can_only_post_to_private_accounts")) {
     return "TikTok app is still in audit mode. Posting is limited to approved tester accounts.";
   }
-  if (p === "facebook" && (low.includes("no permission to publish") || low.includes("\"code\":100"))) {
+  if (p === "facebook" && (low.includes("no permission to publish") || looksLikePermissionError)) {
     return "Facebook publishing permission is missing. Reconnect Facebook in Connections.";
   }
   if (p === "instagram" && low.includes("no instagram professional account linked")) {
     return "Instagram must be a Professional account linked to a Facebook Page.";
+  }
+  if (
+    p === "instagram" &&
+    (low.includes("no permission to publish") || low.includes("instagram_content_publish") || looksLikePermissionError)
+  ) {
+    return "Instagram publishing permission is missing. Reconnect Instagram/Facebook in Connections and approve publishing permissions.";
   }
   if (msg.length > 220) return `${msg.slice(0, 220)}...`;
   return msg || "Publishing failed";

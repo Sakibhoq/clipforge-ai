@@ -376,6 +376,50 @@ def _normalize_provider_post_options(provider: str, raw_options: Any) -> dict:
     return {}
 
 
+def _graph_error(raw_error: str) -> tuple[Optional[int], str]:
+    text = str(raw_error or "").strip()
+    if not text:
+        return None, ""
+    try:
+        payload = json.loads(text)
+    except Exception:
+        return None, text
+    if not isinstance(payload, dict):
+        return None, text
+    err = payload.get("error")
+    if not isinstance(err, dict):
+        return None, text
+
+    code_raw = err.get("code")
+    code: Optional[int] = None
+    if isinstance(code_raw, int):
+        code = code_raw
+    elif isinstance(code_raw, str) and code_raw.strip().isdigit():
+        code = int(code_raw.strip())
+
+    message = str(err.get("message") or "").strip()
+    if message:
+        return code, message
+    return code, text
+
+
+def _looks_like_permission_error(raw_error: str) -> bool:
+    code, parsed_message = _graph_error(raw_error)
+    low = (parsed_message or str(raw_error or "")).lower()
+    if code in {10, 200}:
+        return True
+    return any(
+        needle in low
+        for needle in (
+            "permission",
+            "not authorized",
+            "unauthorized",
+            "insufficient",
+            "scope_not_authorized",
+        )
+    )
+
+
 def _friendly_publish_error(provider: str, raw_error: str) -> str:
     msg = str(raw_error or "").strip()
     low = msg.lower()
@@ -391,7 +435,7 @@ def _friendly_publish_error(provider: str, raw_error: str) -> str:
             return "TikTok permissions are missing. Reconnect TikTok in Studio and approve all requested scopes."
 
     if p == "facebook":
-        if "no permission to publish the video" in low or "\"code\":100" in low:
+        if "no permission to publish the video" in low or _looks_like_permission_error(msg):
             return (
                 "Facebook publish permission is missing for this Page. Reconnect Facebook in Studio and approve "
                 "Page publishing permissions, then retry."
@@ -400,7 +444,7 @@ def _friendly_publish_error(provider: str, raw_error: str) -> str:
             return "Facebook Page token is missing. Reconnect Facebook and select a Page you manage."
 
     if p == "instagram":
-        if "no permission to publish" in low or "\"code\":100" in low:
+        if "no permission to publish" in low or _looks_like_permission_error(msg):
             return (
                 "Instagram publish permission is missing. Reconnect Instagram/Facebook in Studio and approve "
                 "Instagram publishing permissions."
@@ -1815,65 +1859,85 @@ def _instagram_publish_reel(
     video_url: str,
     *,
     share_to_feed: bool = True,
+    fallback_access_token: Optional[str] = None,
 ) -> str:
-    payload = {
-        "media_type": "REELS",
-        "video_url": video_url,
-        "caption": caption[:2200],
-        "share_to_feed": "true" if share_to_feed else "false",
-        "access_token": page_access_token,
-    }
-    create_resp = requests.post(
-        f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
-        data=payload,
-        timeout=45,
-    )
-    if create_resp.status_code >= 400:
-        raise RuntimeError(f"Instagram media create failed: {create_resp.text[:300]}")
-
-    created = create_resp.json() if create_resp.text else {}
-    container_id = str(created.get("id") or "")
-    if not container_id:
-        raise RuntimeError("Instagram container id missing")
-
-    # Wait until media container is ready.
-    deadline = time.time() + 120
-    status_code = ""
-    while time.time() < deadline:
-        st_resp = requests.get(
-            f"https://graph.facebook.com/v20.0/{container_id}",
-            params={
-                "fields": "status_code,status,error_message",
-                "access_token": page_access_token,
-            },
-            timeout=25,
+    def _publish_with_token(token: str) -> str:
+        payload = {
+            "media_type": "REELS",
+            "video_url": video_url,
+            "caption": caption[:2200],
+            "share_to_feed": "true" if share_to_feed else "false",
+            "access_token": token,
+        }
+        create_resp = requests.post(
+            f"https://graph.facebook.com/v20.0/{ig_user_id}/media",
+            data=payload,
+            timeout=45,
         )
-        if st_resp.status_code >= 400:
-            raise RuntimeError(f"Instagram status check failed: {st_resp.text[:250]}")
-        st = st_resp.json() if st_resp.text else {}
-        status_code = str(st.get("status_code") or st.get("status") or "").upper()
-        if status_code in {"FINISHED", "READY"}:
-            break
-        if status_code in {"ERROR", "EXPIRED"}:
-            em = str(st.get("error_message") or "Instagram media processing failed")
-            raise RuntimeError(em[:300])
-        time.sleep(3)
+        if create_resp.status_code >= 400:
+            raise RuntimeError(f"Instagram media create failed: {create_resp.text[:300]}")
 
-    if status_code not in {"FINISHED", "READY"}:
-        raise RuntimeError("Instagram media processing timed out")
+        created = create_resp.json() if create_resp.text else {}
+        container_id = str(created.get("id") or "")
+        if not container_id:
+            raise RuntimeError("Instagram container id missing")
 
-    pub_resp = requests.post(
-        f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish",
-        data={
-            "creation_id": container_id,
-            "access_token": page_access_token,
-        },
-        timeout=35,
-    )
-    if pub_resp.status_code >= 400:
-        raise RuntimeError(f"Instagram publish failed: {pub_resp.text[:300]}")
-    pub = pub_resp.json() if pub_resp.text else {}
-    return str(pub.get("id") or container_id)
+        # Wait until media container is ready.
+        deadline = time.time() + 120
+        status_code = ""
+        while time.time() < deadline:
+            st_resp = requests.get(
+                f"https://graph.facebook.com/v20.0/{container_id}",
+                params={
+                    "fields": "status_code,status,error_message",
+                    "access_token": token,
+                },
+                timeout=25,
+            )
+            if st_resp.status_code >= 400:
+                raise RuntimeError(f"Instagram status check failed: {st_resp.text[:250]}")
+            st = st_resp.json() if st_resp.text else {}
+            status_code = str(st.get("status_code") or st.get("status") or "").upper()
+            if status_code in {"FINISHED", "READY"}:
+                break
+            if status_code in {"ERROR", "EXPIRED"}:
+                em = str(st.get("error_message") or "Instagram media processing failed")
+                raise RuntimeError(em[:300])
+            time.sleep(3)
+
+        if status_code not in {"FINISHED", "READY"}:
+            raise RuntimeError("Instagram media processing timed out")
+
+        pub_resp = requests.post(
+            f"https://graph.facebook.com/v20.0/{ig_user_id}/media_publish",
+            data={
+                "creation_id": container_id,
+                "access_token": token,
+            },
+            timeout=35,
+        )
+        if pub_resp.status_code >= 400:
+            raise RuntimeError(f"Instagram publish failed: {pub_resp.text[:300]}")
+        pub = pub_resp.json() if pub_resp.text else {}
+        return str(pub.get("id") or container_id)
+
+    token_candidates: List[str] = [page_access_token]
+    fallback = str(fallback_access_token or "").strip()
+    if fallback and fallback != page_access_token:
+        token_candidates.append(fallback)
+
+    last_error = ""
+    for idx, token in enumerate(token_candidates):
+        try:
+            return _publish_with_token(token)
+        except RuntimeError as exc:
+            last_error = str(exc)
+            should_retry = idx + 1 < len(token_candidates) and _looks_like_permission_error(last_error)
+            if should_retry:
+                continue
+            raise
+
+    raise RuntimeError(last_error or "Instagram publish failed")
 
 
 def _tiktok_publish_video(
@@ -2376,6 +2440,7 @@ def _dispatch_posts(db: Session, posts: List[SocialPost]) -> List[dict]:
                     desc,
                     clip_url,
                     share_to_feed=bool(ig_opts.get("share_to_feed", True)),
+                    fallback_access_token=access_token,
                 )
                 post.remote_id = remote_id
             elif post.provider == "tiktok":

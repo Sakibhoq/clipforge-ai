@@ -256,6 +256,11 @@ function socialPublishErrorHint(provider: string, raw: string): string {
   const msg = String(raw || "").trim();
   const low = msg.toLowerCase();
   const p = String(provider || "").toLowerCase();
+  const looksLikePermissionError =
+    low.includes("permission") ||
+    low.includes("not authorized") ||
+    low.includes("unauthorized") ||
+    low.includes("insufficient");
 
   if (p === "tiktok") {
     if (low.includes("unaudited_client_can_only_post_to_private_accounts")) {
@@ -267,7 +272,7 @@ function socialPublishErrorHint(provider: string, raw: string): string {
   }
 
   if (p === "facebook") {
-    if (low.includes("no permission to publish the video") || low.includes("\"code\":100")) {
+    if (low.includes("no permission to publish the video") || looksLikePermissionError) {
       return "Facebook Page publish permission is missing. Reconnect Facebook in Studio and approve Page posting permissions.";
     }
   }
@@ -276,7 +281,11 @@ function socialPublishErrorHint(provider: string, raw: string): string {
     if (low.includes("no instagram professional account linked")) {
       return "No Instagram Professional account linked to a Facebook Page. Link it in Meta Business Suite, then reconnect.";
     }
-    if (low.includes("no permission to publish") || low.includes("\"code\":100")) {
+    if (
+      low.includes("no permission to publish") ||
+      low.includes("instagram_content_publish") ||
+      looksLikePermissionError
+    ) {
       return "Instagram publish permission is missing. Reconnect Instagram/Facebook in Studio and approve publishing permissions.";
     }
   }
