@@ -836,6 +836,7 @@ function UploadWorkspace() {
 
   const pollAbort = useRef<AbortController | null>(null);
   const uploadAbort = useRef<AbortController | null>(null);
+  const detachedUploadingView = flow === "uploading" && !file && !jobId;
 
   // Dropzone pulse focus (YouTube Step 3)
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
@@ -1060,6 +1061,14 @@ function UploadWorkspace() {
       setStatusText("Resuming…");
       pollJobUntilComplete(sess.jobId).catch(() => {});
     } else if (sess?.flow === "uploading" && sess.fileName) {
+      setFile(null);
+      setFlow("uploading");
+      setProgress(
+        Number.isFinite(sess.progress)
+          ? Math.max(2, Math.min(90, Number(sess.progress)))
+          : 8
+      );
+      setStatusText("Resuming upload in background…");
       pendingInterrupted = {
         fileName: sess.fileName,
         progress: Number.isFinite(sess.progress) ? Number(sess.progress) : null,
@@ -1097,6 +1106,9 @@ function UploadWorkspace() {
         const elapsedMs = Date.now() - startedAtMs;
         if (elapsedMs < UPLOAD_RESUME_GRACE_MS) return;
         setInterruptedUpload(pendingInterrupted);
+        setFlow("idle");
+        setProgress(0);
+        setStatusText("");
         clearPersistedSession();
       }
     };
@@ -1993,16 +2005,22 @@ function UploadWorkspace() {
                       <ProgressBar value={progress} />
                     </div>
                     <div className="mt-3 text-[12px] text-white/45">{statusText || "Uploading..."}</div>
-                    <div className="mt-5 flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void cancelUpload()}
+                    {detachedUploadingView ? (
+                      <div className="mt-3 text-[12px] text-white/45">
+                        Upload is still running. This view will switch to Processing once the job is registered.
+                      </div>
+                    ) : (
+                      <div className="mt-5 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void cancelUpload()}
 
-                        className="btn-ghost text-[12px] px-4 py-2"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                          className="btn-ghost text-[12px] px-4 py-2"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : flow === "processing" ? (
                   <div className="mx-auto w-full max-w-sm text-left">
