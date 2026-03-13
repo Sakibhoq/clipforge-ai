@@ -60,12 +60,6 @@ type ProxyUploadResponse = {
   storage_key: string;
 };
 
-type ProxyChunkInitResponse = {
-  upload_id: string;
-  storage_key: string;
-  chunk_size: number;
-};
-
 type RegisterResponse = {
   upload_id: number;
   job_id: number;
@@ -404,7 +398,7 @@ function formatTimeoutHint() {
     "- set `client_body_timeout 600s;`",
     "- reload nginx (`sudo nginx -t && sudo systemctl reload nginx`)",
     "",
-    "Best for large files: keep direct-to-S3 upload enabled, and use chunked backend fallback only when needed.",
+    "Best for large files: keep direct-to-storage upload enabled.",
   ].join("\n");
 }
 
@@ -588,88 +582,6 @@ async function uploadViaBackendProxy(args: {
     {
       method: "POST",
       body: fd,
-      signal,
-    }
-  );
-}
-
-async function uploadViaBackendProxyChunked(args: {
-  file: File;
-  storageKey?: string | null;
-  signal?: AbortSignal;
-  onProgress?: (pct: number) => void;
-}): Promise<ProxyUploadResponse> {
-  const { file, storageKey, signal, onProgress } = args;
-
-  const init = await apiFetchWithEndpointFallback<ProxyChunkInitResponse>(
-    uploadEndpointCandidates("/storage/upload-proxy-init"),
-    {
-      method: "POST",
-      body: {
-        filename: file.name,
-        content_type: file.type || "video/mp4",
-        content_length: file.size,
-        storage_key: storageKey || undefined,
-      },
-      signal,
-    }
-  );
-
-  const chunkSize = Math.max(64 * 1024, Number(init.chunk_size || 64 * 1024));
-  const totalParts = Math.max(1, Math.ceil(file.size / chunkSize));
-  const parallelism = Math.max(1, Math.min(10, totalParts));
-  let nextPartIndex = 0;
-  let uploadedBytes = 0;
-
-  const uploadPart = async (partIndex: number) => {
-    const start = partIndex * chunkSize;
-    const end = Math.min(file.size, start + chunkSize);
-    const blob = file.slice(start, end);
-    const partBytes = Math.max(0, end - start);
-
-    const fd = new FormData();
-    fd.append("upload_id", init.upload_id);
-    fd.append("storage_key", init.storage_key);
-    fd.append("part_index", String(partIndex));
-    fd.append("total_parts", String(totalParts));
-    fd.append("chunk", blob, `${file.name}.part-${partIndex}`);
-
-    await apiFetchWithEndpointFallback(
-      uploadEndpointCandidates("/storage/upload-proxy-chunk"),
-      {
-        method: "POST",
-        body: fd,
-        signal,
-      }
-    );
-
-    uploadedBytes += partBytes;
-    if (onProgress) {
-      const pct = file.size > 0 ? (uploadedBytes / file.size) * 100 : 100;
-      onProgress(Math.max(0, Math.min(100, pct)));
-    }
-  };
-
-  const worker = async () => {
-    while (true) {
-      const partIndex = nextPartIndex++;
-      if (partIndex >= totalParts) return;
-      await uploadPart(partIndex);
-    }
-  };
-
-  await Promise.all(Array.from({ length: parallelism }, () => worker()));
-
-  return apiFetchWithEndpointFallback<ProxyUploadResponse>(
-    uploadEndpointCandidates("/storage/upload-proxy-complete"),
-    {
-      method: "POST",
-      body: {
-        upload_id: init.upload_id,
-        storage_key: init.storage_key,
-        total_parts: totalParts,
-        content_type: file.type || "video/mp4",
-      },
       signal,
     }
   );
@@ -1481,135 +1393,68 @@ function UploadWorkspace() {
       }
 
       const safeHeaders = sanitizePutHeaders(required);
+      const putUrls = buildPutUrlCandidates(presign.put_url);
+      if (putUrls.length === 0) throw new Error("No upload URL from presign.");
 
-      try {
-        const localChunkFirst = (presign.put_url || "").startsWith("/storage/local-upload");
-          if (localChunkFirst) {
-            setStatusText("Uploading in chunks…");
-            const chunked = await uploadViaBackendProxyChunked({
-              file,
-              storageKey: presign.storage_key,
-              signal: ac.signal,
-              onProgress: (pct) => {
-                const mapped = 10 + pct * 0.72;
-                setProgress((p) => {
-                  const next = Math.max(p, Math.min(82, mapped));
-                  persistUploadProgressThrottled(next);
-                  return next;
-                });
-              },
-            });
-            uploadedStorageKey = chunked.storage_key || presign.storage_key;
-            setStorageKey(uploadedStorageKey);
-            setProgress((p) => Math.max(p, 82));
-            persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
-          } else {
-            const putUrls = buildPutUrlCandidates(presign.put_url);
-            if (putUrls.length === 0) throw new Error("No upload URL from presign.");
+      let putSucceeded = false;
+      let lastPutErr: any = null;
 
-          let putSucceeded = false;
-          let lastPutErr: any = null;
-
-          for (const putUrl of putUrls) {
-            try {
-              await xhrPutWithProgress({
-                url: putUrl,
-                file,
-                headers: safeHeaders,
-                signal: ac.signal,
-                onProgress: (pct) => {
-                  const mapped = 10 + pct * 0.75;
-                  setProgress((p) => {
-                    const next = Math.max(p, Math.min(85, mapped));
-                    persistUploadProgressThrottled(next);
-                    return next;
-                  });
-                },
-              });
-              putSucceeded = true;
-              break;
-            } catch (e: any) {
-              lastPutErr = e;
-              // Try alternate URL when route/proxy/CORS differs per environment.
-              if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e) || isUploadTimeoutError(e)) continue;
-              break;
-            }
-          }
-
-          if (!putSucceeded) throw lastPutErr ?? new Error("Direct upload failed.");
-        }
-      } catch (directErr: any) {
-        const msg = compactUploadErrorMessage(directErr?.message || directErr || "");
-        if (msg.toLowerCase().includes("canceled")) throw directErr;
-
-        setStatusText("Direct upload failed. Switching to chunked upload…");
-        setProgress((p) => Math.max(p, 24));
-        persistUploadSession({ flow: "uploading", progress: 24 });
-
+      for (const putUrl of putUrls) {
         try {
-          const chunked = await uploadViaBackendProxyChunked({
+          await xhrPutWithProgress({
+            url: putUrl,
             file,
-            storageKey: presign.storage_key,
+            headers: safeHeaders,
             signal: ac.signal,
             onProgress: (pct) => {
-              const mapped = 24 + pct * 0.58;
+              const mapped = 10 + pct * 0.75;
               setProgress((p) => {
-                const next = Math.max(p, Math.min(82, mapped));
+                const next = Math.max(p, Math.min(85, mapped));
                 persistUploadProgressThrottled(next);
                 return next;
               });
             },
           });
-          uploadedStorageKey = chunked.storage_key || presign.storage_key;
+          putSucceeded = true;
+          break;
+        } catch (e: any) {
+          lastPutErr = e;
+          // Try alternate URL when route/proxy/CORS differs per environment.
+          if (isLikelyNetworkFetchError(e) || isRequestEntityTooLargeError(e) || isUploadTimeoutError(e)) continue;
+          break;
+        }
+      }
+
+      if (!putSucceeded) {
+        const msg = compactUploadErrorMessage(lastPutErr?.message || lastPutErr || "");
+        if (msg.toLowerCase().includes("canceled")) throw lastPutErr;
+
+        setStatusText("Direct upload failed. Retrying via backend…");
+        setProgress((p) => Math.max(p, 34));
+        persistUploadSession({ flow: "uploading", progress: 34 });
+
+        try {
+          const proxied = await uploadViaBackendProxy({
+            file,
+            storageKey: presign.storage_key,
+            signal: ac.signal,
+          });
+          uploadedStorageKey = proxied.storage_key || presign.storage_key;
           setStorageKey(uploadedStorageKey);
-          setProgress((p) => Math.max(p, 82));
-          persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 82 });
-        } catch (chunkErr: any) {
-          if (isRetryableUploadPathError(chunkErr)) {
-            setStatusText("Chunked fallback failed. Retrying via backend…");
-            setProgress((p) => Math.max(p, 34));
-            persistUploadSession({ flow: "uploading", progress: 34 });
-
-            try {
-              const proxied = await uploadViaBackendProxy({
-                file,
-                storageKey: presign.storage_key,
-                signal: ac.signal,
-              });
-              uploadedStorageKey = proxied.storage_key || presign.storage_key;
-              setStorageKey(uploadedStorageKey);
-              setProgress((p) => Math.max(p, 80));
-              persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 80 });
-            } catch (proxyErr: any) {
-              if (
-                isRequestEntityTooLargeError(chunkErr) ||
-                isRequestEntityTooLargeError(proxyErr) ||
-                isRequestEntityTooLargeError(directErr)
-              ) {
-                const tooLargeErr: any = new Error("Upload too large (HTTP 413).");
-                tooLargeErr.status = 413;
-                throw tooLargeErr;
-              }
-              const chunkMsg = compactUploadErrorMessage(chunkErr?.message || chunkErr || "");
-              const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
-              throw new Error(
-                `Direct upload failed: ${msg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}`
-              );
-            }
-          }
-
+          setProgress((p) => Math.max(p, 80));
+          persistUploadSession({ storageKey: uploadedStorageKey, flow: "uploading", progress: 80 });
+        } catch (proxyErr: any) {
           if (
-            isRequestEntityTooLargeError(chunkErr) ||
-            isRequestEntityTooLargeError(directErr)
+            isRequestEntityTooLargeError(lastPutErr) ||
+            isRequestEntityTooLargeError(proxyErr)
           ) {
             const tooLargeErr: any = new Error("Upload too large (HTTP 413).");
             tooLargeErr.status = 413;
             throw tooLargeErr;
           }
-
-          const chunkMsg = compactUploadErrorMessage(chunkErr?.message || chunkErr || "");
+          const proxyMsg = compactUploadErrorMessage(proxyErr?.message || proxyErr || "");
           throw new Error(
-            `Direct upload failed: ${msg || "Unknown error"}\n\nChunked fallback failed: ${chunkMsg || "Unknown error"}`
+            `Direct upload failed: ${msg || "Unknown error"}\n\nFallback upload failed: ${proxyMsg || "Unknown error"}`
           );
         }
       }
