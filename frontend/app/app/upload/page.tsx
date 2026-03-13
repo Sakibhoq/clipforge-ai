@@ -36,6 +36,7 @@ function cx(...a: Array<string | false | null | undefined>) {
 }
 
 const YOUTUBE_INGEST_ENABLED = (process.env.NEXT_PUBLIC_YOUTUBE_INGEST_ENABLED ?? "1") !== "0";
+const UPLOAD_RESUME_GRACE_MS = 2 * 60 * 1000;
 
 type Flow =
   | "idle"
@@ -1178,6 +1179,11 @@ function UploadWorkspace() {
         }
       }
       if (!resumed && pendingInterrupted) {
+        const startedAtMs = Number.isFinite(pendingInterrupted.startedAt)
+          ? Number(pendingInterrupted.startedAt)
+          : Date.now();
+        const elapsedMs = Date.now() - startedAtMs;
+        if (elapsedMs < UPLOAD_RESUME_GRACE_MS) return;
         setInterruptedUpload(pendingInterrupted);
         clearPersistedSession();
       }
@@ -1185,8 +1191,8 @@ function UploadWorkspace() {
     void refresh();
 
     const timer = window.setInterval(() => {
-      void refreshActiveJobs();
-    }, 10000);
+      void refresh();
+    }, pendingInterrupted ? 3000 : 10000);
 
     return () => {
       ac.abort();
