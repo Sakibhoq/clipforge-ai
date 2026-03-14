@@ -98,6 +98,7 @@ PROVIDERS: Dict[str, Dict[str, Any]] = {
         "scopes": [
             "pages_show_list",
             "pages_manage_posts",
+            "pages_read_engagement",
             "business_management",
         ],
         "pkce": True,
@@ -155,6 +156,7 @@ def _effective_connect_scopes(provider: str, scopes: List[str]) -> List[str]:
 
     blocked = {
         "pages_manage_posts",
+        "pages_read_engagement",
         "instagram_basic",
         "instagram_content_publish",
         # Not required for our current Graph calls and can be restricted/trigger
