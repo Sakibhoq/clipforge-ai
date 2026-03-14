@@ -355,6 +355,7 @@ export default function Page() {
   return (
     // IMPORTANT: no overflow-y/scroll containers here — only document scroll
     <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
+      <AmbientFX />
       {/* Content ABOVE FX */}
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         {/* HERO */}

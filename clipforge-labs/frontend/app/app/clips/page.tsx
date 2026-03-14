@@ -1432,6 +1432,7 @@ export default function ClipsPage() {
                 <div className="overflow-hidden rounded-xl border border-white/10 bg-black" style={{ aspectRatio: "9 / 16" }}>
                   <div className="flex h-full w-full items-center justify-center bg-black">
                     {detectAssetType(scheduleClip) === "image" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={scheduleClip.url}
                         alt={scheduleClip.title || `Clip #${scheduleClip.id}`}

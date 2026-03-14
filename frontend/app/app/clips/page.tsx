@@ -1240,7 +1240,6 @@ function ClipsWorkspace() {
 
   useEffect(() => {
     void loadScheduledPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadTick]);
 
   useEffect(() => {
@@ -1286,18 +1285,21 @@ function ClipsWorkspace() {
     }));
   }
 
-  function openSchedule(clip: ClipDTO) {
-    setScheduleClipId(clip.id);
-    setScheduleSelectedProviders(defaultSelectedProviders());
-    setScheduleCaption(autoTitle(clip));
-    setScheduleWhen("");
-    setScheduleError(null);
-    setScheduleNotice(null);
-    setTiktokFinalConsent(false);
-    setProviderOptionCatalog({});
-    setProviderOptionValues({});
-    setProviderOptionLoading({});
-  }
+  const openSchedule = useCallback(
+    function openSchedule(clip: ClipDTO) {
+      setScheduleClipId(clip.id);
+      setScheduleSelectedProviders(defaultSelectedProviders());
+      setScheduleCaption(autoTitle(clip));
+      setScheduleWhen("");
+      setScheduleError(null);
+      setScheduleNotice(null);
+      setTiktokFinalConsent(false);
+      setProviderOptionCatalog({});
+      setProviderOptionValues({});
+      setProviderOptionLoading({});
+    },
+    [defaultSelectedProviders]
+  );
 
   useEffect(() => {
     if (!scheduleRequested || scheduleIntentHandled) return;
@@ -1330,7 +1332,7 @@ function ClipsWorkspace() {
     const qs = next.toString();
     router.replace(qs ? `/app/clips?${qs}` : "/app/clips", { scroll: false });
     setScheduleIntentHandled(true);
-  }, [clips, groups, loadedOnce, loading, router, scheduleClipKeyParam, scheduleClipParam, scheduleIntentHandled, scheduleRequested, sp]);
+  }, [clips, groups, loadedOnce, loading, router, scheduleClipKeyParam, scheduleClipParam, scheduleIntentHandled, scheduleRequested, sp, openSchedule]);
 
   async function loadProviderOptions(provider: SupportedSocialProvider) {
     if (providerOptionLoading[provider]) return;

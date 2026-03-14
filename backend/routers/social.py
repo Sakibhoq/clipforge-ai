@@ -1308,6 +1308,9 @@ def get_provider_publish_options(
     allow_comments_prefill = bool(prefill.get("allow_comments", False))
     allow_duet_prefill = bool(prefill.get("allow_duet", False))
     allow_stitch_prefill = bool(prefill.get("allow_stitch", False))
+    branded_content_prefill = bool(prefill.get("branded_content", False))
+    brand_organic_prefill = bool(prefill.get("brand_organic", False))
+    is_aigc_prefill = bool(prefill.get("is_aigc", False))
     comment_disabled = bool(creator.get("comment_disabled", False))
     duet_disabled = bool(creator.get("duet_disabled", False))
     stitch_disabled = bool(creator.get("stitch_disabled", False))
@@ -1342,15 +1345,15 @@ def get_provider_publish_options(
             "creator_username": {"value": creator_username},
             # Keep privacy unselected until the user explicitly chooses one.
             "privacy_level": {"value": "", "choices": privacy_choices, "required": True},
-            # Keep toggles off by default. If TikTok marks one disabled, lock it in the UI.
+            # Keep toggles aligned with user's last TikTok post, then lock by platform capability.
             "allow_comments": {"value": False if comment_disabled else allow_comments_prefill, "locked": comment_disabled},
             "allow_duet": {"value": False if duet_disabled else allow_duet_prefill, "locked": duet_disabled},
             "allow_stitch": {"value": False if stitch_disabled else allow_stitch_prefill, "locked": stitch_disabled},
             # Keep disclosure toggles OFF by default for each new publish flow.
             "commercial_content_disclosure": {"value": False},
-            "branded_content": {"value": False},
-            "brand_organic": {"value": False},
-            "is_aigc": {"value": False},
+            "branded_content": {"value": branded_content_prefill},
+            "brand_organic": {"value": brand_organic_prefill},
+            "is_aigc": {"value": is_aigc_prefill},
             "confirm_music_usage": {"value": False, "required": True},
             "confirm_branded_content": {"value": False, "required_if_branded": True},
             "max_video_post_duration_sec": int(creator.get("max_video_post_duration_sec") or 0),

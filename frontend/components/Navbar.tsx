@@ -441,12 +441,11 @@ export default function Navbar() {
         { href: "/app/settings", label: "Settings" },
       ];
     },
-    [authed, labsPlanAccess]
+    [authed, labsPlanAccess, orbitoAppOrigin]
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
   const whopPageHref = "/whop";
-  const isOrbitoMarketing = !inApp && !isLabsMarketing;
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
@@ -467,9 +466,8 @@ export default function Navbar() {
     : isLabsMarketing
       ? "btn-orbito-cta w-full text-xs"
       : "btn-whop btn-whop-nav w-full text-xs";
-  const labsButtonIsOrbito = isLabsMarketing;
   const labsButtonText = "Orbito";
-  const showLabsBadge = !labsButtonIsOrbito;
+  const showLabsBadge = !isLabsMarketing;
 
   // Always card/glass
   const shellClass =

@@ -1,7 +1,7 @@
 // frontend/app/app/upload/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiFetch, getDirectApiBase } from "@/lib/api";
 import { emitMeSync } from "@/lib/me-sync";
@@ -910,19 +910,16 @@ function UploadWorkspace() {
   const uploadAbort = useRef<AbortController | null>(null);
   const detachedUploadingView = flow === "uploading" && !file && !jobId;
 
-  // Dropzone pulse focus (YouTube Step 3)
   const dropzoneRef = useRef<HTMLDivElement | null>(null);
-  const [pulseOn, setPulseOn] = useState(false);
-  const pulseTimer = useRef<number | null>(null);
-  async function requestCancelJob(targetJobId: number) {
+  const requestCancelJob = useCallback(async (targetJobId: number) => {
     try {
       await apiFetch(`/jobs/${targetJobId}/cancel`, { method: "POST" });
     } catch {
       // best-effort
     }
-  }
+  }, []);
 
-  async function refreshActiveJobs(signal?: AbortSignal): Promise<JobRow[]> {
+  const refreshActiveJobs = useCallback(async (signal?: AbortSignal): Promise<JobRow[]> => {
     try {
       const rows = await apiFetch<JobRow[]>("/jobs", { signal });
       const ordered = [...rows].sort((a, b) => {
@@ -961,9 +958,9 @@ function UploadWorkspace() {
       setUploadOrdinalById({});
       return [];
     }
-  }
+  }, []);
 
-  async function refreshMeState() {
+  const refreshMeState = useCallback(async () => {
     try {
       const data = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
       setMe(data);
@@ -974,7 +971,78 @@ function UploadWorkspace() {
       emitMeSync(null);
       return null;
     }
-  }
+  }, []);
+
+  const pollJobUntilComplete = useCallback(async (targetJobId: number) => {
+    pollAbort.current?.abort();
+    const ac = new AbortController();
+    pollAbort.current = ac;
+
+    const started = Date.now();
+    setStatusText("Queued…");
+    setProgress((p) => Math.max(p, 92));
+
+    let delay = 700;
+
+    while (!ac.signal.aborted) {
+      const hit = await apiFetch<JobRow>(`/jobs/${targetJobId}`, {
+        signal: ac.signal,
+      });
+      const elapsedMs = Date.now() - started;
+      const long = elapsedMs > 60 * 60 * 1000;
+      const longHint = long ? " (taking longer than usual)" : "";
+      const generatedCount = Math.max(0, Number(hit.clips_generated ?? 0));
+      setClipsGenerated(generatedCount);
+
+      if (hit.status === "queued") {
+        setStatusText(
+          (generatedCount > 0
+            ? `Queued… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
+            : "Queued…") + longHint
+        );
+      } else if (hit.status === "running") {
+        setStatusText(
+          (generatedCount > 0
+            ? `Processing… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
+            : "Processing…") + longHint
+        );
+      } else if (hit.status === "done") {
+        setStatusText(generatedCount > 0 ? `Ready. ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated.` : "Ready.");
+        setProgress(100);
+        setFlow("done");
+        clearPersistedSession();
+        clearUploadCancelRequest();
+        void refreshActiveJobs();
+        void refreshMeState();
+        return;
+      } else if (hit.status === "failed") {
+        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
+        const refundNote = refunded
+          ? ` Credits refunded: ${Number(hit.credits_reserved)}.`
+          : "";
+        fail("Job failed", `${hit.error ?? "Unknown worker error."}${refundNote}`);
+        clearPersistedSession();
+        clearUploadCancelRequest();
+        void refreshActiveJobs();
+        void refreshMeState();
+        return;
+      } else if (hit.status === "canceled") {
+        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
+        setStatusText(
+          refunded ? `Canceled. Credits refunded: ${Number(hit.credits_reserved)}.` : "Canceled."
+        );
+        setFlow("canceled");
+        clearPersistedSession();
+        clearUploadCancelRequest();
+        void refreshActiveJobs();
+        void refreshMeState();
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(long ? 8000 : 2500, Math.round(delay * 1.2));
+    }
+  }, [refreshActiveJobs, refreshMeState]);
 
   function findJobNearStartedAt(rows: JobRow[], startedAtMs: number | null): JobRow | null {
     if (!rows.length) return null;
@@ -990,7 +1058,8 @@ function UploadWorkspace() {
     );
   }
 
-  function trackServerJob(row: JobRow) {
+  const trackServerJob = useCallback((row: JobRow) => {
+    const persisted = loadPersistedSession();
     setUploadId(row.upload_id);
     setJobId(row.id);
     setStorageKey(null);
@@ -1004,41 +1073,14 @@ function UploadWorkspace() {
       uploadId: row.upload_id,
       jobId: row.id,
       storageKey: null,
-      fileName: lastKnownFileName,
+      fileName: persisted?.fileName ?? null,
       flow: "processing",
       progress: 92,
       startedAt: Date.now(),
     });
-    pollJobUntilComplete(row.id).catch(() => {});
-  }
+    void pollJobUntilComplete(row.id);
+  }, [pollJobUntilComplete]);
 
-
-  function pulseDropzone() {
-    try {
-      if (typeof window !== "undefined") {
-        if (pulseTimer.current) window.clearTimeout(pulseTimer.current);
-      }
-    } catch {}
-    setPulseOn(true);
-
-    try {
-      dropzoneRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    } catch {}
-
-    if (typeof window !== "undefined") {
-      pulseTimer.current = window.setTimeout(() => setPulseOn(false), 1400);
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      try {
-        if (typeof window !== "undefined" && pulseTimer.current) {
-          window.clearTimeout(pulseTimer.current);
-        }
-      } catch {}
-    };
-  }, []);
 
   const steps = useMemo(() => {
     const selectedDone = flow !== "idle" && flow !== "dragging";
@@ -1283,8 +1325,7 @@ function UploadWorkspace() {
       ac.abort();
       window.clearInterval(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pollJobUntilComplete, refreshActiveJobs, refreshMeState, requestCancelJob, trackServerJob]);
 
   useEffect(() => {
     saveSettings({
@@ -1502,78 +1543,6 @@ function UploadWorkspace() {
     const f = e.dataTransfer.files?.[0] ?? null;
     setFlow("idle");
     void onFilePicked(f);
-  }
-
-  async function pollJobUntilComplete(targetJobId: number) {
-    pollAbort.current?.abort();
-    const ac = new AbortController();
-    pollAbort.current = ac;
-
-    const started = Date.now();
-    setStatusText("Queued…");
-    setProgress((p) => Math.max(p, 92));
-
-    let delay = 700;
-
-    while (!ac.signal.aborted) {
-      const hit = await apiFetch<JobRow>(`/jobs/${targetJobId}`, {
-        signal: ac.signal,
-      });
-      const elapsedMs = Date.now() - started;
-      const long = elapsedMs > 60 * 60 * 1000;
-      const longHint = long ? " (taking longer than usual)" : "";
-      const generatedCount = Math.max(0, Number(hit.clips_generated ?? 0));
-      setClipsGenerated(generatedCount);
-
-      if (hit.status === "queued") {
-        setStatusText(
-          (generatedCount > 0
-            ? `Queued… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
-            : "Queued…") + longHint
-        );
-      } else if (hit.status === "running") {
-        setStatusText(
-          (generatedCount > 0
-            ? `Processing… ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated`
-            : "Processing…") + longHint
-        );
-      }
-      else if (hit.status === "done") {
-        setStatusText(generatedCount > 0 ? `Ready. ${generatedCount} clip${generatedCount === 1 ? "" : "s"} generated.` : "Ready.");
-        setProgress(100);
-        setFlow("done");
-        clearPersistedSession();
-        clearUploadCancelRequest();
-        void refreshActiveJobs();
-        void refreshMeState();
-        return;
-      } else if (hit.status === "failed") {
-        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
-        const refundNote = refunded
-          ? ` Credits refunded: ${Number(hit.credits_reserved)}.`
-          : "";
-        fail("Job failed", `${hit.error ?? "Unknown worker error."}${refundNote}`);
-        clearPersistedSession();
-        clearUploadCancelRequest();
-        void refreshActiveJobs();
-        void refreshMeState();
-        return;
-      } else if (hit.status === "canceled") {
-        const refunded = !!hit.credits_refunded && Number(hit.credits_reserved ?? 0) > 0;
-        setStatusText(
-          refunded ? `Canceled. Credits refunded: ${Number(hit.credits_reserved)}.` : "Canceled."
-        );
-        setFlow("canceled");
-        clearPersistedSession();
-        clearUploadCancelRequest();
-        void refreshActiveJobs();
-        void refreshMeState();
-        return;
-      }
-
-      await new Promise((r) => setTimeout(r, delay));
-      delay = Math.min(long ? 8000 : 2500, Math.round(delay * 1.2));
-    }
   }
 
   async function startUpload() {
@@ -2261,16 +2230,14 @@ function UploadWorkspace() {
                 setFlow((s) => (s === "dragging" ? "idle" : s));
               }}
               onDrop={handleDrop}
-              className={cx(
-                "mt-5 group relative flex min-h-[230px] items-center justify-center rounded-2xl border border-dashed text-center transition md:min-h-[250px]",
-                canBrowse ? "cursor-pointer" : "cursor-default",
-                flow === "dragging"
-                  ? "border-white/35 bg-white/[0.06]"
-                  : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]",
-                pulseOn &&
-                  "ring-2 ring-emerald-400/30 border-emerald-400/35 bg-emerald-500/[0.06]"
-              )}
-            >
+                className={cx(
+                  "mt-5 group relative flex min-h-[230px] items-center justify-center rounded-2xl border border-dashed text-center transition md:min-h-[250px]",
+                  canBrowse ? "cursor-pointer" : "cursor-default",
+                  flow === "dragging"
+                    ? "border-white/35 bg-white/[0.06]"
+                    : "border-white/20 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.04]"
+                )}
+              >
               <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                 <div className="aurora opacity-35" />
               </div>
@@ -2775,7 +2742,7 @@ function UploadWorkspace() {
               </div>
 
               <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/65">
-                If blocked: Orbito shows "Link blocked by source platform". Then export MP4 and upload it directly.
+                If blocked: Orbito shows &quot;Link blocked by source platform&quot;. Then export MP4 and upload it directly.
               </div>
 
               {flow === "error" && /link blocked by source platform/i.test(errorTitle || "") ? (
