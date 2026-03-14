@@ -490,13 +490,12 @@ def logout(response: Response, request: Request):
 
 @router.get("/me", response_model=MeResponse)
 def me(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
-    request: Request | None = None,
-    response: Response | None = None,
 ):
-    if request is not None and response is not None:
-        existing_csrf = request.cookies.get(CSRF_COOKIE_NAME)
-        _ensure_csrf_cookie(response=response, request=request, current_token=existing_csrf)
+    existing_csrf = request.cookies.get(CSRF_COOKIE_NAME)
+    _ensure_csrf_cookie(response=response, request=request, current_token=existing_csrf)
     return MeResponse(
         name=getattr(current_user, "name", None),
         email=current_user.email,
