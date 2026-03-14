@@ -22,6 +22,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 COOKIE_NAME = "cf_token"
+CSRF_COOKIE_NAME = "cf_csrf"
 TOKEN_TTL_DAYS = 7
 PASSWORD_MIN_LENGTH = 8
 PASSWORD_RESET_TOKEN_TTL_MINUTES = max(
@@ -289,6 +290,29 @@ def cookie_options(request: Request):
     return opts
 
 
+def _generate_csrf_token() -> str:
+    return secrets.token_urlsafe(24)
+
+
+def set_csrf_cookie(response: Response, request: Request, token: str | None = None):
+    csrf = (token or "").strip() or _generate_csrf_token()
+    opts = cookie_options(request)
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf,
+        path=opts["path"],
+        secure=opts["secure"],
+        httponly=False,
+        samesite=opts["samesite"],
+        domain=opts.get("domain"),
+    )
+
+
+def _ensure_csrf_cookie(response: Response, request: Request, current_token: str | None = None):
+    token = (current_token or "").strip()
+    set_csrf_cookie(response, request, token=token or None)
+
+
 def set_auth_cookie(response: Response, request: Request, token: str):
     """
     IMPORTANT FIX:
@@ -317,6 +341,17 @@ def clear_auth_cookie(response: Response, request: Request):
     opts = cookie_options(request)
     response.delete_cookie(
         key=COOKIE_NAME,
+        path=opts["path"],
+        secure=opts["secure"],
+        samesite=opts["samesite"],
+        domain=opts.get("domain"),
+    )
+
+
+def clear_csrf_cookie(response: Response, request: Request):
+    opts = cookie_options(request)
+    response.delete_cookie(
+        key=CSRF_COOKIE_NAME,
         path=opts["path"],
         secure=opts["secure"],
         samesite=opts["samesite"],
@@ -441,6 +476,7 @@ def login(
 
     token = create_token(user.email)
     set_auth_cookie(response, request, token)
+    set_csrf_cookie(response, request)
 
     return {"ok": True}
 
@@ -448,11 +484,19 @@ def login(
 @router.post("/logout")
 def logout(response: Response, request: Request):
     clear_auth_cookie(response, request)
+    clear_csrf_cookie(response, request)
     return {"ok": True}
 
 
 @router.get("/me", response_model=MeResponse)
-def me(current_user: User = Depends(get_current_user)):
+def me(
+    current_user: User = Depends(get_current_user),
+    request: Request | None = None,
+    response: Response | None = None,
+):
+    if request is not None and response is not None:
+        existing_csrf = request.cookies.get(CSRF_COOKIE_NAME)
+        _ensure_csrf_cookie(response=response, request=request, current_token=existing_csrf)
     return MeResponse(
         name=getattr(current_user, "name", None),
         email=current_user.email,
@@ -559,4 +603,5 @@ def delete_account(
 
     db.commit()
     clear_auth_cookie(response, request)
+    clear_csrf_cookie(response, request)
     return {"ok": True}

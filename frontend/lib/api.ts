@@ -250,6 +250,26 @@ function isPlainObject(v: any): v is Record<string, any> {
  */
 type ApiFetchInit = Omit<RequestInit, "body"> & { body?: any };
 
+function getCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const prefix = `${name}=`;
+  const match = document.cookie
+    .split(";")
+    .map((chunk) => chunk.trim())
+    .find((chunk) => chunk.startsWith(prefix));
+  if (!match) return "";
+  return decodeURIComponent(match.slice(prefix.length));
+}
+
+function addCsrfHeader(headers: Headers, method: string) {
+  const mutating = ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
+  if (!mutating) return;
+
+  const token = getCookie("cf_csrf");
+  if (!token) return;
+  headers.set("x-csrf-token", token);
+}
+
 export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const base = getApiBase();
 
@@ -271,6 +291,8 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
   } else if (typeof body === "string") {
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
+
+  addCsrfHeader(headers, init.method || "GET");
 
   let res: Response;
   try {
