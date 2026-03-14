@@ -37,6 +37,7 @@ function cx(...a: Array<string | false | null | undefined>) {
 
 const YOUTUBE_INGEST_ENABLED = (process.env.NEXT_PUBLIC_YOUTUBE_INGEST_ENABLED ?? "1") !== "0";
 const UPLOAD_RESUME_GRACE_MS = 2 * 60 * 1000;
+const UPLOAD_CANCEL_KEY = "cf_upload_cancel_v1";
 
 type Flow =
   | "idle"
@@ -647,6 +648,55 @@ function clearPersistedSession() {
   }
 }
 
+type PersistedUploadCancelRequest = {
+  requestedAt: number;
+  startedAt: number | null;
+  fileName: string | null;
+  storageKey: string | null;
+};
+
+function loadUploadCancelRequest(): PersistedUploadCancelRequest | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(UPLOAD_CANCEL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any;
+    if (!parsed || typeof parsed !== "object") return null;
+    const requestedAt = Number(parsed.requestedAt);
+    if (!Number.isFinite(requestedAt) || requestedAt <= 0) return null;
+    return {
+      requestedAt,
+      startedAt: Number.isFinite(parsed.startedAt) ? Number(parsed.startedAt) : null,
+      fileName: typeof parsed.fileName === "string" ? parsed.fileName : null,
+      storageKey: typeof parsed.storageKey === "string" ? parsed.storageKey : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistUploadCancelRequest(req: PersistedUploadCancelRequest) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(UPLOAD_CANCEL_KEY, JSON.stringify(req));
+  } catch {
+    // ignore
+  }
+}
+
+function clearUploadCancelRequest() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(UPLOAD_CANCEL_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function hasUploadCancelRequest() {
+  return !!loadUploadCancelRequest();
+}
+
 const SETTINGS_KEY = "cf_upload_settings_v2";
 
 function loadSettings():
@@ -904,6 +954,20 @@ function UploadWorkspace() {
     }
   }
 
+  function findJobNearStartedAt(rows: JobRow[], startedAtMs: number | null): JobRow | null {
+    if (!rows.length) return null;
+    if (!Number.isFinite(startedAtMs as number)) return rows[0] ?? null;
+    const center = Number(startedAtMs);
+    const windowStart = center - 2 * 60 * 1000;
+    const windowEnd = center + 15 * 60 * 1000;
+    return (
+      rows.find((row) => {
+        const createdAtMs = Date.parse(row.created_at || "");
+        return Number.isFinite(createdAtMs) && createdAtMs >= windowStart && createdAtMs <= windowEnd;
+      }) ?? null
+    );
+  }
+
   function trackServerJob(row: JobRow) {
     setUploadId(row.upload_id);
     setJobId(row.id);
@@ -1041,6 +1105,7 @@ function UploadWorkspace() {
     }
 
     const sess = loadPersistedSession();
+    const cancelReq = loadUploadCancelRequest();
     let resumed = false;
     const applyProcessingSession = (session: NonNullable<ReturnType<typeof loadPersistedSession>>) => {
       resumed = true;
@@ -1072,6 +1137,11 @@ function UploadWorkspace() {
     if (sess?.fileName) setLastKnownFileName(sess.fileName);
     if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
 
+    if (cancelReq && !sess?.jobId) {
+      setFlow("uploading");
+      setStatusText("Cancel requested. Stopping upload…");
+    }
+
     if (sess?.jobId) {
       applyProcessingSession(sess);
     } else if (sess?.flow === "uploading" && sess.fileName) {
@@ -1082,6 +1152,7 @@ function UploadWorkspace() {
     const refresh = async () => {
       if (ac.signal.aborted) return;
       const latestSess = loadPersistedSession();
+      const latestCancelReq = loadUploadCancelRequest();
       const pendingInterrupted =
         latestSess?.flow === "uploading" && latestSess.fileName
           ? {
@@ -1096,6 +1167,24 @@ function UploadWorkspace() {
         setUploadStartedAt(latestSess?.startedAt as number);
       }
 
+      if (latestCancelReq && !resumed) {
+        setFlow("uploading");
+        setStatusText("Cancel requested. Stopping upload…");
+        if (latestCancelReq.fileName) setLastKnownFileName(latestCancelReq.fileName);
+      }
+
+      if (latestCancelReq && latestSess?.jobId) {
+        await requestCancelJob(Number(latestSess.jobId));
+        clearPersistedSession();
+        clearUploadCancelRequest();
+        setFlow("canceled");
+        setProgress(0);
+        setStatusText("Canceled.");
+        setInterruptedUpload(null);
+        void refreshActiveJobs(ac.signal);
+        return;
+      }
+
       if (!resumed && latestSess?.jobId) {
         applyProcessingSession(latestSess);
         return;
@@ -1106,18 +1195,30 @@ function UploadWorkspace() {
       }
 
       const active = await refreshActiveJobs(ac.signal);
-      if (!resumed && active.length > 0) {
-        let resumable: JobRow | null = active[0] ?? null;
-        if (pendingInterrupted && Number.isFinite(pendingInterrupted.startedAt)) {
-          const startedAt = Number(pendingInterrupted.startedAt);
-          const windowStart = startedAt - (2 * 60 * 1000);
-          const windowEnd = startedAt + (15 * 60 * 1000);
-          resumable =
-            active.find((row) => {
-              const createdAtMs = Date.parse(row.created_at || "");
-              return Number.isFinite(createdAtMs) && createdAtMs >= windowStart && createdAtMs <= windowEnd;
-            }) ?? null;
+      const resumableStartedAt =
+        Number.isFinite(pendingInterrupted?.startedAt as number)
+          ? Number(pendingInterrupted?.startedAt)
+          : Number.isFinite(latestCancelReq?.startedAt as number)
+          ? Number(latestCancelReq?.startedAt)
+          : null;
+
+      if (latestCancelReq) {
+        const toCancel = findJobNearStartedAt(active, resumableStartedAt);
+        if (toCancel) {
+          await requestCancelJob(toCancel.id);
+          clearPersistedSession();
+          clearUploadCancelRequest();
+          setFlow("canceled");
+          setProgress(0);
+          setStatusText("Canceled.");
+          setInterruptedUpload(null);
+          void refreshActiveJobs(ac.signal);
+          return;
         }
+      }
+
+      if (!resumed && active.length > 0) {
+        const resumable = findJobNearStartedAt(active, resumableStartedAt);
         if (resumable) {
           resumed = true;
           trackServerJob(resumable);
@@ -1132,6 +1233,15 @@ function UploadWorkspace() {
           : Date.now();
         const elapsedMs = Date.now() - startedAtMs;
         if (elapsedMs < UPLOAD_RESUME_GRACE_MS) return;
+        if (latestCancelReq) {
+          setFlow("canceled");
+          setProgress(0);
+          setStatusText("Canceled.");
+          setInterruptedUpload(null);
+          clearPersistedSession();
+          clearUploadCancelRequest();
+          return;
+        }
         setInterruptedUpload(pendingInterrupted);
         setFlow("idle");
         setProgress(0);
@@ -1163,6 +1273,42 @@ function UploadWorkspace() {
   useEffect(() => {
     if (isFree) setWatermarkEnabled(true);
   }, [isFree]);
+
+  useEffect(() => {
+    if (!detachedUploadingView) return;
+    const tick = () => {
+      const sess = loadPersistedSession();
+      if (sess?.fileName) setLastKnownFileName(sess.fileName);
+      if (Number.isFinite(sess?.startedAt)) {
+        setUploadStartedAt(Number(sess?.startedAt));
+      }
+      const persistedProgress = Number.isFinite(sess?.progress)
+        ? Math.max(2, Math.min(90, Number(sess?.progress)))
+        : null;
+      const startedAtMs = Number.isFinite(sess?.startedAt)
+        ? Number(sess?.startedAt)
+        : Number.isFinite(uploadStartedAt)
+        ? Number(uploadStartedAt)
+        : Date.now();
+      const elapsedSec = Math.max(0, (Date.now() - startedAtMs) / 1000);
+      const expectedProgress = Math.min(89, 8 + elapsedSec * 0.22);
+      setProgress((prev) => {
+        const base = persistedProgress != null ? Math.max(prev, persistedProgress) : prev;
+        return Math.max(base, expectedProgress);
+      });
+      if (hasUploadCancelRequest()) {
+        setStatusText("Cancel requested. Stopping upload…");
+      } else if (persistedProgress != null && persistedProgress >= 88) {
+        setStatusText("Registering upload…");
+      } else {
+        setStatusText("Uploading in background…");
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [detachedUploadingView, uploadStartedAt]);
 
   // YouTube URL changes: reset step + preview state (debounced preview call)
   useEffect(() => {
@@ -1221,23 +1367,47 @@ function UploadWorkspace() {
     setErrorDetail(null);
 
     clearPersistedSession();
+    clearUploadCancelRequest();
     if (inputRef.current) inputRef.current.value = "";
   }
 
   async function cancelUpload() {
+    const sess = loadPersistedSession();
+    const knownJobId =
+      Number.isFinite(jobId as number)
+        ? Number(jobId)
+        : Number.isFinite(sess?.jobId as number)
+        ? Number(sess?.jobId)
+        : null;
+
+    if (!knownJobId) {
+      persistUploadCancelRequest({
+        requestedAt: Date.now(),
+        startedAt: Number.isFinite(sess?.startedAt)
+          ? Number(sess?.startedAt)
+          : Number.isFinite(uploadStartedAt)
+          ? Number(uploadStartedAt)
+          : Date.now(),
+        fileName: sess?.fileName ?? file?.name ?? lastKnownFileName ?? null,
+        storageKey: sess?.storageKey ?? storageKey ?? null,
+      });
+    }
+
     uploadAbort.current?.abort();
     pollAbort.current?.abort();
     uploadAbort.current = null;
     pollAbort.current = null;
 
-    if (jobId) {
-      await requestCancelJob(jobId);
+    if (knownJobId) {
+      await requestCancelJob(knownJobId);
+      clearPersistedSession();
+      clearUploadCancelRequest();
     }
 
-    clearPersistedSession();
-
-    setStatusText("Canceled.");
+    setStatusText(knownJobId ? "Canceled." : "Cancel requested. Stopping upload…");
     setFlow("canceled");
+    setFile(null);
+    setInterruptedUpload(null);
     void refreshActiveJobs();
     void refreshMeState();
   }
@@ -1253,6 +1423,7 @@ function UploadWorkspace() {
     setErrorTitle(title);
     setErrorDetail(detail ?? null);
     setFlow("error");
+    clearUploadCancelRequest();
   }
 
   function openPicker() {
@@ -1265,6 +1436,7 @@ function UploadWorkspace() {
     if (flow === "uploading" || flow === "processing") return;
 
     resetFileFlow();
+    clearUploadCancelRequest();
     setFile(f);
     setFlow("selected");
     setLastKnownFileName(f.name);
@@ -1345,6 +1517,7 @@ function UploadWorkspace() {
         setProgress(100);
         setFlow("done");
         clearPersistedSession();
+        clearUploadCancelRequest();
         void refreshActiveJobs();
         void refreshMeState();
         return;
@@ -1355,6 +1528,7 @@ function UploadWorkspace() {
           : "";
         fail("Job failed", `${hit.error ?? "Unknown worker error."}${refundNote}`);
         clearPersistedSession();
+        clearUploadCancelRequest();
         void refreshActiveJobs();
         void refreshMeState();
         return;
@@ -1365,6 +1539,7 @@ function UploadWorkspace() {
         );
         setFlow("canceled");
         clearPersistedSession();
+        clearUploadCancelRequest();
         void refreshActiveJobs();
         void refreshMeState();
         return;
@@ -1382,6 +1557,7 @@ function UploadWorkspace() {
       return;
     }
     if (flow === "uploading" || flow === "processing") return;
+    clearUploadCancelRequest();
 
     setFlow("uploading");
     setErrorTitle("");
@@ -1394,6 +1570,21 @@ function UploadWorkspace() {
     uploadAbort.current?.abort();
     const ac = new AbortController();
     uploadAbort.current = ac;
+    const throwIfCancelRequested = () => {
+      if (ac.signal.aborted || hasUploadCancelRequest()) {
+        const err: any = new Error("Upload canceled.");
+        err.code = "UPLOAD_CANCELED";
+        throw err;
+      }
+    };
+    let cancelWatchTimer: number | null = null;
+    if (typeof window !== "undefined") {
+      cancelWatchTimer = window.setInterval(() => {
+        if (!ac.signal.aborted && hasUploadCancelRequest()) {
+          ac.abort();
+        }
+      }, 350);
+    }
 
     setProgress(2);
     setClipsGenerated(0);
@@ -1409,6 +1600,7 @@ function UploadWorkspace() {
     });
 
     try {
+      throwIfCancelRequested();
       const presign = await apiFetch<PresignResponse>("/storage/presign", {
         method: "POST",
         body: {
@@ -1418,6 +1610,7 @@ function UploadWorkspace() {
         },
         signal: ac.signal,
       });
+      throwIfCancelRequested();
 
       let uploadedStorageKey = presign.storage_key;
       setStorageKey(uploadedStorageKey);
@@ -1440,12 +1633,17 @@ function UploadWorkspace() {
 
       for (const putUrl of putUrls) {
         try {
+          throwIfCancelRequested();
           await xhrPutWithProgress({
             url: putUrl,
             file,
             headers: safeHeaders,
             signal: ac.signal,
             onProgress: (pct) => {
+              if (hasUploadCancelRequest()) {
+                ac.abort();
+                return;
+              }
               const mapped = 10 + pct * 0.75;
               setProgress((p) => {
                 const next = Math.max(p, Math.min(85, mapped));
@@ -1473,11 +1671,13 @@ function UploadWorkspace() {
         persistUploadSession({ flow: "uploading", progress: 34 });
 
         try {
+          throwIfCancelRequested();
           const proxied = await uploadViaBackendProxy({
             file,
             storageKey: presign.storage_key,
             signal: ac.signal,
           });
+          throwIfCancelRequested();
           uploadedStorageKey = proxied.storage_key || presign.storage_key;
           setStorageKey(uploadedStorageKey);
           setProgress((p) => Math.max(p, 80));
@@ -1501,6 +1701,7 @@ function UploadWorkspace() {
       setProgress(88);
       setStatusText("Registering upload…");
       persistUploadSession({ flow: "uploading", progress: 88 });
+      throwIfCancelRequested();
 
       const reg = await apiFetch<RegisterResponse>("/uploads/register", {
         method: "POST",
@@ -1518,6 +1719,17 @@ function UploadWorkspace() {
         },
         signal: ac.signal,
       });
+      if (hasUploadCancelRequest()) {
+        await requestCancelJob(reg.job_id);
+        clearPersistedSession();
+        clearUploadCancelRequest();
+        setFlow("canceled");
+        setStatusText("Canceled.");
+        setProgress(0);
+        void refreshActiveJobs();
+        void refreshMeState();
+        return;
+      }
 
       setUploadId(reg.upload_id);
       setJobId(reg.job_id);
@@ -1540,9 +1752,28 @@ function UploadWorkspace() {
 
       await pollJobUntilComplete(reg.job_id);
     } catch (e: any) {
-      if (String(e?.message || "").toLowerCase().includes("canceled")) {
+      const canceled =
+        String(e?.message || "").toLowerCase().includes("canceled") ||
+        e?.code === "UPLOAD_CANCELED" ||
+        e?.name === "AbortError";
+      if (canceled) {
+        const sess = loadPersistedSession();
+        const knownJobId =
+          Number.isFinite(jobId as number)
+            ? Number(jobId)
+            : Number.isFinite(sess?.jobId as number)
+            ? Number(sess?.jobId)
+            : null;
+        if (knownJobId) {
+          await requestCancelJob(knownJobId);
+        }
+        clearPersistedSession();
+        clearUploadCancelRequest();
         setFlow("canceled");
         setStatusText("Canceled.");
+        setProgress(0);
+        void refreshActiveJobs();
+        void refreshMeState();
         return;
       }
 
@@ -1595,6 +1826,9 @@ function UploadWorkspace() {
 
       fail("Upload failed", msg);
     } finally {
+      if (typeof window !== "undefined" && Number.isFinite(cancelWatchTimer as number)) {
+        window.clearInterval(cancelWatchTimer as number);
+      }
       uploadAbort.current = null;
     }
   }
@@ -1606,6 +1840,7 @@ function UploadWorkspace() {
       return;
     }
     if (flow === "uploading" || flow === "processing" || ytIngestBusy) return;
+    clearUploadCancelRequest();
 
     ytPreviewAbort.current?.abort();
     ytPreviewAbort.current = null;
