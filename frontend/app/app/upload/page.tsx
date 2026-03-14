@@ -147,6 +147,28 @@ function creditsForSeconds(seconds: number) {
   return ceilMinutes(seconds) * 2;
 }
 
+function planLabel(rawPlan: string | null | undefined) {
+  const key = String(rawPlan || "").trim().toLowerCase();
+  if (!key) return "—";
+  const byKey: Record<string, string> = {
+    free: "Free",
+    starter: "Starter",
+    creator: "Creator+",
+    studio: "Studio",
+    labs_free: "Free",
+    labs_starter: "Starter",
+    labs_creator: "Creator+",
+    labs_velocity: "Creator+",
+  };
+  if (byKey[key]) return byKey[key];
+  const compact = key.startsWith("labs_") ? key.slice(5) : key;
+  return compact
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 async function getVideoDurationSeconds(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -2014,9 +2036,9 @@ function UploadWorkspace() {
       </div>
 
       {/* Upload options */}
-      <div className="grid gap-4 md:grid-cols-[1.45fr_1fr]">
+      <div className="grid gap-5 md:grid-cols-[1.55fr_1fr]">
         {/* FILE */}
-        <div className="surface-soft relative overflow-hidden p-6">
+        <div className="surface-soft relative overflow-hidden rounded-3xl p-7 md:p-8">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -inset-10 opacity-30 blur-2xl"
@@ -2031,9 +2053,9 @@ function UploadWorkspace() {
           <div className="relative">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-white/90">Upload a video</div>
-                <div className="mt-1 text-sm text-white/60">Pick your settings, then upload.</div>
-                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/65">
+                <div className="text-[15px] font-semibold text-white/92">Upload a video</div>
+                <div className="mt-1 text-[14px] text-white/65">Pick your settings, then upload.</div>
+                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[12px] leading-relaxed text-white/65">
                   Shorter videos usually process faster. A clear speaker and clean audio give better clips.
                 </div>
                 {interruptedUpload ? (
@@ -2135,7 +2157,7 @@ function UploadWorkspace() {
             </div>
 
             {/* Output settings */}
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[12px] font-semibold text-white/85">Output settings</div>
@@ -2143,7 +2165,7 @@ function UploadWorkspace() {
                 </div>
 
                 <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[12px] text-white/70">
-                  Plan: <span className="text-white/85">{me?.plan ?? "—"}</span>
+                  Workspace plan: <span className="text-white/90">{planLabel(me?.plan)}</span>
                 </div>
               </div>
 
@@ -2228,7 +2250,7 @@ function UploadWorkspace() {
               }}
               onDrop={handleDrop}
               className={cx(
-                "mt-4 group relative flex min-h-[190px] items-center justify-center rounded-2xl border border-dashed text-center transition",
+                "mt-5 group relative flex min-h-[230px] items-center justify-center rounded-2xl border border-dashed text-center transition md:min-h-[250px]",
                 canBrowse ? "cursor-pointer" : "cursor-default",
                 flow === "dragging"
                   ? "border-white/35 bg-white/[0.06]"
@@ -2499,12 +2521,12 @@ function UploadWorkspace() {
                   </div>
                 ) : (
                   <div className="relative">
-                    <div className="text-sm font-semibold text-white/85">
+                    <div className="text-sm font-semibold text-white/90">
                       {flow === "dragging" ? "Drop to upload" : "Drop your video file here"}
                     </div>
-                    <div className="mt-1 text-xs text-white/55">MP4 or MOV</div>
+                    <div className="mt-1 text-sm text-white/60">MP4 or MOV</div>
 
-                    <div className="mt-4 flex items-center justify-center">
+                    <div className="mt-5 flex items-center justify-center">
                       <button
                         type="button"
                         onClick={(e) => {
