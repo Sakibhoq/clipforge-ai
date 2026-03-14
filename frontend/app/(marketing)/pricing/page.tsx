@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
 import { SocialBrandRow } from "@/components/SocialBrand";
+
+export const dynamic = "force-dynamic";
 
 type BillingMode = "monthly" | "yearly";
 type CheckoutPlan = "free" | "starter" | "creator" | "labs_spark" | "labs_velocity";
@@ -27,6 +29,14 @@ function formatMoney(n: number) {
 function formatInt(n: number) {
   return new Intl.NumberFormat("en-US").format(Math.max(0, Math.round(n)));
 }
+
+type MeResponse = {
+  name?: string | null;
+  email: string;
+  plan: string;
+  credits: number;
+  trial_used: boolean;
+};
 
 function GlowLayer({ family }: { family: "orbito" | "labs" | "full" }) {
   const background =
@@ -271,6 +281,10 @@ function PricingMotionStyles() {
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
+  const [trialNotice, setTrialNotice] = useState<string | null>(null);
+
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [meLoading, setMeLoading] = useState<boolean>(false);
   const [mode, setMode] = useState<BillingMode>("yearly");
   const [creditScale, setCreditScale] = useState(1);
   const [startingCheckout, setStartingCheckout] = useState<null | CheckoutPlan>(null);
@@ -281,6 +295,39 @@ export default function Page() {
     labsSpark: false,
     labsVelocity: false,
   });
+
+  const trialLockNotice =
+    trialNotice === "locked"
+      ? "Your free trial has already been used. Please choose a paid plan."
+      : trialNotice === "error"
+        ? "Trial checkout is currently unavailable. Please try again later."
+        : null;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setTrialNotice(new URLSearchParams(window.location.search).get("trial"));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMe() {
+      setMeLoading(true);
+      try {
+        const meData = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+        if (!cancelled) setMe(meData);
+      } catch {
+        if (!cancelled) setMe(null);
+      } finally {
+        if (!cancelled) setMeLoading(false);
+      }
+    }
+
+    loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function requireAuthOrRedirect(): Promise<boolean> {
     try {
@@ -312,6 +359,10 @@ export default function Page() {
   async function startCheckout(plan: CheckoutPlan) {
     const ok = await requireAuthOrRedirect();
     if (!ok) return;
+    if (plan === "free" && me?.trial_used) {
+      alert("Your free trial has already been used. Please choose a paid plan.");
+      return;
+    }
     try {
       setStartingCheckout(plan);
       const interval = plan === "creator" || plan === "labs_velocity" ? mode : "monthly";
@@ -353,6 +404,8 @@ export default function Page() {
 
   const toggleBenefits = (key: BenefitsKey) =>
     setOpenBenefits((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const freeTrialLocked = !meLoading && Boolean(me?.trial_used);
 
   const benefits = useMemo(
     () => ({
@@ -404,6 +457,11 @@ export default function Page() {
     <div className="relative">
       <PricingMotionStyles />
       <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
+        {trialLockNotice ? (
+          <div className="mb-6 rounded-xl border border-amber-300/35 bg-amber-300/12 px-4 py-3 text-sm text-amber-100">
+            {trialLockNotice}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-6xl">
@@ -502,16 +560,20 @@ export default function Page() {
                     Validate clipping quality, generation speed, and publish flow in one workspace.
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => startCheckout("free")}
-                    disabled={startingCheckout !== null}
-                    className={cn(
-                      "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                      startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                    )}
-                  >
-                    {startingCheckout === "free" ? "Opening Checkout..." : "Start Free Trial"}
+                <button
+                  type="button"
+                  onClick={() => startCheckout("free")}
+                  disabled={startingCheckout !== null || freeTrialLocked || meLoading}
+                  className={cn(
+                    "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                  )}
+                >
+                    {startingCheckout === "free"
+                      ? "Opening Checkout..."
+                      : freeTrialLocked
+                        ? "Trial already used"
+                        : "Start Free Trial"}
                   </button>
                   <BenefitsDisclosure
                     open={openBenefits.trial}

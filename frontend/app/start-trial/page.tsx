@@ -4,7 +4,21 @@ import React, { Suspense, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 
-type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
+type MeResponse = {
+  name?: string | null;
+  email: string;
+  plan: string;
+  credits: number;
+  trial_used: boolean;
+};
+
+function isTrialLockedError(error: any): boolean {
+  if (!error) return false;
+  const status = Number((error as any).status || 0);
+  if (status === 400) return true;
+  const detail = String((error as any).detail || (error as any).message || (error as any).error || "").toLowerCase();
+  return detail.includes("free trial already used") || detail.includes("already used");
+}
 
 function StartTrialPageInner() {
   const router = useRouter();
@@ -15,7 +29,11 @@ function StartTrialPageInner() {
     async function run() {
       // 1) If not logged in -> send to register (with return)
       try {
-        await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+        const me = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+        if (me.trial_used) {
+          if (!cancelled) router.replace("/pricing?trial=locked");
+          return;
+        }
       } catch {
         if (!cancelled) {
           router.replace(`/register?next=${encodeURIComponent("/start-trial")}`);
@@ -34,8 +52,14 @@ function StartTrialPageInner() {
         if (!url) throw new Error("checkout_failed_no_url");
 
         window.location.href = url;
-      } catch {
-        if (!cancelled) router.replace("/pricing?trial=error");
+      } catch (error) {
+        if (!cancelled) {
+          if (isTrialLockedError(error)) {
+            router.replace("/pricing?trial=locked");
+          } else {
+            router.replace("/pricing?trial=error");
+          }
+        }
       }
     }
 

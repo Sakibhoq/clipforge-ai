@@ -254,7 +254,7 @@ function CreditsPill({ credits, loading }: { credits: number | null; loading: bo
   );
 }
 
-type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
+type MeResponse = { name?: string | null; email: string; plan: string; credits: number; trial_used: boolean };
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -267,6 +267,10 @@ export default function Navbar() {
   const [startingTrial, setStartingTrial] = useState(false);
 
   const inApp = pathname?.startsWith("/app");
+  const authed = !!me;
+  const credits = me?.credits ?? null;
+  const trialLocked = Boolean(me?.trial_used);
+  const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
   // ✅ Keep the scroll-safe approach:
   // - Marketing: FIXED + spacer (guarantees document scroll stays correct with your page backgrounds)
@@ -349,10 +353,6 @@ export default function Navbar() {
     };
   }, [pathname]);
 
-  const authed = !!me;
-  const credits = me?.credits ?? null;
-  const displayName = useMemo(() => displayNameFromUser(me), [me]);
-
   async function logout() {
     try {
       await apiFetch("/auth/logout", { method: "POST" });
@@ -380,12 +380,18 @@ export default function Navbar() {
       return;
     }
 
+    if (trialLocked) {
+      setOpen(false);
+      router.push("/pricing?trial=locked");
+      return;
+    }
+
     setStartingTrial(true);
     try {
       // Free trial checkout (card collection enforced in backend)
       const data = (await apiFetch("/billing/checkout-session", {
         method: "POST",
-        body: JSON.stringify({ plan: "free", interval: "monthly", pack: 1 }),
+        body: { plan: "free", interval: "monthly", pack: 1 },
       })) as any;
 
       const url = data?.url;
@@ -510,10 +516,16 @@ export default function Navbar() {
                     <button
                       type="button"
                       onClick={startFreeTrial}
-                      disabled={startingTrial}
+                      disabled={startingTrial || trialLocked}
                       className="group relative btn-aurora text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
+                      <span className="relative z-[1]">
+                        {startingTrial
+                          ? "Starting…"
+                          : trialLocked
+                            ? "Free trial already used"
+                            : "Start free trial"}
+                      </span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"
@@ -641,10 +653,16 @@ export default function Navbar() {
                     <button
                       type="button"
                       onClick={startFreeTrial}
-                      disabled={startingTrial}
+                      disabled={startingTrial || trialLocked}
                       className="group relative mt-2 w-full btn-aurora text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
+                      <span className="relative z-[1]">
+                        {startingTrial
+                          ? "Starting…"
+                          : trialLocked
+                            ? "Free trial already used"
+                            : "Start free trial"}
+                      </span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"

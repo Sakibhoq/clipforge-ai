@@ -250,7 +250,7 @@ function CreditsPill({ credits, loading }: { credits: number | null; loading: bo
   );
 }
 
-type MeResponse = { name?: string | null; email: string; plan: string; credits: number };
+type MeResponse = { name?: string | null; email: string; plan: string; credits: number; trial_used: boolean };
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -350,6 +350,7 @@ export default function Navbar() {
   const authed = !!me;
   const credits = me?.credits ?? null;
   const labsPlanAccess = hasLabsFeatureAccess(me?.plan);
+  const trialLocked = Boolean(me?.trial_used);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
   const whopLabel = authed ? (
     <span className="whop-word">Whop</span>
@@ -383,6 +384,12 @@ export default function Navbar() {
     if (!authed) {
       setOpen(false);
       goToAuthForTrial();
+      return;
+    }
+
+    if (trialLocked) {
+      setOpen(false);
+      router.push("/pricing?trial=locked");
       return;
     }
 
@@ -568,10 +575,16 @@ export default function Navbar() {
                     <button
                       type="button"
                       onClick={startFreeTrial}
-                      disabled={startingTrial}
+                      disabled={startingTrial || trialLocked}
                       className="group relative btn-orbito-cta text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
+                      <span className="relative z-[1]">
+                        {startingTrial
+                          ? "Starting…"
+                          : trialLocked
+                            ? "Free trial already used"
+                            : "Start free trial"}
+                      </span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"
@@ -716,10 +729,16 @@ export default function Navbar() {
                     <button
                       type="button"
                       onClick={startFreeTrial}
-                      disabled={startingTrial}
+                      disabled={startingTrial || trialLocked}
                       className="group relative mt-2 w-full btn-orbito-cta text-xs text-center disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <span className="relative z-[1]">{startingTrial ? "Starting…" : "Start free trial"}</span>
+                      <span className="relative z-[1]">
+                        {startingTrial
+                          ? "Starting…"
+                          : trialLocked
+                            ? "Free trial already used"
+                            : "Start free trial"}
+                      </span>
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-2 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-100"

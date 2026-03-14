@@ -105,6 +105,7 @@ class MeResponse(BaseModel):
     email: EmailStr
     plan: str
     credits: int
+    trial_used: bool
 
 
 class ChangePasswordRequest(BaseModel):
@@ -501,6 +502,7 @@ def me(
         email=current_user.email,
         plan=current_user.plan,
         credits=current_user.credits,
+        trial_used=bool(current_user.trial_used),
     )
 
 

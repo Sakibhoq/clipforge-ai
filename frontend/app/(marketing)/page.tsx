@@ -1,10 +1,19 @@
 // frontend/app/(marketing)/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+import { apiFetch } from "@/lib/api";
 import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
+
+type MeResponse = {
+  name?: string | null;
+  email: string;
+  plan: string;
+  credits: number;
+  trial_used: boolean;
+};
 
 /* =========================================================
    Orbito — Landing (Marketing)
@@ -302,7 +311,66 @@ function AmbientFX() {
 }
 
 export default function Page() {
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [meLoading, setMeLoading] = useState(false);
   const revealRef = useReveal();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMe() {
+      setMeLoading(true);
+      try {
+        const meData = await apiFetch<MeResponse>("/auth/me", { method: "GET" });
+        if (!cancelled) setMe(meData);
+      } catch {
+        if (!cancelled) setMe(null);
+      } finally {
+        if (!cancelled) setMeLoading(false);
+      }
+    }
+
+    loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const trialLocked = Boolean(me?.trial_used);
+
+  const startTrialCta = useMemo(
+    () => (className: string) => {
+      if (meLoading) {
+        return (
+          <button
+            type="button"
+            disabled
+            className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+          >
+            Checking trial…
+          </button>
+        );
+      }
+      if (trialLocked) {
+        return (
+          <button
+            type="button"
+            disabled
+            className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+            title="Your free trial has already been used. Upgrade to a paid plan."
+          >
+            Trial already used
+          </button>
+        );
+      }
+      return (
+        <a href="/start-trial" className={className}>
+          Start free
+        </a>
+      );
+    },
+    [meLoading, trialLocked]
+  );
 
   const footerLinks = useMemo(
     () => [
@@ -415,9 +483,7 @@ export default function Page() {
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <a href="/start-trial" className="btn-orbito-cta">
-                      Start free
-                    </a>
+                    {startTrialCta("btn-orbito-cta")}
                     <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
                       Get paid with <span className="whop-word">Whop</span>
                     </a>
@@ -585,9 +651,7 @@ export default function Page() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="/start-trial" className="btn-orbito-cta">
-              Start free
-            </a>
+            {startTrialCta("btn-orbito-cta")}
             <a href="/pricing" className="btn-ghost">
               View pricing
             </a>
