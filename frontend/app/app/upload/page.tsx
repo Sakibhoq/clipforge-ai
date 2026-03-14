@@ -1160,7 +1160,8 @@ function UploadWorkspace() {
     if (Number.isFinite(sess?.startedAt)) setUploadStartedAt(sess?.startedAt as number);
 
     if (cancelReq && !sess?.jobId) {
-      setFlow("uploading");
+      setFlow("canceled");
+      setProgress(0);
       setStatusText("Cancel requested. Stopping upload…");
     }
 
@@ -1190,7 +1191,8 @@ function UploadWorkspace() {
       }
 
       if (latestCancelReq && !resumed) {
-        setFlow("uploading");
+        setFlow("canceled");
+        setProgress(0);
         setStatusText("Cancel requested. Stopping upload…");
         if (latestCancelReq.fileName) setLastKnownFileName(latestCancelReq.fileName);
       }
@@ -1420,14 +1422,15 @@ function UploadWorkspace() {
     uploadAbort.current = null;
     pollAbort.current = null;
 
+    clearPersistedSession();
     if (knownJobId) {
       await requestCancelJob(knownJobId);
-      clearPersistedSession();
       clearUploadCancelRequest();
     }
 
     setStatusText(knownJobId ? "Canceled." : "Cancel requested. Stopping upload…");
     setFlow("canceled");
+    setProgress(0);
     setFile(null);
     setInterruptedUpload(null);
     void refreshActiveJobs();
@@ -1445,6 +1448,7 @@ function UploadWorkspace() {
     setErrorTitle(title);
     setErrorDetail(detail ?? null);
     setFlow("error");
+    clearPersistedSession();
     clearUploadCancelRequest();
   }
 
@@ -1576,6 +1580,10 @@ function UploadWorkspace() {
     if (!file) return;
     if (!settingsOk) {
       fail("Choose output settings", "Select an aspect ratio before starting the upload.");
+      return;
+    }
+    if (!hasEnoughCreditsForFile) {
+      fail("Insufficient credits", "You don’t have enough credits for this video. Buy credits and try again.");
       return;
     }
     if (flow === "uploading" || flow === "processing") return;
@@ -1963,7 +1971,11 @@ function UploadWorkspace() {
     return "Upload a file and pick output settings first.";
   }, [flow]);
 
-  const canStartUpload = settingsOk && !fileDurationLoading && fileCredits != null;
+  const meCredits = Number.isFinite(me?.credits as number) ? Number(me?.credits) : null;
+  const hasEnoughCreditsForFile =
+    fileCredits == null || meCredits == null ? true : meCredits >= fileCredits;
+  const canStartUpload =
+    settingsOk && !fileDurationLoading && fileCredits != null && hasEnoughCreditsForFile;
 
   return (
     <div className="grid gap-6">
@@ -2506,12 +2518,19 @@ function UploadWorkspace() {
                         Select an aspect ratio above to continue.
                       </div>
                     ) : fileDurationLoading ? (
-                    <div className="mt-3 text-[12px] text-white/45">
+                      <div className="mt-3 text-[12px] text-white/45">
                         Reading video length to estimate credits...
                       </div>
                     ) : fileCredits == null ? (
                       <div className="mt-3 text-[12px] text-white/45">
                         Could not read video length. Try another file.
+                      </div>
+                    ) : !hasEnoughCreditsForFile ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-rose-200/80">
+                        <span>You don’t have enough credits for this upload.</span>
+                        <Link href="/pricing" className="btn-ghost px-3 py-1.5 text-[11px]">
+                          Buy credits
+                        </Link>
                       </div>
                     ) : (
                       <div className="mt-3 text-[12px] text-white/45">

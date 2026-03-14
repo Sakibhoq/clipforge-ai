@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 import { BRAND } from "@/lib/brand";
+import { apiFetch } from "@/lib/api";
 
 function useReveal() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -191,6 +192,7 @@ function LabsAura() {
 
 export default function LabsMarketingPage() {
   const revealRef = useReveal();
+  const [credits, setCredits] = useState<number | null>(null);
 
   const prompts = useMemo<PromptDemo[]>(
     () => [
@@ -280,9 +282,28 @@ export default function LabsMarketingPage() {
     return () => window.clearInterval(timer);
   }, [prompts.length]);
 
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      try {
+        const me = await apiFetch<{ credits?: number }>("/auth/me", { method: "GET" });
+        if (!canceled && Number.isFinite(me?.credits as number)) {
+          setCredits(Number(me?.credits));
+        }
+      } catch {
+        if (!canceled) setCredits(null);
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
   const activePrompt = prompts[index] || prompts[0]!;
   const activeClip = clips[index % clips.length] || clips[0]!;
   const activePreviewTab = index % 3;
+  const labsGeneratorHref =
+    credits != null && credits <= 0 ? "/pricing?intent=labs" : "https://app.orbito.cc/app/labs/app/generate";
 
   return (
     <div ref={revealRef as any} className="theme-labs relative overflow-x-hidden">
@@ -328,7 +349,7 @@ export default function LabsMarketingPage() {
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge labs-cta-glow labs-open-ai-cta">
+                    <Link href={labsGeneratorHref} className="btn-clipforge labs-cta-glow labs-open-ai-cta">
                       Open AI Lab
                     </Link>
                     <Link href="/pricing" className="btn-ghost">
@@ -479,7 +500,7 @@ export default function LabsMarketingPage() {
                   Test multiple ideas quickly, keep the winners, and ship faster.
                 </div>
                 <div className="mt-4">
-                  <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge text-xs">
+                  <Link href={labsGeneratorHref} className="btn-clipforge text-xs">
                     Open Generator
                   </Link>
                 </div>
@@ -526,7 +547,7 @@ export default function LabsMarketingPage() {
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge">
+              <Link href={labsGeneratorHref} className="btn-clipforge">
                 Start in Labs
               </Link>
               <Link href="/contact" className="btn-ghost">
