@@ -649,7 +649,7 @@ export default function GenerateClient() {
     setNeedsBilling(false);
     let target = summary;
     try {
-      target = await apiFetch<JobRow>(`/jobs/${summary.id}`, { method: "GET" });
+      target = await apiFetch<JobRow>(`/labs/jobs/${summary.id}`, { method: "GET" });
     } catch {
       // keep summary fallback when details fail
     }
@@ -772,7 +772,7 @@ export default function GenerateClient() {
 
   async function refreshJobs() {
     try {
-      const rows = (await apiFetch<JobRow[]>("/jobs", { method: "GET" })) || [];
+      const rows = (await apiFetch<JobRow[]>("/labs/jobs", { method: "GET" })) || [];
       const gen = rows.filter((r) =>
         ["generate", "generate_image", "generate_voiceover", "generate_post"].includes(String(r?.kind || ""))
       );
@@ -787,7 +787,7 @@ export default function GenerateClient() {
 
     async function tick() {
       try {
-        const job = await apiFetch<JobRow>(`/jobs/${jobId}`, { method: "GET" });
+        const job = await apiFetch<JobRow>(`/labs/jobs/${jobId}`, { method: "GET" });
         setActiveJob(job);
         if (job?.status === "done" || job?.status === "failed" || job?.status === "canceled") {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
@@ -808,7 +808,7 @@ export default function GenerateClient() {
     setCancelingJobId(jobId);
     setError(null);
     try {
-      await apiFetch(`/jobs/${jobId}/cancel`, { method: "POST" });
+      await apiFetch(`/labs/jobs/${jobId}/cancel`, { method: "POST" });
       setActiveJob((prev) =>
         prev && prev.id === jobId
           ? {

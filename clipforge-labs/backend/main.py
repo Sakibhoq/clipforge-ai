@@ -196,6 +196,7 @@ app.include_router(upload.router)
 app.include_router(upload_register.router)
 
 app.include_router(jobs.router)
+app.include_router(jobs.labs_router)
 app.include_router(storage_router.router)
 app.include_router(clips.router)
 app.include_router(billing.router)

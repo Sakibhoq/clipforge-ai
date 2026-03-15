@@ -715,7 +715,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       next.targetDuration = Math.max(180, Math.ceil(totalDuration));
 
       try {
-        const job = await apiFetch<{ settings?: Record<string, unknown> | null }>(`/jobs/${target.job_id}`, {
+        const job = await apiFetch<{ settings?: Record<string, unknown> | null }>(`/labs/jobs/${target.job_id}`, {
           method: "GET",
         });
         const settings = job?.settings && typeof job.settings === "object" ? job.settings : null;

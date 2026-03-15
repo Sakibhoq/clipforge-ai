@@ -6,7 +6,7 @@ from typing import Any, List, Literal
 from urllib.parse import quote
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 import requests
 from sqlalchemy.orm import Session
@@ -462,6 +462,55 @@ def _relay_labs_voice_preview(payload: LabsVoicePreviewRequest, request: Request
         raise HTTPException(status_code=502, detail="Voice preview relay payload is malformed")
 
 
+def _relay_labs_json(
+    *,
+    request: Request,
+    method: str,
+    upstream_path: str,
+    payload: dict[str, Any] | None = None,
+    timeout_seconds: int = 120,
+) -> Any:
+    url = f"{_labs_runtime_api_url().rstrip('/')}{upstream_path}"
+    headers: dict[str, str] = {}
+    for header_name in ("authorization", "cookie", "x-csrf-token"):
+        value = (request.headers.get(header_name) or "").strip()
+        if value:
+            headers[header_name] = value
+
+    try:
+        if method.upper() == "GET":
+            resp = requests.get(url, headers=headers or None, timeout=timeout_seconds)
+        else:
+            resp = requests.request(
+                method.upper(),
+                url,
+                json=(payload or {}),
+                headers=headers or None,
+                timeout=timeout_seconds,
+            )
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Labs relay is unavailable")
+
+    raw_text = (resp.text or "").strip()
+    data: Any = None
+    try:
+        data = resp.json()
+    except Exception:
+        data = None
+
+    if resp.status_code >= 400:
+        detail: Any = "Labs relay request failed"
+        if isinstance(data, dict):
+            detail = data.get("detail") or data.get("message") or data.get("error") or detail
+        elif raw_text:
+            detail = raw_text[:400]
+        raise HTTPException(status_code=resp.status_code, detail=detail)
+
+    if data is None:
+        raise HTTPException(status_code=502, detail="Labs relay returned invalid response")
+    return data
+
+
 @router.post("/voice-preview", response_model=LabsVoicePreviewResponse)
 def labs_voice_preview(
     payload: LabsVoicePreviewRequest,
@@ -476,3 +525,114 @@ def labs_voice_preview_generate_alias(
     request: Request,
 ):
     return _relay_labs_voice_preview(payload, request)
+
+
+@router.post("/prompt-helper")
+def labs_prompt_helper_bridge(
+    request: Request,
+    payload: dict[str, Any] = Body(default={}),
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path="/labs/prompt-helper",
+        payload=payload,
+        timeout_seconds=120,
+    )
+
+
+@router.post("/generate")
+def labs_generate_bridge(
+    request: Request,
+    payload: dict[str, Any] = Body(default={}),
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path="/labs/generate",
+        payload=payload,
+        timeout_seconds=240,
+    )
+
+
+@router.post("/generate/image")
+def labs_generate_image_bridge(
+    request: Request,
+    payload: dict[str, Any] = Body(default={}),
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path="/labs/generate/image",
+        payload=payload,
+        timeout_seconds=180,
+    )
+
+
+@router.post("/generate/voiceover")
+def labs_generate_voiceover_bridge(
+    request: Request,
+    payload: dict[str, Any] = Body(default={}),
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path="/labs/generate/voiceover",
+        payload=payload,
+        timeout_seconds=180,
+    )
+
+
+@router.post("/generate/post")
+def labs_generate_post_bridge(
+    request: Request,
+    payload: dict[str, Any] = Body(default={}),
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path="/labs/generate/post",
+        payload=payload,
+        timeout_seconds=240,
+    )
+
+
+@router.get("/jobs")
+def labs_jobs_bridge(
+    request: Request,
+):
+    return _relay_labs_json(
+        request=request,
+        method="GET",
+        upstream_path="/jobs",
+        payload=None,
+        timeout_seconds=60,
+    )
+
+
+@router.get("/jobs/{job_id}")
+def labs_job_bridge(
+    job_id: int,
+    request: Request,
+):
+    return _relay_labs_json(
+        request=request,
+        method="GET",
+        upstream_path=f"/jobs/{int(job_id)}",
+        payload=None,
+        timeout_seconds=60,
+    )
+
+
+@router.post("/jobs/{job_id}/cancel")
+def labs_job_cancel_bridge(
+    job_id: int,
+    request: Request,
+):
+    return _relay_labs_json(
+        request=request,
+        method="POST",
+        upstream_path=f"/jobs/{int(job_id)}/cancel",
+        payload={},
+        timeout_seconds=120,
+    )

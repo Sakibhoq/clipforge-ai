@@ -13,6 +13,7 @@ from models.user import User
 from routers.auth import adjust_orbito_entitlements, get_current_user, orbito_entitlements_enabled
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+labs_router = APIRouter(prefix="/labs/jobs", tags=["jobs"])
 
 
 def _parse_job_settings(raw: object) -> dict | None:
@@ -36,8 +37,7 @@ def _parse_job_settings(raw: object) -> dict | None:
 # List jobs (scoped to user)
 # ---------------------------------------------------------
 
-@router.get("")
-def list_jobs(
+def _list_jobs_impl(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -83,12 +83,7 @@ def list_jobs(
     ]
 
 
-# ---------------------------------------------------------
-# Get single job (polling endpoint)
-# ---------------------------------------------------------
-
-@router.get("/{job_id}")
-def get_job(
+def _get_job_impl(
     job_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -124,12 +119,7 @@ def get_job(
     }
 
 
-# ---------------------------------------------------------
-# Cancel job (NEW — REQUIRED)
-# ---------------------------------------------------------
-
-@router.post("/{job_id}/cancel")
-def cancel_job(
+def _cancel_job_impl(
     job_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -195,3 +185,63 @@ def cancel_job(
         "status": "canceled",
         "credits_refunded": refunded,
     }
+
+
+# ---------------------------------------------------------
+# Public routes
+# ---------------------------------------------------------
+
+@router.get("")
+def list_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _list_jobs_impl(db=db, current_user=current_user)
+
+
+@router.get("/{job_id}")
+def get_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _get_job_impl(job_id=job_id, db=db, current_user=current_user)
+
+
+@router.post("/{job_id}/cancel")
+def cancel_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _cancel_job_impl(job_id=job_id, db=db, current_user=current_user)
+
+
+# ---------------------------------------------------------
+# Labs namespaced aliases
+# ---------------------------------------------------------
+
+@labs_router.get("")
+def labs_list_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _list_jobs_impl(db=db, current_user=current_user)
+
+
+@labs_router.get("/{job_id}")
+def labs_get_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _get_job_impl(job_id=job_id, db=db, current_user=current_user)
+
+
+@labs_router.post("/{job_id}/cancel")
+def labs_cancel_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return _cancel_job_impl(job_id=job_id, db=db, current_user=current_user)
