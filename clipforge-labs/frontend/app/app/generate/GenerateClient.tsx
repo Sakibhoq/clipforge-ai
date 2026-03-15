@@ -228,6 +228,12 @@ function humanizeGenerationError(raw: string | null | undefined): string {
   if (low.includes("insufficient credits")) {
     return "You don’t have enough credits for this generation.";
   }
+  if (
+    low.includes("service agents are being provisioned") ||
+    low.includes("access-control#service-agents")
+  ) {
+    return "Google Cloud is provisioning Vertex service agents for your project. Wait 3-10 minutes, then retry.";
+  }
   if (low === "not found" || low.includes("404")) {
     return "Generation service is not available right now. Please retry in a minute.";
   }
@@ -265,6 +271,12 @@ function generationRecoveryAction(raw: string | null | undefined): string {
   }
   if (low.includes("insufficient credits")) {
     return "Open Billing, add credits, then run again.";
+  }
+  if (
+    low.includes("service agents are being provisioned") ||
+    low.includes("access-control#service-agents")
+  ) {
+    return "Wait 3-10 minutes, then retry. If it persists, grant Vertex service-agent access to your GCS bucket.";
   }
   if (low === "not found" || low.includes("404")) {
     return "Retry in 1 minute. If it repeats, switch style or shorten the prompt.";

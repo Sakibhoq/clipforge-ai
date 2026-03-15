@@ -520,6 +520,32 @@ def _is_model_unavailable_error(exc: Exception | str | None) -> bool:
     return any(marker in msg for marker in markers)
 
 
+def _is_vertex_service_agent_provisioning_error(exc: Exception | str | None) -> bool:
+    msg = str(exc or "").strip().lower()
+    if not msg:
+        return False
+    markers = (
+        "service agents are being provisioned",
+        "access-control#service-agents",
+        "service agents are needed",
+        "please try again in a few minutes",
+    )
+    return any(marker in msg for marker in markers)
+
+
+def _is_vertex_cloud_storage_access_error(exc: Exception | str | None) -> bool:
+    msg = str(exc or "").strip().lower()
+    if not msg:
+        return False
+    markers = (
+        "cloud storage file provided",
+        "permission 'storage.",
+        "storage.objects",
+        "gcs",
+    )
+    return any(marker in msg for marker in markers)
+
+
 def _is_seed_watermark_conflict_error(exc: Exception | str | None) -> bool:
     msg = str(exc or "").strip().lower()
     if not msg:
@@ -822,6 +848,8 @@ def _run_google_vertex_video_generation(
     style_preset: str | None = None,
     seed: int | None = None,
     _allow_model_fallback: bool = True,
+    _provision_retry_count: int = 0,
+    _disable_storage_uri: bool = False,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
@@ -849,11 +877,12 @@ def _run_google_vertex_video_generation(
         )
     safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9"} else "9:16"
 
-    output_storage_uri = _env("GOOGLE_VIDEO_OUTPUT_GCS_URI", "")
-    if not output_storage_uri:
-        bucket = _env("S3_BUCKET", "")
-        if bucket:
-            output_storage_uri = f"gs://{bucket}/generated/"
+    output_storage_uri = _env("GOOGLE_VIDEO_OUTPUT_GCS_URI", "").strip()
+    if _disable_storage_uri:
+        output_storage_uri = ""
+    elif output_storage_uri and not output_storage_uri.startswith("gs://"):
+        print(f"[worker] ignoring invalid GOOGLE_VIDEO_OUTPUT_GCS_URI={output_storage_uri!r}")
+        output_storage_uri = ""
 
     params: dict[str, Any] = {
         "sampleCount": 1,
@@ -937,6 +966,50 @@ def _run_google_vertex_video_generation(
 
         raise RuntimeError("Vertex Veo operation completed without video payload")
     except Exception as exc:
+        # One-time Vertex setup race: Google service agents can take a few minutes.
+        if _is_vertex_service_agent_provisioning_error(exc):
+            max_retries = _env_int("GOOGLE_VIDEO_PROVISIONING_RETRIES", 3, min_value=0, max_value=8)
+            retry_seconds = _env_int("GOOGLE_VIDEO_PROVISIONING_RETRY_SECONDS", 45, min_value=5, max_value=600)
+            if _provision_retry_count < max_retries:
+                next_attempt = _provision_retry_count + 1
+                print(
+                    f"[worker] vertex service-agent provisioning in progress; retrying "
+                    f"attempt={next_attempt}/{max_retries} after {retry_seconds}s"
+                )
+                time.sleep(retry_seconds)
+                return _run_google_vertex_video_generation(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    aspect_ratio=aspect_ratio,
+                    duration_seconds=duration_seconds,
+                    generation_speed=generation_speed,
+                    style_preset=style_preset,
+                    seed=seed,
+                    _allow_model_fallback=_allow_model_fallback,
+                    _provision_retry_count=next_attempt,
+                    _disable_storage_uri=_disable_storage_uri,
+                )
+
+        # If explicit GCS output path permissions are not ready, retry once without storageUri.
+        if (
+            output_storage_uri
+            and not _disable_storage_uri
+            and _is_vertex_cloud_storage_access_error(exc)
+        ):
+            print("[worker] vertex storageUri access issue; retrying once without storageUri")
+            return _run_google_vertex_video_generation(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                aspect_ratio=aspect_ratio,
+                duration_seconds=duration_seconds,
+                generation_speed=generation_speed,
+                style_preset=style_preset,
+                seed=seed,
+                _allow_model_fallback=_allow_model_fallback,
+                _provision_retry_count=_provision_retry_count,
+                _disable_storage_uri=True,
+            )
+
         should_retry_default = (
             _allow_model_fallback
             and model_id != default_model_id
@@ -956,6 +1029,8 @@ def _run_google_vertex_video_generation(
                 style_preset="real",
                 seed=seed,
                 _allow_model_fallback=False,
+                _provision_retry_count=_provision_retry_count,
+                _disable_storage_uri=_disable_storage_uri,
             )
         raise
 
