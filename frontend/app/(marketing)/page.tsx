@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
 import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
+const ORBITO_WHOP_MARKETING_URL = "https://orbito.cc/whop";
 
 type MeResponse = {
   name?: string | null;
@@ -484,7 +485,7 @@ export default function Page() {
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     {startTrialCta("btn-orbito-cta")}
-                    <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop">
+                    <a href={ORBITO_WHOP_MARKETING_URL} target="_blank" rel="noreferrer" className="btn-whop">
                       Get paid with <span className="whop-word">Whop</span>
                     </a>
                     <div className="text-xs text-white/50">Less editing. More posting.</div>
@@ -641,7 +642,7 @@ export default function Page() {
                     Publish strong clips, join campaigns, and start earning from the content you already create.
                   </div>
                   <div className="mt-4">
-                    <a href={BRAND.whopUrl} target="_blank" rel="noreferrer" className="btn-whop text-xs">
+                    <a href={ORBITO_WHOP_MARKETING_URL} target="_blank" rel="noreferrer" className="btn-whop text-xs">
                       Open <span className="whop-word">Whop</span>
                     </a>
                   </div>
