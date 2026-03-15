@@ -310,6 +310,47 @@ function isPlainObject(v: any): v is Record<string, any> {
   return Object.prototype.toString.call(v) === "[object Object]";
 }
 
+function getCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const prefix = `${name}=`;
+  const match = document.cookie
+    .split(";")
+    .map((chunk) => chunk.trim())
+    .find((chunk) => chunk.startsWith(prefix));
+  if (!match) return "";
+  return decodeURIComponent(match.slice(prefix.length));
+}
+
+function isMutatingMethod(method: string): boolean {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
+}
+
+function addCsrfHeader(headers: Headers, method: string) {
+  if (!isMutatingMethod(method)) return;
+  const token = getCookie("cf_csrf");
+  if (!token) return;
+  headers.set("x-csrf-token", token);
+}
+
+function isCsrfValidationError(status: number, parsed: any): boolean {
+  if (status !== 403) return false;
+  const detail = String(parsed?.detail || parsed?.message || parsed?.error || "").toLowerCase();
+  return detail.includes("csrf");
+}
+
+async function refreshCsrfCookie(base: string): Promise<void> {
+  const authMeUrl = `${base}${base.endsWith("/") ? "" : "/"}auth/me`;
+  try {
+    await fetch(authMeUrl, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch {
+    // Best effort only: caller will continue with normal error handling.
+  }
+}
+
 /**
  * apiFetch<T>(path, init)
  * - Cookie-auth by default
@@ -319,6 +360,7 @@ type ApiFetchInit = Omit<RequestInit, "body"> & { body?: any };
 
 export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const base = getApiBase();
+  const method = (init.method || "GET").toUpperCase();
 
   // If base is "/api", keep relative routing.
   // Otherwise, call backend origin directly.
@@ -338,6 +380,7 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
   } else if (typeof body === "string") {
     if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   }
+  addCsrfHeader(headers, method);
 
   let res: Response;
   try {
@@ -352,7 +395,31 @@ export async function apiFetch<T = any>(path: string, init: ApiFetchInit = {}): 
     throw { message: e?.message || "Failed to fetch", url } satisfies ApiErrorShape;
   }
 
-  const parsed = await readJsonSafe(res);
+  let parsed = await readJsonSafe(res);
+
+  // If user has a valid auth cookie but missing/stale CSRF token, self-heal once.
+  if (isMutatingMethod(method) && isCsrfValidationError(res.status, parsed)) {
+    await refreshCsrfCookie(base);
+    const retryHeaders = new Headers(headers);
+    addCsrfHeader(retryHeaders, method);
+    if (retryHeaders.get("x-csrf-token")) {
+      try {
+        const retryRes = await fetch(url, {
+          ...init,
+          headers: retryHeaders,
+          body,
+          credentials: "include",
+          cache: "no-store",
+        });
+        const retryParsed = await readJsonSafe(retryRes);
+        if (retryRes.ok) return retryParsed as T;
+        res = retryRes;
+        parsed = retryParsed;
+      } catch {
+        // Keep original CSRF error path if retry transport fails.
+      }
+    }
+  }
   const authMe = isAuthMePath(path);
   const invalidAuthMePayload = authMe && !isValidAuthMePayload(parsed);
 
