@@ -85,7 +85,11 @@ CSRF_HEADER_NAME = "x-csrf-token"
 
 
 def _parse_host(value: str) -> str:
-    return re.sub(r"^https?://", "", (value or "").strip()).split("/")[0].lower().strip()
+    host = re.sub(r"^https?://", "", (value or "").strip()).split("/")[0].lower().strip()
+    # Normalize host[:port] to host for TrustedHost matching.
+    if host.startswith("["):
+        return host
+    return host.split(":")[0].strip()
 
 
 def _build_trusted_hosts() -> list[str]:
@@ -97,6 +101,23 @@ def _build_trusted_hosts() -> list[str]:
         return explicit
 
     hosts = {"localhost", "127.0.0.1"}
+    # Internal docker service DNS names used for server-to-server relays.
+    hosts.update({"backend", "frontend", "worker", "labs-backend", "labs-frontend", "labs-worker"})
+
+    # Allow additional internal hosts via env (comma-separated).
+    internal_extra = [h.strip() for h in (os.getenv("INTERNAL_TRUSTED_HOSTS") or "").split(",") if h.strip()]
+    hosts.update(internal_extra)
+
+    # Derive trusted internal hosts from common bridge origin env vars.
+    for env_key in (
+        "ORBITO_API_BASE",
+        "LABS_ORBITO_API_BASE",
+        "LABS_RUNTIME_API_URL",
+        "LABS_INTERNAL_API_ORIGIN",
+    ):
+        derived = _parse_host(os.getenv(env_key) or "")
+        if derived:
+            hosts.add(derived)
     frontend_host = _parse_host(FRONTEND_ORIGIN)
     if frontend_host:
         hosts.add(frontend_host)
