@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
+import { BRAND } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
-const ORBITO_WHOP_MARKETING_URL = "https://orbito.cc/whop";
 
 /* =========================================================
    Orbito — Clips (LAUNCH-READY)
@@ -1999,7 +1999,7 @@ function ClipsWorkspace() {
             </div>
           </div>
           <a
-            href={ORBITO_WHOP_MARKETING_URL}
+            href={BRAND.whopUrl}
             target="_blank"
             rel="noreferrer"
             className="btn-whop text-[12px] px-4 py-2 w-full md:w-auto text-center"

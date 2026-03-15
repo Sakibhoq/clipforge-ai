@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     canonical: "/whop",
   },
 };
-const ORBITO_WHOP_MARKETING_URL = "https://orbito.cc/whop";
+const ACTUAL_WHOP_URL = "https://www.whop.com/discover/app/app_QRxsQodZgK1r4D/";
 
 const stats = [
   { value: "842+", label: "Live campaigns" },
@@ -76,7 +76,7 @@ export default function WhopPage() {
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a
-                href={ORBITO_WHOP_MARKETING_URL}
+                href={ACTUAL_WHOP_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-whop"
@@ -136,7 +136,7 @@ export default function WhopPage() {
               Open Orbito Console
             </Link>
             <a
-              href={ORBITO_WHOP_MARKETING_URL}
+              href={ACTUAL_WHOP_URL}
               target="_blank"
               rel="noreferrer"
               className="btn-whop"

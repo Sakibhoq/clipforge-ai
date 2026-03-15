@@ -452,7 +452,7 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const whopPageHref = "https://orbito.cc/whop";
+  const whopPageHref = inApp ? BRAND.whopUrl : "https://orbito.cc/whop";
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
