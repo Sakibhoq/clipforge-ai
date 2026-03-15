@@ -452,7 +452,7 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const whopPageHref = "/whop";
+  const whopPageHref = BRAND.whopUrl;
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
@@ -523,13 +523,15 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3">
               <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
-                <Link
+                <a
                   href={whopPageHref}
+                  target="_blank"
+                  rel="noreferrer"
                   className="hidden xl:inline-flex btn-whop btn-whop-nav text-xs"
                   title="Monetize your clips with Whop"
                 >
                   {whopLabel}
-                </Link>
+                </a>
 
                 <Link
                   href={labsNavHref}
@@ -681,14 +683,16 @@ export default function Navbar() {
                 </div>
 
                 <div className="px-2 pb-1 grid gap-2">
-                  <Link
+                  <a
                     href={whopPageHref}
+                    target="_blank"
+                    rel="noreferrer"
                     onClick={() => setOpen(false)}
                     className="btn-whop btn-whop-nav w-full text-xs"
                     title="Monetize your clips with Whop"
                   >
                     {whopLabel}
-                  </Link>
+                  </a>
                   <Link
                     href={labsNavHref}
                     onClick={() => setOpen(false)}

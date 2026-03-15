@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { AppPlan, normalizeAppPlan } from "@/lib/plans";
+import { BRAND } from "@/lib/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -1979,6 +1980,34 @@ function ClipsWorkspace() {
           </div>
         </div>
       </div>
+
+      <section className="surface-soft relative overflow-hidden rounded-3xl p-5 md:p-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-12 opacity-45 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(260px 180px at 18% 28%, rgba(255,177,115,0.28), transparent 70%), radial-gradient(260px 180px at 78% 35%, rgba(255,102,36,0.24), transparent 72%), radial-gradient(260px 180px at 55% 92%, rgba(255,141,66,0.18), transparent 72%)",
+          }}
+        />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs text-white/55">• Monetize your output</div>
+            <div className="mt-1 text-sm font-semibold text-white/90">Create clips in Orbito, then get paid with Whop</div>
+            <div className="mt-1 text-sm text-white/65">
+              Use your best-performing clips to join campaigns and open new revenue.
+            </div>
+          </div>
+          <a
+            href={BRAND.whopUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-whop text-[12px] px-4 py-2 w-full md:w-auto text-center"
+          >
+            Open <span className="whop-word">Whop</span> monetization
+          </a>
+        </div>
+      </section>
 
       {/* TOOLBAR */}
       <div className="surface-soft p-4">
