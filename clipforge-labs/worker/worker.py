@@ -3304,7 +3304,8 @@ def _style_quality_directive(style_preset: str | None) -> str:
     style = (style_preset or "").strip().lower()
     base = (
         "Quality lock: keep one consistent main character identity across frames; clean anatomy and hands; "
-        "stable face geometry; sharp subject focus; no unintended text, logos, watermarks, or subtitle artifacts."
+        "stable face geometry; sharp subject focus; no unintended text, logos, watermarks, or subtitle artifacts. "
+        "Do not render readable in-scene typography, app UI labels, or branded logos inside the generated pixels."
     )
     if style == "anime":
         return f"{base} Preserve anime line quality and avoid flicker between frames."
@@ -3329,6 +3330,13 @@ def _compose_negative_prompt(user_negative: str, style_preset: str | None) -> st
         "text overlay",
         "subtitle text",
         "logo watermark",
+        "readable text",
+        "gibberish text",
+        "misspelled words",
+        "random letters",
+        "warped typography",
+        "broken ui text",
+        "fake app interface text",
         "frame glitch",
         "flicker",
     ]
