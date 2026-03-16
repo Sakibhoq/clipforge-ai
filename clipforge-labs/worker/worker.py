@@ -392,6 +392,38 @@ def _nearest_supported_duration(requested_seconds: int, supported_durations: lis
     return min(safe_supported, key=lambda candidate: (abs(candidate - requested), candidate))
 
 
+def _extract_supported_durations_from_error(exc: Exception | str | None) -> list[int]:
+    msg = str(exc or "").strip()
+    if not msg:
+        return []
+    lowered = msg.lower()
+    if "supported duration" not in lowered and "unsupported output video duration" not in lowered:
+        return []
+
+    matches: list[str] = []
+    bracket = re.search(r"supported duration(?:s)?\s*(?:are|is)?\s*\[([^\]]+)\]", msg, flags=re.IGNORECASE)
+    if bracket and bracket.group(1):
+        matches.append(bracket.group(1))
+
+    if not matches:
+        generic = re.findall(r"\[([0-9,\s]+)\]", msg)
+        matches.extend(generic)
+
+    values: list[int] = []
+    for chunk in matches:
+        for token in re.split(r"[^0-9]+", chunk):
+            if not token:
+                continue
+            try:
+                value = int(token)
+            except Exception:
+                continue
+            if 1 <= value <= 120 and value not in values:
+                values.append(value)
+    values.sort()
+    return values
+
+
 def _provider_timeout_seconds() -> int:
     return _env_int("GOOGLE_API_TIMEOUT_SECONDS", 120, min_value=5, max_value=600)
 
@@ -850,6 +882,8 @@ def _run_google_vertex_video_generation(
     _allow_model_fallback: bool = True,
     _provision_retry_count: int = 0,
     _disable_storage_uri: bool = False,
+    _duration_retry_count: int = 0,
+    _forced_supported_durations: list[int] | None = None,
 ) -> tuple[bytes, str, float | None, str | None]:
     project_id = _google_project_id()
     location = _env("GOOGLE_VERTEX_LOCATION", "us-central1")
@@ -865,7 +899,8 @@ def _run_google_vertex_video_generation(
     fetch_url = f"{endpoint_base}:fetchPredictOperation"
 
     max_duration = _env_int("GOOGLE_VIDEO_MAX_DURATION_SECONDS", 7, min_value=1, max_value=120)
-    supported_durations = [d for d in _parse_supported_video_durations() if d <= max_duration]
+    source_durations = _forced_supported_durations or _parse_supported_video_durations()
+    supported_durations = [d for d in source_durations if d <= max_duration]
     if not supported_durations:
         supported_durations = [max(1, max_duration)]
     requested_duration = int(duration_seconds or 6)
@@ -988,6 +1023,8 @@ def _run_google_vertex_video_generation(
                     _allow_model_fallback=_allow_model_fallback,
                     _provision_retry_count=next_attempt,
                     _disable_storage_uri=_disable_storage_uri,
+                    _duration_retry_count=_duration_retry_count,
+                    _forced_supported_durations=_forced_supported_durations,
                 )
 
         # If explicit GCS output path permissions are not ready, retry once without storageUri.
@@ -1008,7 +1045,33 @@ def _run_google_vertex_video_generation(
                 _allow_model_fallback=_allow_model_fallback,
                 _provision_retry_count=_provision_retry_count,
                 _disable_storage_uri=True,
+                _duration_retry_count=_duration_retry_count,
+                _forced_supported_durations=_forced_supported_durations,
             )
+
+        retry_supported_durations = _extract_supported_durations_from_error(exc)
+        if _duration_retry_count < 1 and retry_supported_durations:
+            allowed_retry_durations = [d for d in retry_supported_durations if d <= max_duration]
+            if allowed_retry_durations:
+                retry_duration = _nearest_supported_duration(int(duration_seconds or 6), allowed_retry_durations)
+                print(
+                    f"[worker] vertex duration constraint detected; retrying with duration={retry_duration}s "
+                    f"supported={allowed_retry_durations}"
+                )
+                return _run_google_vertex_video_generation(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    aspect_ratio=aspect_ratio,
+                    duration_seconds=duration_seconds,
+                    generation_speed=generation_speed,
+                    style_preset=style_preset,
+                    seed=seed,
+                    _allow_model_fallback=_allow_model_fallback,
+                    _provision_retry_count=_provision_retry_count,
+                    _disable_storage_uri=_disable_storage_uri,
+                    _duration_retry_count=_duration_retry_count + 1,
+                    _forced_supported_durations=allowed_retry_durations,
+                )
 
         should_retry_default = (
             _allow_model_fallback
@@ -1031,6 +1094,8 @@ def _run_google_vertex_video_generation(
                 _allow_model_fallback=False,
                 _provision_retry_count=_provision_retry_count,
                 _disable_storage_uri=_disable_storage_uri,
+                _duration_retry_count=_duration_retry_count,
+                _forced_supported_durations=_forced_supported_durations,
             )
         raise
 
@@ -2523,6 +2588,52 @@ def _valid_video_file(
     if reject_mostly_black and _is_mostly_black_video(path, duration_seconds=duration):
         return False, duration
     return True, duration
+
+
+def _trim_video_to_duration(*, src_path: str, out_path: str, duration_seconds: float) -> None:
+    safe_duration = max(0.35, float(duration_seconds or 0.35))
+    encode_cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        src_path,
+        "-t",
+        f"{safe_duration:.3f}",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        out_path,
+    ]
+    proc = _run_media_cmd(encode_cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+    if proc.returncode == 0:
+        return
+
+    # Fallback to stream copy trim if encode path fails in constrained runtimes.
+    copy_cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        src_path,
+        "-t",
+        f"{safe_duration:.3f}",
+        "-c",
+        "copy",
+        out_path,
+    ]
+    copy_proc = _run_media_cmd(copy_cmd, timeout_seconds=max(90, _media_cmd_timeout_seconds()))
+    if copy_proc.returncode != 0:
+        raise RuntimeError((copy_proc.stderr or copy_proc.stdout or "ffmpeg trim failed").strip()[:500])
 
 
 def _voice_language_code(voice_name: str) -> str:
@@ -4372,6 +4483,30 @@ def _process_job(job: dict) -> dict[str, Any]:
             valid_video, detected_duration = _valid_video_file(out_path)
             if not valid_video:
                 raise RuntimeError("Fallback video renderer produced an invalid output")
+
+        requested_duration = max(0.35, float(duration or 0.35))
+        if provider_generated and detected_duration > (requested_duration + 0.35):
+            fd_trim, trim_path = tempfile.mkstemp(prefix=f"cflabs-video-trim-{job_id}-", suffix=".mp4")
+            os.close(fd_trim)
+            try:
+                _trim_video_to_duration(
+                    src_path=out_path,
+                    out_path=trim_path,
+                    duration_seconds=requested_duration,
+                )
+                shutil.move(trim_path, out_path)
+            finally:
+                if os.path.exists(trim_path):
+                    try:
+                        os.unlink(trim_path)
+                    except Exception:
+                        pass
+            valid_video, detected_duration = _valid_video_file(
+                out_path,
+                reject_mostly_black=provider_generated,
+            )
+            if not valid_video:
+                raise RuntimeError("Trimmed provider video is unreadable")
 
         if watermark_enabled:
             fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-video-overlay-{job_id}-", suffix=".mp4")
