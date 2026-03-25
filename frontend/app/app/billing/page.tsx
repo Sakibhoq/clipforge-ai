@@ -48,7 +48,7 @@ const PLAN_DEFS: PlanDef[] = [
     key: "free_trial",
     family: "orbito",
     name: "Free Trial",
-    summary: "Test Orbito + Labs from one account.",
+    summary: "Test Clip and Generate from one account.",
     monthlyPrice: 0,
     monthlyCredits: 65,
     badge: "Shared",
@@ -78,20 +78,20 @@ const PLAN_DEFS: PlanDef[] = [
   {
     key: "labs_spark",
     family: "labs",
-    name: "Labs Starter",
-    summary: "Generator + AI clips with full Orbito Creator-level access.",
+    name: "Generate Starter",
+    summary: "AI generation with full Orbito Creator-level access.",
     monthlyPrice: 39,
     monthlyCredits: 390,
-    badge: "Labs",
+    badge: "Generate",
   },
   {
     key: "labs_velocity",
     family: "labs",
-    name: "Labs Creator",
+    name: "Generate Creator",
     summary: "Higher AI generation throughput with full Orbito Creator-level access.",
     monthlyPrice: 99,
     monthlyCredits: 990,
-    badge: "Labs",
+    badge: "Generate",
   },
   {
     key: "studio",
@@ -510,11 +510,11 @@ export default function BillingPage() {
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/92 sm:text-4xl">
               <span className="grad-text">Orbito</span>
               <span className="mx-2 text-white/62">+</span>
-              <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_46%,#3a86ff_100%)] bg-clip-text text-transparent">Labs</span>
+              <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_46%,#3a86ff_100%)] bg-clip-text text-transparent">Generate</span>
               <span className="text-white/92"> plans</span>
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-white/62 sm:text-base">
-              One account, clear plan families, and checkout paths for both Orbito and Orbito Labs.
+              One account, clear plan families, and checkout paths for both Clip mode and Generate mode.
             </p>
           </div>
           <IntervalToggle interval={interval} setInterval={setInterval} />
@@ -574,14 +574,14 @@ export default function BillingPage() {
       <section ref={labsSectionRef} className={cx("surface-soft p-6", labsIntent && "ring-1 ring-amber-300/45")}> 
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-white/90">Orbito Labs plans</div>
+            <div className="text-sm font-semibold text-white/90">Orbito Generate plans</div>
             <div className="mt-1 text-sm text-white/60">AI generation plans that stay connected to Orbito.</div>
           </div>
-          <span className="rounded-full border border-amber-300/35 bg-amber-300/[0.14] px-3 py-1 text-xs text-amber-100">Labs</span>
+          <span className="rounded-full border border-amber-300/35 bg-amber-300/[0.14] px-3 py-1 text-xs text-amber-100">Generate</span>
         </div>
 
         <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-xs text-white/62">
-          All Labs plans include full Orbito Creator-level access. Labs plans are monthly right now.
+          All Generate plans include full Orbito Creator-level access. Generate plans are monthly right now.
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -625,7 +625,7 @@ export default function BillingPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-white/90">Need help choosing?</div>
-            <div className="mt-1 text-sm text-white/60">Tell us your output goals and we will map the right Orbito + Labs setup.</div>
+            <div className="mt-1 text-sm text-white/60">Tell us your output goals and we will map the right Clip + Generate setup.</div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/contact" className="btn-ghost px-4 py-2 text-xs">Contact support</Link>

@@ -11,13 +11,22 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         paddingRight: "env(safe-area-inset-right)",
       }}
     >
-      {/* Global marketing background (single blended layer, no left/right seam on small screens) */}
+      {/* Global marketing background: calmer, sharper, and more product-like. */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[-20] overflow-hidden">
-        <div className="absolute inset-0 bg-black" />
-        <div className="absolute inset-0 bg-[radial-gradient(1150px_720px_at_10%_14%,rgba(155,140,255,0.28),transparent_68%),radial-gradient(1120px_700px_at_90%_14%,rgba(255,183,3,0.24),transparent_68%),radial-gradient(980px_620px_at_18%_78%,rgba(70,215,255,0.18),transparent_70%),radial-gradient(980px_620px_at_84%_78%,rgba(251,86,7,0.16),transparent_72%),radial-gradient(980px_620px_at_50%_46%,rgba(58,134,255,0.12),transparent_72%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.04),transparent_66%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.18),rgba(0,0,0,0.48))]" />
-        <div className="absolute inset-0 opacity-[0.18]">
+        <div className="absolute inset-0 bg-[#06090f]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1120px_620px_at_12%_10%,rgba(82,152,255,0.18),transparent_68%),radial-gradient(1020px_560px_at_88%_12%,rgba(255,186,77,0.15),transparent_70%),radial-gradient(900px_500px_at_50%_78%,rgba(54,214,178,0.08),transparent_72%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_22%),linear-gradient(180deg,rgba(4,8,14,0.06),rgba(4,8,14,0.52))]" />
+        <div
+          className="absolute inset-0 opacity-[0.22]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px), linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)",
+            backgroundSize: "96px 96px",
+            maskImage: "linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.35))",
+          }}
+        />
+        <div className="absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(720px_260px_at_50%_0%,rgba(255,255,255,0.08),transparent_72%)]" />
+        <div className="absolute inset-0 opacity-[0.08]">
           <div className="aurora" />
         </div>
       </div>

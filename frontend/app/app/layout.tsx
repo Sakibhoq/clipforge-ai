@@ -181,7 +181,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const labsHref = "https://app.orbito.cc/app/labs/app/generate";
     const labsLogoV = "labs-3";
     const locked = !!me && !hasLabsFeatureAccess(me.plan);
-    const deniedTitle = "You don't have permission to open AI Lab. Upgrade to a Labs plan.";
+    const deniedTitle = "You don't have permission to open Orbito Generate. Upgrade to a Generate plan.";
 
     if (locked) {
       return (
@@ -200,11 +200,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
-            alt="AI Lab logo"
+            alt="Orbito Generate logo"
             width={18}
             height={18}
           />
-          <span>AI Lab 🔒</span>
+          <span>Generate 🔒</span>
         </button>
       );
     }
@@ -222,11 +222,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
-          alt="AI Lab logo"
+          alt="Orbito Generate logo"
           width={18}
           height={18}
         />
-        <span>AI Lab</span>
+        <span>Generate</span>
       </Link>
     );
   }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
+import { SocialBrandRow } from "@/components/SocialBrand";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
 
@@ -16,10 +16,10 @@ function useReveal() {
     const items = Array.from(el.querySelectorAll("[data-reveal]"));
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            (e.target as HTMLElement).classList.add("in");
-            io.unobserve(e.target);
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            (entry.target as HTMLElement).classList.add("in");
+            io.unobserve(entry.target);
           }
         }
       },
@@ -49,140 +49,36 @@ type ClipDemo = {
   aspect: string;
 };
 
-function LabsAura() {
+function GenerateBackdrop() {
   return (
     <>
       <style>{`
-        @keyframes labsPulse {
-          0% { transform: translate3d(-2%, -1%, 0) scale(1); opacity: 0.68; }
-          50% { transform: translate3d(2%, 1%, 0) scale(1.06); opacity: 0.86; }
-          100% { transform: translate3d(-2%, -1%, 0) scale(1); opacity: 0.68; }
-        }
-        @keyframes labsBorderScan {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 240% 50%; }
-        }
-        @keyframes labsCtaPulse {
-          0% {
-            box-shadow:
-              0 0 0 1px rgba(255, 183, 3, 0.24),
-              0 10px 26px rgba(0, 0, 0, 0.38),
-              0 0 12px rgba(255, 183, 3, 0.18),
-              0 0 10px rgba(58, 134, 255, 0.14);
-          }
-          50% {
-            box-shadow:
-              0 0 0 1px rgba(255, 183, 3, 0.34),
-              0 16px 34px rgba(0, 0, 0, 0.44),
-              0 0 20px rgba(255, 183, 3, 0.28),
-              0 0 16px rgba(58, 134, 255, 0.22);
-          }
-          100% {
-            box-shadow:
-              0 0 0 1px rgba(255, 183, 3, 0.24),
-              0 10px 26px rgba(0, 0, 0, 0.38),
-              0 0 12px rgba(255, 183, 3, 0.18),
-              0 0 10px rgba(58, 134, 255, 0.14);
-          }
-        }
-        .labs-grad {
-          background: linear-gradient(90deg, #ffb703 0%, #fb5607 46%, #60a5fa 100%);
-          -webkit-background-clip: text;
-          background-clip: text;
-          color: transparent;
-        }
-        .labs-surface {
-          border-color: rgba(255, 183, 3, 0.28) !important;
-          box-shadow:
-            0 0 0 1px rgba(255, 183, 3, 0.14),
-            0 18px 60px rgba(0, 0, 0, 0.54),
-            0 0 24px rgba(251, 86, 7, 0.15),
-            0 0 24px rgba(96, 165, 250, 0.14);
-        }
-        .labs-surface-soft {
-          border-color: rgba(255, 183, 3, 0.22) !important;
-          box-shadow:
-            0 0 0 1px rgba(255, 183, 3, 0.10),
-            0 10px 34px rgba(0, 0, 0, 0.42),
-            0 0 14px rgba(251, 86, 7, 0.10),
-            0 0 14px rgba(96, 165, 250, 0.10);
-        }
-        .labs-border-run {
-          position: relative;
-          isolation: isolate;
-        }
-        .labs-border-run::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          padding: 1px;
-          background: linear-gradient(96deg, rgba(255, 183, 3, 0.75), rgba(251, 86, 7, 0.72), rgba(96, 165, 250, 0.70), rgba(255, 183, 3, 0.75));
-          background-size: 240% 100%;
-          animation: labsBorderScan 4.8s linear infinite;
-          opacity: 0.6;
-          -webkit-mask:
-            linear-gradient(#000 0 0) content-box,
-            linear-gradient(#000 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .labs-border-run > * { position: relative; z-index: 1; }
-        .labs-cta-glow {
-          animation: labsCtaPulse 2.8s ease-in-out infinite;
-        }
-        .labs-cta-glow::before {
-          opacity: 0.9 !important;
-          animation-duration: 2.2s !important;
-        }
-        .labs-cta-glow::after {
-          opacity: 0.56 !important;
-        }
-        .labs-cta-glow:hover::after {
-          opacity: 0.72 !important;
-        }
-        .labs-open-ai-cta::before {
-          opacity: 0.96 !important;
-          animation-duration: 1.9s !important;
-        }
-        .labs-open-ai-cta:hover::before {
-          animation-duration: 1.2s !important;
-          opacity: 1 !important;
+        @keyframes orbitoGenerateFloat {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(0, -12px, 0) scale(1.04); }
+          100% { transform: translate3d(0, 0, 0) scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .labs-anim,
-          .labs-border-run::after,
-          .labs-cta-glow {
+          .orbito-generate-anim {
             animation: none !important;
           }
         }
       `}</style>
 
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,4,8,0.95),rgba(4,4,8,0.94))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(900px_560px_at_12%_10%,rgba(255,186,77,0.16),transparent_68%),radial-gradient(920px_560px_at_88%_10%,rgba(82,152,255,0.18),transparent_70%),radial-gradient(780px_440px_at_50%_88%,rgba(255,128,72,0.10),transparent_72%)]" />
         <div
-          className="absolute inset-0 opacity-[0.74]"
+          className="orbito-generate-anim absolute left-[-8%] top-[8%] h-[360px] w-[360px] rounded-full blur-3xl"
           style={{
-            background:
-              "radial-gradient(1000px 620px at 12% 12%, rgba(255,183,3,0.20), transparent 66%), radial-gradient(1100px 640px at 84% 16%, rgba(96,165,250,0.20), transparent 68%), radial-gradient(980px 620px at 50% 90%, rgba(255,148,74,0.10), transparent 72%)",
+            background: "radial-gradient(circle, rgba(255,186,77,0.16) 0%, rgba(255,186,77,0.05) 42%, transparent 72%)",
+            animation: "orbitoGenerateFloat 17s ease-in-out infinite",
           }}
         />
         <div
-          className="labs-anim absolute -inset-[32%] blur-3xl"
+          className="orbito-generate-anim absolute right-[-8%] top-[10%] h-[360px] w-[360px] rounded-full blur-3xl"
           style={{
-            background:
-              "radial-gradient(760px 420px at 12% 16%, rgba(255,183,3,0.26), transparent 68%), radial-gradient(760px 420px at 86% 16%, rgba(96,165,250,0.24), transparent 70%), radial-gradient(780px 420px at 52% 94%, rgba(255,156,92,0.11), transparent 74%)",
-            mixBlendMode: "screen",
-            animation: "labsPulse 16s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.9]"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(to bottom, rgba(255,255,255,0.028) 0px, rgba(255,255,255,0.028) 1px, transparent 1px, transparent 7px)",
+            background: "radial-gradient(circle, rgba(82,152,255,0.18) 0%, rgba(82,152,255,0.05) 42%, transparent 72%)",
+            animation: "orbitoGenerateFloat 19s ease-in-out infinite reverse",
           }}
         />
       </div>
@@ -190,36 +86,46 @@ function LabsAura() {
   );
 }
 
+function SectionKicker({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/62">
+      <span className="h-1.5 w-1.5 rounded-full bg-amber-300/80" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 export default function LabsMarketingPage() {
   const revealRef = useReveal();
   const [credits, setCredits] = useState<number | null>(null);
+  const [index, setIndex] = useState(0);
 
   const prompts = useMemo<PromptDemo[]>(
     () => [
       {
         hook: "Stop the scroll in 2 seconds",
-        text: "Give one simple idea. Labs writes your hook, scene plan, and voiceover script fast.",
+        text: "Give one simple idea. Generate writes the hook, scene plan, and voiceover direction fast.",
         duration: "35s",
         aspect: "9:16",
         style: "Fast Hook",
       },
       {
         hook: "Tell your story fast",
-        text: "Labs builds your story one step at a time so people understand and keep watching.",
+        text: "Build short-form story flow with cleaner pacing and clearer payoff when you do not have source footage.",
         duration: "50s",
         aspect: "9:16",
         style: "Story",
       },
       {
         hook: "Teach in under a minute",
-        text: "Turn hard topics into short, clear clips with strong captions and clean pacing.",
+        text: "Turn a hard idea into a clear AI-generated short with voice, captions, and a tighter structure.",
         duration: "42s",
         aspect: "16:9",
         style: "Teach",
       },
       {
         hook: "Launch your product today",
-        text: "Show what your product does, why it helps, and what people should do next.",
+        text: "Show what a product does, why it matters, and what people should do next with a single prompt.",
         duration: "30s",
         aspect: "1:1",
         style: "Launch",
@@ -232,28 +138,28 @@ export default function LabsMarketingPage() {
     () => [
       {
         title: "Real clip",
-        text: "Cinematic and clean. Feels premium from frame one.",
+        text: "Cinematic and clean for premium-feeling short-form output.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4",
         duration: "7s",
         aspect: "9:16",
       },
       {
         title: "Cartoon clip",
-        text: "Bright, fun, and impossible to scroll past.",
+        text: "Bright visual style for fast, scroll-stopping social posts.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
         duration: "7s",
         aspect: "16:9",
       },
       {
         title: "Anime clip",
-        text: "High energy hero style with instant visual punch.",
+        text: "High-energy style for stronger visual punch.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4",
         duration: "7s",
         aspect: "9:16",
       },
       {
         title: "Comic clip",
-        text: "Bold contrast and sharp frames that tell a story fast.",
+        text: "Bold framing and contrast for story-led short-form scenes.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4",
         duration: "7s",
         aspect: "9:16",
@@ -261,8 +167,6 @@ export default function LabsMarketingPage() {
     ],
     []
   );
-
-  const [index, setIndex] = useState(0);
 
   const footerLinks = useMemo(
     () => [
@@ -277,7 +181,7 @@ export default function LabsMarketingPage() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setIndex((v) => (v + 1) % prompts.length);
+      setIndex((value) => (value + 1) % prompts.length);
     }, 4500);
     return () => window.clearInterval(timer);
   }, [prompts.length]);
@@ -301,114 +205,92 @@ export default function LabsMarketingPage() {
 
   const activePrompt = prompts[index] || prompts[0]!;
   const activeClip = clips[index % clips.length] || clips[0]!;
-  const activePreviewTab = index % 3;
   const labsGeneratorHref =
     credits != null && credits <= 0 ? "/pricing?intent=labs" : "https://app.orbito.cc/app/labs/app/generate";
 
   return (
-    <div ref={revealRef as any} className="theme-labs relative overflow-x-hidden">
-      <LabsAura />
+    <div ref={revealRef} className="theme-labs relative overflow-x-hidden">
+      <GenerateBackdrop />
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative">
-          <div data-reveal className="reveal relative">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-10 -z-10 opacity-70 blur-3xl"
-              style={{
-                background:
-                  "radial-gradient(760px 380px at 16% 16%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(760px 420px at 84% 18%, rgba(96,165,250,0.22), transparent 70%), radial-gradient(760px 420px at 50% 96%, rgba(255,156,92,0.10), transparent 74%)",
-              }}
-            />
+          <div data-reveal className="reveal">
+            <div className="surface relative overflow-hidden p-6 sm:p-8 md:p-10">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(920px 420px at 16% 14%, rgba(255,186,77,0.15), transparent 70%), radial-gradient(860px 420px at 88% 16%, rgba(82,152,255,0.14), transparent 72%), radial-gradient(720px 360px at 50% 100%, rgba(255,128,72,0.08), transparent 74%)",
+                }}
+              />
 
-            <div className="surface-soft labs-surface labs-border-run relative overflow-hidden p-5 sm:p-6 md:p-10">
-              <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-                <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_22%,rgba(255,255,255,0.05),transparent_64%)]" />
-                <div className="absolute inset-0 bg-[radial-gradient(820px_520px_at_84%_42%,rgba(96,165,250,0.10),transparent_64%)]" />
-              </div>
-
-              <div className="relative z-[2] grid gap-6 md:grid-cols-[1.12fr_0.88fr] md:gap-8">
+              <div className="relative grid gap-8 lg:grid-cols-[1.02fr_0.98fr]">
                 <div>
-                  <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-1.5 py-1 text-[12px] text-white/75">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    <span className="whitespace-nowrap">Prompt in. Clip out.</span>
-                    <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
-                  </div>
-
-                  <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight text-white/95 sm:text-4xl md:text-6xl">
-                    <span>
-                      Turn <span className="labs-grad">AI</span> clips into <span className="labs-grad">cash</span> -
-                    </span>{" "}
-                    <span className="text-[0.9em] sm:text-[0.87em] md:text-[0.82em]">
-                      your <span className="labs-grad">AI</span> content <span className="labs-grad">engine</span>.
-                    </span>
+                  <SectionKicker>Orbito Generate</SectionKicker>
+                  <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
+                    The AI video generation mode inside <span className="grad-text">Orbito</span>.
                   </h1>
-
-                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
-                    Labs gives you the same workflow style as Generator: one prompt, clean settings, preview, and output ready to post.
+                  <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/68">
+                    Generate is how Orbito creates fresh short-form content when you do not have source footage. Same account, same
+                    platform, same goal: help you make more short-form content without more editing.
                   </p>
 
-                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    <Link href={labsGeneratorHref} className="btn-clipforge labs-cta-glow labs-open-ai-cta">
-                      Open AI Lab
+                  <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    <Link href={labsGeneratorHref} className="btn-clipforge">
+                      Open Generate
                     </Link>
                     <Link href="/pricing" className="btn-ghost">
                       View plans
                     </Link>
-                    <div className="text-xs text-white/50">Write. Generate. Post.</div>
+                    <Link href="/" className="btn-ghost">
+                      Back to Clip mode
+                    </Link>
                   </div>
 
-                  <div className="mt-6 flex flex-wrap items-center gap-2">
+                  <div className="mt-7 flex flex-wrap items-center gap-2">
                     <SocialBrandRow platforms={["tiktok", "reels", "shorts", "facebook"]} compact />
                   </div>
 
-                  <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs text-white/62">
-                    Start with one idea, pick style and voice, generate, then publish.
-                  </div>
-                </div>
-
-                <div className="surface-soft labs-surface-soft relative overflow-hidden p-5">
-                  <div className="flex items-center justify-between text-xs text-white/60">
-                    <div>Generator-style preview</div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
-                      active
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    {["AI Post", "Video", "Image", "Voiceover"].map((tab, tabIndex) => (
-                      <div
-                        key={tab}
-                        className={[
-                          "rounded-xl border px-2 py-2 text-center text-[11px] font-semibold",
-                          tabIndex === activePreviewTab
-                            ? "border-amber-300/55 bg-amber-400/10 text-amber-100"
-                            : "border-white/10 bg-white/[0.03] text-white/70",
-                        ].join(" ")}
-                      >
-                        {tab}
+                  <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                    {[
+                      "One prompt to output",
+                      "Shared Orbito account",
+                      "Built for short-form formats",
+                      "Publish flow stays connected",
+                    ].map((item) => (
+                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/74">
+                        {item}
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-xs text-white/58">Live hook</div>
-                    <div className="mt-1 text-sm font-semibold text-white/90">{activePrompt.hook}</div>
-                    <p className="mt-2 text-xs leading-relaxed text-white/68">{activePrompt.text}</p>
+                <div className="surface-soft p-5">
+                  <div className="flex items-center justify-between text-xs text-white/54">
+                    <span>Prompt-to-video preview</span>
+                    <span className="rounded-full border border-amber-300/22 bg-amber-300/[0.10] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+                      Live
+                    </span>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="text-xs uppercase tracking-[0.12em] text-white/48">Active prompt</div>
+                    <div className="mt-2 text-xl font-semibold text-white/92">{activePrompt.hook}</div>
+                    <p className="mt-3 text-sm leading-relaxed text-white/66">{activePrompt.text}</p>
                   </div>
 
                   <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                      <div className="text-white/56">Length</div>
+                      <div className="text-white/50">Length</div>
                       <div className="mt-1 text-white/90">{activePrompt.duration}</div>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                      <div className="text-white/56">Aspect</div>
+                      <div className="text-white/50">Aspect</div>
                       <div className="mt-1 text-white/90">{activePrompt.aspect}</div>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                      <div className="text-white/56">Style</div>
+                      <div className="text-white/50">Style</div>
                       <div className="mt-1 text-white/90">{activePrompt.style}</div>
                     </div>
                   </div>
@@ -417,10 +299,10 @@ export default function LabsMarketingPage() {
                     <div className="mb-2 flex items-center justify-between text-[11px] text-white/56">
                       <span>{activeClip.title}</span>
                       <span>
-                        {activeClip.aspect} - {activeClip.duration}
+                        {activeClip.aspect} • {activeClip.duration}
                       </span>
                     </div>
-                    <div className="flex h-[220px] items-center justify-center overflow-hidden rounded-xl border border-white/12 bg-black/50">
+                    <div className="flex h-[220px] items-center justify-center overflow-hidden rounded-xl border border-white/12 bg-black/60">
                       <video
                         src={activeClip.src}
                         autoPlay
@@ -439,127 +321,128 @@ export default function LabsMarketingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="pt-14 sm:pt-16">
+        <section id="how-it-works" className="pt-16">
           <div data-reveal className="reveal">
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl md:text-4xl">How Labs works</h2>
-            <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Same clean system feel as Generator, built for AI clip creation.
+            <SectionKicker>How Generate Fits Orbito</SectionKicker>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+              Start with a prompt. Finish with a video ready to post.
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/66 sm:text-base">
+              Generate gives you a second way to create inside Orbito. Use it when you need fresh footage, faster concept testing, or
+              AI-led production without leaving the same publishing workflow.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
-            <div data-reveal className="reveal surface-soft labs-surface-soft relative overflow-hidden p-6">
-              <div className="relative">
-                <div className="text-xl font-semibold text-white/92 sm:text-2xl">Prompt, style, output.</div>
-                <p className="mt-3 text-sm leading-relaxed text-white/65">
-                  Use one structured flow from idea to rendered clip with voice and captions ready.
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                title: "Same workspace",
+                text: "Open Generate from the same Orbito account and keep your content, credits, and workflow in one place.",
+              },
+              {
+                title: "Built for short-form",
+                text: "Choose styles, pacing, and formats designed for TikTok, Reels, Shorts, and other social outputs.",
+              },
+              {
+                title: "Prompt in, content out",
+                text: "Start with an idea instead of raw footage, then review and publish without switching tools.",
+              },
+            ].map((item) => (
+              <div key={item.title} data-reveal className="reveal surface-soft p-5">
+                <div className="text-lg font-semibold text-white/92">{item.title}</div>
+                <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="pt-16">
+          <div data-reveal className="reveal surface-inset p-6 sm:p-8">
+            <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+              <div>
+                <SectionKicker>Prompt To Publish</SectionKicker>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+                  One idea. Structured output. Fast iteration.
+                </h2>
+                <p className="mt-4 text-sm leading-relaxed text-white/66 sm:text-base">
+                  Use Generate when you want to test multiple concepts quickly, create videos for products or stories, or build fresh
+                  short-form assets without recording new footage first.
                 </p>
-
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <SocialBrandRow platforms={["tiktok", "reels", "shorts", "facebook"]} compact />
-                </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-xs text-white/50">Step 1</div>
-                    <div className="mt-1 text-sm font-semibold text-white/88">Write one idea</div>
-                    <div className="mt-1 text-xs text-white/62">Labs turns it into a usable prompt.</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-xs text-white/50">Step 2</div>
-                    <div className="mt-1 text-sm font-semibold text-white/88">Pick settings</div>
-                    <div className="mt-1 text-xs text-white/62">Choose style, voice, and size.</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:col-span-2">
-                    <div className="text-xs text-white/50">Step 3</div>
-                    <div className="mt-1 text-sm font-semibold text-white/88">Generate and publish</div>
-                    <div className="mt-1 text-xs text-white/62">Open clips library, review output, then post.</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              <div data-reveal className="reveal surface-soft labs-surface-soft relative overflow-hidden p-5">
-                <div className="text-sm font-semibold text-white/92">Built for short-form channels</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/65">
-                  Make clips for Shorts, Reels, TikTok, and feed posts from one workflow.
-                </div>
               </div>
 
-              <div data-reveal className="reveal surface-soft labs-surface-soft relative overflow-hidden p-5">
-                <div className="text-sm font-semibold text-white/92">One account, shared credits</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/65">
-                  Use the same account across Orbito and Labs without switching tools.
-                </div>
-              </div>
-
-              <div data-reveal className="reveal surface-soft labs-surface-soft relative overflow-hidden p-5">
-                <div className="text-sm font-semibold text-white/92">Fast creator loop</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/65">
-                  Test multiple ideas quickly, keep the winners, and ship faster.
-                </div>
-                <div className="mt-4">
-                  <Link href={labsGeneratorHref} className="btn-clipforge text-xs">
-                    Open Generator
-                  </Link>
-                </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  {
+                    title: "Write one idea",
+                    text: "Start with the topic, hook, or outcome you want the short to land.",
+                  },
+                  {
+                    title: "Pick settings",
+                    text: "Choose visual style, shape the pacing, and decide how you want the output to feel.",
+                  },
+                  {
+                    title: "Generate and post",
+                    text: "Review the output, keep the best versions, and move into the same publishing workflow.",
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="surface-soft p-5">
+                    <div className="text-sm font-semibold text-white/90">{item.title}</div>
+                    <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-12">
-          <div data-reveal className="reveal surface-inset labs-surface p-6 sm:p-8">
-            <div className="text-xs font-medium uppercase tracking-[0.14em] text-white/62">See it in action</div>
-            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
-              Hook attention in 1 second. <span className="labs-grad">Keep people watching.</span>
-            </h3>
-            <p className="mt-3 max-w-3xl text-sm text-white/68 sm:text-base">
-              One idea. Four styles. Pick your look and post fast.
-            </p>
+        <section className="pt-16">
+          <div data-reveal className="reveal">
+            <SectionKicker>Output Styles</SectionKicker>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+              Same product, wider creative range.
+            </h2>
+          </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {clips.map((clip) => (
-                <article key={clip.title} className="surface-soft labs-surface-soft overflow-hidden p-0">
-                  <div className="relative flex h-[170px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/55">
-                    <video
-                      src={clip.src}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="max-h-full max-w-full"
-                      style={{ objectFit: "contain", objectPosition: "center center" }}
-                    />
-                    <div className="absolute left-2 top-2 flex gap-2">
-                      <span className="chip">{clip.aspect}</span>
-                      <span className="chip">{clip.duration}</span>
-                    </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {clips.map((clip) => (
+              <article key={clip.title} data-reveal className="reveal surface-soft overflow-hidden p-0">
+                <div className="relative flex h-[180px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/60">
+                  <video
+                    src={clip.src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="max-h-full max-w-full"
+                    style={{ objectFit: "contain", objectPosition: "center center" }}
+                  />
+                  <div className="absolute left-3 top-3 flex gap-2">
+                    <span className="chip">{clip.aspect}</span>
+                    <span className="chip">{clip.duration}</span>
                   </div>
-                  <div className="p-4">
-                    <div className="text-sm font-semibold text-white/90">{clip.title}</div>
-                    <div className="mt-1 text-xs leading-relaxed text-white/62">{clip.text}</div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                </div>
+                <div className="p-4">
+                  <div className="text-sm font-semibold text-white/90">{clip.title}</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/62">{clip.text}</div>
+                </div>
+              </article>
+            ))}
+          </div>
 
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link href={labsGeneratorHref} className="btn-clipforge">
-                Start in Labs
-              </Link>
-              <Link href="/contact" className="btn-ghost">
-                Talk to support
-              </Link>
-            </div>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href={labsGeneratorHref} className="btn-clipforge">
+              Start with Generate
+            </Link>
+            <Link href="/pricing" className="btn-ghost">
+              Compare plans
+            </Link>
           </div>
         </section>
 
         <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>© 2026 - {BRAND.name} by Sakib LLC. All rights reserved.</div>
+            <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {footerLinks.map((item) => (
                 <a key={item.href} href={item.href} className="hover:text-white/75">

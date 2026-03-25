@@ -14,9 +14,8 @@ function Logo() {
   const inApp = pathname?.startsWith("/app");
   const isLabsMarketing = pathname === "/labs";
 
-  // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
-  const v = isLabsMarketing ? "labs-nav-1" : "orb-1";
-  const logoSrc = isLabsMarketing ? `/clipforge-labs-mark.svg?v=${v}` : `/orbito-mark.svg?v=${v}`;
+  const logoSrc = "/orbito-mark.svg?v=orb-2";
+  const modeBadge = inApp ? null : isLabsMarketing ? "GENERATE" : "CONTENT STUDIO";
 
   const markBoxClass = inApp ? "h-16 w-16" : "h-12 w-12";
   const markImgSize = inApp ? 42 : 34;
@@ -47,10 +46,9 @@ function Logo() {
           aria-hidden="true"
           className="pointer-events-none absolute -inset-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           style={{
-            background: isLabsMarketing
-              ? "radial-gradient(60px 60px at 50% 50%, rgba(255,183,3,0.30), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(58,134,255,0.28), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(251,86,7,0.18), transparent 70%)"
-              : "radial-gradient(60px 60px at 50% 50%, rgba(167,139,250,0.35), transparent 70%), radial-gradient(70px 70px at 30% 60%, rgba(125,211,252,0.30), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(45,212,191,0.22), transparent 70%)",
-            filter: "blur(10px)",
+            background:
+              "radial-gradient(60px 60px at 50% 50%, rgba(88,146,255,0.28), transparent 70%), radial-gradient(72px 72px at 30% 60%, rgba(44,206,173,0.18), transparent 72%), radial-gradient(70px 70px at 70% 35%, rgba(255,186,77,0.14), transparent 70%)",
+            filter: "blur(11px)",
           }}
         />
 
@@ -66,39 +64,24 @@ function Logo() {
       </span>
 
       {/* Wordmark */}
-      <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center gap-2">
         <span className="relative">
-          <span
-            className={wordmarkClass}
-            style={
-              isLabsMarketing
-                ? {
-                    backgroundImage: "linear-gradient(90deg,#ffb703 0%,#7aa2ff 52%,#fb5607 100%)",
-                    WebkitBackgroundClip: "text",
-                    backgroundClip: "text",
-                    color: "transparent",
-                  }
-                : undefined
-            }
-          >
-            {BRAND.name}
-          </span>
+          <span className={wordmarkClass}>{BRAND.name}</span>
 
           {/* soft aurora sheen */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-[0.55] blur-[10px] transition-opacity duration-300 group-hover:opacity-[0.85]"
             style={{
-              background: isLabsMarketing
-                ? "linear-gradient(90deg, rgba(255,183,3,0.48), rgba(122,162,255,0.54), rgba(251,86,7,0.34))"
-                : "linear-gradient(90deg, rgba(167,139,250,0.65), rgba(125,211,252,0.55), rgba(45,212,191,0.45))",
+              background:
+                "linear-gradient(90deg, rgba(82,152,255,0.48), rgba(255,186,77,0.34), rgba(44,206,173,0.30))",
             }}
           />
         </span>
 
-        {isLabsMarketing && (
-          <span className="hidden shrink-0 rounded-full border border-[#fb56076e] bg-[linear-gradient(90deg,rgba(255,183,3,0.14),rgba(251,86,7,0.18),rgba(58,134,255,0.14))] px-2 py-0.5 text-[11px] font-semibold leading-none tracking-[0.08em] text-[#ffd9b5] sm:inline-flex">
-            LABS
+        {modeBadge && (
+          <span className="hidden shrink-0 rounded-full border border-white/12 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-semibold leading-none tracking-[0.12em] text-white/68 sm:inline-flex">
+            {modeBadge}
           </span>
         )}
       </span>
@@ -148,7 +131,7 @@ function NavLink({
         ].join(" ")}
         style={{
           background:
-            "linear-gradient(90deg, rgba(167,139,250,0.10), rgba(125,211,252,0.09), rgba(45,212,191,0.08))",
+            "linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03), rgba(255,255,255,0.05))",
           boxShadow: finalActive
             ? "0 0 0 1px rgba(255,255,255,0.10) inset"
             : "0 0 0 1px rgba(255,255,255,0.08) inset",
@@ -165,7 +148,7 @@ function NavLink({
         ].join(" ")}
         style={{
           background:
-            "linear-gradient(90deg, rgba(167,139,250,0.9), rgba(125,211,252,0.9), rgba(45,212,191,0.9))",
+            "linear-gradient(90deg, rgba(82,152,255,0.9), rgba(255,186,77,0.86), rgba(44,206,173,0.86))",
         }}
       />
 
@@ -177,7 +160,7 @@ function NavLink({
         ].join(" ")}
         style={{
           background:
-            "linear-gradient(90deg, rgba(167,139,250,0.45), rgba(125,211,252,0.45), rgba(45,212,191,0.45))",
+            "linear-gradient(90deg, rgba(82,152,255,0.30), rgba(255,186,77,0.28), rgba(44,206,173,0.26))",
         }}
       />
     </Link>
@@ -452,33 +435,35 @@ export default function Navbar() {
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
-  const whopPageHref = inApp ? BRAND.whopUrl : "https://orbito.cc/whop";
+  const whopPageHref = inApp ? BRAND.whopUrl : "/whop";
+  const whopLinkProps = inApp ? { target: "_blank", rel: "noreferrer" } : {};
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
     : isLabsMarketing
       ? "/"
       : "/labs";
   const labsNavTitle = inApp
-    ? "Open Orbito Labs console"
+    ? "Open Orbito Generate"
     : isLabsMarketing
-      ? "Open Orbito Console"
-      : "Open Orbito Labs";
+      ? "Open Orbito clipping"
+      : "Open Orbito Generate";
   const labsDesktopButtonClass = inApp
     ? "inline-flex btn-clipforge text-xs"
     : isLabsMarketing
       ? "hidden xl:inline-flex btn-orbito-cta text-xs"
-      : "hidden xl:inline-flex btn-whop btn-whop-nav text-xs";
+      : "hidden xl:inline-flex btn-clipforge text-xs";
   const labsMobileButtonClass = inApp
     ? "btn-clipforge w-full text-xs"
     : isLabsMarketing
       ? "btn-orbito-cta w-full text-xs"
-      : "btn-whop btn-whop-nav w-full text-xs";
-  const labsButtonText = "Orbito";
-  const showLabsBadge = !isLabsMarketing;
+      : "btn-clipforge w-full text-xs";
+  const labsButtonText = inApp ? "Generate" : isLabsMarketing ? "Clip Mode" : "Generate";
+  const whopDesktopButtonClass = "hidden xl:inline-flex btn-ghost text-xs";
+  const whopMobileButtonClass = "btn-ghost w-full text-xs";
 
   // Always card/glass
   const shellClass =
-    "border border-white/10 bg-black/30 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]";
+    "border border-white/8 bg-[rgba(7,10,16,0.78)] backdrop-blur-xl shadow-[0_18px_55px_rgba(0,0,0,0.38)]";
 
   // ✅ Visual fix: marketing navbar should feel “in the header”, not floating down
   const shellMarginTop = inApp ? "mt-4" : "mt-0";
@@ -525,10 +510,9 @@ export default function Navbar() {
               <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 <a
                   href={whopPageHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hidden xl:inline-flex btn-whop btn-whop-nav text-xs"
-                  title="Monetize your clips with Whop"
+                  {...whopLinkProps}
+                  className={whopDesktopButtonClass}
+                  title="Whop is an optional third-party monetization partner"
                 >
                   {whopLabel}
                 </a>
@@ -539,11 +523,6 @@ export default function Navbar() {
                   title={labsNavTitle}
                 >
                   <span>{labsButtonText}</span>
-                  {showLabsBadge && (
-                    <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
-                      LABS
-                    </span>
-                  )}
                 </Link>
 
                 {authed && (
@@ -602,7 +581,7 @@ export default function Navbar() {
                     {!inApp && (
                       isLabsMarketing ? (
                         <Link href={aiLabGeneratorHref} className="btn-clipforge text-xs">
-                          AI Lab
+                          Open Generate
                         </Link>
                       ) : (
                         <Link href="/app" className="btn-ghost text-xs">
@@ -685,11 +664,10 @@ export default function Navbar() {
                 <div className="px-2 pb-1 grid gap-2">
                   <a
                     href={whopPageHref}
-                    target="_blank"
-                    rel="noreferrer"
+                    {...whopLinkProps}
                     onClick={() => setOpen(false)}
-                    className="btn-whop btn-whop-nav w-full text-xs"
-                    title="Monetize your clips with Whop"
+                    className={whopMobileButtonClass}
+                    title="Whop is an optional third-party monetization partner"
                   >
                     {whopLabel}
                   </a>
@@ -700,11 +678,6 @@ export default function Navbar() {
                     title={labsNavTitle}
                   >
                     <span>{labsButtonText}</span>
-                    {showLabsBadge && (
-                      <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white/75">
-                        LABS
-                      </span>
-                    )}
                   </Link>
                 </div>
 
@@ -758,7 +731,7 @@ export default function Navbar() {
                     {!inApp && (
                       isLabsMarketing ? (
                         <Link href={aiLabGeneratorHref} onClick={() => setOpen(false)} className="btn-clipforge text-xs text-center">
-                          AI Lab
+                          Open Generate
                         </Link>
                       ) : (
                         <Link href="/app" onClick={() => setOpen(false)} className="btn-ghost text-xs text-center">

@@ -2,14 +2,14 @@
 export const BRAND = {
   name: "Orbito",
   product: "Orbito", // keep separate in case you ever want "Orbito Studio", etc.
-  tagline: "Turn long videos into viral clips.",
-  metaTitle: "Orbito — AI Video Clipping",
+  tagline: "Clip long videos, generate new ones, and publish faster.",
+  metaTitle: "Orbito — Clip, Generate, Publish",
   metaDescription:
-    "Orbito turns long videos into high-performing clips with smart reframing, captions, and a seamless pipeline.",
+    "Orbito helps you clip long videos, generate new AI videos, and publish short-form content faster from one workflow.",
 
   // Merged product link
-  clipforgeName: "Orbito Labs",
-  clipforgeProduct: "Orbito Labs",
+  clipforgeName: "Orbito Generate",
+  clipforgeProduct: "Orbito Generate",
   clipforgeUrl:
     process.env.NEXT_PUBLIC_LABS_MARKETING_URL?.trim() ||
     "https://app.orbito.cc/app/labs/app/generate",

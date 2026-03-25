@@ -488,7 +488,7 @@ def _normalize_video_speed(raw_speed: str | None) -> str:
 def _resolve_google_image_model_id(style_preset: str | None, *, task: str = "image") -> str:
     task_key = (task or "image").strip().lower()
     style_suffix = _style_env_suffix(style_preset)
-    default_model = _env("GOOGLE_IMAGE_MODEL_ID", "imagen-3.0-generate-002")
+    default_model = _env("GOOGLE_IMAGE_MODEL_ID", "gemini-2.5-flash-image")
     if task_key == "post":
         default_model = _env("GOOGLE_POST_IMAGE_MODEL_ID", default_model)
 
@@ -502,7 +502,7 @@ def _resolve_google_image_model_id(style_preset: str | None, *, task: str = "ima
 
     if not _is_low_cost_style(style_preset):
         return default_model
-    low_cost_default = _env("GOOGLE_IMAGE_FAST_MODEL_ID", "imagen-4.0-fast-generate-001")
+    low_cost_default = _env("GOOGLE_IMAGE_FAST_MODEL_ID", "gemini-2.5-flash-image")
     low_cost_model = _env("GOOGLE_IMAGE_LOW_COST_MODEL_ID", low_cost_default)
     if task_key == "post":
         low_cost_model = _env("GOOGLE_POST_IMAGE_LOW_COST_MODEL_ID", low_cost_model)
@@ -516,10 +516,10 @@ def _resolve_google_video_model_id(style_preset: str | None, *, generation_speed
         premium_style_model = _env(f"GOOGLE_VIDEO_4K_MODEL_ID_{style_suffix}", "")
         if premium_style_model:
             return premium_style_model
-        premium_model = _env("GOOGLE_VIDEO_4K_MODEL_ID", "veo-2.0-generate-001")
-        return premium_model or "veo-2.0-generate-001"
+        premium_model = _env("GOOGLE_VIDEO_4K_MODEL_ID", "veo-3.1-generate-001")
+        return premium_model or "veo-3.1-generate-001"
 
-    default_model = _env("GOOGLE_VIDEO_MODEL_ID", "veo-2.0-generate-001")
+    default_model = _env("GOOGLE_VIDEO_MODEL_ID", "veo-3.1-generate-001")
     style_model = _env(f"GOOGLE_VIDEO_MODEL_ID_{style_suffix}", "")
     if style_model:
         return style_model
@@ -528,6 +528,23 @@ def _resolve_google_video_model_id(style_preset: str | None, *, generation_speed
     low_cost_default = _env("GOOGLE_VIDEO_FAST_MODEL_ID", "veo-3.1-fast-generate-001")
     low_cost_model = _env("GOOGLE_VIDEO_LOW_COST_MODEL_ID", low_cost_default)
     return low_cost_model or default_model
+
+
+def _is_google_gemini_image_model(model_id: str | None) -> bool:
+    normalized = (model_id or "").strip().lower()
+    return normalized.startswith("gemini-")
+
+
+def _compose_gemini_image_prompt(prompt: str, negative_prompt: str) -> str:
+    base = (prompt or "").strip()
+    avoid = (negative_prompt or "").strip()
+    if not avoid:
+        return base
+    return (
+        f"{base}\n\n"
+        "Avoid the following elements in the generated image:\n"
+        f"{avoid[:1200]}"
+    ).strip()
 
 
 def _is_model_unavailable_error(exc: Exception | str | None) -> bool:
@@ -1117,23 +1134,48 @@ def _run_google_vertex_image_generation(
     model_id = _resolve_google_image_model_id(style_preset, task=task)
     headers = _google_auth_headers()
 
-    endpoint = (
-        f"https://{location}-aiplatform.googleapis.com/v1/"
-        f"projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:predict"
-    )
-
     safe_ar = aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "1:1"
-    payload: dict[str, Any] = {
-        "instances": [{"prompt": (prompt or "").strip()[:1200]}],
-        "parameters": {
-            "sampleCount": 1,
-            "aspectRatio": safe_ar,
-        },
-    }
-    if negative_prompt:
-        payload["parameters"]["negativePrompt"] = negative_prompt[:1200]
-    if isinstance(seed, int) and seed > 0:
-        payload["parameters"]["seed"] = int(seed)
+    using_gemini_image_api = _is_google_gemini_image_model(model_id)
+    if using_gemini_image_api:
+        endpoint = (
+            f"https://{location}-aiplatform.googleapis.com/v1/"
+            f"projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:generateContent"
+        )
+        payload: dict[str, Any] = {
+            "contents": {
+                "role": "USER",
+                "parts": [
+                    {
+                        "text": _compose_gemini_image_prompt(
+                            (prompt or "").strip()[:1200],
+                            negative_prompt,
+                        )
+                    }
+                ],
+            },
+            "generationConfig": {
+                "responseModalities": ["TEXT", "IMAGE"],
+                "imageConfig": {
+                    "aspectRatio": safe_ar,
+                },
+            },
+        }
+    else:
+        endpoint = (
+            f"https://{location}-aiplatform.googleapis.com/v1/"
+            f"projects/{project_id}/locations/{location}/publishers/google/models/{model_id}:predict"
+        )
+        payload = {
+            "instances": [{"prompt": (prompt or "").strip()[:1200]}],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": safe_ar,
+            },
+        }
+        if negative_prompt:
+            payload["parameters"]["negativePrompt"] = negative_prompt[:1200]
+        if isinstance(seed, int) and seed > 0:
+            payload["parameters"]["seed"] = int(seed)
 
     try:
         status, content_type, data, raw_bytes = _http_post_json_custom(endpoint, payload, headers=headers)
@@ -1145,7 +1187,8 @@ def _run_google_vertex_image_generation(
                     detail = str(err.get("message") or "")
                 elif err:
                     detail = str(err)
-            raise RuntimeError(f"Vertex Imagen failed: {status} {detail}".strip())
+            provider_label = "Vertex Gemini Image" if using_gemini_image_api else "Vertex Imagen"
+            raise RuntimeError(f"{provider_label} failed: {status} {detail}".strip())
 
         parsed = _extract_remote_result(data)
         media_bytes = parsed.get("bytes")
@@ -1255,6 +1298,7 @@ def _extract_remote_result(data: dict[str, Any] | None) -> dict[str, Any]:
       - {"data_base64":"...", "content_type":"video/mp4", "duration_seconds":6, "title":"..."}
       - {"url":"https://.../asset.mp4", ...}
       - {"predictions":[{"bytesBase64Encoded":"..."}], ...}
+      - {"candidates":[{"content":{"parts":[{"inlineData":{"data":"...","mimeType":"image/png"}}]}}]}
     """
     result: dict[str, Any] = {
         "bytes": None,
@@ -1307,6 +1351,34 @@ def _extract_remote_result(data: dict[str, Any] | None) -> dict[str, Any]:
             if isinstance(maybe_url, str) and maybe_url.strip():
                 result["url"] = maybe_url.strip()
                 return result
+
+    candidates = data.get("candidates")
+    if isinstance(candidates, list):
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            content = candidate.get("content")
+            if not isinstance(content, dict):
+                continue
+            parts = content.get("parts")
+            if not isinstance(parts, list):
+                continue
+            for part in parts:
+                if not isinstance(part, dict):
+                    continue
+                inline_data = part.get("inlineData")
+                if isinstance(inline_data, dict):
+                    b64_inline = inline_data.get("data")
+                    if isinstance(b64_inline, str) and b64_inline.strip():
+                        result["bytes"] = _decode_base64_payload(b64_inline.strip())
+                        result["content_type"] = (
+                            result["content_type"]
+                            or (inline_data.get("mimeType") if isinstance(inline_data.get("mimeType"), str) else None)
+                        )
+                        return result
+                text_part = part.get("text")
+                if result["title"] is None and isinstance(text_part, str) and text_part.strip():
+                    result["title"] = text_part.strip()
 
     url_val = _read_str("url") or _read_str("uri") or _read_str("download_url") or _read_str("media_url")
     if url_val:

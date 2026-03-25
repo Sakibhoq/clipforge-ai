@@ -241,7 +241,7 @@ export default function StudioPage() {
                 Social <span className="grad-text">Connection</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-white/65">
-                Shared publish hub for Orbito and Orbito Labs. Connect once, then schedule and post from one place.
+                Shared publish hub for Orbito Clip and Orbito Generate. Connect once, then schedule and post from one place.
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
