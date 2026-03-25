@@ -212,10 +212,10 @@ export default function LabsMarketingPage() {
     <div ref={revealRef} className="theme-labs relative overflow-x-hidden">
       <GenerateBackdrop />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+4.5rem)]">
         <section className="relative">
           <div data-reveal className="reveal">
-            <div className="surface relative overflow-hidden p-6 sm:p-8 md:p-10">
+            <div className="surface relative overflow-hidden p-5 sm:p-7 md:p-8">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0"
@@ -225,18 +225,17 @@ export default function LabsMarketingPage() {
                 }}
               />
 
-              <div className="relative grid gap-8 lg:grid-cols-[1.02fr_0.98fr]">
+              <div className="relative grid gap-6 lg:grid-cols-[1.02fr_0.98fr]">
                 <div>
                   <SectionKicker>Orbito Generate</SectionKicker>
-                  <h1 className="mt-5 text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
+                  <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
                     The AI video generation mode inside <span className="grad-text">Orbito</span>.
                   </h1>
-                  <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/68">
-                    Generate is how Orbito creates fresh short-form content when you do not have source footage. Same account, same
-                    platform, same goal: help you make more short-form content without more editing.
+                  <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
+                    Use Generate when you need fresh short-form content without source footage. Same account. Same publish flow.
                   </p>
 
-                  <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <Link href={labsGeneratorHref} className="btn-clipforge">
                       Open Generate
                     </Link>
@@ -248,25 +247,25 @@ export default function LabsMarketingPage() {
                     </Link>
                   </div>
 
-                  <div className="mt-7 flex flex-wrap items-center gap-2">
+                  <div className="mt-6 flex flex-wrap items-center gap-2">
                     <SocialBrandRow platforms={["tiktok", "reels", "shorts", "facebook"]} compact />
                   </div>
 
-                  <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
                     {[
-                      "One prompt to output",
+                      "Prompt to video",
                       "Shared Orbito account",
-                      "Built for short-form formats",
-                      "Publish flow stays connected",
+                      "Short-form ready",
+                      "One publish flow",
                     ].map((item) => (
-                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/74">
+                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-white/74">
                         {item}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="surface-soft p-5">
+                <div className="surface-soft motion-card p-4 sm:p-5">
                   <div className="flex items-center justify-between text-xs text-white/54">
                     <span>Prompt-to-video preview</span>
                     <span className="rounded-full border border-amber-300/22 bg-amber-300/[0.10] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
@@ -274,13 +273,13 @@ export default function LabsMarketingPage() {
                     </span>
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="text-xs uppercase tracking-[0.12em] text-white/48">Active prompt</div>
                     <div className="mt-2 text-xl font-semibold text-white/92">{activePrompt.hook}</div>
-                    <p className="mt-3 text-sm leading-relaxed text-white/66">{activePrompt.text}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/66">{activePrompt.text}</p>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                       <div className="text-white/50">Length</div>
                       <div className="mt-1 text-white/90">{activePrompt.duration}</div>
@@ -295,7 +294,7 @@ export default function LabsMarketingPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-3">
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3">
                     <div className="mb-2 flex items-center justify-between text-[11px] text-white/56">
                       <span>{activeClip.title}</span>
                       <span>
@@ -321,19 +320,18 @@ export default function LabsMarketingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="pt-16">
+        <section id="how-it-works" className="pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>How Generate Fits Orbito</SectionKicker>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
               Start with a prompt. Finish with a video ready to post.
             </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Generate gives you a second way to create inside Orbito. Use it when you need fresh footage, faster concept testing, or
-              AI-led production without leaving the same publishing workflow.
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
+              Generate is the fast path when you do not have footage but still need ready-to-post content.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
             {[
               {
                 title: "Same workspace",
@@ -348,25 +346,24 @@ export default function LabsMarketingPage() {
                 text: "Start with an idea instead of raw footage, then review and publish without switching tools.",
               },
             ].map((item) => (
-              <div key={item.title} data-reveal className="reveal surface-soft p-5">
+              <div key={item.title} data-reveal className="reveal surface-soft motion-card p-4">
                 <div className="text-lg font-semibold text-white/92">{item.title}</div>
-                <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
+                <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="pt-16">
-          <div data-reveal className="reveal surface-inset p-6 sm:p-8">
-            <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+        <section className="pt-12">
+          <div data-reveal className="reveal surface-inset motion-card p-5 sm:p-7">
+            <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
               <div>
                 <SectionKicker>Prompt To Publish</SectionKicker>
-                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  One idea. Structured output. Fast iteration.
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+                  One idea. Fast output.
                 </h2>
-                <p className="mt-4 text-sm leading-relaxed text-white/66 sm:text-base">
-                  Use Generate when you want to test multiple concepts quickly, create videos for products or stories, or build fresh
-                  short-form assets without recording new footage first.
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
+                  Test hooks, products, and story ideas without recording first.
                 </p>
               </div>
 
@@ -385,9 +382,9 @@ export default function LabsMarketingPage() {
                     text: "Review the output, keep the best versions, and move into the same publishing workflow.",
                   },
                 ].map((item) => (
-                  <div key={item.title} className="surface-soft p-5">
+                  <div key={item.title} className="surface-soft motion-card p-4">
                     <div className="text-sm font-semibold text-white/90">{item.title}</div>
-                    <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
                   </div>
                 ))}
               </div>
@@ -395,18 +392,18 @@ export default function LabsMarketingPage() {
           </div>
         </section>
 
-        <section className="pt-16">
+        <section className="pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>Output Styles</SectionKicker>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Same product, wider creative range.
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+              Four styles. Same workflow.
             </h2>
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {clips.map((clip) => (
-              <article key={clip.title} data-reveal className="reveal surface-soft overflow-hidden p-0">
-                <div className="relative flex h-[180px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/60">
+              <article key={clip.title} data-reveal className="reveal surface-soft motion-card overflow-hidden p-0">
+                <div className="relative flex h-[168px] items-center justify-center overflow-hidden border-b border-white/10 bg-black/60">
                   <video
                     src={clip.src}
                     autoPlay
@@ -430,7 +427,7 @@ export default function LabsMarketingPage() {
             ))}
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link href={labsGeneratorHref} className="btn-clipforge">
               Start with Generate
             </Link>
@@ -440,7 +437,7 @@ export default function LabsMarketingPage() {
           </div>
         </section>
 
-        <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
+        <footer className="pb-10 pt-14 text-xs text-white/50 sm:pt-16">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">

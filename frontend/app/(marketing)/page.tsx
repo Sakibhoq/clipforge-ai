@@ -96,6 +96,78 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
   );
 }
 
+function WorkflowTicker() {
+  const items = [
+    "Upload",
+    "Find moments",
+    "Generate ideas",
+    "Review",
+    "Schedule",
+    "Publish",
+    "Whop optional",
+  ];
+
+  return (
+    <div className="marquee-shell rounded-2xl border border-white/10 bg-black/20 p-2">
+      <div className="marquee-track gap-2">
+        {[...items, ...items].map((item, index) => (
+          <div key={`${item}-${index}`} className="marquee-pill">
+            <span className="live-dot" />
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HeroActivityBoard() {
+  const rows = [
+    { label: "Upload synced", value: "00:28", width: "76%" },
+    { label: "Clip review", value: "3 ready", width: "62%" },
+    { label: "Publish queue", value: "4 channels", width: "84%" },
+  ];
+
+  return (
+    <div className="surface-soft motion-card overflow-hidden p-5">
+      <div className="flex items-center justify-between text-xs text-white/54">
+        <span>Live studio</span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/22 bg-emerald-300/[0.10] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
+          <span className="live-dot" />
+          Active
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 text-sm text-white/82">
+              <span>{row.label}</span>
+              <span className="text-xs text-white/56">{row.value}</span>
+            </div>
+            <div className="mt-3 live-bar">
+              <span style={{ width: row.width }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-sky-300/18 bg-sky-300/[0.08] p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-100/82">Clip Mode</div>
+          <div className="mt-2 text-lg font-semibold text-white/92">Source video in.</div>
+          <div className="mt-2 text-sm text-white/66">Strong moments out.</div>
+        </div>
+        <div className="rounded-2xl border border-amber-300/18 bg-amber-300/[0.08] p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/82">Generate Mode</div>
+          <div className="mt-2 text-lg font-semibold text-white/92">Prompt in.</div>
+          <div className="mt-2 text-sm text-white/66">Fresh output fast.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModeLane({
   eyebrow,
   title,
@@ -127,7 +199,7 @@ function ModeLane({
         };
 
   return (
-    <article className={`surface relative overflow-hidden border ${accentClasses.ring} p-6`}>
+    <article className={`surface motion-card relative overflow-hidden border ${accentClasses.ring} p-5 sm:p-6`}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-80"
@@ -140,16 +212,16 @@ function ModeLane({
       />
       <div className="relative">
         <div className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold ${accentClasses.pill}`}>{eyebrow}</div>
-        <h3 className="mt-4 text-2xl font-semibold tracking-tight text-white/94">{title}</h3>
-        <p className="mt-3 text-sm leading-relaxed text-white/68">{summary}</p>
-        <div className="mt-5 grid gap-2">
+        <h3 className="mt-3 text-[22px] font-semibold tracking-tight text-white/94 sm:text-2xl">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-white/68">{summary}</p>
+        <div className="mt-4 grid gap-2">
           {bullets.map((item) => (
-            <div key={item} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/76">
+            <div key={item} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-white/76">
               {item}
             </div>
           ))}
         </div>
-        <div className="mt-6">
+        <div className="mt-5">
           <Link href={href} className={accentClasses.button}>
             {cta}
           </Link>
@@ -234,32 +306,9 @@ export default function Page() {
 
   const proofPills = useMemo(
     () => [
-      "Clip long-form content",
-      "Generate AI video ideas",
-      "Publish from one workflow",
-      "Optional Whop monetization",
-    ],
-    []
-  );
-
-  const sharedSystem = useMemo(
-    () => [
-      {
-        title: "One account",
-        text: "Move between clipping and AI generation without making users understand two different products.",
-      },
-      {
-        title: "Shared credits",
-        text: "The free trial and plan structure already support a combined workflow instead of separate tool identities.",
-      },
-      {
-        title: "One publish layer",
-        text: "Connected channels, posting flow, and review process should feel consistent no matter how the clip was created.",
-      },
-      {
-        title: "Monetize when it fits",
-        text: "Use Whop later if you want a campaign-based earnings channel. The core value still comes from creating faster inside Orbito.",
-      },
+      "Clip",
+      "Generate",
+      "Publish",
     ],
     []
   );
@@ -268,15 +317,15 @@ export default function Page() {
     () => [
       {
         title: "Clip mode",
-        text: "Paste a YouTube link or upload a file. Orbito finds strong moments and gets you to ready-to-post clips faster.",
+        text: "Upload once, pick the best moments, and move fast.",
       },
       {
         title: "Generate mode",
-        text: "Open Orbito Generate to turn one idea into prompt-to-video output with voice, captions, and short-form pacing.",
+        text: "Write one idea and turn it into a short video.",
       },
       {
-        title: "Publish everywhere",
-        text: "Use one clear output layer for TikTok, Reels, Shorts, and the rest of your connected destinations.",
+        title: "Publish",
+        text: "Send finished clips to your connected channels.",
       },
     ],
     []
@@ -286,10 +335,10 @@ export default function Page() {
     <div ref={revealRef} className="relative overflow-x-hidden">
       <LandingBackdrop />
 
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
+      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+4.5rem)]">
         <section className="relative">
           <div data-reveal className="reveal">
-            <div className="surface relative overflow-hidden p-6 sm:p-8 md:p-10">
+            <div className="surface relative overflow-hidden p-5 sm:p-7 md:p-8">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0"
@@ -299,18 +348,17 @@ export default function Page() {
                 }}
               />
 
-              <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="relative grid gap-6 lg:grid-cols-[1.02fr_0.98fr] lg:items-start">
                 <div>
                   <SectionKicker>One Platform, Two Creation Modes</SectionKicker>
-                  <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
+                  <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
                     Clip long videos. Generate new ones with AI. <span className="grad-text">Publish from one workflow.</span>
                   </h1>
-                  <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/68">
-                    {BRAND.name} is your short-form content studio. Start with long-form video when you have footage, or open
-                    Generate when you need fresh AI video ideas. Same account, same product, same publishing flow.
+                  <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
+                    Use Clip when you have footage. Use Generate when you need something new. Same account. Same workflow.
                   </p>
 
-                  <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     {startTrialCta("btn-orbito-cta")}
                     <Link href="/labs" className="btn-clipforge">
                       Explore Generate
@@ -320,44 +368,25 @@ export default function Page() {
                     </Link>
                   </div>
 
-                  <div className="mt-7 flex flex-wrap items-center gap-2">
+                  <div className="mt-6 flex flex-wrap items-center gap-2">
                     <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} compact />
                   </div>
 
-                  <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
                     {proofPills.map((item) => (
-                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/74">
+                      <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm text-white/74">
                         {item}
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white/64">
-                    Long videos in. Short clips out. Or start from a prompt and build fresh short-form content inside the same system.
+                  <div className="mt-5">
+                    <WorkflowTicker />
                   </div>
                 </div>
 
-                <div className="grid gap-4">
-                  <div className="surface-soft overflow-hidden p-5">
-                    <div className="flex items-center justify-between text-xs text-white/54">
-                      <span>Short-form content studio</span>
-                      <span className="rounded-full border border-emerald-300/22 bg-emerald-300/[0.10] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">
-                        Active
-                      </span>
-                    </div>
-                    <div className="mt-4 grid gap-3">
-                      <div className="rounded-2xl border border-sky-300/18 bg-sky-300/[0.08] p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-100/82">Clip Mode</div>
-                        <div className="mt-2 text-lg font-semibold text-white/92">Upload once. Pick your clips.</div>
-                        <div className="mt-2 text-sm text-white/66">For podcasts, YouTube videos, interviews, and long-form footage you already have.</div>
-                      </div>
-                      <div className="rounded-2xl border border-amber-300/18 bg-amber-300/[0.08] p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/82">Generate Mode</div>
-                        <div className="mt-2 text-lg font-semibold text-white/92">Write one idea. Generate fast.</div>
-                        <div className="mt-2 text-sm text-white/66">For new concepts, campaign content, AI visuals, and fresh short-form experiments.</div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="grid gap-3">
+                  <HeroActivityBoard />
 
                   <div className="grid gap-3 sm:grid-cols-3">
                     {[
@@ -365,7 +394,7 @@ export default function Page() {
                       { label: "Connections", value: "Shared studio" },
                       { label: "Output", value: "Post everywhere" },
                     ].map((item) => (
-                      <div key={item.label} className="surface-soft p-4">
+                      <div key={item.label} className="surface-soft motion-card p-4">
                         <div className="text-xs uppercase tracking-[0.12em] text-white/50">{item.label}</div>
                         <div className="mt-2 text-base font-semibold text-white/90">{item.value}</div>
                       </div>
@@ -377,25 +406,24 @@ export default function Page() {
           </div>
         </section>
 
-        <section id="how-it-works" className="pt-16">
+        <section id="how-it-works" className="pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>Choose Your Starting Point</SectionKicker>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
               Start from footage or start from a prompt.
             </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/68 sm:text-base">
-              If you already recorded something, Orbito turns it into short clips. If you need something new, Generate creates it with
-              AI. Both paths end in the same review and publishing workflow.
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base">
+              Both paths land in the same review and publishing flow.
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <div data-reveal className="reveal">
               <ModeLane
                 eyebrow="Orbito Clip"
                 title="Turn long-form video into short clips."
-                summary="Paste a YouTube link or upload a file. Orbito finds strong moments, keeps the flow simple, and gets your content ready for posting."
-                bullets={["Paste a YouTube link or upload a file", "Approve the strongest moments", "Post now or schedule later"]}
+                summary="Upload once. Pick the best moments. Post faster."
+                bullets={["Paste a link or upload a file", "Approve top clips", "Post or schedule"]}
                 href="/how-it-works"
                 cta="See clip workflow"
                 accent="clip"
@@ -405,8 +433,8 @@ export default function Page() {
               <ModeLane
                 eyebrow="Orbito Generate"
                 title="Create AI short-form video from one prompt."
-                summary="Generate is the AI creation mode inside Orbito. Pick the style, shape the output, and create fresh videos when you do not have source footage."
-                bullets={["Write one idea", "Pick style, voice, and format", "Generate, review, and publish"]}
+                summary="Write one idea. Pick a style. Publish faster."
+                bullets={["Write the idea", "Choose style and format", "Generate and publish"]}
                 href="/labs"
                 cta="See generate workflow"
                 accent="generate"
@@ -415,24 +443,19 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="pt-16">
-          <div data-reveal className="reveal surface-inset p-6 sm:p-8">
-            <div className="grid gap-8 lg:grid-cols-[0.88fr_1.12fr]">
+        <section className="pt-12">
+          <div data-reveal className="reveal surface-inset motion-card p-5 sm:p-7">
+            <div className="grid gap-6 lg:grid-cols-[0.88fr_1.12fr]">
               <div>
-                <SectionKicker>One Output Layer</SectionKicker>
-                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Less product switching. More posting.
+                <SectionKicker>One Workflow After Creation</SectionKicker>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+                  Less switching. More posting.
                 </h2>
-                <p className="mt-4 text-sm leading-relaxed text-white/66 sm:text-base">
-                  Create in the mode that fits the job, then move through one clear workflow for review, captions, and publishing
-                  across TikTok, Reels, Shorts, and more.
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
+                  Review, caption, and publish from one clear flow.
                 </p>
 
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <SocialBrandRow platforms={["tiktok", "reels", "instagram", "facebook"]} compact />
-                </div>
-
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                <div className="mt-5 flex flex-wrap items-center gap-3">
                   {startTrialCta("btn-orbito-cta")}
                   <Link href="/pricing" className="btn-ghost">
                     Compare plans
@@ -442,9 +465,9 @@ export default function Page() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {workflow.map((item) => (
-                  <div key={item.title} className="surface-soft p-5">
+                  <div key={item.title} className="surface-soft motion-card p-4">
                     <div className="text-sm font-semibold text-white/90">{item.title}</div>
-                    <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
+                    <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
                   </div>
                 ))}
               </div>
@@ -452,26 +475,8 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="pt-16">
-          <div data-reveal className="reveal">
-            <SectionKicker>Shared Studio</SectionKicker>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Everything stays connected.
-            </h2>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {sharedSystem.map((item) => (
-              <div key={item.title} data-reveal className="reveal surface-soft p-5">
-                <div className="text-lg font-semibold text-white/92">{item.title}</div>
-                <div className="mt-3 text-sm leading-relaxed text-white/64">{item.text}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="pt-16">
-          <div data-reveal className="reveal surface relative overflow-hidden p-6 sm:p-8">
+        <section className="pt-12">
+          <div data-reveal className="reveal surface motion-card relative overflow-hidden p-5 sm:p-7">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 opacity-75"
@@ -480,32 +485,31 @@ export default function Page() {
                   "radial-gradient(760px 320px at 20% 20%, rgba(255,186,77,0.10), transparent 72%), radial-gradient(760px 320px at 80% 24%, rgba(82,152,255,0.10), transparent 74%)",
               }}
             />
-            <div className="relative grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="relative grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
               <div>
                 <SectionKicker>Optional Monetization</SectionKicker>
-                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
                   Create first. Monetize second.
                 </h2>
-                <p className="mt-4 text-sm leading-relaxed text-white/66 sm:text-base">
-                  Once you have content going out consistently, you can use Whop to join third-party campaigns and add an extra
-                  earnings channel without changing your creation workflow.
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
+                  Use Whop later if you want an extra earnings channel.
                 </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-[1.05fr_0.95fr]">
-                <div className="surface-soft p-5">
+                <div className="surface-soft motion-card p-4">
                   <div className="text-sm font-semibold text-white/90">Core Orbito promise</div>
-                  <div className="mt-3 text-sm leading-relaxed text-white/64">
-                    Clip from long-form video, generate fresh AI content, and publish with less editing and less friction.
+                  <div className="mt-2 text-sm leading-relaxed text-white/64">
+                    Clip, generate, and publish from one product.
                   </div>
                 </div>
-                <div className="surface-soft p-5">
+                <div className="surface-soft motion-card p-4">
                   <div className="text-sm font-semibold text-white/90">Optional monetization</div>
-                  <div className="mt-3 text-sm leading-relaxed text-white/64">
-                    Use <span className="whop-word">Whop</span> if you want an extra earnings channel. It is a third-party partner, not the core product.
+                  <div className="mt-2 text-sm leading-relaxed text-white/64">
+                    <span className="whop-word">Whop</span> is a third-party partner, not the core product.
                   </div>
-                  <div className="mt-4">
-                    <a href={ORBITO_WHOP_MARKETING_URL} target="_blank" rel="noreferrer" className="btn-ghost">
+                  <div className="mt-3">
+                    <a href={ORBITO_WHOP_MARKETING_URL} className="btn-ghost">
                       Learn about Whop
                     </a>
                   </div>
@@ -515,7 +519,7 @@ export default function Page() {
           </div>
         </section>
 
-        <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
+        <footer className="pb-10 pt-14 text-xs text-white/50 sm:pt-16">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">

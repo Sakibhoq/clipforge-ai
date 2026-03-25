@@ -510,8 +510,8 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
-        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
+      <main className="relative mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
+        <section className="surface relative overflow-hidden p-5 sm:p-7 md:p-8">
           <div className="absolute inset-0">
             <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
@@ -520,7 +520,7 @@ export default function ContactPage() {
           <div className="relative">
             <div className="text-xs text-white/55">• Contact</div>
 
-            <div className="mt-4 grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-start">
+            <div className="mt-4 grid gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-start">
               {/* LEFT */}
               <div>
                 <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
@@ -528,8 +528,8 @@ export default function ContactPage() {
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Ask us anything about clipping, AI generation, billing, or publishing. We can help with setup, credits, output
-                  quality, and day-to-day workflow questions across <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>, and daily <H>POSTS</H>.
+                  Ask about clipping, AI generation, billing, or publishing. We can help with setup, credits, and output quality across{" "}
+                  <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>, and daily <H>POSTS</H>.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -559,12 +559,9 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                <div className="mt-9 flex flex-wrap items-center gap-3">
+                <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Link href="/pricing" className="btn-ghost">
                     View pricing
-                  </Link>
-                  <Link href="/features" className="btn-ghost">
-                    Explore features
                   </Link>
                   <Link href="/" className="btn-ghost">
                     Back to home
@@ -574,14 +571,14 @@ export default function ContactPage() {
 
               {/* RIGHT */}
               <div className="space-y-4">
-                <div className="group surface-soft relative overflow-hidden p-6 md:p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <div className="group surface-soft motion-card relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
 
                   <div className="relative">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="text-sm font-semibold">Message us</div>
-                        <p className="mt-2 text-sm leading-relaxed text-white/60">
+                        <p className="mt-1.5 text-sm leading-relaxed text-white/60">
                           Send a quick note and it goes straight to our team.
                         </p>
                       </div>
@@ -592,12 +589,12 @@ export default function ContactPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
                       <div className="text-xs text-white/45">Support email</div>
                       <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap gap-3">
+                    <div className="mt-5 flex flex-wrap gap-3">
                       <button type="button" className="btn-aurora" onClick={() => setOpen(true)}>
                         Write a message
                       </button>
@@ -606,11 +603,11 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                <div className="group surface-soft relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <div className="group surface-soft motion-card relative overflow-hidden p-4 md:p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
                   <div className="relative">
                     <div className="text-xs text-white/50">Frequently asked questions</div>
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-2.5 space-y-2">
                       {faqs.map((item) => (
                         <details
                           key={item.q}
@@ -631,7 +628,7 @@ export default function ContactPage() {
               </div>
             </div>
 
-            <footer className="pb-10 pt-14 sm:pt-20 text-xs text-white/45">
+            <footer className="pb-10 pt-12 sm:pt-16 text-xs text-white/45">
               <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">

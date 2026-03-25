@@ -471,7 +471,7 @@ export default function Navbar() {
   return (
     <>
       {/* ✅ Spacer so FIXED marketing navbar never overlaps content */}
-      {needsSpacer && <div aria-hidden="true" className="h-[112px]" />}
+      {needsSpacer && <div aria-hidden="true" className="h-[98px] sm:h-[104px]" />}
 
       <header
         className={`${navModeClass} ${navTopClass} z-50 w-full`}
@@ -481,17 +481,17 @@ export default function Navbar() {
           paddingRight: "env(safe-area-inset-right)",
         }}
       >
-        <div className="mx-auto max-w-6xl px-6">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div
             className={[
-              `${shellMarginTop} flex items-center justify-between rounded-2xl px-6 py-3.5 transition-colors duration-200`,
+              `${shellMarginTop} flex items-center justify-between rounded-2xl px-5 py-3 transition-colors duration-200`,
               shellClass,
             ].join(" ")}
           >
-            <div className="flex items-center gap-5 lg:gap-8 xl:gap-10 min-w-0">
+            <div className="flex min-w-0 items-center gap-4 lg:gap-6 xl:gap-8">
               <Logo />
 
-              <nav className="hidden lg:flex items-center gap-3 xl:gap-4">
+              <nav className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 {navLinks.map((l) => (
                   <NavLink
                     key={l.href}
@@ -506,8 +506,8 @@ export default function Navbar() {
               </nav>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="hidden lg:flex items-center gap-2 xl:gap-2.5">
                 <a
                   href={whopPageHref}
                   {...whopLinkProps}
@@ -627,7 +627,7 @@ export default function Navbar() {
 
           {open && (
             <div
-              className="lg:hidden mt-3 rounded-2xl border border-white/15 bg-[#04070fe8] p-2 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+              className="mt-2.5 rounded-2xl border border-white/15 bg-[#04070fe8] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl lg:hidden"
               style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
               role="dialog"
               aria-label="Mobile navigation"

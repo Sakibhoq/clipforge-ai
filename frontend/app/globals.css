@@ -559,6 +559,133 @@ textarea {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--shadow-soft);
 }
 
+@keyframes marketingFloatY {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes marketingPulse {
+  0% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 rgba(53, 242, 166, 0.16);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 8px rgba(53, 242, 166, 0);
+  }
+  100% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 rgba(53, 242, 166, 0);
+  }
+}
+
+@keyframes marketingBarSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes marketingMarquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.motion-card {
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+  will-change: transform;
+}
+
+.motion-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 18px 48px rgba(0, 0, 0, 0.34);
+}
+
+.float-card {
+  animation: marketingFloatY 8s ease-in-out infinite;
+}
+
+.live-dot {
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(53, 242, 166, 0.95);
+  animation: marketingPulse 1.8s ease-in-out infinite;
+}
+
+.live-bar {
+  position: relative;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.live-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(82, 152, 255, 0.9), rgba(255, 186, 77, 0.9), rgba(44, 206, 173, 0.85));
+}
+
+.live-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.36), transparent);
+  animation: marketingBarSweep 2.6s linear infinite;
+}
+
+.marquee-shell {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marketingMarquee 22s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.marquee-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.78);
+  white-space: nowrap;
+}
+
 /* -----------------------------
    Orbito Console card glow
    Slight border aura across /app cards

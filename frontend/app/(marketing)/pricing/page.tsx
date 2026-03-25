@@ -456,67 +456,60 @@ export default function Page() {
   return (
     <div className="relative">
       <PricingMotionStyles />
-      <section className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6">
+      <section className="relative mx-auto max-w-6xl px-4 pb-14 pt-8 sm:px-6">
         {trialLockNotice ? (
           <div className="mb-6 rounded-xl border border-amber-300/35 bg-amber-300/12 px-4 py-3 text-sm text-amber-100">
             {trialLockNotice}
           </div>
         ) : null}
-        <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
           <div>
             <FamilyPill label="One Platform" tone="full" />
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl md:text-6xl">
               One account. Two ways to create.
             </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Pick the mode that matches how you create. Clip plans are built for long-form-to-short workflows, and Generate plans add
-              AI video creation while staying inside the same Orbito account.
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
+              Pick Clip mode for long-form editing or Generate mode for AI video creation. Both stay inside the same Orbito account.
             </p>
-            <div className="mt-5">
+            <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} />
             </div>
           </div>
 
-          <div className="surface-soft rounded-3xl p-5 sm:p-6">
+          <div className="surface-soft motion-card rounded-3xl p-4 sm:p-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-sky-300/22 bg-sky-300/[0.09] p-4">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-100/82">Clip Mode</div>
                 <div className="mt-2 text-lg font-semibold text-white/92">Orbito plans</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/66">
-                  For turning long videos into short clips, editing them, and publishing them faster.
-                </div>
+                <div className="mt-2 text-sm leading-relaxed text-white/66">For long-form to short-form workflows.</div>
               </div>
               <div className="rounded-2xl border border-amber-300/24 bg-amber-300/[0.09] p-4">
                 <div className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/82">Generate Mode</div>
                 <div className="mt-2 text-lg font-semibold text-white/92">Orbito Generate plans</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/66">
-                  For prompt-to-video, image, and voice generation, with Orbito Creator-level access included.
-                </div>
+                <div className="mt-2 text-sm leading-relaxed text-white/66">For prompt-to-video, image, and voice generation.</div>
               </div>
             </div>
 
-            <div className="mt-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-sm font-medium text-white/88">Billing view</div>
-                <div className="text-xs text-white/56">Switch monthly or yearly and tune creator throughput with the scale control.</div>
+                <div className="text-xs text-white/56">Switch monthly or yearly and tune throughput with the scale control.</div>
               </div>
               <ModeToggle mode={mode} setMode={setMode} />
             </div>
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="text-sm font-medium text-white/88">Credit scaling system</div>
-                  <div className="text-xs text-white/56">
-                    Scale Creator and Generate Creator throughput from 1x to 8x without changing your plan structure.
-                  </div>
+                  <div className="text-xs text-white/56">Scale Creator and Generate Creator throughput from 1x to 8x.</div>
                 </div>
                 <div className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-sm text-white/82">
                   Scale: <span className="ml-1 font-semibold">{creditScale}x</span>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-3 flex items-center gap-3">
                 <input
                   type="range"
                   min={1}
@@ -532,8 +525,8 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="group surface relative overflow-hidden p-5 sm:p-6">
+        <div className="mt-7">
+          <div className="group surface motion-card relative overflow-hidden p-4 sm:p-5">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 opacity-60"
@@ -542,11 +535,11 @@ export default function Page() {
                   "radial-gradient(620px 320px at 18% 26%, rgba(70,215,255,0.18), transparent 72%), radial-gradient(640px 340px at 84% 24%, rgba(255,183,3,0.18), transparent 74%), radial-gradient(680px 360px at 52% 98%, rgba(136,120,255,0.14), transparent 74%)",
               }}
             />
-            <div className="relative grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
+            <div className="relative grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
               <div>
                 <FamilyPill label="Free Trial" tone="neutral" />
                 <div className="mt-3 flex flex-wrap items-end gap-3">
-                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Start with the full workflow before paying</div>
+                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both modes first</div>
                   <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1 text-xs text-white/75">
                     {formatInt(sharedTrialCredits)} shared credits
                   </div>
@@ -555,16 +548,15 @@ export default function Page() {
                   <div className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">$0</div>
                   <div className="pb-2 text-sm text-white/55">/trial</div>
                 </div>
-                <p className="mt-3 max-w-2xl text-sm text-white/68 sm:text-base">
-                  Test clip mode and generate mode from one account, then upgrade only when you need more output or more throughput.
+                <p className="mt-3 max-w-xl text-sm text-white/68 sm:text-base">
+                  Test Clip and Generate from one account, then upgrade when you need more output.
                 </p>
 
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
                   {[
-                    "Clip long videos with Orbito",
-                    "Generate AI media inside Orbito",
-                    "Use one shared credit pool",
-                    "Keep one publishing workflow",
+                    "Clip videos",
+                    "Generate with AI",
+                    "One account",
                   ].map((item) => (
                     <div key={item} className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white/75">
                       {item}
@@ -575,10 +567,8 @@ export default function Page() {
 
               <div className="w-full">
                 <div className="flex h-full flex-col rounded-2xl border border-white/14 bg-black/25 p-4">
-                  <div className="text-sm font-semibold text-white/88">Test the full workflow before you commit</div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/62">
-                    Check clipping quality, test AI generation, and make sure the publish flow fits your workflow before upgrading.
-                  </div>
+                  <div className="text-sm font-semibold text-white/88">Check the workflow before you commit</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/62">Make sure clipping, generation, and publishing fit your workflow.</div>
 
                   <button
                     type="button"
@@ -606,24 +596,22 @@ export default function Page() {
           </div>
         </div>
 
-        <section className="mt-10">
+        <section className="mt-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Clip Mode" tone="orbito" />
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Plans for clipping and publishing</h2>
-              <p className="mt-2 max-w-2xl text-sm text-white/64 sm:text-base">
-                Start here if your main workflow is turning long-form video into short clips and shipping content faster.
-              </p>
+              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">Start here if your main workflow is long-form to short-form clipping.</p>
             </div>
           </div>
 
           <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-2">
-            <div className="group surface relative min-h-[560px] overflow-hidden border border-cyan-300/22 p-4">
+            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-cyan-300/22 p-4">
               <GlowLayer family="orbito" />
               <div className="relative flex h-full flex-col">
                 <FamilyPill label="Orbito Clip" tone="orbito" />
                 <div className="mt-3 text-xl font-semibold text-white/94">Orbito Starter</div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for steady weekly clipping and posting.</div>
+                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for steady weekly clipping.</div>
                 <PriceRow amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`} suffix="/mo" />
                 <div className="mt-2 min-h-[20px] text-xs text-white/50">Monthly billing</div>
                 <Bullets
@@ -653,7 +641,7 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="group surface relative min-h-[560px] overflow-hidden border border-cyan-300/26 p-4">
+            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-cyan-300/26 p-4">
               <GlowLayer family="orbito" />
               <div className="relative flex h-full flex-col">
                 <FamilyPill label="Orbito Clip" tone="orbito" />
@@ -663,7 +651,7 @@ export default function Page() {
                     Recommended
                   </span>
                 </div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">For daily clipping, faster export cycles, and higher publish throughput.</div>
+                <div className="mt-1 min-h-[20px] text-xs text-white/52">For daily clipping and faster export cycles.</div>
                 {mode === "yearly" ? (
                   <PriceRow
                     amount={`$${formatMoney(orbitoCreatorYearlyScaledMonthly)}`}
@@ -706,24 +694,22 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="mt-10">
+        <section className="mt-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Generate Mode" tone="labs" />
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Plans for AI video generation</h2>
-              <p className="mt-2 max-w-2xl text-sm text-white/64 sm:text-base">
-                Choose these if prompt-to-video generation is part of your main workflow. Every Generate plan includes full Orbito Creator-level access.
-              </p>
+              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">Choose these if AI video generation is part of your main workflow.</p>
             </div>
           </div>
 
           <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-2">
-            <div className="group surface relative min-h-[560px] overflow-hidden border border-amber-300/24 p-4">
+            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-amber-300/24 p-4">
               <GlowLayer family="labs" />
               <div className="relative flex h-full flex-col">
                 <FamilyPill label="Orbito Generate" tone="labs" />
                 <div className="mt-3 text-xl font-semibold text-white/94">Generate Starter</div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for testing AI-led content creation without leaving Orbito.</div>
+                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for testing AI-led content creation.</div>
                 <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
                 <div className="mt-2 min-h-[20px] text-xs text-white/50">Monthly billing</div>
                 <Bullets
@@ -753,7 +739,7 @@ export default function Page() {
               </div>
             </div>
 
-            <div className="group surface relative min-h-[560px] overflow-hidden border border-amber-300/28 p-4">
+            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-amber-300/28 p-4">
               <GlowLayer family="labs" />
               <div className="relative flex h-full flex-col">
                 <FamilyPill label="Orbito Generate" tone="labs" />
@@ -763,7 +749,7 @@ export default function Page() {
                     Scale
                   </span>
                 </div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">For heavier AI generation volume, higher quality lanes, and faster iteration.</div>
+                <div className="mt-1 min-h-[20px] text-xs text-white/52">For heavier AI generation volume and faster iteration.</div>
                 {mode === "yearly" ? (
                   <PriceRow
                     amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
@@ -806,8 +792,8 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="mt-10 surface-soft rounded-2xl p-5 sm:p-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-white/90">Simple rule set</h2>
+        <section className="mt-8 surface-soft motion-card rounded-2xl p-4 sm:p-5">
+          <h2 className="text-2xl font-semibold tracking-tight text-white/90">Quick rules</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
               Orbito plans cover clipping + publishing.
@@ -821,13 +807,11 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="mt-10 surface rounded-2xl p-5 sm:p-6">
+        <section className="mt-8 surface motion-card rounded-2xl p-4 sm:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight text-white/92">Everything at a glance</h2>
-              <p className="mt-2 text-sm text-white/62">
-                Side-by-side view of access, credits, and capabilities across all plans.
-              </p>
+              <p className="mt-2 text-sm text-white/62">Side-by-side plan comparison.</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/62">
               Showing: {mode} • scale {creditScale}x
