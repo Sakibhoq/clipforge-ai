@@ -17,7 +17,7 @@ function Logo() {
   const logoSrc = "/orbito-mark.svg?v=orb-2";
   const modeBadge = inApp ? null : isLabsMarketing ? "GENERATE" : "CONTENT STUDIO";
 
-  const markBoxClass = inApp ? "h-16 w-16" : "h-12 w-12";
+  const markBoxClass = inApp ? "h-16 w-16" : "h-11 w-11";
   const markImgSize = inApp ? 42 : 34;
   const wordmarkClass = inApp
     ? "text-[20px] sm:text-[21px] font-semibold tracking-[-0.012em] text-white/95"
@@ -119,7 +119,7 @@ function NavLink({
       href={href}
       onClick={onNavigate}
       className={[
-        "group relative -mx-1.5 inline-flex items-center rounded-full px-3 py-1.5 text-xs transition-colors",
+        "group relative -mx-1 inline-flex items-center rounded-full px-2.5 py-1.5 text-[12px] transition-colors",
         finalActive ? "text-white" : "text-white/70 hover:text-white",
       ].join(" ")}
     >
@@ -253,7 +253,7 @@ export default function Navbar() {
   // - Marketing: FIXED + spacer (guarantees document scroll stays correct with your page backgrounds)
   // - App: STICKY
   const navModeClass = inApp ? "sticky" : "fixed";
-  const navTopClass = inApp ? "top-0" : "top-4";
+  const navTopClass = inApp ? "top-0" : "top-3";
   const needsSpacer = !inApp;
 
   // close mobile menu on route change
@@ -463,15 +463,15 @@ export default function Navbar() {
 
   // Always card/glass
   const shellClass =
-    "border border-white/8 bg-[rgba(7,10,16,0.78)] backdrop-blur-xl shadow-[0_18px_55px_rgba(0,0,0,0.38)]";
+    "border border-white/10 bg-[linear-gradient(180deg,rgba(12,16,24,0.92),rgba(7,10,16,0.88))] backdrop-blur-xl shadow-[0_22px_70px_rgba(0,0,0,0.44)]";
 
   // ✅ Visual fix: marketing navbar should feel “in the header”, not floating down
-  const shellMarginTop = inApp ? "mt-4" : "mt-0";
+  const shellMarginTop = inApp ? "mt-3" : "mt-0";
 
   return (
     <>
       {/* ✅ Spacer so FIXED marketing navbar never overlaps content */}
-      {needsSpacer && <div aria-hidden="true" className="h-[98px] sm:h-[104px]" />}
+      {needsSpacer && <div aria-hidden="true" className="h-[86px] sm:h-[92px]" />}
 
       <header
         className={`${navModeClass} ${navTopClass} z-50 w-full`}
@@ -484,7 +484,7 @@ export default function Navbar() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div
             className={[
-              `${shellMarginTop} flex items-center justify-between rounded-2xl px-5 py-3 transition-colors duration-200`,
+              `${shellMarginTop} flex items-center justify-between rounded-[22px] px-4 py-2.5 transition-colors duration-200 sm:px-5`,
               shellClass,
             ].join(" ")}
           >

@@ -511,48 +511,39 @@ export default function ContactPage() {
       </div>
 
       <main className="relative mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
-        <section className="surface relative overflow-hidden p-5 sm:p-7 md:p-8">
+        <section className="studio-frame p-5 sm:p-7 md:p-8">
           <div className="absolute inset-0">
-            <div className="aurora opacity-60" />
+            <div className="aurora opacity-55" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
           </div>
 
           <div className="relative">
-            <div className="text-xs text-white/55">• Contact</div>
+            <div className="signal-chip">
+              <span className="live-dot" />
+              <span>Contact</span>
+            </div>
 
-            <div className="mt-4 grid gap-8 md:grid-cols-[1.05fr_0.95fr] md:items-start">
-              {/* LEFT */}
+            <div className="mt-4 grid gap-6 md:grid-cols-[0.96fr_1.04fr] md:items-start">
               <div>
-                <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Need help with <span className="grad-text">Orbito</span> Clip or Generate?
+                <h1 className="text-[34px] leading-[1.04] font-semibold tracking-tight sm:text-4xl md:text-6xl">
+                  Need help with <span className="grad-text">Orbito</span>?
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Ask about clipping, AI generation, billing, or publishing. We can help with setup, credits, and output quality across{" "}
-                  <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>, and daily <H>POSTS</H>.
+                  Ask about setup, clipping, Generate, billing, publishing, or credits. Keep the message clear and we will handle the rest.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                    Replies within 24 hours
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
-                    Billing + workflow support
-                  </span>
-                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
-                    Screenshots welcome
-                  </span>
+                  <span className="signal-chip">Replies within 24 hours</span>
+                  <span className="signal-chip">Billing + workflow support</span>
+                  <span className="signal-chip">Screenshots welcome</span>
                 </div>
 
                 <div className="mt-7">
                   <div className="text-xs text-white/50">Common topics</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {topics.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60"
-                      >
+                      <span key={t} className="signal-chip">
                         {t}
                       </span>
                     ))}
@@ -569,29 +560,33 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* RIGHT */}
-              <div className="space-y-4">
-                <div className="group surface-soft motion-card relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+              <div className="grid gap-4">
+                <div className="group studio-frame p-5 md:p-6">
                   <HoverSheen />
-
                   <div className="relative">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold">Message us</div>
+                        <div className="text-sm font-semibold">Message support</div>
                         <p className="mt-1.5 text-sm leading-relaxed text-white/60">
-                          Send a quick note and it goes straight to our team.
+                          Send a note and it goes straight to the team.
                         </p>
                       </div>
 
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                        online
+                      <span className="signal-chip">
+                        <span className="live-dot" />
+                        <span>Online</span>
                       </span>
                     </div>
 
-                    <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                      <div className="text-xs text-white/45">Support email</div>
-                      <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="metric-chip">
+                        <div className="value">&lt; 24h</div>
+                        <div className="label">Reply Target</div>
+                      </div>
+                      <div className="metric-chip">
+                        <div className="value">support@orbito.cc</div>
+                        <div className="label">Email</div>
+                      </div>
                     </div>
 
                     <div className="mt-5 flex flex-wrap gap-3">
@@ -599,49 +594,58 @@ export default function ContactPage() {
                         Write a message
                       </button>
                     </div>
-
                   </div>
                 </div>
 
-                <div className="group surface-soft motion-card relative overflow-hidden p-4 md:p-5 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
-                  <HoverSheen />
-                  <div className="relative">
-                    <div className="text-xs text-white/50">Frequently asked questions</div>
-                    <div className="mt-2.5 space-y-2">
-                      {faqs.map((item) => (
-                        <details
-                          key={item.q}
-                          className="group/faq rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
-                        >
-                          <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
-                            <div className="flex items-center justify-between gap-3">
-                              <span>{item.q}</span>
-                              <span className="text-xs text-white/45 transition group-open/faq:rotate-45">+</span>
-                            </div>
-                          </summary>
-                          <div className="mt-2 text-xs leading-relaxed text-white/62">{item.a}</div>
-                        </details>
-                      ))}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { title: "Setup", text: "Account, connections, and workflow questions." },
+                    { title: "Billing", text: "Plans, credits, and charge reviews." },
+                    { title: "Product", text: "Bugs, output quality, and publishing issues." },
+                  ].map((item) => (
+                    <div key={item.title} className="surface-soft motion-card p-4">
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.title}</div>
+                      <div className="mt-2 text-lg font-semibold text-white/90">{item.title}</div>
+                      <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <footer className="pb-10 pt-12 sm:pt-16 text-xs text-white/45">
-              <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  {footerLinks.map((i) => (
-                    <a key={i.href} href={i.href} className="hover:text-white/70">
-                      {i.label}
-                    </a>
                   ))}
                 </div>
               </div>
-            </footer>
+            </div>
           </div>
         </section>
+
+        <section className="pt-6">
+          <div className="studio-frame p-4 md:p-5">
+            <div className="text-xs text-white/50">Frequently asked questions</div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {faqs.map((item) => (
+                <details key={item.q} className="group/faq rounded-[24px] border border-white/10 bg-black/25 px-4 py-4">
+                  <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{item.q}</span>
+                      <span className="text-xs text-white/45 transition group-open/faq:rotate-45">+</span>
+                    </div>
+                  </summary>
+                  <div className="mt-2 text-sm leading-relaxed text-white/62">{item.a}</div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <footer className="pb-10 pt-12 text-xs text-white/45 sm:pt-16">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {footerLinks.map((i) => (
+                <a key={i.href} href={i.href} className="hover:text-white/70">
+                  {i.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </footer>
       </main>
 
       <SendMessageModal open={open} onClose={() => setOpen(false)} />

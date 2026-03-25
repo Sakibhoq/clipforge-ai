@@ -559,6 +559,157 @@ textarea {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), var(--shadow-soft);
 }
 
+.marketing-shell :is(.surface, .surface-soft, .surface-inset) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    linear-gradient(180deg, rgba(16, 20, 31, 0.94), rgba(8, 11, 18, 0.92));
+  box-shadow:
+    0 26px 90px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.marketing-shell :is(.surface, .surface-soft, .surface-inset)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(740px 240px at 12% 0%, rgba(255, 255, 255, 0.10), transparent 58%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.028) 42%, transparent 78%);
+  opacity: 0.82;
+  z-index: 0;
+}
+
+.marketing-shell :is(.surface, .surface-soft, .surface-inset)::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  opacity: 0.45;
+  z-index: 0;
+}
+
+.marketing-shell :is(.surface, .surface-soft, .surface-inset) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.studio-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
+    linear-gradient(180deg, rgba(14, 18, 29, 0.96), rgba(8, 11, 18, 0.94));
+  box-shadow:
+    0 30px 110px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.studio-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(880px 260px at 16% 0%, rgba(255, 255, 255, 0.08), transparent 58%),
+    linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.022) 45%, transparent 80%);
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.studio-frame::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  opacity: 0.55;
+  z-index: 0;
+}
+
+.studio-frame > * {
+  position: relative;
+  z-index: 1;
+}
+
+.studio-grid {
+  position: relative;
+}
+
+.studio-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 86%);
+  opacity: 0.28;
+}
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.45rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.metric-chip {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem 0.95rem;
+}
+
+.metric-chip .value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.metric-chip .label {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.section-rail {
+  position: relative;
+}
+
+.section-rail::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 1rem;
+  bottom: 1rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
+}
+
 @keyframes marketingFloatY {
   0% {
     transform: translate3d(0, 0, 0);

@@ -278,6 +278,131 @@ function PricingMotionStyles() {
   );
 }
 
+function PlanCard({
+  family,
+  pillTone,
+  eyebrow,
+  title,
+  subtitle,
+  badge,
+  amount,
+  suffix,
+  strike,
+  glowTone,
+  billingLabel,
+  throughput,
+  throughputLabel,
+  metrics,
+  highlights,
+  ctaClassName,
+  ctaLabel,
+  ctaLoadingLabel,
+  ctaDisabled,
+  ctaLoading,
+  onChoose,
+  benefitsOpen,
+  onToggleBenefits,
+  benefitsItems,
+}: {
+  family: "orbito" | "labs";
+  pillTone: "orbito" | "labs";
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  amount: string;
+  suffix: string;
+  strike?: string;
+  glowTone?: "orbito" | "labs";
+  billingLabel: string;
+  throughput: string;
+  throughputLabel: string;
+  metrics: Array<{ label: string; value: string }>;
+  highlights: string[];
+  ctaClassName: string;
+  ctaLabel: string;
+  ctaLoadingLabel: string;
+  ctaDisabled: boolean;
+  ctaLoading: boolean;
+  onChoose: () => void;
+  benefitsOpen: boolean;
+  onToggleBenefits: () => void;
+  benefitsItems: string[];
+}) {
+  const toneBorder = family === "orbito" ? "border-cyan-300/24" : "border-amber-300/24";
+
+  return (
+    <div className={cn("group surface motion-card relative overflow-hidden p-4 sm:p-5", toneBorder)}>
+      <GlowLayer family={family} />
+      <div className="relative flex h-full flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <FamilyPill label={eyebrow} tone={pillTone} />
+            <div className="mt-3 text-[26px] font-semibold tracking-tight text-white/94 sm:text-[30px]">{title}</div>
+            <div className="mt-2 max-w-md text-sm leading-relaxed text-white/62">{subtitle}</div>
+          </div>
+          {badge ? (
+            <span
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
+                family === "orbito"
+                  ? "border-sky-300/20 bg-sky-300/[0.12] text-sky-100"
+                  : "border-amber-300/20 bg-amber-300/[0.12] text-amber-100"
+              )}
+            >
+              {badge}
+            </span>
+          ) : null}
+        </div>
+
+        <PriceRow amount={amount} suffix={suffix} strike={strike} glowTone={glowTone} />
+        <div className="mt-2 text-xs text-white/50">{billingLabel}</div>
+
+        <div className="mt-4 rounded-[24px] border border-white/10 bg-black/24 p-4">
+          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/44">
+            <span>Throughput</span>
+            <span>{throughputLabel}</span>
+          </div>
+          <div className="mt-3 live-bar">
+            <span style={{ width: throughput }} />
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {metrics.map((item) => (
+              <div key={item.label} className="metric-chip">
+                <div className="value">{item.value}</div>
+                <div className="label">{item.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2">
+          {highlights.map((item) => (
+            <div key={item} className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm text-white/74">
+              {item}
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onChoose}
+          disabled={ctaDisabled}
+          className={cn(
+            `${ctaClassName} mt-5 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none`,
+            ctaDisabled ? "cursor-not-allowed opacity-80" : ""
+          )}
+        >
+          {ctaLoading ? ctaLoadingLabel : ctaLabel}
+        </button>
+
+        <BenefitsDisclosure open={benefitsOpen} onToggle={onToggleBenefits} items={benefitsItems} />
+      </div>
+    </div>
+  );
+}
+
 export default function Page() {
   const router = useRouter();
   const pathname = usePathname();
@@ -454,7 +579,7 @@ export default function Page() {
   );
 
   return (
-    <div className="relative">
+    <div className="relative theme-merged">
       <PricingMotionStyles />
       <section className="relative mx-auto max-w-6xl px-4 pb-14 pt-8 sm:px-6">
         {trialLockNotice ? (
@@ -462,54 +587,55 @@ export default function Page() {
             {trialLockNotice}
           </div>
         ) : null}
+
         <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
           <div>
             <FamilyPill label="One Platform" tone="full" />
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl md:text-6xl">
-              One account. Two ways to create.
+              Pick the mode that matches how you create.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Pick Clip mode for long-form editing or Generate mode for AI video creation. Both stay inside the same Orbito account.
+              Clip mode is for footage-first workflows. Generate mode is for AI-first workflows. Both stay inside Orbito.
             </p>
             <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} />
             </div>
           </div>
 
-          <div className="surface-soft motion-card rounded-3xl p-4 sm:p-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-sky-300/22 bg-sky-300/[0.09] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-100/82">Clip Mode</div>
-                <div className="mt-2 text-lg font-semibold text-white/92">Orbito plans</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/66">For long-form to short-form workflows.</div>
+          <div className="studio-frame p-4 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="metric-chip">
+                <div className="value">{formatInt(sharedTrialCredits)}</div>
+                <div className="label">Trial Credits</div>
               </div>
-              <div className="rounded-2xl border border-amber-300/24 bg-amber-300/[0.09] p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/82">Generate Mode</div>
-                <div className="mt-2 text-lg font-semibold text-white/92">Orbito Generate plans</div>
-                <div className="mt-2 text-sm leading-relaxed text-white/66">For prompt-to-video, image, and voice generation.</div>
+              <div className="metric-chip">
+                <div className="value">25%</div>
+                <div className="label">Yearly Savings</div>
+              </div>
+              <div className="metric-chip">
+                <div className="value">{creditScale}x</div>
+                <div className="label">Creator Scale</div>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="text-sm font-medium text-white/88">Billing view</div>
-                <div className="text-xs text-white/56">Switch monthly or yearly and tune throughput with the scale control.</div>
+                <div className="text-xs text-white/56">Switch monthly or yearly, then tune creator throughput.</div>
               </div>
               <ModeToggle mode={mode} setMode={setMode} />
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mt-4 rounded-[24px] border border-white/10 bg-black/24 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-white/88">Credit scaling system</div>
-                  <div className="text-xs text-white/56">Scale Creator and Generate Creator throughput from 1x to 8x.</div>
+                  <div className="text-sm font-medium text-white/88">Throughput scale</div>
+                  <div className="text-xs text-white/56">Applies to Orbito Creator and Generate Creator.</div>
                 </div>
-                <div className="inline-flex rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-sm text-white/82">
-                  Scale: <span className="ml-1 font-semibold">{creditScale}x</span>
-                </div>
+                <div className="signal-chip">Scale {creditScale}x</div>
               </div>
 
-              <div className="mt-3 flex items-center gap-3">
+              <div className="mt-3">
                 <input
                   type="range"
                   min={1}
@@ -526,49 +652,38 @@ export default function Page() {
         </div>
 
         <div className="mt-7">
-          <div className="group surface motion-card relative overflow-hidden p-4 sm:p-5">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-60"
-              style={{
-                background:
-                  "radial-gradient(620px 320px at 18% 26%, rgba(70,215,255,0.18), transparent 72%), radial-gradient(640px 340px at 84% 24%, rgba(255,183,3,0.18), transparent 74%), radial-gradient(680px 360px at 52% 98%, rgba(136,120,255,0.14), transparent 74%)",
-              }}
-            />
-            <div className="relative grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
+          <div className="studio-frame p-5 sm:p-6">
+            <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
               <div>
                 <FamilyPill label="Free Trial" tone="neutral" />
                 <div className="mt-3 flex flex-wrap items-end gap-3">
-                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both modes first</div>
-                  <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1 text-xs text-white/75">
-                    {formatInt(sharedTrialCredits)} shared credits
-                  </div>
+                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both modes first.</div>
+                  <div className="signal-chip">{formatInt(sharedTrialCredits)} shared credits</div>
                 </div>
                 <div className="mt-3 flex items-end gap-2">
                   <div className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">$0</div>
                   <div className="pb-2 text-sm text-white/55">/trial</div>
                 </div>
                 <p className="mt-3 max-w-xl text-sm text-white/68 sm:text-base">
-                  Test Clip and Generate from one account, then upgrade when you need more output.
+                  Check the workflow before you commit to a plan.
                 </p>
 
-                <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                  {[
-                    "Clip videos",
-                    "Generate with AI",
-                    "One account",
-                  ].map((item) => (
-                    <div key={item} className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-white/75">
-                      {item}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["Clip", "Generate", "One account"].map((item) => (
+                    <div key={item} className="signal-chip">
+                      <span className="live-dot" />
+                      <span>{item}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="w-full">
-                <div className="flex h-full flex-col rounded-2xl border border-white/14 bg-black/25 p-4">
-                  <div className="text-sm font-semibold text-white/88">Check the workflow before you commit</div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/62">Make sure clipping, generation, and publishing fit your workflow.</div>
+                <div className="flex h-full flex-col rounded-[24px] border border-white/14 bg-black/25 p-4">
+                  <div className="text-sm font-semibold text-white/88">Best for first-time evaluation</div>
+                  <div className="mt-2 text-xs leading-relaxed text-white/62">
+                    Make sure clipping, generation, and publishing fit your process.
+                  </div>
 
                   <button
                     type="button"
@@ -585,6 +700,7 @@ export default function Page() {
                         ? "Trial already used"
                         : "Start Free Trial"}
                   </button>
+
                   <BenefitsDisclosure
                     open={openBenefits.trial}
                     onToggle={() => toggleBenefits("trial")}
@@ -600,97 +716,82 @@ export default function Page() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Clip Mode" tone="orbito" />
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Plans for clipping and publishing</h2>
-              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">Start here if your main workflow is long-form to short-form clipping.</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
+                For footage-first creators
+              </h2>
+              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
+                Start here if your main job is turning long-form video into short clips.
+              </p>
             </div>
           </div>
 
-          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-2">
-            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-cyan-300/22 p-4">
-              <GlowLayer family="orbito" />
-              <div className="relative flex h-full flex-col">
-                <FamilyPill label="Orbito Clip" tone="orbito" />
-                <div className="mt-3 text-xl font-semibold text-white/94">Orbito Starter</div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for steady weekly clipping.</div>
-                <PriceRow amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`} suffix="/mo" />
-                <div className="mt-2 min-h-[20px] text-xs text-white/50">Monthly billing</div>
-                <Bullets
-                  items={[
-                    `${formatInt(orbitoStarterCredits)} Orbito credits / month`,
-                    "Core clipping, editing, publishing",
-                    "Starter posting limits",
-                    "Good first paid plan",
-                  ]}
-                />
-                <button
-                  type="button"
-                  onClick={() => startCheckout("starter")}
-                  disabled={startingCheckout !== null}
-                  className={cn(
-                    "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                  )}
-                >
-                  {startingCheckout === "starter" ? "Opening Checkout..." : "Choose Orbito Starter"}
-                </button>
-                <BenefitsDisclosure
-                  open={openBenefits.orbitoStarter}
-                  onToggle={() => toggleBenefits("orbitoStarter")}
-                  items={benefits.orbitoStarter}
-                />
-              </div>
-            </div>
+          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-[0.88fr_1.12fr]">
+            <PlanCard
+              family="orbito"
+              pillTone="orbito"
+              eyebrow="Orbito Clip"
+              title="Starter"
+              subtitle="A clean entry point for steady weekly clipping."
+              amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`}
+              suffix="/mo"
+              billingLabel="Monthly billing"
+              throughput="36%"
+              throughputLabel="Steady weekly output"
+              metrics={[
+                { value: formatInt(orbitoStarterCredits), label: "Credits / mo" },
+                { value: "Core", label: "Workflow" },
+                { value: "Weekly", label: "Cadence" },
+              ]}
+              highlights={[
+                "Long-form to short-form clipping",
+                "Editing, captions, and publishing",
+                "Simple spend with no scaling",
+              ]}
+              ctaClassName="btn-orbito-cta"
+              ctaLabel="Choose Orbito Starter"
+              ctaLoadingLabel="Opening Checkout..."
+              ctaDisabled={startingCheckout !== null}
+              ctaLoading={startingCheckout === "starter"}
+              onChoose={() => startCheckout("starter")}
+              benefitsOpen={openBenefits.orbitoStarter}
+              onToggleBenefits={() => toggleBenefits("orbitoStarter")}
+              benefitsItems={benefits.orbitoStarter}
+            />
 
-            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-cyan-300/26 p-4">
-              <GlowLayer family="orbito" />
-              <div className="relative flex h-full flex-col">
-                <FamilyPill label="Orbito Clip" tone="orbito" />
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <div className="text-xl font-semibold text-white/94">Orbito Creator</div>
-                  <span className="rounded-full border border-sky-300/20 bg-sky-300/[0.12] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100">
-                    Recommended
-                  </span>
-                </div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">For daily clipping and faster export cycles.</div>
-                {mode === "yearly" ? (
-                  <PriceRow
-                    amount={`$${formatMoney(orbitoCreatorYearlyScaledMonthly)}`}
-                    suffix="/mo"
-                    strike={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`}
-                    glowTone="orbito"
-                  />
-                ) : (
-                  <PriceRow amount={`$${formatMoney(orbitoCreatorMonthlyScaledPrice)}`} suffix="/mo" />
-                )}
-                <div className="mt-2 min-h-[20px] text-xs text-white/50">
-                  {mode === "yearly" ? `Billed yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Billed monthly"}
-                </div>
-                <Bullets
-                  items={[
-                    `${formatInt(orbitoCreatorCredits)} Orbito credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
-                    "Priority clipping and exports",
-                    "Advanced publish throughput",
-                    `Credit scale applied: ${creditScale}x`,
-                  ]}
-                />
-                <button
-                  type="button"
-                  onClick={() => startCheckout("creator")}
-                  disabled={startingCheckout !== null}
-                  className={cn(
-                    "btn-orbito-cta mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                  )}
-                >
-                  {startingCheckout === "creator" ? "Opening Checkout..." : "Choose Orbito Creator"}
-                </button>
-                <BenefitsDisclosure
-                  open={openBenefits.orbitoCreator}
-                  onToggle={() => toggleBenefits("orbitoCreator")}
-                  items={benefits.orbitoCreator}
-                />
-              </div>
-            </div>
+            <PlanCard
+              family="orbito"
+              pillTone="orbito"
+              eyebrow="Orbito Clip"
+              title="Creator"
+              subtitle="More throughput for daily clipping and faster publishing cycles."
+              badge="Recommended"
+              amount={`$${formatMoney(mode === "yearly" ? orbitoCreatorYearlyScaledMonthly : orbitoCreatorMonthlyScaledPrice)}`}
+              suffix="/mo"
+              strike={mode === "yearly" ? `$${formatMoney(orbitoCreatorMonthlyScaledPrice)}` : undefined}
+              glowTone={mode === "yearly" ? "orbito" : undefined}
+              billingLabel={mode === "yearly" ? `Billed yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Billed monthly"}
+              throughput={`${Math.min(94, 42 + creditScale * 8)}%`}
+              throughputLabel={`Scale ${creditScale}x`}
+              metrics={[
+                { value: formatInt(orbitoCreatorCredits), label: mode === "yearly" ? "Credits / yr" : "Credits / mo" },
+                { value: `${creditScale}x`, label: "Scale" },
+                { value: "Daily", label: "Cadence" },
+              ]}
+              highlights={[
+                "Priority clipping and exports",
+                "Higher publish throughput",
+                "Best fit for consistent output",
+              ]}
+              ctaClassName="btn-orbito-cta"
+              ctaLabel="Choose Orbito Creator"
+              ctaLoadingLabel="Opening Checkout..."
+              ctaDisabled={startingCheckout !== null}
+              ctaLoading={startingCheckout === "creator"}
+              onChoose={() => startCheckout("creator")}
+              benefitsOpen={openBenefits.orbitoCreator}
+              onToggleBenefits={() => toggleBenefits("orbitoCreator")}
+              benefitsItems={benefits.orbitoCreator}
+            />
           </div>
         </section>
 
@@ -698,182 +799,171 @@ export default function Page() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Generate Mode" tone="labs" />
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Plans for AI video generation</h2>
-              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">Choose these if AI video generation is part of your main workflow.</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
+                For AI-first creators
+              </h2>
+              <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
+                Choose this path if prompt-to-video and AI output are central to the workflow.
+              </p>
             </div>
           </div>
 
-          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-2">
-            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-amber-300/24 p-4">
-              <GlowLayer family="labs" />
-              <div className="relative flex h-full flex-col">
-                <FamilyPill label="Orbito Generate" tone="labs" />
-                <div className="mt-3 text-xl font-semibold text-white/94">Generate Starter</div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">Best for testing AI-led content creation.</div>
-                <PriceRow amount={`$${formatMoney(labsStarterMonthlyPrice)}`} suffix="/mo" />
-                <div className="mt-2 min-h-[20px] text-xs text-white/50">Monthly billing</div>
-                <Bullets
-                  items={[
-                    `${formatInt(labsStarterCredits)} Generate credits / month`,
-                    "Prompt-to-image, video, and voice generation",
-                    "Includes full Orbito Creator-level access",
-                    "Good entry point for new workflows",
-                  ]}
-                />
-                <button
-                  type="button"
-                  onClick={() => startCheckout("labs_spark")}
-                  disabled={startingCheckout !== null}
-                  className={cn(
-                    "btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                  )}
-                >
-                  {startingCheckout === "labs_spark" ? "Opening Checkout..." : "Choose Generate Starter"}
-                </button>
-                <BenefitsDisclosure
-                  open={openBenefits.labsSpark}
-                  onToggle={() => toggleBenefits("labsSpark")}
-                  items={benefits.labsSpark}
-                />
-              </div>
-            </div>
+          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-[0.88fr_1.12fr]">
+            <PlanCard
+              family="labs"
+              pillTone="labs"
+              eyebrow="Orbito Generate"
+              title="Starter"
+              subtitle="A strong entry point for testing AI-led content production."
+              amount={`$${formatMoney(labsStarterMonthlyPrice)}`}
+              suffix="/mo"
+              billingLabel="Monthly billing"
+              throughput="44%"
+              throughputLabel="Prompt-first starter"
+              metrics={[
+                { value: formatInt(labsStarterCredits), label: "Credits / mo" },
+                { value: "Included", label: "Clip Access" },
+                { value: "Starter", label: "Cadence" },
+              ]}
+              highlights={[
+                "Prompt-to-image, video, and voice",
+                "Includes Orbito Creator-level access",
+                "Best for testing AI workflows",
+              ]}
+              ctaClassName="btn-clipforge"
+              ctaLabel="Choose Generate Starter"
+              ctaLoadingLabel="Opening Checkout..."
+              ctaDisabled={startingCheckout !== null}
+              ctaLoading={startingCheckout === "labs_spark"}
+              onChoose={() => startCheckout("labs_spark")}
+              benefitsOpen={openBenefits.labsSpark}
+              onToggleBenefits={() => toggleBenefits("labsSpark")}
+              benefitsItems={benefits.labsSpark}
+            />
 
-            <div className="group surface motion-card relative min-h-[520px] overflow-hidden border border-amber-300/28 p-4">
-              <GlowLayer family="labs" />
-              <div className="relative flex h-full flex-col">
-                <FamilyPill label="Orbito Generate" tone="labs" />
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <div className="text-xl font-semibold text-white/94">Generate Creator</div>
-                  <span className="rounded-full border border-amber-300/20 bg-amber-300/[0.12] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
-                    Scale
-                  </span>
-                </div>
-                <div className="mt-1 min-h-[20px] text-xs text-white/52">For heavier AI generation volume and faster iteration.</div>
-                {mode === "yearly" ? (
-                  <PriceRow
-                    amount={`$${formatMoney(labsCreatorYearlyScaledMonthly)}`}
-                    suffix="/mo"
-                    strike={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`}
-                    glowTone="labs"
-                  />
-                ) : (
-                  <PriceRow amount={`$${formatMoney(labsCreatorMonthlyScaledPrice)}`} suffix="/mo" />
-                )}
-                <div className="mt-2 min-h-[20px] text-xs text-white/50">
-                  {mode === "yearly" ? `Billed yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Billed monthly"}
-                </div>
-                <Bullets
-                  items={[
-                    `${formatInt(labsCreatorCredits)} Generate credits ${mode === "yearly" ? "/ year upfront" : "/ month"}`,
-                    "HD + 4K generation lanes",
-                    "Includes Orbito Creator-level access",
-                    `Credit scale applied: ${creditScale}x`,
-                  ]}
-                />
-                <button
-                  type="button"
-                  onClick={() => startCheckout("labs_velocity")}
-                  disabled={startingCheckout !== null}
-                  className={cn(
-                    "btn-clipforge mt-auto inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                  )}
-                >
-                  {startingCheckout === "labs_velocity" ? "Opening Checkout..." : "Choose Generate Creator"}
-                </button>
-                <BenefitsDisclosure
-                  open={openBenefits.labsVelocity}
-                  onToggle={() => toggleBenefits("labsVelocity")}
-                  items={benefits.labsVelocity}
-                />
+            <PlanCard
+              family="labs"
+              pillTone="labs"
+              eyebrow="Orbito Generate"
+              title="Creator"
+              subtitle="Higher volume, faster iteration, and access to the heavier generation lanes."
+              badge="Scale"
+              amount={`$${formatMoney(mode === "yearly" ? labsCreatorYearlyScaledMonthly : labsCreatorMonthlyScaledPrice)}`}
+              suffix="/mo"
+              strike={mode === "yearly" ? `$${formatMoney(labsCreatorMonthlyScaledPrice)}` : undefined}
+              glowTone={mode === "yearly" ? "labs" : undefined}
+              billingLabel={mode === "yearly" ? `Billed yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Billed monthly"}
+              throughput={`${Math.min(96, 48 + creditScale * 7)}%`}
+              throughputLabel={`Scale ${creditScale}x`}
+              metrics={[
+                { value: formatInt(labsCreatorCredits), label: mode === "yearly" ? "Credits / yr" : "Credits / mo" },
+                { value: "4K", label: "Top Lane" },
+                { value: `${creditScale}x`, label: "Scale" },
+              ]}
+              highlights={[
+                "Higher generation throughput",
+                "Includes Orbito Creator-level access",
+                "Best fit for routine AI posting",
+              ]}
+              ctaClassName="btn-clipforge"
+              ctaLabel="Choose Generate Creator"
+              ctaLoadingLabel="Opening Checkout..."
+              ctaDisabled={startingCheckout !== null}
+              ctaLoading={startingCheckout === "labs_velocity"}
+              onChoose={() => startCheckout("labs_velocity")}
+              benefitsOpen={openBenefits.labsVelocity}
+              onToggleBenefits={() => toggleBenefits("labsVelocity")}
+              benefitsItems={benefits.labsVelocity}
+            />
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <div className="studio-frame p-4 sm:p-5">
+            <h2 className="text-2xl font-semibold tracking-tight text-white/90">Simple rules</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
+                Clip plans are for clipping, editing, and publishing.
+              </div>
+              <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-4 py-3 text-sm text-amber-100/95">
+                Every Generate plan includes Orbito Creator-level clip access.
+              </div>
+              <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.10] px-4 py-3 text-sm text-indigo-100/95">
+                Creator plans scale with the throughput slider.
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-8 surface-soft motion-card rounded-2xl p-4 sm:p-5">
-          <h2 className="text-2xl font-semibold tracking-tight text-white/90">Quick rules</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
-              Orbito plans cover clipping + publishing.
-            </div>
-            <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-4 py-3 text-sm text-amber-100/95">
-              Every Generate plan includes full Orbito Creator-level access.
-            </div>
-            <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.1] px-4 py-3 text-sm text-indigo-100/95">
-              Generate Creator unlocks the highest generation throughput.
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-8 surface motion-card rounded-2xl p-4 sm:p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-white/92">Everything at a glance</h2>
-              <p className="mt-2 text-sm text-white/62">Side-by-side plan comparison.</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/62">
-              Showing: {mode} • scale {creditScale}x
-            </div>
-          </div>
-
-          <div className="mt-6 -mx-3 overflow-x-auto px-3">
-            <div className="min-w-[980px] rounded-2xl border border-white/10 bg-black/25 p-4">
-              <div className="grid grid-cols-6 gap-3 pb-3 text-xs text-white/52">
-                <div className="text-white/65">Feature</div>
-                <div>Trial</div>
-                <div>Orbito Starter</div>
-                <div>Orbito Creator</div>
-                <div>Generate Starter</div>
-                <div>Generate Creator</div>
+        <section className="mt-8">
+          <div className="studio-frame p-4 sm:p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-white/92">At a glance</h2>
+                <p className="mt-2 text-sm text-white/62">The shortest version of the plan story.</p>
               </div>
-              <div className="h-px bg-white/10" />
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/62">
+                Showing: {mode} • scale {creditScale}x
+              </div>
+            </div>
 
-              <CompareRow
-                label="Orbito access"
-                trial="Included"
-                orbitoStarter="Included"
-                orbitoCreator="Included"
-                labsSpark="Included"
-                labsVelocity="Included"
-              />
-              <div className="h-px bg-white/10" />
-              <CompareRow
-                label="Generate mode"
-                trial="Included"
-                orbitoStarter="-"
-                orbitoCreator="-"
-                labsSpark="Included"
-                labsVelocity="Included"
-              />
-              <div className="h-px bg-white/10" />
-              <CompareRow
-                label="Orbito credits"
-                trial={`${formatInt(sharedTrialCredits)} shared`}
-                orbitoStarter={`${formatInt(orbitoStarterCredits)}/mo`}
-                orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
-                labsSpark="Included access"
-                labsVelocity="Included access"
-              />
-              <div className="h-px bg-white/10" />
-              <CompareRow
-                label="Generate credits"
-                trial={`${formatInt(sharedTrialCredits)} shared`}
-                orbitoStarter="-"
-                orbitoCreator="-"
-                labsSpark={`${formatInt(labsStarterCredits)}/mo`}
-                labsVelocity={`${formatInt(labsCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
-              />
-              <div className="h-px bg-white/10" />
-              <CompareRow
-                label="4K generation lanes"
-                trial="-"
-                orbitoStarter="-"
-                orbitoCreator="-"
-                labsSpark="-"
-                labsVelocity="Yes"
-              />
+            <div className="mt-6 -mx-3 overflow-x-auto px-3">
+              <div className="min-w-[980px] rounded-2xl border border-white/10 bg-black/25 p-4">
+                <div className="grid grid-cols-6 gap-3 pb-3 text-xs text-white/52">
+                  <div className="text-white/65">Feature</div>
+                  <div>Trial</div>
+                  <div>Clip Starter</div>
+                  <div>Clip Creator</div>
+                  <div>Generate Starter</div>
+                  <div>Generate Creator</div>
+                </div>
+                <div className="h-px bg-white/10" />
+
+                <CompareRow
+                  label="Clip access"
+                  trial="Included"
+                  orbitoStarter="Included"
+                  orbitoCreator="Included"
+                  labsSpark="Included"
+                  labsVelocity="Included"
+                />
+                <div className="h-px bg-white/10" />
+                <CompareRow
+                  label="Generate access"
+                  trial="Included"
+                  orbitoStarter="-"
+                  orbitoCreator="-"
+                  labsSpark="Included"
+                  labsVelocity="Included"
+                />
+                <div className="h-px bg-white/10" />
+                <CompareRow
+                  label="Clip credits"
+                  trial={`${formatInt(sharedTrialCredits)} shared`}
+                  orbitoStarter={`${formatInt(orbitoStarterCredits)}/mo`}
+                  orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
+                  labsSpark="Included"
+                  labsVelocity="Included"
+                />
+                <div className="h-px bg-white/10" />
+                <CompareRow
+                  label="Generate credits"
+                  trial={`${formatInt(sharedTrialCredits)} shared`}
+                  orbitoStarter="-"
+                  orbitoCreator="-"
+                  labsSpark={`${formatInt(labsStarterCredits)}/mo`}
+                  labsVelocity={`${formatInt(labsCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
+                />
+                <div className="h-px bg-white/10" />
+                <CompareRow
+                  label="4K generation"
+                  trial="-"
+                  orbitoStarter="-"
+                  orbitoCreator="-"
+                  labsSpark="-"
+                  labsVelocity="Yes"
+                />
+              </div>
             </div>
           </div>
         </section>
