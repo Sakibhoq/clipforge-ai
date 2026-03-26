@@ -24,9 +24,9 @@ const GENERATE_PREVIEWS = [
     text: "Bright and fun for fast social posts.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
-    objectPosition: "center center",
-    zoom: 1.96,
-    shiftY: "34%",
+    objectPosition: "50% 68%",
+    zoom: 1.46,
+    shiftY: "0%",
   },
   {
     title: "Anime",
@@ -165,6 +165,10 @@ function LandingFX() {
           0%, 100% { transform: translate3d(-3%, 14px, 0) scale(1.02); }
           50% { transform: translate3d(3%, -12px, 0) scale(1.03); }
         }
+        @keyframes flowPulse {
+          0%, 100% { opacity: 0.88; }
+          50% { opacity: 1; }
+        }
         @keyframes previewGlow {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
           50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 36px rgba(125,211,252,0.14), 0 0 48px rgba(251,146,60,0.16); }
@@ -194,7 +198,7 @@ function LandingFX() {
           width: 80%;
         }
         .orbito-flow-scene {
-          animation: lineHue 8.5s ease-in-out infinite, flowPan 11s ease-in-out infinite;
+          animation: lineHue 7.2s ease-in-out infinite, flowPan 8.6s ease-in-out infinite, flowPulse 5.2s ease-in-out infinite;
           will-change: transform, filter;
         }
         .orbito-flow-a,
@@ -203,9 +207,9 @@ function LandingFX() {
           transform-box: fill-box;
           transform-origin: center;
         }
-        .orbito-flow-a { animation: flowDriftA 8s ease-in-out infinite; }
-        .orbito-flow-b { animation: flowDriftB 9.2s ease-in-out infinite; }
-        .orbito-flow-c { animation: flowDriftC 10.5s ease-in-out infinite; }
+        .orbito-flow-a { animation: flowDriftA 6.8s ease-in-out infinite; }
+        .orbito-flow-b { animation: flowDriftB 7.8s ease-in-out infinite; }
+        .orbito-flow-c { animation: flowDriftC 8.8s ease-in-out infinite; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -388,9 +392,80 @@ function FlowLines() {
   );
 }
 
+function HeroFlowBackdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden md:block">
+      <div className="absolute inset-x-[-14%] top-[22%] h-[54%] opacity-[0.58]">
+        <svg viewBox="0 0 1200 280" className="h-full w-full overflow-visible">
+          <defs>
+            <linearGradient id="hero-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+              <stop offset="0%" stopColor="#7dd3fc" />
+              <stop offset="40%" stopColor="#a78bfa" />
+              <stop offset="75%" stopColor="#fb7185" />
+              <stop offset="100%" stopColor="#facc15" />
+            </linearGradient>
+            <linearGradient id="hero-line-b" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+              <stop offset="0%" stopColor="#facc15" />
+              <stop offset="40%" stopColor="#fb7185" />
+              <stop offset="75%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#7dd3fc" />
+            </linearGradient>
+            <filter id="hero-line-glow">
+              <feGaussianBlur stdDeviation="3.6" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <g>
+            <path
+              d="M-30 118 C 150 76, 370 174, 620 122 S 980 86, 1230 118"
+              stroke="url(#hero-line-a)"
+              strokeWidth="6"
+              fill="none"
+              filter="url(#hero-line-glow)"
+              strokeLinecap="round"
+              opacity="0.95"
+            />
+            <animateTransform attributeName="transform" type="translate" values="-16 8;20 -10;-16 8" dur="6.1s" repeatCount="indefinite" />
+          </g>
+
+          <g>
+            <path
+              d="M-20 162 C 200 200, 380 80, 650 132 S 1000 190, 1220 170"
+              stroke="url(#hero-line-b)"
+              strokeWidth="5"
+              fill="none"
+              filter="url(#hero-line-glow)"
+              strokeLinecap="round"
+              opacity="0.88"
+            />
+            <animateTransform attributeName="transform" type="translate" values="14 -6;-20 12;14 -6" dur="7s" repeatCount="indefinite" />
+          </g>
+
+          <g>
+            <path
+              d="M-10 140 C 200 132, 420 146, 660 146 S 980 142, 1220 148"
+              stroke="url(#hero-line-a)"
+              strokeWidth="3.5"
+              fill="none"
+              strokeLinecap="round"
+              opacity="0.58"
+            />
+            <animateTransform attributeName="transform" type="translate" values="6 4;-12 -8;6 4" dur="8.4s" repeatCount="indefinite" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 function HeroVisual() {
   return (
     <div className="relative hidden min-h-[460px] md:block">
+      <HeroFlowBackdrop />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[30px]"
@@ -656,8 +731,8 @@ export default function Page() {
       <LandingFX />
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
-        <section className="relative">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[24%] -z-10 hidden sm:block">
+        <section className="relative isolate">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[18%] z-0 hidden sm:block">
             <FlowLines />
           </div>
 
