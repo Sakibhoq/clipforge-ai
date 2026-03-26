@@ -25,8 +25,8 @@ const GENERATE_PREVIEWS = [
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
     objectPosition: "center center",
-    zoom: 1.72,
-    shiftY: "-9%",
+    zoom: 1.86,
+    shiftY: "22%",
   },
   {
     title: "Anime",
@@ -161,6 +161,10 @@ function LandingFX() {
           0%, 100% { transform: translate3d(10px, 3px, 0); }
           50% { transform: translate3d(-24px, -12px, 0); }
         }
+        @keyframes flowPan {
+          0%, 100% { transform: translate3d(-3%, 14px, 0) scale(1.02); }
+          50% { transform: translate3d(3%, -12px, 0) scale(1.03); }
+        }
         @keyframes previewGlow {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
           50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 36px rgba(125,211,252,0.14), 0 0 48px rgba(251,146,60,0.16); }
@@ -190,12 +194,18 @@ function LandingFX() {
           width: 80%;
         }
         .orbito-flow-scene {
-          animation: lineHue 8.5s ease-in-out infinite;
+          animation: lineHue 8.5s ease-in-out infinite, flowPan 11s ease-in-out infinite;
           will-change: transform, filter;
         }
-        .orbito-flow-a { animation: flowDriftA 9s ease-in-out infinite; }
-        .orbito-flow-b { animation: flowDriftB 10.5s ease-in-out infinite; }
-        .orbito-flow-c { animation: flowDriftC 12s ease-in-out infinite; }
+        .orbito-flow-a,
+        .orbito-flow-b,
+        .orbito-flow-c {
+          transform-box: fill-box;
+          transform-origin: center;
+        }
+        .orbito-flow-a { animation: flowDriftA 8s ease-in-out infinite; }
+        .orbito-flow-b { animation: flowDriftB 9.2s ease-in-out infinite; }
+        .orbito-flow-c { animation: flowDriftC 10.5s ease-in-out infinite; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -206,10 +216,6 @@ function LandingFX() {
           .orbito-anim,
           .orbito-hero-rail,
           .orbito-top-rail,
-          .orbito-flow-scene,
-          .orbito-flow-a,
-          .orbito-flow-b,
-          .orbito-flow-c,
           .orbito-preview-shell,
           .orbito-breath {
             animation: none !important;
@@ -283,7 +289,7 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 
 function FlowLines() {
   return (
-    <div className="relative left-1/2 h-[300px] w-screen -translate-x-1/2 overflow-hidden">
+    <div className="relative left-1/2 h-[380px] w-screen -translate-x-1/2 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -677,7 +683,11 @@ export default function Page() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative">
-          <div data-reveal className="reveal">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[24%] -z-10 hidden sm:block">
+            <FlowLines />
+          </div>
+
+          <div data-reveal className="reveal relative z-10">
             <div className="surface-soft relative overflow-hidden rounded-[32px] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_28px_rgba(125,211,252,0.20),0_0_44px_rgba(251,146,60,0.14)] sm:p-7 md:p-10">
               <div
                 aria-hidden="true"
@@ -730,12 +740,6 @@ export default function Page() {
                 <HeroShowcase />
               </div>
             </div>
-          </div>
-        </section>
-
-        <section aria-hidden="true" className="pointer-events-none -mb-24 -mt-6 hidden sm:block">
-          <div data-reveal className="reveal opacity-[0.92]">
-            <FlowLines />
           </div>
         </section>
 
