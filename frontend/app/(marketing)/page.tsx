@@ -72,7 +72,7 @@ function useReveal() {
 }
 
 function H({ children }: { children: React.ReactNode }) {
-  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+  return <span className="grad-text inline-block pb-[0.08em] font-semibold tracking-tight">{children}</span>;
 }
 
 function HoverSheen() {
@@ -163,30 +163,14 @@ function LandingFX() {
           mix-blend-mode: overlay;
         }
         .orbito-hero-rail {
+          background: linear-gradient(90deg, rgba(125,211,252,0.92), rgba(167,139,250,0.9), rgba(251,146,60,0.92), rgba(45,212,191,0.9), rgba(125,211,252,0.92));
+          background-size: 240% 100%;
+          animation: lineShift 5.8s linear infinite;
+        }
+        .orbito-top-rail {
           background: linear-gradient(90deg, rgba(125,211,252,0.95), rgba(167,139,250,0.88), rgba(251,146,60,0.92), rgba(45,212,191,0.88), rgba(125,211,252,0.95));
-          background-size: 220% 100%;
+          background-size: 260% 100%;
           animation: lineShift 6.2s linear infinite, lineHue 11s ease-in-out infinite;
-        }
-        .orbito-line-scene {
-          animation: lineHue 9s ease-in-out infinite;
-        }
-        .orbito-line-a { animation: lineFloatA 7.5s ease-in-out infinite; }
-        .orbito-line-b { animation: lineFloatB 8.5s ease-in-out infinite; }
-        .orbito-line-c { animation: lineFloatA 10.5s ease-in-out infinite reverse; }
-        .orbito-line-path {
-          stroke-dasharray: 180 28;
-          animation: lineTrace 6.5s linear infinite;
-          will-change: stroke-dashoffset;
-        }
-        .orbito-line-path-alt {
-          stroke-dasharray: 220 32;
-          animation: lineTrace 8.4s linear infinite reverse;
-          will-change: stroke-dashoffset;
-        }
-        .orbito-line-path-soft {
-          stroke-dasharray: 140 24;
-          animation: lineTrace 11s linear infinite;
-          will-change: stroke-dashoffset;
         }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
@@ -197,13 +181,7 @@ function LandingFX() {
         @media (prefers-reduced-motion: reduce) {
           .orbito-anim,
           .orbito-hero-rail,
-          .orbito-line-scene,
-          .orbito-line-a,
-          .orbito-line-b,
-          .orbito-line-c,
-          .orbito-line-path,
-          .orbito-line-path-alt,
-          .orbito-line-path-soft,
+          .orbito-top-rail,
           .orbito-preview-shell,
           .orbito-breath {
             animation: none !important;
@@ -278,20 +256,40 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 function FlowLines() {
   return (
     <div className="relative h-[150px] overflow-hidden">
-      <div className="orbito-line-scene absolute inset-0">
+      <div className="absolute inset-0">
         <svg viewBox="0 0 1200 160" className="h-full w-full overflow-visible">
           <defs>
-            <linearGradient id="orb-line-a" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#7dd3fc" />
-              <stop offset="35%" stopColor="#a78bfa" />
-              <stop offset="70%" stopColor="#fb7185" />
-              <stop offset="100%" stopColor="#facc15" />
+            <linearGradient id="orb-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+              <stop offset="0%" stopColor="#7dd3fc">
+                <animate attributeName="stop-color" values="#7dd3fc;#45d4bf;#7dd3fc" dur="6.5s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="35%" stopColor="#a78bfa">
+                <animate attributeName="stop-color" values="#a78bfa;#fb7185;#a78bfa" dur="5.5s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="70%" stopColor="#fb7185">
+                <animate attributeName="stop-color" values="#fb7185;#facc15;#fb7185" dur="5.8s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="100%" stopColor="#facc15">
+                <animate attributeName="stop-color" values="#facc15;#7dd3fc;#facc15" dur="7.2s" repeatCount="indefinite" />
+              </stop>
+              <animate attributeName="x1" values="0;180;0" dur="8s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="1200;1380;1200" dur="8s" repeatCount="indefinite" />
             </linearGradient>
-            <linearGradient id="orb-line-b" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#facc15" />
-              <stop offset="45%" stopColor="#fb7185" />
-              <stop offset="75%" stopColor="#a78bfa" />
-              <stop offset="100%" stopColor="#7dd3fc" />
+            <linearGradient id="orb-line-b" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+              <stop offset="0%" stopColor="#facc15">
+                <animate attributeName="stop-color" values="#facc15;#fb7185;#facc15" dur="6.2s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="45%" stopColor="#fb7185">
+                <animate attributeName="stop-color" values="#fb7185;#a78bfa;#fb7185" dur="5.2s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="75%" stopColor="#a78bfa">
+                <animate attributeName="stop-color" values="#a78bfa;#7dd3fc;#a78bfa" dur="6.7s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="100%" stopColor="#7dd3fc">
+                <animate attributeName="stop-color" values="#7dd3fc;#45d4bf;#7dd3fc" dur="7s" repeatCount="indefinite" />
+              </stop>
+              <animate attributeName="x1" values="0;-160;0" dur="7.4s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="1200;1040;1200" dur="7.4s" repeatCount="indefinite" />
             </linearGradient>
             <filter id="orb-line-glow">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -302,7 +300,7 @@ function FlowLines() {
             </filter>
           </defs>
 
-          <g className="orbito-line-a">
+          <g>
             <path
               d="M-40 54 C 170 94, 360 112, 610 88 S 1030 44, 1240 70"
               stroke="url(#orb-line-a)"
@@ -310,10 +308,15 @@ function FlowLines() {
               fill="none"
               filter="url(#orb-line-glow)"
               opacity="0.94"
-              className="orbito-line-path"
-            />
+              strokeLinecap="round"
+              strokeDasharray="180 28"
+            >
+              <animate attributeName="stroke-dashoffset" values="0;-240" dur="5.6s" repeatCount="indefinite" />
+            </path>
+            <animateTransform attributeName="transform" type="translate" values="-8 0;16 -12;-8 0" dur="7.5s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.84;1;0.84" dur="5.4s" repeatCount="indefinite" />
           </g>
-          <g className="orbito-line-b">
+          <g>
             <path
               d="M-20 126 C 220 92, 390 60, 650 86 S 1010 132, 1230 104"
               stroke="url(#orb-line-b)"
@@ -321,18 +324,28 @@ function FlowLines() {
               fill="none"
               filter="url(#orb-line-glow)"
               opacity="0.92"
-              className="orbito-line-path-alt"
-            />
+              strokeLinecap="round"
+              strokeDasharray="220 32"
+            >
+              <animate attributeName="stroke-dashoffset" values="0;260" dur="7.1s" repeatCount="indefinite" />
+            </path>
+            <animateTransform attributeName="transform" type="translate" values="10 0;-18 12;10 0" dur="8.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.8;0.96;0.8" dur="6.1s" repeatCount="indefinite" />
           </g>
-          <g className="orbito-line-c">
+          <g>
             <path
               d="M-10 100 C 180 68, 390 128, 640 116 S 1020 74, 1240 90"
               stroke="url(#orb-line-a)"
               strokeWidth="2.5"
               fill="none"
               opacity="0.46"
-              className="orbito-line-path-soft"
-            />
+              strokeLinecap="round"
+              strokeDasharray="140 24"
+            >
+              <animate attributeName="stroke-dashoffset" values="0;-180" dur="9.8s" repeatCount="indefinite" />
+            </path>
+            <animateTransform attributeName="transform" type="translate" values="6 0;-12 8;6 0" dur="10.2s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.26;0.54;0.26" dur="7.4s" repeatCount="indefinite" />
           </g>
         </svg>
       </div>
@@ -359,7 +372,7 @@ function HeroShowcase() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-8 left-[-16%] w-[42%] rounded-full bg-sky-300/10 blur-3xl"
       />
-      <div className="orbito-hero-rail absolute inset-x-6 top-4 h-[3px] rounded-full opacity-90" />
+      <div className="orbito-top-rail absolute inset-x-5 top-4 h-[3px] rounded-full opacity-90" />
 
       <div className="relative pt-5">
         <div className="flex items-center justify-between text-xs text-white/58">
@@ -504,30 +517,32 @@ function GenerateStage({
             </div>
           </div>
 
-          <div className="group surface-soft orbito-preview-shell relative overflow-hidden rounded-[26px] p-4 transition-all duration-300 hover:border-white/18 hover:bg-white/[0.04]">
+          <div className="group surface-soft orbito-preview-shell relative overflow-hidden rounded-[26px] p-4 transition-all duration-300 hover:border-white/18 hover:bg-white/[0.04] md:min-h-[680px]">
             <HoverSheen />
             <div className="relative">
               <div className="flex items-center justify-between text-xs text-white/58">
                 <span>{activePreview.title} preview</span>
                 <span className="inline-flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
-                  {activePreview.aspect}
+                  fixed 9:16 frame
                 </span>
               </div>
-              <div className="orbito-hero-rail mt-3 h-[3px] rounded-full opacity-90" />
+              <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
-              <div className="mt-4 overflow-hidden rounded-[24px] border border-white/12 bg-black/60">
-                <video
-                  key={activePreview.src}
-                  src={activePreview.src}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                  className="h-[440px] w-full"
-                  style={{ objectFit: "cover", objectPosition: "center center" }}
-                />
+              <div className="mt-4 mx-auto w-full max-w-[360px]">
+                <div className="aspect-[9/16] overflow-hidden rounded-[24px] border border-white/12 bg-black/60">
+                  <video
+                    key={activePreview.src}
+                    src={activePreview.src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full"
+                    style={{ objectFit: "cover", objectPosition: "center center" }}
+                  />
+                </div>
               </div>
 
               <div className="mt-4">
@@ -669,7 +684,7 @@ export default function Page() {
                     <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
                   </div>
 
-                  <h1 className="mt-5 max-w-3xl text-3xl font-semibold leading-[1.02] tracking-tight sm:text-4xl md:text-6xl">
+                  <h1 className="mt-5 max-w-3xl pb-2 text-3xl font-semibold leading-[1.07] tracking-tight sm:text-4xl md:text-[5.8rem]">
                     Stop editing.
                     <br />
                     Start <H>making clips that pay</H>.
@@ -728,7 +743,7 @@ export default function Page() {
               className="reveal group surface-soft relative overflow-hidden rounded-[28px] p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
             >
               <HoverSheen />
-              <div className="orbito-hero-rail absolute inset-x-6 top-4 h-[3px] rounded-full opacity-80" />
+              <div className="orbito-top-rail absolute inset-x-6 top-4 h-[3px] rounded-full opacity-80" />
 
               <div className="relative pt-5">
                 <div className="text-xl font-semibold text-white/92 sm:text-2xl">Upload, pick, post.</div>
