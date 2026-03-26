@@ -5,7 +5,7 @@ import { BRAND } from "@/lib/brand";
 export const metadata: Metadata = {
   title: "Monetize with Whop | Orbito",
   description:
-    "Create in Orbito, then use Whop as an optional third-party monetization partner when it fits your workflow.",
+    "Make videos in Orbito, then use Whop later if you want to try earning from them.",
   alternates: {
     canonical: "/whop",
   },
@@ -39,15 +39,15 @@ export default function WhopPage() {
             <div>
               <div className="signal-chip">
                 <span className="live-dot" />
-                <span>Optional partner</span>
+                <span>Extra option</span>
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold leading-[1.06] tracking-tight text-white/95 sm:text-5xl">
-                Orbito makes the content. <span className="whop-word">Whop</span> can monetize it later.
+                Make the video in Orbito. Use <span className="whop-word">Whop</span> later if you want.
               </h1>
 
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/72 sm:text-base">
-                Keep creation and publishing inside Orbito. Use Whop only if you want an extra third-party earnings channel.
+                Orbito is for making videos. Whop is only there if you want to try earning from them.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -59,28 +59,28 @@ export default function WhopPage() {
                   <span aria-hidden="true">↗</span>
                 </a>
                 <Link href="/pricing" className="btn-ghost">
-                  View pricing
+                  See pricing
                 </Link>
               </div>
 
               <p className="mt-4 text-xs text-white/55">
-                Whop is a third-party platform. Campaigns, rates, and payouts are controlled there, not by Orbito.
+                Whop is a different website. Whop and its sponsors decide the rules and payouts, not Orbito.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               {[
                 {
-                  title: "Create",
-                  text: "Clip long videos or generate AI videos inside Orbito.",
+                  title: "Make",
+                  text: "Make clips or AI videos in Orbito.",
                 },
                 {
-                  title: "Publish",
-                  text: "Use the same Orbito workflow to get content ready for channels.",
+                  title: "Post",
+                  text: "Get your videos ready for your channels.",
                 },
                 {
-                  title: "Monetize",
-                  text: "Open Whop later if campaign-based earnings make sense for you.",
+                  title: "Earn",
+                  text: "Open Whop later if you want to try it.",
                 },
               ].map((item) => (
                 <div key={item.title} className="surface-soft motion-card p-4">
@@ -99,19 +99,19 @@ export default function WhopPage() {
               <div>
                 <div className="signal-chip">Clear split</div>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
-                  Keep the roles separate.
+                  Keep the jobs separate.
                 </h2>
               </div>
 
               <div className="grid gap-3">
                 {[
                   {
-                    title: "What Orbito handles",
-                    text: "Clipping, AI generation, editing, captions, formatting, and publishing.",
+                    title: "What Orbito does",
+                    text: "Cuts videos, makes AI videos, adds captions, and helps you post.",
                   },
                   {
-                    title: "What Whop handles",
-                    text: "Campaign listings, sponsor terms, reward rules, and payout processing on a different platform.",
+                    title: "What Whop does",
+                    text: "Shows campaigns and handles sponsor rules and payouts on its own site.",
                   },
                 ].map((item) => (
                   <div key={item.title} className="rounded-[24px] border border-white/10 bg-black/24 p-4">

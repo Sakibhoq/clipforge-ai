@@ -121,7 +121,7 @@ function BenefitsDisclosure({
         onClick={onToggle}
         className="flex w-full items-center justify-between rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-2.5 text-xs text-white/78 transition hover:bg-white/[0.06]"
       >
-        <span>See benefits</span>
+        <span>See what's included</span>
         <span className="text-white/55">{open ? "−" : "+"}</span>
       </button>
       {open ? (
@@ -365,7 +365,7 @@ function PlanCard({
 
         <div className="mt-4 rounded-[24px] border border-white/10 bg-black/24 p-4">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/44">
-            <span>Throughput</span>
+            <span>How much you get</span>
             <span>{throughputLabel}</span>
           </div>
           <div className="mt-3 live-bar">
@@ -540,32 +540,32 @@ export default function Page() {
   const benefits = useMemo(
     () => ({
       trial: [
-        "Test clip mode and generate mode from one account",
+        "Try Clip and Generate with one account",
         "No commitment required",
-        "Understand your workflow before upgrade",
+        "Upgrade later if you need more",
       ],
       orbitoStarter: [
-        "Best for solo clipping and weekly posting",
-        "Predictable monthly spend",
-        "Clean path to Orbito Creator",
+        "Good for one person making clips",
+        "Simple monthly price",
+        "Easy to move up later",
         "Cancel anytime",
       ],
       orbitoCreator: [
-        "Scaled clipping pipeline for daily output",
-        "Faster turnaround and advanced publishing",
-        "Yearly saves on effective monthly price",
+        "Good for making more clips each week",
+        "Faster exports and posting",
+        "Yearly saves money",
         "Cancel anytime",
       ],
       labsSpark: [
-        "Prompt-to-media generation with Generate credits",
-        "Includes full Orbito Creator-level access",
-        "Good entry point for AI content testing",
+        "Make videos, images, and voice with AI credits",
+        "Includes full Clip Creator access",
+        "Good for trying AI video",
         "Cancel anytime",
       ],
       labsVelocity: [
-        "Higher generation throughput and quality lanes",
-        "Designed for routine AI post production",
-        "Can be scaled with the credit slider",
+        "More AI credits and better output options",
+        "Good for making AI videos often",
+        "Add more credits with the slider",
         "Cancel anytime",
       ],
     }),
@@ -595,18 +595,18 @@ export default function Page() {
 
         <div className="grid gap-10 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
           <div>
-            <FamilyPill label="One Platform" tone="full" />
+            <FamilyPill label="One Account" tone="full" />
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl md:text-6xl">
-              Pricing that matches how you create.
+              Simple pricing for how you work.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Clip mode is for footage-first workflows. Generate mode is for AI-first workflows. Both stay inside Orbito.
+              Use Clip if you already have a video. Use Generate if you want AI to make the video for you.
             </p>
             <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} />
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
-              {["Start free", "Scale later", "One account"].map((item) => (
+              {["Start free", "Add more later", "One account"].map((item) => (
                 <div key={item} className="signal-chip">
                   <span className="live-dot" />
                   <span>{item}</span>
@@ -627,14 +627,14 @@ export default function Page() {
               </div>
               <div className="metric-chip">
                 <div className="value">{creditScale}x</div>
-                <div className="label">Creator Scale</div>
+                <div className="label">More Credits</div>
               </div>
             </div>
 
             <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="text-sm font-medium text-white/88">Billing view</div>
-                <div className="text-xs text-white/56">Switch monthly or yearly, then tune creator throughput.</div>
+                <div className="text-sm font-medium text-white/88">Pick how you want to pay</div>
+                <div className="text-xs text-white/56">Choose monthly or yearly.</div>
               </div>
               <ModeToggle mode={mode} setMode={setMode} />
             </div>
@@ -642,10 +642,10 @@ export default function Page() {
             <div className="mt-4 rounded-[24px] border border-white/10 bg-black/24 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-white/88">Throughput scale</div>
-                  <div className="text-xs text-white/56">Applies to Orbito Creator and Generate Creator.</div>
+                  <div className="text-sm font-medium text-white/88">Need more credits?</div>
+                  <div className="text-xs text-white/56">Use this on the bigger plans.</div>
                 </div>
-                <div className="signal-chip">Scale {creditScale}x</div>
+                <div className="signal-chip">{creditScale}x credits</div>
               </div>
 
               <div className="mt-3">
@@ -670,17 +670,17 @@ export default function Page() {
               <div>
                 <FamilyPill label="Free Trial" tone="neutral" />
                 <div className="mt-3 flex flex-wrap items-end gap-3">
-                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both modes first.</div>
+                  <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both first.</div>
                   <div className="signal-chip">{formatInt(sharedTrialCredits)} shared credits</div>
                 </div>
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
-                  Make sure clipping, generation, and publishing fit your workflow before you upgrade.
+                  See if it works for you before you pay.
                 </p>
               </div>
 
               <div className="min-w-[280px] rounded-[24px] border border-white/14 bg-black/28 p-4">
-                <div className="text-sm font-semibold text-white/88">Best for first-time evaluation</div>
-                <div className="mt-2 text-xs leading-relaxed text-white/62">Start free, test both modes, then move into the plan that fits.</div>
+                <div className="text-sm font-semibold text-white/88">Best if you want to try it first</div>
+                <div className="mt-2 text-xs leading-relaxed text-white/62">Start free now. Pick a paid plan later if you need more.</div>
 
                 <button
                   type="button"
@@ -707,12 +707,12 @@ export default function Page() {
         <section className="pt-12">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <FamilyPill label="Clip Mode" tone="orbito" />
+              <FamilyPill label="Clip" tone="orbito" />
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
-                For footage-first creators
+                If you already have videos
               </h2>
               <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
-                Start here if your main job is turning long-form video into short clips.
+                Start here if you want to turn long videos into short clips.
               </p>
             </div>
           </div>
@@ -721,26 +721,26 @@ export default function Page() {
             <PlanCard
               family="orbito"
               pillTone="orbito"
-              eyebrow="Orbito Clip"
+              eyebrow="Clip"
               title="Starter"
-              subtitle="A clean entry point for steady weekly clipping."
+              subtitle="A simple plan for making clips every week."
               amount={`$${formatMoney(orbitoStarterMonthlyPrice)}`}
               suffix="/mo"
-              billingLabel="Monthly billing"
+              billingLabel="Pay monthly"
               throughput="36%"
-              throughputLabel="Steady weekly output"
+              throughputLabel="Good for weekly use"
               metrics={[
                 { value: formatInt(orbitoStarterCredits), label: "Credits / mo" },
-                { value: "Core", label: "Workflow" },
-                { value: "Weekly", label: "Cadence" },
+                { value: "Clip tools", label: "What you get" },
+                { value: "Weekly", label: "Best for" },
               ]}
               highlights={[
-                "Long-form to short-form clipping",
-                "Editing, captions, and publishing",
-                "Simple spend with no scaling",
+                "Turn long videos into short clips",
+                "Edit, caption, and post",
+                "Simple monthly price",
               ]}
               ctaClassName="btn-orbito-cta"
-              ctaLabel="Choose Orbito Starter"
+              ctaLabel="Get Clip Starter"
               ctaLoadingLabel="Opening Checkout..."
               ctaDisabled={startingCheckout !== null}
               ctaLoading={startingCheckout === "starter"}
@@ -753,29 +753,29 @@ export default function Page() {
             <PlanCard
               family="orbito"
               pillTone="orbito"
-              eyebrow="Orbito Clip"
+              eyebrow="Clip"
               title="Creator"
-              subtitle="More throughput for daily clipping and faster publishing cycles."
+              subtitle="More credits for making clips more often."
               badge="Recommended"
               amount={`$${formatMoney(mode === "yearly" ? orbitoCreatorYearlyScaledMonthly : orbitoCreatorMonthlyScaledPrice)}`}
               suffix="/mo"
               strike={mode === "yearly" ? `$${formatMoney(orbitoCreatorMonthlyScaledPrice)}` : undefined}
               glowTone={mode === "yearly" ? "orbito" : undefined}
-              billingLabel={mode === "yearly" ? `Billed yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Billed monthly"}
+              billingLabel={mode === "yearly" ? `Pay yearly ($${formatMoney(orbitoCreatorYearlyTotal)})` : "Pay monthly"}
               throughput={`${Math.min(94, 42 + creditScale * 8)}%`}
-              throughputLabel={`Scale ${creditScale}x`}
+              throughputLabel={`${creditScale}x credits`}
               metrics={[
                 { value: formatInt(orbitoCreatorCredits), label: mode === "yearly" ? "Credits / yr" : "Credits / mo" },
-                { value: `${creditScale}x`, label: "Scale" },
-                { value: "Daily", label: "Cadence" },
+                { value: `${creditScale}x`, label: "More credits" },
+                { value: "Daily", label: "Best for" },
               ]}
               highlights={[
-                "Priority clipping and exports",
-                "Higher publish throughput",
-                "Best fit for consistent output",
+                "More clips and faster exports",
+                "More room to post often",
+                "Best for regular use",
               ]}
               ctaClassName="btn-orbito-cta"
-              ctaLabel="Choose Orbito Creator"
+              ctaLabel="Get Clip Creator"
               ctaLoadingLabel="Opening Checkout..."
               ctaDisabled={startingCheckout !== null}
               ctaLoading={startingCheckout === "creator"}
@@ -790,12 +790,12 @@ export default function Page() {
         <section className="pt-12">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <FamilyPill label="Generate Mode" tone="labs" />
+              <FamilyPill label="Generate" tone="labs" />
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
-                For AI-first creators
+                If you want AI to make the video
               </h2>
               <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
-                Choose this path if prompt-to-video and AI output are central to the workflow.
+                Start here if you want to type an idea and let AI make the video.
               </p>
             </div>
           </div>
@@ -804,26 +804,26 @@ export default function Page() {
             <PlanCard
               family="labs"
               pillTone="labs"
-              eyebrow="Orbito Generate"
+              eyebrow="Generate"
               title="Starter"
-              subtitle="A strong entry point for testing AI-led content production."
+              subtitle="A good way to try AI video."
               amount={`$${formatMoney(labsStarterMonthlyPrice)}`}
               suffix="/mo"
-              billingLabel="Monthly billing"
+              billingLabel="Pay monthly"
               throughput="44%"
-              throughputLabel="Prompt-first starter"
+              throughputLabel="Good for trying it"
               metrics={[
                 { value: formatInt(labsStarterCredits), label: "Credits / mo" },
-                { value: "Included", label: "Clip Access" },
-                { value: "Starter", label: "Cadence" },
+                { value: "Clip tools", label: "Also includes" },
+                { value: "Starter", label: "Best for" },
               ]}
               highlights={[
-                "Prompt-to-image, video, and voice",
-                "Includes Orbito Creator-level access",
-                "Best for testing AI workflows",
+                "Make videos, images, and voice with AI",
+                "Includes Clip Creator access",
+                "Best for trying AI video",
               ]}
               ctaClassName="btn-clipforge"
-              ctaLabel="Choose Generate Starter"
+              ctaLabel="Get Generate Starter"
               ctaLoadingLabel="Opening Checkout..."
               ctaDisabled={startingCheckout !== null}
               ctaLoading={startingCheckout === "labs_spark"}
@@ -836,29 +836,29 @@ export default function Page() {
             <PlanCard
               family="labs"
               pillTone="labs"
-              eyebrow="Orbito Generate"
+              eyebrow="Generate"
               title="Creator"
-              subtitle="Higher volume, faster iteration, and access to the heavier generation lanes."
+              subtitle="More credits for making AI videos often."
               badge="Scale"
               amount={`$${formatMoney(mode === "yearly" ? labsCreatorYearlyScaledMonthly : labsCreatorMonthlyScaledPrice)}`}
               suffix="/mo"
               strike={mode === "yearly" ? `$${formatMoney(labsCreatorMonthlyScaledPrice)}` : undefined}
               glowTone={mode === "yearly" ? "labs" : undefined}
-              billingLabel={mode === "yearly" ? `Billed yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Billed monthly"}
+              billingLabel={mode === "yearly" ? `Pay yearly ($${formatMoney(labsCreatorYearlyTotal)})` : "Pay monthly"}
               throughput={`${Math.min(96, 48 + creditScale * 7)}%`}
-              throughputLabel={`Scale ${creditScale}x`}
+              throughputLabel={`${creditScale}x credits`}
               metrics={[
                 { value: formatInt(labsCreatorCredits), label: mode === "yearly" ? "Credits / yr" : "Credits / mo" },
-                { value: "4K", label: "Top Lane" },
-                { value: `${creditScale}x`, label: "Scale" },
+                { value: "4K", label: "Best quality" },
+                { value: `${creditScale}x`, label: "More credits" },
               ]}
               highlights={[
-                "Higher generation throughput",
-                "Includes Orbito Creator-level access",
-                "Best fit for routine AI posting",
+                "Make more AI videos",
+                "Includes Clip Creator access",
+                "Best for regular use",
               ]}
               ctaClassName="btn-clipforge"
-              ctaLabel="Choose Generate Creator"
+              ctaLabel="Get Generate Creator"
               ctaLoadingLabel="Opening Checkout..."
               ctaDisabled={startingCheckout !== null}
               ctaLoading={startingCheckout === "labs_velocity"}
@@ -873,13 +873,13 @@ export default function Page() {
         <section className="pt-12">
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-[24px] border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-4 text-sm leading-relaxed text-cyan-100/95">
-              Clip plans are for clipping, editing, and publishing.
+              Clip plans are for cutting long videos into short ones.
             </div>
             <div className="rounded-[24px] border border-amber-300/24 bg-amber-300/[0.09] px-4 py-4 text-sm leading-relaxed text-amber-100/95">
-              Every Generate plan includes Orbito Creator-level clip access.
+              Every Generate plan also gives you the bigger Clip plan.
             </div>
             <div className="rounded-[24px] border border-indigo-300/20 bg-indigo-300/[0.10] px-4 py-4 text-sm leading-relaxed text-indigo-100/95">
-              Creator plans scale with the throughput slider.
+              The bigger plans can use the credit slider.
             </div>
           </div>
         </section>

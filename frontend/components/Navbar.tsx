@@ -512,7 +512,7 @@ export default function Navbar() {
                   href={whopPageHref}
                   {...whopLinkProps}
                   className={whopDesktopButtonClass}
-                  title="Whop is an optional third-party monetization partner"
+                  title="Whop is a different site you can use later"
                 >
                   {whopLabel}
                 </a>
@@ -667,7 +667,7 @@ export default function Navbar() {
                     {...whopLinkProps}
                     onClick={() => setOpen(false)}
                     className={whopMobileButtonClass}
-                    title="Whop is an optional third-party monetization partner"
+                    title="Whop is a different site you can use later"
                   >
                     {whopLabel}
                   </a>

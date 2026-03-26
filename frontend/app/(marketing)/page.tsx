@@ -94,13 +94,13 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 
 function WorkflowTicker() {
   const items = [
-    "Upload footage",
-    "Or start from a prompt",
-    "Find the hook",
-    "Review clips",
-    "Generate versions",
-    "Queue to publish",
-    "Whop optional",
+    "Add a video",
+    "Or type an idea",
+    "Pick the best part",
+    "Check your clips",
+    "Make new versions",
+    "Post it",
+    "Use Whop if you want",
   ];
 
   return (
@@ -133,7 +133,7 @@ function HeroStudioVisual() {
         <span>Inside Orbito</span>
         <span className="signal-chip border-emerald-300/20 bg-emerald-300/[0.10] text-emerald-100">
           <span className="live-dot" />
-          Live workflow
+          Live
         </span>
       </div>
 
@@ -141,7 +141,7 @@ function HeroStudioVisual() {
         <div className="grid gap-4">
           <div className="rounded-[24px] border border-sky-300/16 bg-[#0a1320] p-4">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-              <span>Clip mode</span>
+              <span>Clip</span>
               <span>12:47 source</span>
             </div>
             <div className="mt-4 space-y-4">
@@ -162,7 +162,7 @@ function HeroStudioVisual() {
 
           <div className="rounded-[24px] border border-white/10 bg-black/24 p-4">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-              <span>Queue</span>
+              <span>Ready to post</span>
               <span>4 ready</span>
             </div>
             <div className="mt-3 space-y-2">
@@ -178,7 +178,7 @@ function HeroStudioVisual() {
 
         <div className="rounded-[28px] border border-amber-300/18 bg-[#140f0b] p-4">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-            <span>Generate mode</span>
+            <span>Make with AI</span>
             <span className="inline-flex items-center gap-2 text-amber-100/82">
               <span className="live-dot" />
               Rendering
@@ -188,7 +188,7 @@ function HeroStudioVisual() {
             <div className="rounded-[22px] border border-white/10 bg-black/28 p-4">
               <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">Prompt</div>
               <div className="mt-2 text-sm leading-relaxed text-white/82">
-                Create a sharp launch teaser with a clean hook, premium captions, and dark editorial framing.
+                Make a short launch video with a strong hook, clean captions, and a dark look.
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["9:16", "Captions", "Fast hook"].map((item) => (
@@ -290,16 +290,16 @@ export default function Page() {
   const operatingPoints = useMemo(
     () => [
       {
-        title: "One studio after creation",
-        text: "Clip mode and Generate mode both move into the same review and publish flow.",
+        title: "Everything stays in one place",
+        text: "Clips and AI videos both go to the same place when you are ready to post.",
       },
       {
-        title: "Built for short-form speed",
-        text: "Hooks, captions, vertical formats, and queueing stay close to the output.",
+        title: "Made for short videos",
+        text: "Hooks, captions, and vertical sizes are built in.",
       },
       {
-        title: "Try it before you commit",
-        text: "Start free, see how it fits, then move into the plan that matches your volume.",
+        title: "Try it first",
+        text: "Start free. Upgrade later if you need more.",
       },
     ],
     []
@@ -313,21 +313,21 @@ export default function Page() {
         <section className="relative pt-2">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
             <div data-reveal className="reveal">
-              <SectionKicker>One Platform, Two Creation Modes</SectionKicker>
+              <SectionKicker>One Tool, Two Simple Ways To Create</SectionKicker>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                Make short-form from footage or prompts.
+                Turn long videos or simple ideas into short videos.
               </h1>
               <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                Clip long videos, generate new ones with AI, and publish both from one workflow.
+                Upload a long video, or type an idea. Orbito helps you make short videos and post them fast.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 {startTrialCta("btn-orbito-cta")}
                 <Link href="/labs" className="btn-clipforge">
-                  Explore Generate
+                  Try Generate
                 </Link>
                 <Link href="/pricing" className="btn-ghost">
-                  View pricing
+                  See pricing
                 </Link>
               </div>
 
@@ -336,7 +336,7 @@ export default function Page() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {["One account", "Clip or generate", "Publish-ready formats"].map((item) => (
+                {["One account", "Clip or make new videos", "Ready for social"].map((item) => (
                   <div key={item} className="signal-chip">
                     <span className="live-dot" />
                     <span>{item}</span>
@@ -359,7 +359,7 @@ export default function Page() {
           <div data-reveal className="reveal">
             <SectionKicker>How Orbito Works</SectionKicker>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Two ways in. One clean system out.
+              Start with a video or start with an idea.
             </h2>
           </div>
 
@@ -367,14 +367,14 @@ export default function Page() {
             <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="signal-chip border-sky-300/20 bg-sky-300/[0.10] text-sky-100">Clip mode</div>
+                  <div className="signal-chip border-sky-300/20 bg-sky-300/[0.10] text-sky-100">Clip</div>
                   <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Start with a long video.</h3>
                   <p className="mt-2 max-w-md text-sm leading-relaxed text-white/66">
-                    Upload once, find the strongest moments, and turn them into clips built for social.
+                    Upload it once. Orbito finds the best parts and turns them into short clips.
                   </p>
                 </div>
                 <Link href="/how-it-works" className="btn-orbito-cta">
-                  See clip flow
+                  See how it works
                 </Link>
               </div>
 
@@ -401,7 +401,7 @@ export default function Page() {
                 </div>
 
                 <div className="grid gap-3">
-                  {["Paste a link or upload", "Approve the best clips", "Push to your publish queue"].map((item, index) => (
+                  {["Add a link or upload", "Pick the clips you want", "Send them to post later"].map((item, index) => (
                     <div key={item} className="rounded-[22px] border border-white/10 bg-black/24 px-4 py-4">
                       <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">0{index + 1}</div>
                       <div className="mt-1.5 text-sm text-white/82">{item}</div>
@@ -415,11 +415,11 @@ export default function Page() {
               <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">Generate mode</div>
+                    <div className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">Generate</div>
                     <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Start with an idea.</h3>
                   </div>
                   <Link href="/labs" className="btn-clipforge">
-                    Open Generate
+                    Try Generate
                   </Link>
                 </div>
 
@@ -427,7 +427,7 @@ export default function Page() {
                   <div className="rounded-[22px] border border-white/10 bg-black/24 p-4">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">Prompt</div>
                     <div className="mt-2 text-sm leading-relaxed text-white/82">
-                      Create a sharp launch teaser with bold captions and a premium dark style.
+                      Make a short launch video with bold captions and a clean dark style.
                     </div>
                   </div>
                   <div className="flex min-h-[260px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
@@ -446,10 +446,10 @@ export default function Page() {
               </article>
 
               <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-                <div className="signal-chip">Shared finish line</div>
-                <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Both modes end in publish.</h3>
+                <div className="signal-chip">Same next step</div>
+                <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Both end in the same place.</h3>
                 <div className="mt-4 grid gap-2">
-                  {["Review", "Caption", "Queue"].map((item) => (
+                  {["Check it", "Add captions", "Post later"].map((item) => (
                     <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/74">
                       <span>{item}</span>
                       <span className="live-dot" />
@@ -464,18 +464,18 @@ export default function Page() {
         <section className="pt-16">
           <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
             <div data-reveal className="reveal">
-              <SectionKicker>Why It Feels Simpler</SectionKicker>
+              <SectionKicker>Why This Is Easier</SectionKicker>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                One account. Less switching.
+                One account. Less mess.
               </h2>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                The experience should feel like one product because the workflow is one product.
+                You do not need to jump between tools to get short videos done.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
                 {startTrialCta("btn-orbito-cta")}
                 <Link href="/pricing" className="btn-ghost">
-                  Compare plans
+                  See pricing
                 </Link>
               </div>
             </div>
@@ -502,25 +502,25 @@ export default function Page() {
           <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
             <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr]">
               <div>
-                <SectionKicker>Optional Monetization</SectionKicker>
+                <SectionKicker>Whop If You Want It</SectionKicker>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Keep monetization in its place.
+                  Keep earning tools separate.
                 </h2>
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                  Orbito is the creation engine. Whop is only there if you want an extra earnings channel later.
+                  Orbito is for making videos. Whop is there later if you want to try making money from them.
                 </p>
                 <div className="mt-5">
                   <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-ghost">
-                    See how Whop fits
+                    See Whop
                   </Link>
                 </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  { title: "Create", text: "Make clips or AI videos inside Orbito." },
-                  { title: "Publish", text: "Send finished content into the same channel queue." },
-                  { title: "Monetize", text: "Use Whop only if and when that part matters." },
+                  { title: "Make", text: "Create clips or AI videos in Orbito." },
+                  { title: "Post", text: "Get them ready for your channels." },
+                  { title: "Earn", text: "Use Whop later if you want to try it." },
                 ].map((item) => (
                   <div key={item.title} className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.title}</div>

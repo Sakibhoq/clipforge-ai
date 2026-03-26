@@ -530,12 +530,12 @@ export default function ContactPage() {
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Ask about setup, clipping, Generate, billing, publishing, or credits. Keep the message clear and we will handle the rest.
+                  Ask about setup, clips, Generate, billing, posting, or credits. Send us a simple message and we will help.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
-                  <span className="signal-chip">Replies within 24 hours</span>
-                  <span className="signal-chip">Billing + workflow support</span>
+                  <span className="signal-chip">Reply in 24 hours</span>
+                  <span className="signal-chip">Billing and setup help</span>
                   <span className="signal-chip">Screenshots welcome</span>
                 </div>
 
@@ -568,7 +568,7 @@ export default function ContactPage() {
                       <div>
                         <div className="text-sm font-semibold">Message support</div>
                         <p className="mt-1.5 text-sm leading-relaxed text-white/60">
-                          Send a note and it goes straight to the team.
+                          Send a message and our team will see it.
                         </p>
                       </div>
 
@@ -599,9 +599,9 @@ export default function ContactPage() {
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    { title: "Setup", text: "Account, connections, and workflow questions." },
-                    { title: "Billing", text: "Plans, credits, and charge reviews." },
-                    { title: "Product", text: "Bugs, output quality, and publishing issues." },
+                    { title: "Setup", text: "Account, login, and connection questions." },
+                    { title: "Billing", text: "Plans, credits, and charges." },
+                    { title: "Product", text: "Bugs, video quality, and posting problems." },
                   ].map((item) => (
                     <div key={item.title} className="surface-soft motion-card p-4">
                       <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.title}</div>

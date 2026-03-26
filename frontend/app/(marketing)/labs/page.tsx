@@ -104,28 +104,28 @@ export default function LabsMarketingPage() {
     () => [
       {
         hook: "Stop the scroll in 2 seconds",
-        text: "Write the idea once. Generate builds the hook, scene plan, and voice direction fast.",
+        text: "Write the idea once. Generate helps make the hook, scenes, and voice fast.",
         duration: "35s",
         aspect: "9:16",
         style: "Fast Hook",
       },
       {
         hook: "Tell your story fast",
-        text: "Shape a short story arc when you do not have source footage ready.",
+        text: "Make a short story video when you do not have footage ready.",
         duration: "50s",
         aspect: "9:16",
         style: "Story",
       },
       {
-        hook: "Teach in under a minute",
-        text: "Turn a complex idea into a tighter AI-led short with voice and captions.",
+        hook: "Teach it in under a minute",
+        text: "Turn a hard idea into a short video with voice and captions.",
         duration: "42s",
         aspect: "16:9",
         style: "Teach",
       },
       {
         hook: "Launch your product today",
-        text: "Show what a product does, why it matters, and what people should do next.",
+        text: "Show what your product does and tell people what to do next.",
         duration: "30s",
         aspect: "1:1",
         style: "Launch",
@@ -138,28 +138,28 @@ export default function LabsMarketingPage() {
     () => [
       {
         title: "Real clip",
-        text: "Cinematic and premium for product-led social posts.",
+        text: "Clean and polished for product videos.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4",
         duration: "7s",
         aspect: "9:16",
       },
       {
         title: "Cartoon clip",
-        text: "Bright, fast, and built for attention on feed.",
+        text: "Bright and fun for fast social posts.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
         duration: "7s",
         aspect: "16:9",
       },
       {
         title: "Anime clip",
-        text: "Sharper energy for punchier hooks and movement.",
+        text: "More energy for stronger hooks.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4",
         duration: "7s",
         aspect: "9:16",
       },
       {
         title: "Comic clip",
-        text: "Bold contrast for story-led or promo content.",
+        text: "Bold and clear for story or promo videos.",
         src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4",
         duration: "7s",
         aspect: "9:16",
@@ -229,10 +229,10 @@ export default function LabsMarketingPage() {
                 <div>
                   <SectionKicker>Orbito Generate</SectionKicker>
                   <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                    Generate new short-form without filming first.
+                    Make short videos without filming first.
                   </h1>
                   <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                    Use Generate when the idea is ready but the footage is not. It lives inside the same Orbito account.
+                    Type an idea and let Orbito make the video. It uses the same account as Clip.
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -240,10 +240,10 @@ export default function LabsMarketingPage() {
                       Open Generate
                     </Link>
                     <Link href="/pricing" className="btn-ghost">
-                      View plans
+                      See pricing
                     </Link>
                     <Link href="/" className="btn-ghost">
-                      Back to Clip mode
+                      Back to Clip
                     </Link>
                   </div>
 
@@ -252,7 +252,7 @@ export default function LabsMarketingPage() {
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">
-                    {["Prompt to video", "Shared account", "Ready to publish"].map((item) => (
+                    {["Type an idea", "Same account", "Ready to post"].map((item) => (
                       <div key={item} className="signal-chip">
                         <span className="live-dot" />
                         <span>{item}</span>
@@ -263,7 +263,7 @@ export default function LabsMarketingPage() {
 
                 <div className="studio-frame p-4 sm:p-5">
                   <div className="flex items-center justify-between text-xs text-white/54">
-                    <span>Generate console</span>
+                    <span>Generate</span>
                     <span className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">
                       <span className="live-dot" />
                       Rendering
@@ -272,7 +272,7 @@ export default function LabsMarketingPage() {
 
                   <div className="mt-4 grid gap-3 xl:grid-cols-[0.92fr_1.08fr]">
                     <div className="rounded-[24px] border border-white/10 bg-black/26 p-4">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-white/44">Active prompt</div>
+                      <div className="text-[11px] uppercase tracking-[0.14em] text-white/44">Prompt</div>
                       <div className="mt-2 text-2xl font-semibold tracking-tight text-white/92">{activePrompt.hook}</div>
                       <p className="mt-2 text-sm leading-relaxed text-white/66">{activePrompt.text}</p>
 
@@ -326,26 +326,26 @@ export default function LabsMarketingPage() {
                 <div>
                   <SectionKicker>Where Generate Fits</SectionKicker>
                   <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                    It is not a second product. It is the AI mode inside Orbito.
+                    Generate is part of Orbito.
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                    Use Clip when you have footage. Use Generate when you need fresh output from a prompt.
+                    Use Clip when you have a video. Use Generate when you only have an idea.
                   </p>
                 </div>
 
                 <div className="section-rail space-y-5">
                   {[
                     {
-                      title: "Same workspace",
-                      text: "Open Generate from the same Orbito account and keep credits, output, and publishing in one place.",
+                      title: "Same account",
+                      text: "Open Generate from the same Orbito account and keep everything in one place.",
                     },
                     {
-                      title: "Built for short-form",
-                      text: "Styles, aspect ratios, pacing, and publish flow are all tuned for social-first output.",
+                      title: "Made for short videos",
+                      text: "The styles and sizes are built for TikTok, Reels, and Shorts.",
                     },
                     {
-                      title: "Prompt in. Video out.",
-                      text: "Start with an idea, keep the best versions, then move into the same publish queue.",
+                      title: "Type it. Make it.",
+                      text: "Start with an idea, keep the best version, then post it.",
                     },
                   ].map((item, index) => (
                     <div key={item.title} className="relative pl-8">
@@ -367,15 +367,15 @@ export default function LabsMarketingPage() {
             <div className="studio-frame p-5 sm:p-6">
               <SectionKicker>Prompt To Publish</SectionKicker>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                One idea. Four fast steps.
+                Four easy steps.
               </h2>
 
               <div className="mt-6 grid gap-3 md:grid-cols-4">
                 {[
-                  { step: "01", title: "Write the hook", text: "Start with the idea, angle, or outcome that matters." },
-                  { step: "02", title: "Pick the style", text: "Choose the look, format, and pacing for the post." },
-                  { step: "03", title: "Generate versions", text: "Render options fast and keep the strongest one." },
-                  { step: "04", title: "Queue it up", text: "Move the finished output into the same publish flow." },
+                  { step: "01", title: "Write the idea", text: "Say what the video should be about." },
+                  { step: "02", title: "Pick the look", text: "Choose the style and size you want." },
+                  { step: "03", title: "Make the video", text: "Let Orbito make a few versions fast." },
+                  { step: "04", title: "Post it", text: "Pick the best one and get it ready to post." },
                 ].map((item) => (
                   <div key={item.step} className="surface-soft motion-card p-4">
                     <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.step}</div>
@@ -395,10 +395,10 @@ export default function LabsMarketingPage() {
                 <div>
                   <SectionKicker>Output Styles</SectionKicker>
                   <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                    One preview wall. Multiple looks.
+                    Different looks. Same tool.
                   </h2>
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
-                    The visual direction can change. The workflow stays the same.
+                    You can change the style, but the way you use it stays simple.
                   </p>
 
                   <div className="mt-5 rounded-[28px] border border-white/10 bg-black/40 p-4">
@@ -455,10 +455,10 @@ export default function LabsMarketingPage() {
 
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link href={labsGeneratorHref} className="btn-clipforge">
-                  Start with Generate
+                  Open Generate
                 </Link>
                 <Link href="/pricing" className="btn-ghost">
-                  Compare plans
+                  See pricing
                 </Link>
               </div>
             </div>
