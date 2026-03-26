@@ -119,6 +119,15 @@ function FamilyPill({
   return <div className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px]", cls)}>{label}</div>;
 }
 
+function HeadingLine({ className = "" }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`heading-line mt-4 h-[3px] w-24 rounded-full bg-[linear-gradient(90deg,rgba(82,152,255,0.98),rgba(255,186,77,0.94),rgba(44,206,173,0.92))] shadow-[0_0_24px_rgba(82,152,255,0.24)] ${className}`}
+    />
+  );
+}
+
 function ChoiceCard({
   tone,
   title,
@@ -396,6 +405,7 @@ export default function Page() {
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl md:text-6xl">
                 Start free. Pick Clip or Generate when you are ready.
               </h1>
+              <HeadingLine className="w-28" />
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
                 Choose Clip if you already have a long video. Choose Generate if you want AI to make the video for you.
               </p>
@@ -473,6 +483,7 @@ export default function Page() {
               <div>
                 <FamilyPill label="Free trial" tone="neutral" />
                 <div className="mt-3 text-3xl font-semibold tracking-tight text-white/92">Try both first.</div>
+                <HeadingLine className="w-20" />
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
                   Start with {formatInt(sharedTrialCredits)} shared credits. See if Orbito fits your workflow before you pay.
                 </p>
@@ -509,6 +520,7 @@ export default function Page() {
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
                 If you already have a long video
               </h2>
+              <HeadingLine className="w-20" />
               <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
                 Use Clip to find the best parts, clean them up, and get them ready to post.
               </p>
@@ -579,6 +591,7 @@ export default function Page() {
               <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
                 If you want AI to make the video
               </h2>
+              <HeadingLine className="w-20" />
               <p className="mt-2 max-w-xl text-sm text-white/64 sm:text-base">
                 Use Generate when you want to start with an idea instead of raw footage.
               </p>

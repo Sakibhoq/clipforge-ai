@@ -12,7 +12,6 @@ import { hasLabsFeatureAccess } from "@/lib/plans";
 function Logo() {
   const pathname = usePathname();
   const inApp = pathname?.startsWith("/app");
-  const isLabsMarketing = pathname === "/labs";
 
   const logoSrc = "/orbito-mark.svg?v=orb-2";
   const modeBadge = null;
@@ -395,11 +394,11 @@ export default function Navbar() {
 
   const marketingLinks = useMemo(
     () => [
-      { href: isLabsMarketing ? "/labs#how-it-works" : "/#how-it-works", label: "How it works" },
+      { href: "/#how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
       { href: "/contact", label: "Contact" },
     ],
-    [isLabsMarketing]
+    []
   );
   const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
   const aiLabGeneratorHref = `${orbitoAppOrigin}/app/labs/app/generate`;
@@ -433,31 +432,23 @@ export default function Navbar() {
   const whopLinkProps = inApp ? { target: "_blank", rel: "noreferrer" } : {};
   const labsNavHref = inApp
     ? "https://app.orbito.cc/app/labs/app/generate"
-    : isLabsMarketing
-      ? "/"
-      : "/labs";
+    : "/#generate";
   const labsNavTitle = inApp
     ? "Open Orbito Generate"
-    : isLabsMarketing
-      ? "Back to Orbito Clip"
-      : "Open Orbito Generate";
+    : "See Orbito Generate";
   const labsDesktopButtonClass = inApp
     ? "inline-flex btn-clipforge text-xs"
-    : isLabsMarketing
-      ? "hidden xl:inline-flex btn-orbito-cta text-xs"
-      : "hidden xl:inline-flex btn-clipforge text-xs";
+    : "hidden xl:inline-flex btn-clipforge text-xs";
   const labsMobileButtonClass = inApp
     ? "btn-clipforge w-full text-xs"
-    : isLabsMarketing
-      ? "btn-orbito-cta w-full text-xs"
-      : "btn-clipforge w-full text-xs";
-  const labsButtonText = inApp ? "Generate" : isLabsMarketing ? "Back to Clip" : "Generate";
+    : "btn-clipforge w-full text-xs";
+  const labsButtonText = "Generate";
   const whopDesktopButtonClass = "hidden xl:inline-flex btn-ghost text-xs";
   const whopMobileButtonClass = "btn-ghost w-full text-xs";
 
   // Always card/glass
   const shellClass =
-    "border border-white/10 bg-[linear-gradient(180deg,rgba(12,16,24,0.92),rgba(7,10,16,0.88))] backdrop-blur-xl shadow-[0_22px_70px_rgba(0,0,0,0.44)]";
+    "relative overflow-hidden border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.05))] shadow-[0_18px_60px_rgba(0,0,0,0.34)] backdrop-blur-[26px]";
 
   // ✅ Visual fix: marketing navbar should feel “in the header”, not floating down
   const shellMarginTop = inApp ? "mt-3" : "mt-0";
@@ -478,10 +469,26 @@ export default function Navbar() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div
             className={[
-              `${shellMarginTop} flex items-center justify-between rounded-[22px] px-4 py-2.5 transition-colors duration-200 sm:px-5`,
+              `${shellMarginTop} relative flex items-center justify-between rounded-[22px] px-4 py-2.5 transition-colors duration-200 sm:px-5`,
               shellClass,
             ].join(" ")}
           >
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(125,211,252,0.7), rgba(255,186,77,0.7), rgba(45,212,191,0.65), transparent)",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(320px 90px at 12% 0%, rgba(125,211,252,0.10), transparent 70%), radial-gradient(300px 90px at 86% 0%, rgba(255,186,77,0.09), transparent 72%)",
+              }}
+            />
             <div className="flex min-w-0 items-center gap-4 lg:gap-6 xl:gap-8">
               <Logo />
 
@@ -621,7 +628,7 @@ export default function Navbar() {
 
           {open && (
             <div
-              className="mt-2.5 rounded-2xl border border-white/15 bg-[#04070fe8] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.72)] backdrop-blur-xl lg:hidden"
+              className="mt-2.5 rounded-2xl border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.60)] backdrop-blur-[24px] lg:hidden"
               style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}
               role="dialog"
               aria-label="Mobile navigation"
