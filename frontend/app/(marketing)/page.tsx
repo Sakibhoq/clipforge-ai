@@ -394,8 +394,8 @@ function FlowLines() {
 
 function HeroFlowBackdrop() {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden md:block">
-      <div className="absolute inset-x-[-14%] top-[22%] h-[54%] opacity-[0.58]">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 hidden md:block">
+      <div className="absolute inset-x-[-8%] top-[26%] h-[42%] opacity-[0.44]">
         <svg viewBox="0 0 1200 280" className="h-full w-full overflow-visible">
           <defs>
             <linearGradient id="hero-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
@@ -423,7 +423,7 @@ function HeroFlowBackdrop() {
             <path
               d="M-30 118 C 150 76, 370 174, 620 122 S 980 86, 1230 118"
               stroke="url(#hero-line-a)"
-              strokeWidth="6"
+              strokeWidth="4"
               fill="none"
               filter="url(#hero-line-glow)"
               strokeLinecap="round"
@@ -436,7 +436,7 @@ function HeroFlowBackdrop() {
             <path
               d="M-20 162 C 200 200, 380 80, 650 132 S 1000 190, 1220 170"
               stroke="url(#hero-line-b)"
-              strokeWidth="5"
+              strokeWidth="3.5"
               fill="none"
               filter="url(#hero-line-glow)"
               strokeLinecap="round"
@@ -449,7 +449,7 @@ function HeroFlowBackdrop() {
             <path
               d="M-10 140 C 200 132, 420 146, 660 146 S 980 142, 1220 148"
               stroke="url(#hero-line-a)"
-              strokeWidth="3.5"
+              strokeWidth="2.5"
               fill="none"
               strokeLinecap="round"
               opacity="0.58"
@@ -464,59 +464,75 @@ function HeroFlowBackdrop() {
 
 function HeroVisual() {
   return (
-    <div className="relative hidden min-h-[460px] md:block">
+    <div className="group surface-soft relative hidden overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)] md:block md:p-6">
       <HeroFlowBackdrop />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-[30px]"
+        className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(560px_360px_at_24%_40%,rgba(125,211,252,0.16),transparent_72%), radial-gradient(600px_360px_at_78%_38%,rgba(251,146,60,0.14),transparent_74%)",
+            "radial-gradient(460px_300px_at_18%_38%,rgba(125,211,252,0.12),transparent_74%), radial-gradient(520px_320px_at_84%_36%,rgba(251,146,60,0.12),transparent_76%)",
         }}
       />
       <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-90" />
 
-      <div className="absolute left-2 top-14 w-[52%] rounded-[20px] border border-white/12 bg-white/[0.04] p-4 shadow-[0_20px_40px_rgba(0,0,0,0.32)]">
-        <div className="text-xs text-white/58">Clip mode</div>
-        <div className="mt-2 text-xl font-semibold text-white/92">Upload once. Approve fast.</div>
-        <div className="mt-3 space-y-2 text-xs text-white/70">
-          {["Find strong hooks", "Pick your best moments", "Post to all channels"].map((item) => (
-            <div key={item} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-              <span>{item}</span>
+      <div className="relative z-10 pt-6">
+        <div className="flex items-center justify-between text-xs text-white/58">
+          <span>Live studio preview</span>
+          <span className="inline-flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+            active
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[22px] border border-white/12 bg-white/[0.04] p-4">
+            <div className="text-xs text-white/58">Clip mode</div>
+            <div className="mt-2 text-xl font-semibold text-white/92">Upload once. Approve fast.</div>
+            <div className="mt-3 space-y-2 text-xs text-white/74">
+              {[
+                "Find strong hooks automatically",
+                "Pick your best moments in one pass",
+                "Post to every channel from one queue",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
+            <video
+              src={GENERATE_PREVIEWS[0].src}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="h-[340px] w-full"
+              style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.06)" }}
+            />
+            <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
+              One workflow. Clip, generate, then publish.
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 text-[11px] text-white/68 sm:grid-cols-3">
+          {[
+            { k: "Queue", v: "3 clips ready" },
+            { k: "Channels", v: "TikTok • Reels • Shorts" },
+            { k: "Turnaround", v: "Minutes, not hours" },
+          ].map((item) => (
+            <div key={item.k} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+              <span className="text-white/45">{item.k}</span>
+              <span className="mx-2 text-white/25">•</span>
+              <span className="text-white/80">{item.v}</span>
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="absolute right-2 top-8 w-[240px] overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
-        <video
-          src={GENERATE_PREVIEWS[0].src}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="h-[426px] w-full"
-          style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.08)" }}
-        />
-        <div className="border-t border-white/10 px-3 py-2 text-xs text-white/68">
-          One workflow. Clip, generate, then publish.
-        </div>
-      </div>
-
-      <div className="absolute bottom-8 left-4 right-4 grid gap-2 text-[11px] text-white/68 sm:grid-cols-3">
-        {[
-          { k: "Queue", v: "3 clips ready" },
-          { k: "Channels", v: "TikTok • Reels • Shorts" },
-          { k: "Turnaround", v: "Minutes, not hours" },
-        ].map((item) => (
-          <div key={item.k} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-            <span className="text-white/45">{item.k}</span>
-            <span className="mx-2 text-white/25">•</span>
-            <span className="text-white/80">{item.v}</span>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -732,7 +748,7 @@ export default function Page() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative isolate">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[18%] z-0 hidden sm:block">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[22%] z-0 hidden opacity-[0.72] sm:block">
             <FlowLines />
           </div>
 
