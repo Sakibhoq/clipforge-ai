@@ -25,8 +25,8 @@ const GENERATE_PREVIEWS = [
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
     objectPosition: "center center",
-    zoom: 1.86,
-    shiftY: "22%",
+    zoom: 1.96,
+    shiftY: "34%",
   },
   {
     title: "Anime",
@@ -357,6 +357,7 @@ function FlowLines() {
               opacity="0.96"
               strokeLinecap="round"
             />
+            <animateTransform attributeName="transform" type="translate" values="-26 8;34 -16;-26 8" dur="8s" repeatCount="indefinite" />
           </g>
           <g className="orbito-flow-b">
             <path
@@ -368,6 +369,7 @@ function FlowLines() {
               opacity="0.9"
               strokeLinecap="round"
             />
+            <animateTransform attributeName="transform" type="translate" values="20 -8;-32 18;20 -8" dur="9.2s" repeatCount="indefinite" />
           </g>
           <g className="orbito-flow-c">
             <path
@@ -378,6 +380,7 @@ function FlowLines() {
               opacity="0.65"
               strokeLinecap="round"
             />
+            <animateTransform attributeName="transform" type="translate" values="10 3;-24 -12;10 3" dur="10.5s" repeatCount="indefinite" />
           </g>
         </svg>
       </div>
@@ -385,89 +388,60 @@ function FlowLines() {
   );
 }
 
-function HeroShowcase() {
+function HeroVisual() {
   return (
-    <div className="group orbito-breath surface-soft relative overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)] md:p-6">
-      <HoverSheen />
+    <div className="relative hidden min-h-[460px] md:block">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-10 right-[-18%] w-[46%] rounded-full bg-orange-300/10 blur-3xl"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-8 left-[-16%] w-[42%] rounded-full bg-sky-300/10 blur-3xl"
+        className="pointer-events-none absolute inset-0 rounded-[30px]"
+        style={{
+          background:
+            "radial-gradient(560px_360px_at_24%_40%,rgba(125,211,252,0.16),transparent_72%), radial-gradient(600px_360px_at_78%_38%,rgba(251,146,60,0.14),transparent_74%)",
+        }}
       />
       <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-90" />
 
-      <div className="relative pt-5">
-        <div className="flex items-center justify-between text-xs text-white/58">
-          <span>Live clip workflow</span>
-          <span className="inline-flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-            active
-          </span>
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex items-center justify-between text-xs text-white/56">
-              <span>Clip studio</span>
-              <span>12:47 source</span>
-            </div>
-            <div className="mt-2 text-lg font-semibold text-white/92">Upload once. Approve fast.</div>
-            <div className="mt-3 space-y-2.5">
-              {[
-                { name: "Hook moment", range: "00:43 - 01:18", score: 82 },
-                { name: "Story moment", range: "03:11 - 03:42", score: 64 },
-                { name: "CTA moment", range: "11:58 - 12:17", score: 78 },
-              ].map((item) => (
-                <div key={item.name} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5">
-                  <div className="flex items-center justify-between text-xs text-white/74">
-                    <span>{item.name}</span>
-                    <span>{item.range}</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-                    <div className="orbito-hero-rail h-full rounded-full" style={{ width: `${item.score}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border border-sky-300/18 bg-[linear-gradient(140deg,rgba(96,165,250,0.12),rgba(167,139,250,0.10),rgba(45,212,191,0.08))] p-4">
-            <div className="text-xs text-white/56">Publishing pulse</div>
-            <div className="mt-2 text-xl font-semibold text-white/92">Consistency drives growth.</div>
-            <div className="mt-3 space-y-2">
-              {[
-                { label: "Queue", value: "3 clips ready" },
-                { label: "Channels", value: "TikTok • Reels • Shorts" },
-                { label: "Turnaround", value: "Minutes, not hours" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/74">
-                  <span>{item.label}</span>
-                  <span className="text-white/90">{item.value}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-xs text-white/72">
-              Open Whop only when you want payouts. Keep Orbito as your core clip engine.
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-2 text-[11px] text-white/65 sm:grid-cols-3">
-          {[
-            { k: "Start", v: "First clip in minutes" },
-            { k: "Reach", v: "TikTok • Reels • Shorts" },
-            { k: "Goal", v: "Post more. Earn more." },
-          ].map((item) => (
-            <div key={item.k} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-              <span className="text-white/45">{item.k}</span>
-              <span className="mx-2 text-white/25">•</span>
-              <span className="text-white/80">{item.v}</span>
+      <div className="absolute left-2 top-14 w-[52%] rounded-[20px] border border-white/12 bg-white/[0.04] p-4 shadow-[0_20px_40px_rgba(0,0,0,0.32)]">
+        <div className="text-xs text-white/58">Clip mode</div>
+        <div className="mt-2 text-xl font-semibold text-white/92">Upload once. Approve fast.</div>
+        <div className="mt-3 space-y-2 text-xs text-white/70">
+          {["Find strong hooks", "Pick your best moments", "Post to all channels"].map((item) => (
+            <div key={item} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+              <span>{item}</span>
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="absolute right-2 top-8 w-[240px] overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
+        <video
+          src={GENERATE_PREVIEWS[0].src}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          className="h-[426px] w-full"
+          style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.08)" }}
+        />
+        <div className="border-t border-white/10 px-3 py-2 text-xs text-white/68">
+          One workflow. Clip, generate, then publish.
+        </div>
+      </div>
+
+      <div className="absolute bottom-8 left-4 right-4 grid gap-2 text-[11px] text-white/68 sm:grid-cols-3">
+        {[
+          { k: "Queue", v: "3 clips ready" },
+          { k: "Channels", v: "TikTok • Reels • Shorts" },
+          { k: "Turnaround", v: "Minutes, not hours" },
+        ].map((item) => (
+          <div key={item.k} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <span className="text-white/45">{item.k}</span>
+            <span className="mx-2 text-white/25">•</span>
+            <span className="text-white/80">{item.v}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -737,7 +711,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                <HeroShowcase />
+                <HeroVisual />
               </div>
             </div>
           </div>
