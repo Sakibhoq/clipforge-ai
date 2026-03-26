@@ -290,16 +290,52 @@ export default function Page() {
   const operatingPoints = useMemo(
     () => [
       {
-        title: "Everything stays in one place",
-        text: "Clips and AI videos both go to the same place when you are ready to post.",
+        title: "One workflow from idea to post",
+        text: "Clip existing videos or generate new ones, then review and publish from one account.",
       },
       {
-        title: "Made for short videos",
-        text: "Hooks, captions, and vertical sizes are built in.",
+        title: "Built for short-form channels",
+        text: "Vertical framing, caption workflow, and social posting are designed for TikTok, Reels, and Shorts.",
       },
       {
-        title: "Try it first",
-        text: "Start free. Upgrade later if you need more.",
+        title: "Try first, upgrade when ready",
+        text: "Free trial first. Pricing is clear before checkout and you can manage billing in-app.",
+      },
+    ],
+    []
+  );
+
+  const trustSignals = useMemo(
+    () => [
+      {
+        title: "Secure billing",
+        text: "Subscriptions and payments are handled through Stripe checkout.",
+      },
+      {
+        title: "Cancel anytime",
+        text: "Change plan or cancel from Billing without opening a support ticket.",
+      },
+      {
+        title: "Clear policies",
+        text: "Privacy Policy and Terms are public and linked in the footer.",
+      },
+    ],
+    []
+  );
+
+  const userFeedback = useMemo(
+    () => [
+      {
+        quote: "This replaced my old clip workflow. I upload once, approve, then schedule.",
+        label: "Creator workflow",
+      },
+      {
+        quote: "The split is clear: Orbito for clipping, Labs for prompt-to-video. No confusion now.",
+        label: "Team setup",
+      },
+      {
+        quote: "The best part is speed. I can get from raw content to ready posts in one session.",
+        label: "Daily publishing",
       },
     ],
     []
@@ -313,12 +349,14 @@ export default function Page() {
         <section className="relative pt-2">
           <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
             <div data-reveal className="reveal">
-              <SectionKicker>One Tool, Two Simple Ways To Create</SectionKicker>
+              <SectionKicker>Fast Creation, Real Distribution</SectionKicker>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                Turn long videos or simple ideas into short videos.
+                Stop editing for hours.
+                <br />
+                Start posting every day.
               </h1>
               <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                Upload a long video, or type an idea. Orbito helps you make short videos and post them fast.
+                Orbito turns long-form content into clips. Orbito Labs turns prompts into new videos. One login, one workflow, and faster output for every channel.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -336,7 +374,7 @@ export default function Page() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {["One account", "Clip or make new videos", "Ready for social"].map((item) => (
+                {["Secure checkout", "One account for Orbito + Labs", "Post-ready workflow"].map((item) => (
                   <div key={item} className="signal-chip">
                     <span className="live-dot" />
                     <span>{item}</span>
@@ -352,6 +390,37 @@ export default function Page() {
 
           <div data-reveal className="reveal mt-8">
             <WorkflowTicker />
+          </div>
+        </section>
+
+        <section className="pt-10">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {trustSignals.map((item) => (
+              <article
+                key={item.title}
+                data-reveal
+                className="reveal rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.94),rgba(10,13,20,0.92))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
+              >
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/22 bg-emerald-300/[0.10] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-100">
+                  <span className="live-dot" />
+                  Trust
+                </div>
+                <h3 className="mt-3 text-xl font-semibold tracking-tight text-white/92">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/66">{item.text}</p>
+              </article>
+            ))}
+          </div>
+
+          <div data-reveal className="reveal mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.95),rgba(9,12,19,0.93))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+            <div className="text-[11px] uppercase tracking-[0.16em] text-white/46">What Users Like Most</div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+              {userFeedback.map((item) => (
+                <blockquote key={item.quote} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-sm leading-relaxed text-white/82">“{item.quote}”</p>
+                  <footer className="mt-3 text-[11px] uppercase tracking-[0.14em] text-white/45">{item.label}</footer>
+                </blockquote>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -529,6 +598,79 @@ export default function Page() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="pt-16">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <article data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,19,28,0.96),rgba(10,13,19,0.93))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)]">
+              <SectionKicker>Pick Your Path</SectionKicker>
+              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">Use Orbito if you already have videos.</h3>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
+                Upload once, review the strongest moments, and schedule posts across your channels.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {["Source upload", "Clip approval", "Schedule + publish"].map((item) => (
+                  <div key={item} className="signal-chip">
+                    <span className="live-dot" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/app" className="btn-orbito-cta">
+                  Open Console
+                </Link>
+                <Link href="/how-it-works" className="btn-ghost">
+                  View walkthrough
+                </Link>
+              </div>
+            </article>
+
+            <article data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,19,12,0.96),rgba(13,10,8,0.94))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)]">
+              <SectionKicker>Need New Videos?</SectionKicker>
+              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">Use Labs if you want prompt-to-video generation.</h3>
+              <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
+                Write the idea, generate variations, and push the finished videos into your posting workflow.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {["Prompt to video", "Style presets", "Export or publish"].map((item) => (
+                  <div key={item} className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">
+                    <span className="live-dot" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/labs" className="btn-clipforge">
+                  Open Labs
+                </Link>
+                <Link href="/pricing" className="btn-ghost">
+                  See plan options
+                </Link>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section className="pt-16">
+          <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,27,0.96),rgba(9,12,18,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+            <SectionKicker>Ready To Start</SectionKicker>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
+              Built to earn trust before asking for the upgrade.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
+              Start with the free trial, validate your workflow, then scale only when the output quality and posting speed make sense for you.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              {startTrialCta("btn-orbito-cta")}
+              <Link href="/pricing" className="btn-ghost">
+                Compare plans
+              </Link>
+              <Link href="/contact" className="btn-ghost">
+                Talk to support
+              </Link>
             </div>
           </div>
         </section>
