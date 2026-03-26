@@ -137,7 +137,7 @@ function HeroStudioVisual() {
         </span>
       </div>
 
-      <div className="relative mt-4 grid gap-4 xl:grid-cols-[0.86fr_1.14fr]">
+      <div className="relative mt-4 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
         <div className="grid gap-4">
           <div className="rounded-[24px] border border-sky-300/16 bg-[#0a1320] p-4">
             <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
@@ -199,7 +199,7 @@ function HeroStudioVisual() {
               </div>
             </div>
 
-            <div className="flex min-h-[300px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
+            <div className="flex min-h-[340px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
               <video
                 src={HOME_GENERATE_PREVIEW}
                 autoPlay
@@ -363,8 +363,8 @@ export default function Page() {
             </h2>
           </div>
 
-          <div className="mt-6 grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-            <article data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+          <div className="mt-6 grid gap-4 xl:grid-cols-[1.02fr_0.98fr] xl:items-start">
+            <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="signal-chip border-sky-300/20 bg-sky-300/[0.10] text-sky-100">Clip mode</div>
@@ -411,8 +411,8 @@ export default function Page() {
               </div>
             </article>
 
-            <div className="grid gap-4">
-              <article data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+            <div className="grid gap-4 self-start">
+              <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">Generate mode</div>
@@ -430,7 +430,7 @@ export default function Page() {
                       Create a sharp launch teaser with bold captions and a premium dark style.
                     </div>
                   </div>
-                  <div className="flex min-h-[220px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
+                  <div className="flex min-h-[260px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
                     <video
                       src={HOME_GENERATE_PREVIEW}
                       autoPlay
@@ -445,7 +445,7 @@ export default function Page() {
                 </div>
               </article>
 
-              <article data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+              <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
                 <div className="signal-chip">Shared finish line</div>
                 <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Both modes end in publish.</h3>
                 <div className="mt-4 grid gap-2">

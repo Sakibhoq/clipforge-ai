@@ -334,7 +334,7 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "group motion-card relative overflow-hidden rounded-[32px] border bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.36)]",
+        "group motion-card relative self-start overflow-hidden rounded-[32px] border bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.36)]",
         toneBorder
       )}
     >
@@ -717,7 +717,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-[0.88fr_1.12fr]">
+          <div className="mt-5 grid gap-4 lg:grid-cols-[0.88fr_1.12fr] lg:items-start">
             <PlanCard
               family="orbito"
               pillTone="orbito"
@@ -800,7 +800,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="mt-5 grid auto-rows-fr gap-4 lg:grid-cols-[0.88fr_1.12fr]">
+          <div className="mt-5 grid gap-4 lg:grid-cols-[0.88fr_1.12fr] lg:items-start">
             <PlanCard
               family="labs"
               pillTone="labs"
