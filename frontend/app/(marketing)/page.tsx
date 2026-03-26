@@ -23,8 +23,8 @@ const GENERATE_PREVIEWS = [
     text: "Bright and fun for fast social posts.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
-    objectPosition: "center 34%",
-    zoom: 1.24,
+    objectPosition: "center center",
+    zoom: 1.08,
   },
   {
     title: "Anime",
@@ -138,7 +138,7 @@ function LandingFX() {
         }
         @keyframes lineShift {
           0% { background-position: 0% 50%; }
-          100% { background-position: 260% 50%; }
+          100% { background-position: 320% 50%; }
         }
         @keyframes lineHue {
           0% { filter: hue-rotate(0deg) saturate(1); }
@@ -146,16 +146,16 @@ function LandingFX() {
           100% { filter: hue-rotate(0deg) saturate(1); }
         }
         @keyframes flowDriftA {
-          0%, 100% { transform: translate3d(-10px, 2px, 0); }
-          50% { transform: translate3d(16px, -8px, 0); }
+          0%, 100% { transform: translate3d(-26px, 8px, 0); }
+          50% { transform: translate3d(34px, -16px, 0); }
         }
         @keyframes flowDriftB {
-          0%, 100% { transform: translate3d(8px, -1px, 0); }
-          50% { transform: translate3d(-14px, 10px, 0); }
+          0%, 100% { transform: translate3d(20px, -8px, 0); }
+          50% { transform: translate3d(-32px, 18px, 0); }
         }
         @keyframes flowDriftC {
-          0%, 100% { transform: translate3d(4px, 0, 0); }
-          50% { transform: translate3d(-10px, -6px, 0); }
+          0%, 100% { transform: translate3d(10px, 3px, 0); }
+          50% { transform: translate3d(-24px, -12px, 0); }
         }
         @keyframes previewGlow {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
@@ -274,11 +274,11 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 
 function FlowLines() {
   return (
-    <div className="relative h-[150px] overflow-hidden">
-      <div className="orbito-flow-scene absolute inset-0">
-        <svg viewBox="0 0 1200 160" className="h-full w-full overflow-visible">
+    <div className="relative h-[260px] w-full overflow-hidden">
+      <div className="orbito-flow-scene absolute inset-0 opacity-[0.9]">
+        <svg viewBox="0 0 1800 320" className="h-full w-full overflow-visible">
           <defs>
-            <linearGradient id="orb-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+            <linearGradient id="orb-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1800" y2="0">
               <stop offset="0%" stopColor="#7dd3fc">
                 <animate attributeName="stop-color" values="#7dd3fc;#45d4bf;#7dd3fc" dur="6.5s" repeatCount="indefinite" />
               </stop>
@@ -291,10 +291,10 @@ function FlowLines() {
               <stop offset="100%" stopColor="#facc15">
                 <animate attributeName="stop-color" values="#facc15;#7dd3fc;#facc15" dur="7.2s" repeatCount="indefinite" />
               </stop>
-              <animate attributeName="x1" values="0;180;0" dur="8s" repeatCount="indefinite" />
-              <animate attributeName="x2" values="1200;1380;1200" dur="8s" repeatCount="indefinite" />
+              <animate attributeName="x1" values="0;220;0" dur="7.2s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="1800;2020;1800" dur="7.2s" repeatCount="indefinite" />
             </linearGradient>
-            <linearGradient id="orb-line-b" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+            <linearGradient id="orb-line-b" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1800" y2="0">
               <stop offset="0%" stopColor="#fb7185">
                 <animate attributeName="stop-color" values="#fb7185;#facc15;#fb7185" dur="6.2s" repeatCount="indefinite" />
               </stop>
@@ -307,16 +307,16 @@ function FlowLines() {
               <stop offset="100%" stopColor="#facc15">
                 <animate attributeName="stop-color" values="#facc15;#45d4bf;#facc15" dur="7s" repeatCount="indefinite" />
               </stop>
-              <animate attributeName="x1" values="0;-160;0" dur="7.4s" repeatCount="indefinite" />
-              <animate attributeName="x2" values="1200;1040;1200" dur="7.4s" repeatCount="indefinite" />
+              <animate attributeName="x1" values="0;-220;0" dur="6.8s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="1800;1580;1800" dur="6.8s" repeatCount="indefinite" />
             </linearGradient>
-            <linearGradient id="orb-line-c" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+            <linearGradient id="orb-line-c" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1800" y2="0">
               <stop offset="0%" stopColor="#7dd3fc" />
               <stop offset="50%" stopColor="#a78bfa" />
               <stop offset="100%" stopColor="#fb7185" />
             </linearGradient>
             <filter id="orb-line-glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="5" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
@@ -326,9 +326,9 @@ function FlowLines() {
 
           <g className="orbito-flow-a">
             <path
-              d="M-40 84 C 170 52, 390 126, 620 88 S 1010 46, 1240 72"
+              d="M-120 168 C 180 98, 460 250, 760 170 S 1380 92, 1920 156"
               stroke="url(#orb-line-a)"
-              strokeWidth="4.5"
+              strokeWidth="8"
               fill="none"
               filter="url(#orb-line-glow)"
               opacity="0.96"
@@ -337,9 +337,9 @@ function FlowLines() {
           </g>
           <g className="orbito-flow-b">
             <path
-              d="M-20 114 C 180 146, 390 44, 650 82 S 1010 130, 1230 102"
+              d="M-100 230 C 160 282, 500 88, 860 148 S 1500 262, 1920 206"
               stroke="url(#orb-line-b)"
-              strokeWidth="4"
+              strokeWidth="7"
               fill="none"
               filter="url(#orb-line-glow)"
               opacity="0.9"
@@ -348,22 +348,15 @@ function FlowLines() {
           </g>
           <g className="orbito-flow-c">
             <path
-              d="M-20 96 C 190 78, 390 102, 640 102 S 1020 86, 1240 90"
+              d="M-120 192 C 180 152, 500 206, 860 196 S 1440 170, 1940 188"
               stroke="url(#orb-line-c)"
-              strokeWidth="2"
+              strokeWidth="4"
               fill="none"
-              opacity="0.5"
+              opacity="0.65"
               strokeLinecap="round"
             />
           </g>
         </svg>
-      </div>
-
-      <div className="absolute left-1/2 top-1/2 w-full max-w-[420px] -translate-x-1/2 -translate-y-1/2 px-4">
-        <div className="surface-soft mx-auto rounded-[24px] bg-black/35 px-6 py-4 text-center shadow-[0_22px_60px_rgba(0,0,0,0.36)]">
-          <div className="text-lg font-semibold text-white/92">Set the source. Keep the clips moving.</div>
-          <div className="mt-1 text-sm text-white/66">One upload can turn into days of posts.</div>
-        </div>
       </div>
     </div>
   );
@@ -387,7 +380,7 @@ function HeroShowcase() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-8 left-[-16%] w-[42%] rounded-full bg-sky-300/10 blur-3xl"
       />
-      <div className="orbito-top-rail absolute inset-x-5 top-4 h-[3px] rounded-full opacity-90" />
+      <div className="orbito-top-rail absolute left-1/2 top-4 h-[4px] w-[88%] -translate-x-1/2 rounded-full opacity-90" />
 
       <div className="relative pt-5">
         <div className="flex items-center justify-between text-xs text-white/58">
@@ -435,7 +428,7 @@ function HeroShowcase() {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_0.92fr]">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
             <div className="flex items-center justify-between text-xs text-white/52">
               <span className="text-white/74">Clips ready</span>
@@ -461,16 +454,20 @@ function HeroShowcase() {
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-orange-300/20 bg-[linear-gradient(140deg,rgba(255,183,3,0.08),rgba(251,86,7,0.06),rgba(96,165,250,0.06))] p-4">
-            <div className="text-xs text-white/52">More ways to earn</div>
-            <div className="mt-2 text-lg font-semibold text-white/92">Post more. Open more payout chances.</div>
-            <div className="mt-2 text-sm leading-relaxed text-white/66">
-              Orbito handles the clip flow. Use Whop only when you want the payout side.
-            </div>
-            <div className="mt-4">
-              <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-whop text-xs">
-                Open Whop
-              </Link>
+          <div className="rounded-[22px] border border-sky-300/18 bg-[linear-gradient(140deg,rgba(96,165,250,0.10),rgba(167,139,250,0.08),rgba(45,212,191,0.07))] p-4">
+            <div className="text-xs text-white/52">Publishing pulse</div>
+            <div className="mt-2 text-lg font-semibold text-white/92">Keep consistency high, and growth follows.</div>
+            <div className="mt-3 space-y-2">
+              {[
+                { label: "Posting rhythm", value: "Daily flow" },
+                { label: "Cross-channel ready", value: "4 platforms" },
+                { label: "Clip turnaround", value: "Minutes, not hours" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/74">
+                  <span>{item.label}</span>
+                  <span className="text-white/90">{item.value}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -759,8 +756,8 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="pt-8 sm:pt-10">
-          <div data-reveal className="reveal">
+        <section aria-hidden="true" className="pointer-events-none -mt-2 hidden sm:block">
+          <div data-reveal className="reveal relative left-1/2 w-screen -translate-x-1/2 opacity-[0.92]">
             <FlowLines />
           </div>
         </section>
@@ -782,7 +779,7 @@ export default function Page() {
               className="reveal group surface-soft relative overflow-hidden rounded-[28px] p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
             >
               <HoverSheen />
-              <div className="orbito-top-rail absolute inset-x-6 top-4 h-[3px] rounded-full opacity-80" />
+              <div className="orbito-top-rail absolute left-1/2 top-4 h-[4px] w-[86%] -translate-x-1/2 rounded-full opacity-85" />
 
               <div className="relative pt-5">
                 <div className="text-xl font-semibold text-white/92 sm:text-2xl">Upload, pick, post.</div>
