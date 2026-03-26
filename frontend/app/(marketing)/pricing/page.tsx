@@ -332,7 +332,12 @@ function PlanCard({
   const toneBorder = family === "orbito" ? "border-cyan-300/24" : "border-amber-300/24";
 
   return (
-    <div className={cn("group surface motion-card relative overflow-hidden p-4 sm:p-5", toneBorder)}>
+    <div
+      className={cn(
+        "group motion-card relative overflow-hidden rounded-[32px] border bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.36)]",
+        toneBorder
+      )}
+    >
       <GlowLayer family={family} />
       <div className="relative flex h-full flex-col">
         <div className="flex items-start justify-between gap-3">
@@ -588,11 +593,11 @@ export default function Page() {
           </div>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+        <div className="grid gap-10 lg:grid-cols-[0.84fr_1.16fr] lg:items-start">
           <div>
             <FamilyPill label="One Platform" tone="full" />
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/95 sm:text-5xl md:text-6xl">
-              Pick the mode that matches how you create.
+              Pricing that matches how you create.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
               Clip mode is for footage-first workflows. Generate mode is for AI-first workflows. Both stay inside Orbito.
@@ -600,9 +605,17 @@ export default function Page() {
             <div className="mt-4">
               <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} />
             </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {["Start free", "Scale later", "One account"].map((item) => (
+                <div key={item} className="signal-chip">
+                  <span className="live-dot" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="studio-frame p-4 sm:p-5">
+          <div className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="metric-chip">
                 <div className="value">{formatInt(sharedTrialCredits)}</div>
@@ -651,68 +664,47 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-7">
-          <div className="studio-frame p-5 sm:p-6">
-            <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
+        <section className="pt-10">
+          <div className="rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
                 <FamilyPill label="Free Trial" tone="neutral" />
                 <div className="mt-3 flex flex-wrap items-end gap-3">
                   <div className="text-2xl font-semibold text-white/92 sm:text-3xl">Try both modes first.</div>
                   <div className="signal-chip">{formatInt(sharedTrialCredits)} shared credits</div>
                 </div>
-                <div className="mt-3 flex items-end gap-2">
-                  <div className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">$0</div>
-                  <div className="pb-2 text-sm text-white/55">/trial</div>
-                </div>
-                <p className="mt-3 max-w-xl text-sm text-white/68 sm:text-base">
-                  Check the workflow before you commit to a plan.
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/66 sm:text-base">
+                  Make sure clipping, generation, and publishing fit your workflow before you upgrade.
                 </p>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {["Clip", "Generate", "One account"].map((item) => (
-                    <div key={item} className="signal-chip">
-                      <span className="live-dot" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
 
-              <div className="w-full">
-                <div className="flex h-full flex-col rounded-[24px] border border-white/14 bg-black/25 p-4">
-                  <div className="text-sm font-semibold text-white/88">Best for first-time evaluation</div>
-                  <div className="mt-2 text-xs leading-relaxed text-white/62">
-                    Make sure clipping, generation, and publishing fit your process.
-                  </div>
+              <div className="min-w-[280px] rounded-[24px] border border-white/14 bg-black/28 p-4">
+                <div className="text-sm font-semibold text-white/88">Best for first-time evaluation</div>
+                <div className="mt-2 text-xs leading-relaxed text-white/62">Start free, test both modes, then move into the plan that fits.</div>
 
-                  <button
-                    type="button"
-                    onClick={() => startCheckout("free")}
-                    disabled={startingCheckout !== null || freeTrialLocked || meLoading}
-                    className={cn(
-                      "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
-                      startingCheckout ? "cursor-not-allowed opacity-80" : ""
-                    )}
-                  >
-                    {startingCheckout === "free"
-                      ? "Opening Checkout..."
-                      : freeTrialLocked
-                        ? "Trial already used"
-                        : "Start Free Trial"}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => startCheckout("free")}
+                  disabled={startingCheckout !== null || freeTrialLocked || meLoading}
+                  className={cn(
+                    "btn-orbito-cta mt-4 inline-flex h-11 w-full items-center justify-center whitespace-nowrap px-3 text-center text-sm font-semibold leading-none",
+                    startingCheckout ? "cursor-not-allowed opacity-80" : ""
+                  )}
+                >
+                  {startingCheckout === "free"
+                    ? "Opening Checkout..."
+                    : freeTrialLocked
+                      ? "Trial already used"
+                      : "Start Free Trial"}
+                </button>
 
-                  <BenefitsDisclosure
-                    open={openBenefits.trial}
-                    onToggle={() => toggleBenefits("trial")}
-                    items={benefits.trial}
-                  />
-                </div>
+                <BenefitsDisclosure open={openBenefits.trial} onToggle={() => toggleBenefits("trial")} items={benefits.trial} />
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <section className="mt-8">
+        <section className="pt-12">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Clip Mode" tone="orbito" />
@@ -795,7 +787,7 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="mt-8">
+        <section className="pt-12">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <FamilyPill label="Generate Mode" tone="labs" />
@@ -878,92 +870,16 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="mt-8">
-          <div className="studio-frame p-4 sm:p-5">
-            <h2 className="text-2xl font-semibold tracking-tight text-white/90">Simple rules</h2>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-3 text-sm text-cyan-100/95">
-                Clip plans are for clipping, editing, and publishing.
-              </div>
-              <div className="rounded-xl border border-amber-300/24 bg-amber-300/[0.09] px-4 py-3 text-sm text-amber-100/95">
-                Every Generate plan includes Orbito Creator-level clip access.
-              </div>
-              <div className="rounded-xl border border-indigo-300/20 bg-indigo-300/[0.10] px-4 py-3 text-sm text-indigo-100/95">
-                Creator plans scale with the throughput slider.
-              </div>
+        <section className="pt-12">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-[24px] border border-cyan-300/20 bg-cyan-300/[0.07] px-4 py-4 text-sm leading-relaxed text-cyan-100/95">
+              Clip plans are for clipping, editing, and publishing.
             </div>
-          </div>
-        </section>
-
-        <section className="mt-8">
-          <div className="studio-frame p-4 sm:p-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold tracking-tight text-white/92">At a glance</h2>
-                <p className="mt-2 text-sm text-white/62">The shortest version of the plan story.</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/62">
-                Showing: {mode} • scale {creditScale}x
-              </div>
+            <div className="rounded-[24px] border border-amber-300/24 bg-amber-300/[0.09] px-4 py-4 text-sm leading-relaxed text-amber-100/95">
+              Every Generate plan includes Orbito Creator-level clip access.
             </div>
-
-            <div className="mt-6 -mx-3 overflow-x-auto px-3">
-              <div className="min-w-[980px] rounded-2xl border border-white/10 bg-black/25 p-4">
-                <div className="grid grid-cols-6 gap-3 pb-3 text-xs text-white/52">
-                  <div className="text-white/65">Feature</div>
-                  <div>Trial</div>
-                  <div>Clip Starter</div>
-                  <div>Clip Creator</div>
-                  <div>Generate Starter</div>
-                  <div>Generate Creator</div>
-                </div>
-                <div className="h-px bg-white/10" />
-
-                <CompareRow
-                  label="Clip access"
-                  trial="Included"
-                  orbitoStarter="Included"
-                  orbitoCreator="Included"
-                  labsSpark="Included"
-                  labsVelocity="Included"
-                />
-                <div className="h-px bg-white/10" />
-                <CompareRow
-                  label="Generate access"
-                  trial="Included"
-                  orbitoStarter="-"
-                  orbitoCreator="-"
-                  labsSpark="Included"
-                  labsVelocity="Included"
-                />
-                <div className="h-px bg-white/10" />
-                <CompareRow
-                  label="Clip credits"
-                  trial={`${formatInt(sharedTrialCredits)} shared`}
-                  orbitoStarter={`${formatInt(orbitoStarterCredits)}/mo`}
-                  orbitoCreator={`${formatInt(orbitoCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
-                  labsSpark="Included"
-                  labsVelocity="Included"
-                />
-                <div className="h-px bg-white/10" />
-                <CompareRow
-                  label="Generate credits"
-                  trial={`${formatInt(sharedTrialCredits)} shared`}
-                  orbitoStarter="-"
-                  orbitoCreator="-"
-                  labsSpark={`${formatInt(labsStarterCredits)}/mo`}
-                  labsVelocity={`${formatInt(labsCreatorCredits)} ${mode === "yearly" ? "/yr" : "/mo"}`}
-                />
-                <div className="h-px bg-white/10" />
-                <CompareRow
-                  label="4K generation"
-                  trial="-"
-                  orbitoStarter="-"
-                  orbitoCreator="-"
-                  labsSpark="-"
-                  labsVelocity="Yes"
-                />
-              </div>
+            <div className="rounded-[24px] border border-indigo-300/20 bg-indigo-300/[0.10] px-4 py-4 text-sm leading-relaxed text-indigo-100/95">
+              Creator plans scale with the throughput slider.
             </div>
           </div>
         </section>
