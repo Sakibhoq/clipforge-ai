@@ -61,12 +61,12 @@ function LandingBackdrop() {
       `}</style>
 
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(940px_560px_at_12%_10%,rgba(82,152,255,0.16),transparent_68%),radial-gradient(860px_540px_at_88%_12%,rgba(255,186,77,0.13),transparent_70%),radial-gradient(920px_520px_at_52%_88%,rgba(44,206,173,0.07),transparent_72%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(960px_560px_at_14%_8%,rgba(82,152,255,0.17),transparent_68%),radial-gradient(900px_560px_at_86%_10%,rgba(255,186,77,0.13),transparent_70%),radial-gradient(920px_540px_at_52%_88%,rgba(44,206,173,0.08),transparent_72%)]" />
         <div
           className="orbito-studio-anim absolute left-[-12%] top-[5%] h-[420px] w-[420px] rounded-full blur-3xl"
           style={{
             background:
-              "radial-gradient(circle, rgba(82,152,255,0.16) 0%, rgba(82,152,255,0.05) 38%, transparent 72%)",
+              "radial-gradient(circle, rgba(82,152,255,0.17) 0%, rgba(82,152,255,0.05) 38%, transparent 72%)",
             animation: "orbitoStudioFloat 16s ease-in-out infinite",
           }}
         />
@@ -85,7 +85,7 @@ function LandingBackdrop() {
 
 function SectionKicker({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/62">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-medium tracking-[0.04em] text-white/72">
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
       <span>{children}</span>
     </div>
@@ -94,13 +94,12 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 
 function WorkflowTicker() {
   const items = [
-    "Add a video",
+    "Add your video",
     "Or type an idea",
-    "Pick the best part",
-    "Check your clips",
+    "Pick the best cut",
     "Make new versions",
+    "Add captions",
     "Post it",
-    "Use Whop if you want",
   ];
 
   return (
@@ -119,36 +118,38 @@ function WorkflowTicker() {
 
 function HeroStudioVisual() {
   return (
-    <div className="relative overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.96),rgba(9,12,19,0.94))] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.42)]">
+    <div className="studio-frame p-5 sm:p-6">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(740px 220px at 14% 0%, rgba(255,255,255,0.07), transparent 60%), radial-gradient(620px 340px at 84% 14%, rgba(255,186,77,0.10), transparent 74%), radial-gradient(620px 340px at 12% 86%, rgba(82,152,255,0.12), transparent 72%)",
+            "radial-gradient(760px 260px at 12% 0%, rgba(255,255,255,0.07), transparent 62%), radial-gradient(660px 340px at 86% 16%, rgba(255,186,77,0.12), transparent 74%), radial-gradient(620px 340px at 12% 86%, rgba(82,152,255,0.13), transparent 74%)",
         }}
       />
 
-      <div className="relative flex items-center justify-between text-xs text-white/54">
+      <div className="relative flex items-center justify-between gap-3 text-sm text-white/56">
         <span>Inside Orbito</span>
         <span className="signal-chip border-emerald-300/20 bg-emerald-300/[0.10] text-emerald-100">
           <span className="live-dot" />
-          Live
+          Live studio
         </span>
       </div>
 
-      <div className="relative mt-4 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+      <div className="relative mt-5 grid gap-4 xl:grid-cols-[0.84fr_1.16fr]">
         <div className="grid gap-4">
-          <div className="rounded-[24px] border border-sky-300/16 bg-[#0a1320] p-4">
-            <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-              <span>Clip</span>
-              <span>12:47 source</span>
-            </div>
-            <div className="mt-4 space-y-4">
+          <div className="rounded-[28px] border border-sky-300/16 bg-[#09111d] p-5">
+            <div className="text-[11px] tracking-[0.12em] text-white/46">Clip</div>
+            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/92">Upload once. Pick the best parts.</h3>
+            <p className="mt-2 text-sm leading-relaxed text-white/64">
+              Orbito looks through your long video and helps you keep the parts worth posting.
+            </p>
+
+            <div className="mt-5 space-y-4">
               {[
-                { label: "Hook", width: "24%" },
-                { label: "Story payoff", width: "54%" },
-                { label: "CTA", width: "78%" },
+                { label: "Best hook", width: "28%" },
+                { label: "Story payoff", width: "58%" },
+                { label: "Call to action", width: "76%" },
               ].map((item) => (
                 <div key={item.label}>
                   <div className="mb-1.5 text-xs text-white/50">{item.label}</div>
@@ -160,38 +161,36 @@ function HeroStudioVisual() {
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-white/10 bg-black/24 p-4">
-            <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-              <span>Ready to post</span>
-              <span>4 ready</span>
-            </div>
-            <div className="mt-3 space-y-2">
-              {["TikTok ready", "Reels ready", "Shorts synced"].map((item) => (
-                <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/74">
-                  <span>{item}</span>
-                  <span className="live-dot" />
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              "1. Add a link",
+              "2. Pick your cuts",
+              "3. Post later",
+            ].map((item) => (
+              <div key={item} className="rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/76">
+                {item}
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-amber-300/18 bg-[#140f0b] p-4">
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-            <span>Make with AI</span>
-            <span className="inline-flex items-center gap-2 text-amber-100/82">
+        <div className="rounded-[30px] border border-amber-300/18 bg-[#130e0a] p-4">
+          <div className="flex items-center justify-between gap-3 text-[11px] tracking-[0.12em] text-white/46">
+            <span>Generate</span>
+            <span className="inline-flex items-center gap-2 text-amber-100/84">
               <span className="live-dot" />
               Rendering
             </span>
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-[0.82fr_1.18fr]">
-            <div className="rounded-[22px] border border-white/10 bg-black/28 p-4">
-              <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">Prompt</div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-[0.82fr_1.18fr]">
+            <div className="rounded-[24px] border border-white/10 bg-black/28 p-4">
+              <div className="text-[11px] tracking-[0.12em] text-white/42">Prompt</div>
               <div className="mt-2 text-sm leading-relaxed text-white/82">
-                Make a short launch video with a strong hook, clean captions, and a dark look.
+                Make a short launch video with a fast hook, clean captions, and a strong close.
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {["9:16", "Captions", "Fast hook"].map((item) => (
+                {["9:16", "Captions", "Fast edit"].map((item) => (
                   <div key={item} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/74">
                     {item}
                   </div>
@@ -199,7 +198,7 @@ function HeroStudioVisual() {
               </div>
             </div>
 
-            <div className="flex min-h-[340px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
+            <div className="flex min-h-[360px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/60">
               <video
                 src={HOME_GENERATE_PREVIEW}
                 autoPlay
@@ -212,9 +211,85 @@ function HeroStudioVisual() {
               />
             </div>
           </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {["Check it", "Add captions", "Post to channels"].map((item) => (
+              <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/74">
+                <span>{item}</span>
+                <span className="live-dot" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function HomeFact({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
+  return (
+    <article className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.94),rgba(10,13,20,0.92))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+      <div className="text-lg font-semibold tracking-tight text-white/92">{title}</div>
+      <p className="mt-2 text-sm leading-relaxed text-white/64">{text}</p>
+    </article>
+  );
+}
+
+function PathCard({
+  tone,
+  title,
+  text,
+  bullets,
+  href,
+  cta,
+  children,
+}: {
+  tone: "clip" | "generate";
+  title: string;
+  text: string;
+  bullets: string[];
+  href: string;
+  cta: string;
+  children: React.ReactNode;
+}) {
+  const toneClass =
+    tone === "clip"
+      ? "border-cyan-300/18 bg-[linear-gradient(180deg,rgba(13,21,34,0.96),rgba(9,13,20,0.94))]"
+      : "border-amber-300/18 bg-[linear-gradient(180deg,rgba(27,20,11,0.96),rgba(14,10,8,0.94))]";
+
+  return (
+    <article className={`rounded-[32px] border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.34)] ${toneClass}`}>
+      <div className="grid gap-6 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
+        <div>
+          <SectionKicker>{tone === "clip" ? "Clip mode" : "Generate mode"}</SectionKicker>
+          <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">{title}</h3>
+          <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">{text}</p>
+
+          <div className="mt-5 grid gap-2">
+            {bullets.map((item) => (
+              <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/76">
+                <span className="live-dot" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6">
+            <Link href={href} className={tone === "clip" ? "btn-orbito-cta" : "btn-clipforge"}>
+              {cta}
+            </Link>
+          </div>
+        </div>
+
+        <div>{children}</div>
+      </div>
+    </article>
   );
 }
 
@@ -287,55 +362,23 @@ export default function Page() {
     []
   );
 
-  const operatingPoints = useMemo(
+  const trustFacts = useMemo(
     () => [
       {
-        title: "One workflow from idea to post",
-        text: "Clip existing videos or generate new ones, then review and publish from one account.",
+        title: "One login",
+        text: "Clip and Generate work inside the same Orbito account.",
       },
       {
-        title: "Built for short-form channels",
-        text: "Vertical framing, caption workflow, and social posting are designed for TikTok, Reels, and Shorts.",
+        title: "Use your own channels",
+        text: "Make the video, then send it to TikTok, Reels, Shorts, and more.",
       },
       {
-        title: "Try first, upgrade when ready",
-        text: "Free trial first. Pricing is clear before checkout and you can manage billing in-app.",
-      },
-    ],
-    []
-  );
-
-  const trustSignals = useMemo(
-    () => [
-      {
-        title: "Secure billing",
-        text: "Subscriptions and payments are handled through Stripe checkout.",
+        title: "Clear pricing",
+        text: "Start free, see the plans, and upgrade only when you need more.",
       },
       {
-        title: "Cancel anytime",
-        text: "Change plan or cancel from Billing without opening a support ticket.",
-      },
-      {
-        title: "Clear policies",
-        text: "Privacy Policy and Terms are public and linked in the footer.",
-      },
-    ],
-    []
-  );
-
-  const userFeedback = useMemo(
-    () => [
-      {
-        quote: "This replaced my old clip workflow. I upload once, approve, then schedule.",
-        label: "Creator workflow",
-      },
-      {
-        quote: "The split is clear: Orbito for clipping, Labs for prompt-to-video. No confusion now.",
-        label: "Team setup",
-      },
-      {
-        quote: "The best part is speed. I can get from raw content to ready posts in one session.",
-        label: "Daily publishing",
+        title: "Real support",
+        text: "Billing, setup, and product help are easy to reach from the contact page.",
       },
     ],
     []
@@ -347,25 +390,23 @@ export default function Page() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+4.5rem)]">
         <section className="relative pt-2">
-          <div className="grid gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-center">
+          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
             <div data-reveal className="reveal">
-              <SectionKicker>Fast Creation, Real Distribution</SectionKicker>
+              <SectionKicker>One place for short videos</SectionKicker>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                Stop editing for hours.
-                <br />
-                Start posting every day.
+                Make short videos from long videos or simple prompts.
               </h1>
               <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                Orbito turns long-form content into clips. Orbito Labs turns prompts into new videos. One login, one workflow, and faster output for every channel.
+                Use Clip when you already have footage. Use Generate when you want AI to make the video. Both end in the same post flow.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 {startTrialCta("btn-orbito-cta")}
-                <Link href="/labs" className="btn-clipforge">
-                  Try Generate
-                </Link>
                 <Link href="/pricing" className="btn-ghost">
                   See pricing
+                </Link>
+                <Link href="/labs" className="btn-clipforge">
+                  Try Generate
                 </Link>
               </div>
 
@@ -374,7 +415,7 @@ export default function Page() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                {["Secure checkout", "One account for Orbito + Labs", "Post-ready workflow"].map((item) => (
+                {["Clip + Generate", "Ready for social", "Billing by Stripe"].map((item) => (
                   <div key={item} className="signal-chip">
                     <span className="live-dot" />
                     <span>{item}</span>
@@ -394,70 +435,46 @@ export default function Page() {
         </section>
 
         <section className="pt-10">
-          <div className="grid gap-4 lg:grid-cols-3">
-            {trustSignals.map((item) => (
-              <article
-                key={item.title}
-                data-reveal
-                className="reveal rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.94),rgba(10,13,20,0.92))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
-              >
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/22 bg-emerald-300/[0.10] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-100">
-                  <span className="live-dot" />
-                  Trust
-                </div>
-                <h3 className="mt-3 text-xl font-semibold tracking-tight text-white/92">{item.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-white/66">{item.text}</p>
-              </article>
+          <div className="grid gap-4 lg:grid-cols-4">
+            {trustFacts.map((item) => (
+              <div key={item.title} data-reveal className="reveal">
+                <HomeFact title={item.title} text={item.text} />
+              </div>
             ))}
-          </div>
-
-          <div data-reveal className="reveal mt-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.95),rgba(9,12,19,0.93))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-            <div className="text-[11px] uppercase tracking-[0.16em] text-white/46">What Users Like Most</div>
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
-              {userFeedback.map((item) => (
-                <blockquote key={item.quote} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-sm leading-relaxed text-white/82">“{item.quote}”</p>
-                  <footer className="mt-3 text-[11px] uppercase tracking-[0.14em] text-white/45">{item.label}</footer>
-                </blockquote>
-              ))}
-            </div>
           </div>
         </section>
 
         <section id="how-it-works" className="pt-16">
           <div data-reveal className="reveal">
-            <SectionKicker>How Orbito Works</SectionKicker>
+            <SectionKicker>How it works</SectionKicker>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Start with a video or start with an idea.
+              Pick the fast path that fits your day.
             </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
+              Start with a long video if you already filmed something. Start with a prompt if you want AI to make the video for you.
+            </p>
           </div>
 
-          <div className="mt-6 grid gap-4 xl:grid-cols-[1.02fr_0.98fr] xl:items-start">
-            <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="signal-chip border-sky-300/20 bg-sky-300/[0.10] text-sky-100">Clip</div>
-                  <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Start with a long video.</h3>
-                  <p className="mt-2 max-w-md text-sm leading-relaxed text-white/66">
-                    Upload it once. Orbito finds the best parts and turns them into short clips.
-                  </p>
-                </div>
-                <Link href="/how-it-works" className="btn-orbito-cta">
-                  See how it works
-                </Link>
-              </div>
-
-              <div className="mt-6 grid gap-3 lg:grid-cols-[1.14fr_0.86fr]">
-                <div className="rounded-[24px] border border-sky-300/14 bg-[#09121f] p-4">
-                  <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.14em] text-white/46">
-                    <span>Source timeline</span>
+          <div className="mt-6 grid gap-4">
+            <div data-reveal className="reveal">
+              <PathCard
+                tone="clip"
+                title="Have a long video?"
+                text="Paste a link or upload a file. Orbito finds the parts people are most likely to watch."
+                bullets={["Add a link or upload", "Pick the clips you want", "Caption and post from one place"]}
+                href="/app"
+                cta="Open Clip"
+              >
+                <div className="rounded-[28px] border border-sky-300/16 bg-[#09121f] p-5">
+                  <div className="flex items-center justify-between text-[11px] tracking-[0.12em] text-white/46">
+                    <span>Source video</span>
                     <span>12:47</span>
                   </div>
-                  <div className="mt-4 space-y-4">
+                  <div className="mt-5 space-y-4">
                     {[
-                      { label: "Best hook", width: "26%" },
-                      { label: "Story payoff", width: "54%" },
-                      { label: "CTA cut", width: "76%" },
+                      { label: "Best hook", width: "24%" },
+                      { label: "Strong middle", width: "57%" },
+                      { label: "Strong finish", width: "74%" },
                     ].map((item) => (
                       <div key={item.label}>
                         <div className="mb-1.5 text-xs text-white/50">{item.label}</div>
@@ -468,38 +485,24 @@ export default function Page() {
                     ))}
                   </div>
                 </div>
+              </PathCard>
+            </div>
 
-                <div className="grid gap-3">
-                  {["Add a link or upload", "Pick the clips you want", "Send them to post later"].map((item, index) => (
-                    <div key={item} className="rounded-[22px] border border-white/10 bg-black/24 px-4 py-4">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">0{index + 1}</div>
-                      <div className="mt-1.5 text-sm text-white/82">{item}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </article>
-
-            <div className="grid gap-4 self-start">
-              <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">Generate</div>
-                    <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Start with an idea.</h3>
+            <div data-reveal className="reveal">
+              <PathCard
+                tone="generate"
+                title="Only have an idea?"
+                text="Type what you want. Generate makes short videos you can keep, change, and post."
+                bullets={["Write the idea once", "Make different versions fast", "Keep the best one and post it"]}
+                href="/labs"
+                cta="Open Generate"
+              >
+                <div className="rounded-[28px] border border-amber-300/16 bg-[#140f0b] p-4">
+                  <div className="mb-3 flex items-center justify-between text-[11px] tracking-[0.12em] text-white/46">
+                    <span>Prompt preview</span>
+                    <span>9:16</span>
                   </div>
-                  <Link href="/labs" className="btn-clipforge">
-                    Try Generate
-                  </Link>
-                </div>
-
-                <div className="mt-5 grid gap-3 sm:grid-cols-[0.84fr_1.16fr]">
-                  <div className="rounded-[22px] border border-white/10 bg-black/24 p-4">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">Prompt</div>
-                    <div className="mt-2 text-sm leading-relaxed text-white/82">
-                      Make a short launch video with bold captions and a clean dark style.
-                    </div>
-                  </div>
-                  <div className="flex min-h-[260px] items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-black/58">
+                  <div className="flex h-[340px] items-center justify-center overflow-hidden rounded-[22px] border border-white/10 bg-black/60">
                     <video
                       src={HOME_GENERATE_PREVIEW}
                       autoPlay
@@ -512,55 +515,60 @@ export default function Page() {
                     />
                   </div>
                 </div>
-              </article>
+              </PathCard>
+            </div>
+          </div>
 
-              <article data-reveal className="reveal self-start rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-                <div className="signal-chip">Same next step</div>
-                <h3 className="mt-3 text-[30px] font-semibold tracking-tight text-white/94">Both end in the same place.</h3>
-                <div className="mt-4 grid gap-2">
-                  {["Check it", "Add captions", "Post later"].map((item) => (
-                    <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/74">
-                      <span>{item}</span>
-                      <span className="live-dot" />
-                    </div>
-                  ))}
-                </div>
-              </article>
+          <div data-reveal className="reveal mt-4 rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.96),rgba(10,13,20,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
+            <div className="grid gap-4 md:grid-cols-[0.84fr_1.16fr] md:items-center">
+              <div>
+                <SectionKicker>Same next step</SectionKicker>
+                <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
+                  Both paths end in the same clean finish.
+                </h3>
+                <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/64 sm:text-base">
+                  Check the video, add captions if you want them, and post when you are ready.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {["Check it", "Add captions", "Post now or later"].map((item) => (
+                  <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/76">
+                    <span>{item}</span>
+                    <span className="live-dot" />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         <section className="pt-16">
-          <div className="grid gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-            <div data-reveal className="reveal">
-              <SectionKicker>Why This Is Easier</SectionKicker>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                One account. Less mess.
-              </h2>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                You do not need to jump between tools to get short videos done.
+          <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+            <div data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.96),rgba(10,13,20,0.93))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.32)]">
+              <SectionKicker>Simple pricing</SectionKicker>
+              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">
+                Start free. Move up only when you need more.
+              </h3>
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
+                Try both paths first. Then pick Clip if you work from footage, or Generate if you want AI to make the video.
               </p>
-
               <div className="mt-6 flex flex-wrap gap-3">
-                {startTrialCta("btn-orbito-cta")}
-                <Link href="/pricing" className="btn-ghost">
-                  See pricing
+                <Link href="/pricing" className="btn-orbito-cta">
+                  View pricing
                 </Link>
+                {startTrialCta("btn-ghost")}
               </div>
             </div>
 
-            <div data-reveal className="reveal space-y-6">
-              {operatingPoints.map((item, index) => (
-                <div key={item.title} className="border-b border-white/10 pb-6 last:border-b-0 last:pb-0">
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-xs font-semibold text-white/72">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="text-2xl font-semibold tracking-tight text-white/92">{item.title}</div>
-                      <div className="mt-2 max-w-2xl text-sm leading-relaxed text-white/64">{item.text}</div>
-                    </div>
-                  </div>
+            <div data-reveal className="reveal grid gap-3 sm:grid-cols-3">
+              {[
+                { title: "Free trial", text: "Try Clip and Generate before you pay." },
+                { title: "Clip starts at $15", text: "Best if you already have long videos." },
+                { title: "Generate starts at $39", text: "Best if you want AI to make the video." },
+              ].map((item) => (
+                <div key={item.title} className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-lg font-semibold tracking-tight text-white/90">{item.title}</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
                 </div>
               ))}
             </div>
@@ -568,15 +576,15 @@ export default function Page() {
         </section>
 
         <section className="pt-16">
-          <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,21,31,0.96),rgba(11,14,22,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-            <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr]">
+          <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.96),rgba(10,13,20,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
+            <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr] xl:items-center">
               <div>
-                <SectionKicker>Whop If You Want It</SectionKicker>
+                <SectionKicker>Whop is optional</SectionKicker>
                 <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Keep earning tools separate.
+                  Make the video here. Use Whop later if you want.
                 </h2>
                 <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                  Orbito is for making videos. Whop is there later if you want to try making money from them.
+                  Orbito is for making videos. Whop is a different site you can try later if you want a money path too.
                 </p>
                 <div className="mt-5">
                   <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-ghost">
@@ -587,13 +595,12 @@ export default function Page() {
 
               <div className="grid gap-3 sm:grid-cols-3">
                 {[
-                  { title: "Make", text: "Create clips or AI videos in Orbito." },
-                  { title: "Post", text: "Get them ready for your channels." },
-                  { title: "Earn", text: "Use Whop later if you want to try it." },
+                  { title: "Make", text: "Clip long videos or make new ones with AI." },
+                  { title: "Post", text: "Get them ready for your channels from one place." },
+                  { title: "Earn", text: "Open Whop later if that part matters to you." },
                 ].map((item) => (
                   <div key={item.title} className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.title}</div>
-                    <div className="mt-2 text-2xl font-semibold tracking-tight text-white/90">{item.title}</div>
+                    <div className="text-lg font-semibold tracking-tight text-white/90">{item.title}</div>
                     <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
                   </div>
                 ))}
@@ -603,65 +610,13 @@ export default function Page() {
         </section>
 
         <section className="pt-16">
-          <div className="grid gap-4 xl:grid-cols-2">
-            <article data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,19,28,0.96),rgba(10,13,19,0.93))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)]">
-              <SectionKicker>Pick Your Path</SectionKicker>
-              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">Use Orbito if you already have videos.</h3>
-              <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
-                Upload once, review the strongest moments, and schedule posts across your channels.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {["Source upload", "Clip approval", "Schedule + publish"].map((item) => (
-                  <div key={item} className="signal-chip">
-                    <span className="live-dot" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/app" className="btn-orbito-cta">
-                  Open Console
-                </Link>
-                <Link href="/how-it-works" className="btn-ghost">
-                  View walkthrough
-                </Link>
-              </div>
-            </article>
-
-            <article data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,19,12,0.96),rgba(13,10,8,0.94))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)]">
-              <SectionKicker>Need New Videos?</SectionKicker>
-              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">Use Labs if you want prompt-to-video generation.</h3>
-              <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
-                Write the idea, generate variations, and push the finished videos into your posting workflow.
-              </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {["Prompt to video", "Style presets", "Export or publish"].map((item) => (
-                  <div key={item} className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">
-                    <span className="live-dot" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/labs" className="btn-clipforge">
-                  Open Labs
-                </Link>
-                <Link href="/pricing" className="btn-ghost">
-                  See plan options
-                </Link>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section className="pt-16">
           <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,27,0.96),rgba(9,12,18,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-            <SectionKicker>Ready To Start</SectionKicker>
+            <SectionKicker>Ready to start</SectionKicker>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Built to earn trust before asking for the upgrade.
+              Make your next short video today.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Start with the free trial, validate your workflow, then scale only when the output quality and posting speed make sense for you.
+              Start with a long video or a simple prompt. Keep the version you like, then post it.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               {startTrialCta("btn-orbito-cta")}

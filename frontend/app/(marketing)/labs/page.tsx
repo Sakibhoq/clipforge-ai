@@ -88,7 +88,7 @@ function GenerateBackdrop() {
 
 function SectionKicker({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/62">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-medium tracking-[0.04em] text-white/72">
       <span className="h-1.5 w-1.5 rounded-full bg-amber-300/80" />
       <span>{children}</span>
     </div>
@@ -229,10 +229,10 @@ export default function LabsMarketingPage() {
                 <div>
                   <SectionKicker>Orbito Generate</SectionKicker>
                   <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                    Make short videos without filming first.
+                    Turn a simple idea into a short video.
                   </h1>
                   <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                    Type an idea and let Orbito make the video. It uses the same account as Clip.
+                    Type what you want to say. Orbito Generate makes the video, and you can post it from the same account you use for Clip.
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -252,7 +252,7 @@ export default function LabsMarketingPage() {
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-2">
-                    {["Type an idea", "Same account", "Ready to post"].map((item) => (
+                    {["Type once", "Same account", "Ready to post"].map((item) => (
                       <div key={item} className="signal-chip">
                         <span className="live-dot" />
                         <span>{item}</span>
@@ -326,10 +326,10 @@ export default function LabsMarketingPage() {
                 <div>
                   <SectionKicker>Where Generate Fits</SectionKicker>
                   <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                    Generate is part of Orbito.
+                    Same account. Same post flow.
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                    Use Clip when you have a video. Use Generate when you only have an idea.
+                    Use Clip when you have a video. Use Generate when you want AI to build the video for you.
                   </p>
                 </div>
 
@@ -341,11 +341,11 @@ export default function LabsMarketingPage() {
                     },
                     {
                       title: "Made for short videos",
-                      text: "The styles and sizes are built for TikTok, Reels, and Shorts.",
+                      text: "The styles and sizes are made for TikTok, Reels, Shorts, and other social posts.",
                     },
                     {
-                      title: "Type it. Make it.",
-                      text: "Start with an idea, keep the best version, then post it.",
+                      title: "Type it. Make it. Post it.",
+                      text: "Start with an idea, keep the best version, and move it into the same finish flow.",
                     },
                   ].map((item, index) => (
                     <div key={item.title} className="relative pl-8">

@@ -15,7 +15,7 @@ function Logo() {
   const isLabsMarketing = pathname === "/labs";
 
   const logoSrc = "/orbito-mark.svg?v=orb-2";
-  const modeBadge = inApp ? null : isLabsMarketing ? "GENERATE" : "CONTENT STUDIO";
+  const modeBadge = null;
 
   const markBoxClass = inApp ? "h-16 w-16" : "h-11 w-11";
   const markImgSize = inApp ? 42 : 34;
@@ -335,13 +335,7 @@ export default function Navbar() {
   const labsPlanAccess = hasLabsFeatureAccess(me?.plan);
   const trialLocked = Boolean(me?.trial_used);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
-  const whopLabel = authed ? (
-    <span className="whop-word">Whop</span>
-  ) : (
-    <>
-      Earn with <span className="whop-word">Whop</span>
-    </>
-  );
+  const whopLabel = <span className="whop-word">Whop</span>;
 
   async function logout() {
     try {
@@ -445,7 +439,7 @@ export default function Navbar() {
   const labsNavTitle = inApp
     ? "Open Orbito Generate"
     : isLabsMarketing
-      ? "Open Orbito clipping"
+      ? "Back to Orbito Clip"
       : "Open Orbito Generate";
   const labsDesktopButtonClass = inApp
     ? "inline-flex btn-clipforge text-xs"
@@ -457,7 +451,7 @@ export default function Navbar() {
     : isLabsMarketing
       ? "btn-orbito-cta w-full text-xs"
       : "btn-clipforge w-full text-xs";
-  const labsButtonText = inApp ? "Generate" : isLabsMarketing ? "Clip Mode" : "Generate";
+  const labsButtonText = inApp ? "Generate" : isLabsMarketing ? "Back to Clip" : "Generate";
   const whopDesktopButtonClass = "hidden xl:inline-flex btn-ghost text-xs";
   const whopMobileButtonClass = "btn-ghost w-full text-xs";
 

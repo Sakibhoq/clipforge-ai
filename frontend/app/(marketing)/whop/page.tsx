@@ -39,15 +39,15 @@ export default function WhopPage() {
             <div>
               <div className="signal-chip">
                 <span className="live-dot" />
-                <span>Extra option</span>
+                <span>Optional</span>
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold leading-[1.06] tracking-tight text-white/95 sm:text-5xl">
-                Make the video in Orbito. Use <span className="whop-word">Whop</span> later if you want.
+                Orbito makes the video. <span className="whop-word">Whop</span> is optional.
               </h1>
 
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/72 sm:text-base">
-                Orbito is for making videos. Whop is only there if you want to try earning from them.
+                Use Orbito to make and post the video. Open Whop later only if you want to try the money side too.
               </p>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -99,7 +99,7 @@ export default function WhopPage() {
               <div>
                 <div className="signal-chip">Clear split</div>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">
-                  Keep the jobs separate.
+                  Two different jobs. Two different sites.
                 </h2>
               </div>
 

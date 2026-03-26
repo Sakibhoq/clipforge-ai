@@ -21,10 +21,6 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
-function H({ children }: { children: React.ReactNode }) {
-  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
-}
-
 function HoverSheen() {
   return (
     <>
@@ -526,17 +522,17 @@ export default function ContactPage() {
             <div className="mt-4 grid gap-6 md:grid-cols-[0.96fr_1.04fr] md:items-start">
               <div>
                 <h1 className="text-[34px] leading-[1.04] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Need help with <span className="grad-text">Orbito</span>?
+                  Need help? Send us a message.
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Ask about setup, clips, Generate, billing, posting, or credits. Send us a simple message and we will help.
+                  Ask about setup, clips, Generate, billing, posting, or credits. Keep it simple. We will read it and help.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
                   <span className="signal-chip">Reply in 24 hours</span>
                   <span className="signal-chip">Billing and setup help</span>
-                  <span className="signal-chip">Screenshots welcome</span>
+                  <span className="signal-chip">Screenshots help</span>
                 </div>
 
                 <div className="mt-7">
@@ -565,8 +561,8 @@ export default function ContactPage() {
                   <HoverSheen />
                   <div className="relative">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="text-sm font-semibold">Message support</div>
+                        <div>
+                        <div className="text-sm font-semibold">Talk to support</div>
                         <p className="mt-1.5 text-sm leading-relaxed text-white/60">
                           Send a message and our team will see it.
                         </p>

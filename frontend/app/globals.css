@@ -547,7 +547,10 @@ textarea {
 .surface-soft {
   border-radius: var(--r-md);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.02);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .surface-inset {
@@ -607,10 +610,10 @@ textarea {
   border-radius: 32px;
   border: 1px solid rgba(255, 255, 255, 0.11);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
-    linear-gradient(180deg, rgba(14, 18, 29, 0.96), rgba(8, 11, 18, 0.94));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.014)),
+    linear-gradient(180deg, rgba(18, 23, 35, 0.96), rgba(8, 11, 18, 0.94));
   box-shadow:
-    0 30px 110px rgba(0, 0, 0, 0.46),
+    0 24px 88px rgba(0, 0, 0, 0.40),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     inset 0 -1px 0 rgba(255, 255, 255, 0.02);
 }
@@ -665,20 +668,19 @@ textarea {
   align-items: center;
   gap: 0.5rem;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
   padding: 0.45rem 0.8rem;
   font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 550;
+  letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.76);
 }
 
 .metric-chip {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   padding: 0.85rem 0.95rem;
 }
 
@@ -691,8 +693,7 @@ textarea {
 .metric-chip .label {
   margin-top: 0.25rem;
   font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: rgba(255, 255, 255, 0.46);
 }
 
@@ -765,11 +766,11 @@ textarea {
 }
 
 .motion-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-6px);
+  border-color: rgba(255, 255, 255, 0.20);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 18px 48px rgba(0, 0, 0, 0.34);
+    0 22px 54px rgba(0, 0, 0, 0.34);
 }
 
 .float-card {
