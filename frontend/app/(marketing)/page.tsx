@@ -17,6 +17,7 @@ const GENERATE_PREVIEWS = [
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
+    shiftY: "0%",
   },
   {
     title: "Cartoon",
@@ -24,7 +25,8 @@ const GENERATE_PREVIEWS = [
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
     objectPosition: "center center",
-    zoom: 1.08,
+    zoom: 1.72,
+    shiftY: "-9%",
   },
   {
     title: "Anime",
@@ -33,6 +35,7 @@ const GENERATE_PREVIEWS = [
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
+    shiftY: "0%",
   },
   {
     title: "Comic",
@@ -41,6 +44,7 @@ const GENERATE_PREVIEWS = [
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
+    shiftY: "0%",
   },
 ] as const;
 
@@ -180,6 +184,11 @@ function LandingFX() {
           background-size: 260% 100%;
           animation: lineShift 6.2s linear infinite, lineHue 11s ease-in-out infinite;
         }
+        .orbito-card-rail {
+          left: 50%;
+          transform: translateX(-50%);
+          width: 80%;
+        }
         .orbito-flow-scene {
           animation: lineHue 8.5s ease-in-out infinite;
           will-change: transform, filter;
@@ -274,7 +283,15 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 
 function FlowLines() {
   return (
-    <div className="relative h-[260px] w-full overflow-hidden">
+    <div className="relative left-1/2 h-[300px] w-screen -translate-x-1/2 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(1200px 280px at 50% 48%, rgba(167,139,250,0.16), transparent 72%), radial-gradient(960px 240px at 18% 52%, rgba(125,211,252,0.14), transparent 70%), radial-gradient(960px 220px at 82% 52%, rgba(251,191,36,0.12), transparent 72%)",
+        }}
+      />
       <div className="orbito-flow-scene absolute inset-0 opacity-[0.9]">
         <svg viewBox="0 0 1800 320" className="h-full w-full overflow-visible">
           <defs>
@@ -363,12 +380,6 @@ function FlowLines() {
 }
 
 function HeroShowcase() {
-  const scanItems = [
-    { label: "Hook strength", score: 82 },
-    { label: "Story clarity", score: 64 },
-    { label: "Call to action", score: 78 },
-  ];
-
   return (
     <div className="group orbito-breath surface-soft relative overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)] md:p-6">
       <HoverSheen />
@@ -380,7 +391,7 @@ function HeroShowcase() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-8 left-[-16%] w-[42%] rounded-full bg-sky-300/10 blur-3xl"
       />
-      <div className="orbito-top-rail absolute left-1/2 top-4 h-[4px] w-[88%] -translate-x-1/2 rounded-full opacity-90" />
+      <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-90" />
 
       <div className="relative pt-5">
         <div className="flex items-center justify-between text-xs text-white/58">
@@ -391,83 +402,49 @@ function HeroShowcase() {
           </span>
         </div>
 
-        <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-          <div className="flex items-center justify-between text-xs text-white/52">
-            <span className="font-medium text-white/74">Source scan</span>
-            <span>12:47 uploaded</span>
-          </div>
-
-          <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-3">
-            {[
-              { k: "Hook candidates", v: "34 found" },
-              { k: "Best section", v: "00:43 - 01:18" },
-              { k: "Fastest cut", v: "17 sec" },
-            ].map((item) => (
-              <div key={item.k} className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">
-                <div className="text-white/48">{item.k}</div>
-                <div className="mt-1 text-white/82">{item.v}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {scanItems.map((item) => (
-              <div key={item.label}>
-                <div className="mb-1.5 flex items-center justify-between text-xs text-white/60">
-                  <span>{item.label}</span>
-                  <span>{item.score}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="orbito-hero-rail h-full rounded-full"
-                    style={{ width: `${item.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex items-center justify-between text-xs text-white/52">
-              <span className="text-white/74">Clips ready</span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
-                live queue
-              </span>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between text-xs text-white/56">
+              <span>Clip studio</span>
+              <span>12:47 source</span>
             </div>
-            <div className="mt-3 space-y-2">
+            <div className="mt-2 text-lg font-semibold text-white/92">Upload once. Approve fast.</div>
+            <div className="mt-3 space-y-2.5">
               {[
-                { title: "Hook clip", status: "Ready" },
-                { title: "Story clip", status: "Ready" },
-                { title: "CTA clip", status: "Draft" },
+                { name: "Hook moment", range: "00:43 - 01:18", score: 82 },
+                { name: "Story moment", range: "03:11 - 03:42", score: 64 },
+                { name: "CTA moment", range: "11:58 - 12:17", score: 78 },
               ].map((item) => (
-                <div key={item.title} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-white/80">
-                  <span>{item.title}</span>
-                  <span className="inline-flex items-center gap-2 text-[11px] text-white/62">
-                    <span className={item.status === "Ready" ? "h-1.5 w-1.5 rounded-full bg-emerald-300/70" : "h-1.5 w-1.5 rounded-full bg-amber-300/70"} />
-                    {item.status}
-                  </span>
+                <div key={item.name} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2.5">
+                  <div className="flex items-center justify-between text-xs text-white/74">
+                    <span>{item.name}</span>
+                    <span>{item.range}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="orbito-hero-rail h-full rounded-full" style={{ width: `${item.score}%` }} />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-sky-300/18 bg-[linear-gradient(140deg,rgba(96,165,250,0.10),rgba(167,139,250,0.08),rgba(45,212,191,0.07))] p-4">
-            <div className="text-xs text-white/52">Publishing pulse</div>
-            <div className="mt-2 text-lg font-semibold text-white/92">Keep consistency high, and growth follows.</div>
+          <div className="rounded-[24px] border border-sky-300/18 bg-[linear-gradient(140deg,rgba(96,165,250,0.12),rgba(167,139,250,0.10),rgba(45,212,191,0.08))] p-4">
+            <div className="text-xs text-white/56">Publishing pulse</div>
+            <div className="mt-2 text-xl font-semibold text-white/92">Consistency drives growth.</div>
             <div className="mt-3 space-y-2">
               {[
-                { label: "Posting rhythm", value: "Daily flow" },
-                { label: "Cross-channel ready", value: "4 platforms" },
-                { label: "Clip turnaround", value: "Minutes, not hours" },
+                { label: "Queue", value: "3 clips ready" },
+                { label: "Channels", value: "TikTok • Reels • Shorts" },
+                { label: "Turnaround", value: "Minutes, not hours" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/74">
                   <span>{item.label}</span>
                   <span className="text-white/90">{item.value}</span>
                 </div>
               ))}
+            </div>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-xs text-white/72">
+              Open Whop only when you want payouts. Keep Orbito as your core clip engine.
             </div>
           </div>
         </div>
@@ -574,7 +551,7 @@ function GenerateStage({
                     style={{
                       objectFit: "cover",
                       objectPosition: activePreview.objectPosition,
-                      transform: `scale(${activePreview.zoom})`,
+                      transform: `translateY(${activePreview.shiftY}) scale(${activePreview.zoom})`,
                     }}
                   />
                 </div>
@@ -719,10 +696,10 @@ export default function Page() {
                     <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
                   </div>
 
-                  <h1 className="mt-5 max-w-3xl pb-2 text-3xl font-semibold leading-[1.08] tracking-tight sm:text-4xl md:text-[5.2rem]">
+                  <h1 className="mt-5 max-w-3xl pb-2 text-3xl font-semibold leading-[1.08] tracking-tight sm:text-4xl md:text-[5.4rem]">
                     <span className="block">Stop editing.</span>
                     <span className="mt-1 block">
-                      Start <H>making clips that pay.</H>
+                      Start <H>making clips that pay</H>
                     </span>
                   </h1>
 
@@ -756,8 +733,8 @@ export default function Page() {
           </div>
         </section>
 
-        <section aria-hidden="true" className="pointer-events-none -mt-2 hidden sm:block">
-          <div data-reveal className="reveal relative left-1/2 w-screen -translate-x-1/2 opacity-[0.92]">
+        <section aria-hidden="true" className="pointer-events-none -mb-24 -mt-6 hidden sm:block">
+          <div data-reveal className="reveal opacity-[0.92]">
             <FlowLines />
           </div>
         </section>
@@ -779,7 +756,7 @@ export default function Page() {
               className="reveal group surface-soft relative overflow-hidden rounded-[28px] p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
             >
               <HoverSheen />
-              <div className="orbito-top-rail absolute left-1/2 top-4 h-[4px] w-[86%] -translate-x-1/2 rounded-full opacity-85" />
+              <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-85" />
 
               <div className="relative pt-5">
                 <div className="text-xl font-semibold text-white/92 sm:text-2xl">Upload, pick, post.</div>
