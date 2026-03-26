@@ -15,24 +15,32 @@ const GENERATE_PREVIEWS = [
     text: "Clean and polished for product videos.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4",
     aspect: "9:16",
+    objectPosition: "center center",
+    zoom: 1,
   },
   {
     title: "Cartoon",
     text: "Bright and fun for fast social posts.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
     aspect: "16:9",
+    objectPosition: "center 34%",
+    zoom: 1.24,
   },
   {
     title: "Anime",
     text: "More energy for stronger hooks.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4",
     aspect: "9:16",
+    objectPosition: "center center",
+    zoom: 1,
   },
   {
     title: "Comic",
     text: "Bold and clear for story or promo videos.",
     src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4",
     aspect: "9:16",
+    objectPosition: "center center",
+    zoom: 1,
   },
 ] as const;
 
@@ -137,17 +145,17 @@ function LandingFX() {
           50% { filter: hue-rotate(55deg) saturate(1.14); }
           100% { filter: hue-rotate(0deg) saturate(1); }
         }
-        @keyframes lineFloatA {
-          0%, 100% { transform: translate3d(-8px, 0, 0); }
-          50% { transform: translate3d(16px, -12px, 0); }
+        @keyframes flowDriftA {
+          0%, 100% { transform: translate3d(-10px, 2px, 0); }
+          50% { transform: translate3d(16px, -8px, 0); }
         }
-        @keyframes lineFloatB {
-          0%, 100% { transform: translate3d(10px, 0, 0); }
-          50% { transform: translate3d(-18px, 12px, 0); }
+        @keyframes flowDriftB {
+          0%, 100% { transform: translate3d(8px, -1px, 0); }
+          50% { transform: translate3d(-14px, 10px, 0); }
         }
-        @keyframes lineTrace {
-          0% { stroke-dashoffset: 0; }
-          100% { stroke-dashoffset: -240; }
+        @keyframes flowDriftC {
+          0%, 100% { transform: translate3d(4px, 0, 0); }
+          50% { transform: translate3d(-10px, -6px, 0); }
         }
         @keyframes previewGlow {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
@@ -172,6 +180,13 @@ function LandingFX() {
           background-size: 260% 100%;
           animation: lineShift 6.2s linear infinite, lineHue 11s ease-in-out infinite;
         }
+        .orbito-flow-scene {
+          animation: lineHue 8.5s ease-in-out infinite;
+          will-change: transform, filter;
+        }
+        .orbito-flow-a { animation: flowDriftA 9s ease-in-out infinite; }
+        .orbito-flow-b { animation: flowDriftB 10.5s ease-in-out infinite; }
+        .orbito-flow-c { animation: flowDriftC 12s ease-in-out infinite; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -182,6 +197,10 @@ function LandingFX() {
           .orbito-anim,
           .orbito-hero-rail,
           .orbito-top-rail,
+          .orbito-flow-scene,
+          .orbito-flow-a,
+          .orbito-flow-b,
+          .orbito-flow-c,
           .orbito-preview-shell,
           .orbito-breath {
             animation: none !important;
@@ -256,7 +275,7 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 function FlowLines() {
   return (
     <div className="relative h-[150px] overflow-hidden">
-      <div className="absolute inset-0">
+      <div className="orbito-flow-scene absolute inset-0">
         <svg viewBox="0 0 1200 160" className="h-full w-full overflow-visible">
           <defs>
             <linearGradient id="orb-line-a" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
@@ -276,8 +295,8 @@ function FlowLines() {
               <animate attributeName="x2" values="1200;1380;1200" dur="8s" repeatCount="indefinite" />
             </linearGradient>
             <linearGradient id="orb-line-b" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
-              <stop offset="0%" stopColor="#facc15">
-                <animate attributeName="stop-color" values="#facc15;#fb7185;#facc15" dur="6.2s" repeatCount="indefinite" />
+              <stop offset="0%" stopColor="#fb7185">
+                <animate attributeName="stop-color" values="#fb7185;#facc15;#fb7185" dur="6.2s" repeatCount="indefinite" />
               </stop>
               <stop offset="45%" stopColor="#fb7185">
                 <animate attributeName="stop-color" values="#fb7185;#a78bfa;#fb7185" dur="5.2s" repeatCount="indefinite" />
@@ -285,11 +304,16 @@ function FlowLines() {
               <stop offset="75%" stopColor="#a78bfa">
                 <animate attributeName="stop-color" values="#a78bfa;#7dd3fc;#a78bfa" dur="6.7s" repeatCount="indefinite" />
               </stop>
-              <stop offset="100%" stopColor="#7dd3fc">
-                <animate attributeName="stop-color" values="#7dd3fc;#45d4bf;#7dd3fc" dur="7s" repeatCount="indefinite" />
+              <stop offset="100%" stopColor="#facc15">
+                <animate attributeName="stop-color" values="#facc15;#45d4bf;#facc15" dur="7s" repeatCount="indefinite" />
               </stop>
               <animate attributeName="x1" values="0;-160;0" dur="7.4s" repeatCount="indefinite" />
               <animate attributeName="x2" values="1200;1040;1200" dur="7.4s" repeatCount="indefinite" />
+            </linearGradient>
+            <linearGradient id="orb-line-c" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="0">
+              <stop offset="0%" stopColor="#7dd3fc" />
+              <stop offset="50%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#fb7185" />
             </linearGradient>
             <filter id="orb-line-glow">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -300,52 +324,37 @@ function FlowLines() {
             </filter>
           </defs>
 
-          <g>
+          <g className="orbito-flow-a">
             <path
-              d="M-40 54 C 170 94, 360 112, 610 88 S 1030 44, 1240 70"
+              d="M-40 84 C 170 52, 390 126, 620 88 S 1010 46, 1240 72"
               stroke="url(#orb-line-a)"
+              strokeWidth="4.5"
+              fill="none"
+              filter="url(#orb-line-glow)"
+              opacity="0.96"
+              strokeLinecap="round"
+            />
+          </g>
+          <g className="orbito-flow-b">
+            <path
+              d="M-20 114 C 180 146, 390 44, 650 82 S 1010 130, 1230 102"
+              stroke="url(#orb-line-b)"
               strokeWidth="4"
               fill="none"
               filter="url(#orb-line-glow)"
-              opacity="0.94"
+              opacity="0.9"
               strokeLinecap="round"
-              strokeDasharray="180 28"
-            >
-              <animate attributeName="stroke-dashoffset" values="0;-240" dur="5.6s" repeatCount="indefinite" />
-            </path>
-            <animateTransform attributeName="transform" type="translate" values="-8 0;16 -12;-8 0" dur="7.5s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.84;1;0.84" dur="5.4s" repeatCount="indefinite" />
+            />
           </g>
-          <g>
+          <g className="orbito-flow-c">
             <path
-              d="M-20 126 C 220 92, 390 60, 650 86 S 1010 132, 1230 104"
-              stroke="url(#orb-line-b)"
-              strokeWidth="5"
+              d="M-20 96 C 190 78, 390 102, 640 102 S 1020 86, 1240 90"
+              stroke="url(#orb-line-c)"
+              strokeWidth="2"
               fill="none"
-              filter="url(#orb-line-glow)"
-              opacity="0.92"
+              opacity="0.5"
               strokeLinecap="round"
-              strokeDasharray="220 32"
-            >
-              <animate attributeName="stroke-dashoffset" values="0;260" dur="7.1s" repeatCount="indefinite" />
-            </path>
-            <animateTransform attributeName="transform" type="translate" values="10 0;-18 12;10 0" dur="8.4s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.8;0.96;0.8" dur="6.1s" repeatCount="indefinite" />
-          </g>
-          <g>
-            <path
-              d="M-10 100 C 180 68, 390 128, 640 116 S 1020 74, 1240 90"
-              stroke="url(#orb-line-a)"
-              strokeWidth="2.5"
-              fill="none"
-              opacity="0.46"
-              strokeLinecap="round"
-              strokeDasharray="140 24"
-            >
-              <animate attributeName="stroke-dashoffset" values="0;-180" dur="9.8s" repeatCount="indefinite" />
-            </path>
-            <animateTransform attributeName="transform" type="translate" values="6 0;-12 8;6 0" dur="10.2s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.26;0.54;0.26" dur="7.4s" repeatCount="indefinite" />
+            />
           </g>
         </svg>
       </div>
@@ -361,8 +370,14 @@ function FlowLines() {
 }
 
 function HeroShowcase() {
+  const scanItems = [
+    { label: "Hook strength", score: 82 },
+    { label: "Story clarity", score: 64 },
+    { label: "Call to action", score: 78 },
+  ];
+
   return (
-    <div className="group orbito-breath surface-soft relative overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)]">
+    <div className="group orbito-breath surface-soft relative overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)] md:p-6">
       <HoverSheen />
       <div
         aria-hidden="true"
@@ -385,22 +400,34 @@ function HeroShowcase() {
 
         <div className="mt-4 rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
           <div className="flex items-center justify-between text-xs text-white/52">
-            <span>Source scan</span>
-            <span>12:47 video</span>
+            <span className="font-medium text-white/74">Source scan</span>
+            <span>12:47 uploaded</span>
           </div>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-3">
             {[
-              { label: "Best hook", width: "30%" },
-              { label: "Story payoff", width: "58%" },
-              { label: "Call to action", width: "76%" },
+              { k: "Hook candidates", v: "34 found" },
+              { k: "Best section", v: "00:43 - 01:18" },
+              { k: "Fastest cut", v: "17 sec" },
             ].map((item) => (
+              <div key={item.k} className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">
+                <div className="text-white/48">{item.k}</div>
+                <div className="mt-1 text-white/82">{item.v}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {scanItems.map((item) => (
               <div key={item.label}>
-                <div className="mb-1.5 text-xs text-white/52">{item.label}</div>
+                <div className="mb-1.5 flex items-center justify-between text-xs text-white/60">
+                  <span>{item.label}</span>
+                  <span>{item.score}%</span>
+                </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/8">
                   <div
                     className="orbito-hero-rail h-full rounded-full"
-                    style={{ width: item.width }}
+                    style={{ width: `${item.score}%` }}
                   />
                 </div>
               </div>
@@ -408,20 +435,27 @@ function HeroShowcase() {
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1.02fr_0.98fr]">
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_0.92fr]">
           <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
             <div className="flex items-center justify-between text-xs text-white/52">
-              <span>Clips ready</span>
+              <span className="text-white/74">Clips ready</span>
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
                 live queue
               </span>
             </div>
             <div className="mt-3 space-y-2">
-              {["Hook clip", "Story clip", "CTA clip"].map((item) => (
-                <div key={item} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-white/80">
-                  <span>{item}</span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+              {[
+                { title: "Hook clip", status: "Ready" },
+                { title: "Story clip", status: "Ready" },
+                { title: "CTA clip", status: "Draft" },
+              ].map((item) => (
+                <div key={item.title} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-white/80">
+                  <span>{item.title}</span>
+                  <span className="inline-flex items-center gap-2 text-[11px] text-white/62">
+                    <span className={item.status === "Ready" ? "h-1.5 w-1.5 rounded-full bg-emerald-300/70" : "h-1.5 w-1.5 rounded-full bg-amber-300/70"} />
+                    {item.status}
+                  </span>
                 </div>
               ))}
             </div>
@@ -431,7 +465,7 @@ function HeroShowcase() {
             <div className="text-xs text-white/52">More ways to earn</div>
             <div className="mt-2 text-lg font-semibold text-white/92">Post more. Open more payout chances.</div>
             <div className="mt-2 text-sm leading-relaxed text-white/66">
-              Use Whop when you want the money side. Keep Orbito as the clean clip workflow.
+              Orbito handles the clip flow. Use Whop only when you want the payout side.
             </div>
             <div className="mt-4">
               <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-whop text-xs">
@@ -441,13 +475,13 @@ function HeroShowcase() {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/65">
+        <div className="mt-3 grid gap-2 text-[11px] text-white/65 sm:grid-cols-3">
           {[
             { k: "Start", v: "First clip in minutes" },
             { k: "Reach", v: "TikTok • Reels • Shorts" },
             { k: "Goal", v: "Post more. Earn more." },
           ].map((item) => (
-            <div key={item.k} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">
+            <div key={item.k} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
               <span className="text-white/45">{item.k}</span>
               <span className="mx-2 text-white/25">•</span>
               <span className="text-white/80">{item.v}</span>
@@ -530,7 +564,7 @@ function GenerateStage({
               <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
               <div className="mt-4 mx-auto w-full max-w-[360px]">
-                <div className="aspect-[9/16] overflow-hidden rounded-[24px] border border-white/12 bg-black/60">
+                <div className="aspect-[9/16] overflow-hidden rounded-[24px] border border-white/12 bg-black/75">
                   <video
                     key={activePreview.src}
                     src={activePreview.src}
@@ -539,8 +573,12 @@ function GenerateStage({
                     muted
                     playsInline
                     preload="metadata"
-                    className="h-full w-full"
-                    style={{ objectFit: "cover", objectPosition: "center center" }}
+                    className="h-full w-full transition-transform duration-700"
+                    style={{
+                      objectFit: "cover",
+                      objectPosition: activePreview.objectPosition,
+                      transform: `scale(${activePreview.zoom})`,
+                    }}
                   />
                 </div>
               </div>
@@ -684,10 +722,11 @@ export default function Page() {
                     <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
                   </div>
 
-                  <h1 className="mt-5 max-w-3xl pb-2 text-3xl font-semibold leading-[1.07] tracking-tight sm:text-4xl md:text-[5.8rem]">
-                    Stop editing.
-                    <br />
-                    Start <H>making clips that pay</H>.
+                  <h1 className="mt-5 max-w-3xl pb-2 text-3xl font-semibold leading-[1.08] tracking-tight sm:text-4xl md:text-[5.2rem]">
+                    <span className="block">Stop editing.</span>
+                    <span className="mt-1 block">
+                      Start <H>making clips that pay.</H>
+                    </span>
                   </h1>
 
                   <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
