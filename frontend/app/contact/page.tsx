@@ -21,6 +21,10 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+function H({ children }: { children: React.ReactNode }) {
+  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+}
+
 function HoverSheen() {
   return (
     <>
@@ -29,7 +33,7 @@ function HoverSheen() {
         className="pointer-events-none absolute -inset-10 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100"
         style={{
           background:
-            "radial-gradient(120px 120px at 20% 25%, rgba(82,152,255,0.18), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(255,186,77,0.16), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(44,206,173,0.12), transparent 62%)",
+            "radial-gradient(120px 120px at 20% 25%, rgba(167,139,250,0.20), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.18), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.14), transparent 62%)",
         }}
       />
       <div
@@ -497,58 +501,75 @@ export default function ContactPage() {
 
       {/* PAGE-LEVEL AURORA FIELD (mobile-safe) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0">
-        <div className="absolute inset-0 bg-[#06090f]" />
-        <div className="absolute inset-0 bg-[radial-gradient(1080px_640px_at_16%_10%,rgba(82,152,255,0.20),transparent_68%),radial-gradient(980px_600px_at_84%_12%,rgba(255,186,77,0.18),transparent_70%),radial-gradient(880px_520px_at_50%_78%,rgba(44,206,173,0.08),transparent_72%)]" />
+        <div className="absolute inset-0 bg-black" />
+        <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_20%_14%,rgba(155,140,255,0.30),transparent_66%),radial-gradient(1000px_620px_at_80%_14%,rgba(255,183,3,0.30),transparent_66%),radial-gradient(920px_560px_at_34%_72%,rgba(70,215,255,0.20),transparent_70%),radial-gradient(920px_560px_at_66%_72%,rgba(251,86,7,0.20),transparent_70%),radial-gradient(760px_520px_at_42%_36%,rgba(53,242,166,0.14),transparent_72%),radial-gradient(760px_520px_at_58%_36%,rgba(58,134,255,0.16),transparent_72%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(1000px_620px_at_50%_10%,rgba(255,255,255,0.04),transparent_66%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(4,8,14,0.10),rgba(4,8,14,0.48))]" />
-        <div className="absolute inset-0 opacity-[0.1]">
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.18),rgba(0,0,0,0.48))]" />
+        <div className="absolute inset-0 opacity-[0.18]">
           <div className="aurora" />
         </div>
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10">
-        <section className="studio-frame p-5 sm:p-7 md:p-8">
+      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
+        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
-            <div className="aurora opacity-55" />
+            <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
           </div>
 
           <div className="relative">
-            <div className="signal-chip">
-              <span className="live-dot" />
-              <span>Contact</span>
-            </div>
+            <div className="text-xs text-white/55">• Contact</div>
 
-            <div className="mt-4 grid gap-6 md:grid-cols-[0.96fr_1.04fr] md:items-start">
+            <div className="mt-4 grid gap-10 md:grid-cols-[1.05fr_0.95fr] md:items-start">
+              {/* LEFT */}
               <div>
-                <h1 className="text-[34px] leading-[1.04] font-semibold tracking-tight sm:text-4xl md:text-6xl">
-                  Need help? Send us a message.
+                <h1 className="text-[34px] leading-[1.06] font-semibold tracking-tight sm:text-4xl md:text-6xl">
+                  Need help with <span className="grad-text">Orbito</span>
+                  <span className="text-white/78">/</span>
+                  <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_46%,#3a86ff_100%)] bg-clip-text text-transparent">
+                    Labs
+                  </span>
+                  ?
                 </h1>
 
                 <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/65 md:text-[15px]">
-                  Ask about setup, clips, Generate, billing, posting, or credits. Keep it simple. We will read it and help.
+                  Ask us anything about clipping for <H>YOUTUBE</H>, <H>TIKTOK</H>, <H>REELS</H>, and daily{" "}
+                  <H>POSTS</H>. Support, billing, and setup help are all here.
                 </p>
 
                 <div className="mt-6 flex flex-wrap items-center gap-2">
-                  <span className="signal-chip">Reply in 24 hours</span>
-                  <span className="signal-chip">Billing and setup help</span>
-                  <span className="signal-chip">Screenshots help</span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                    Replies within 24 hours
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
+                    Billing + workflow support
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
+                    Screenshots welcome
+                  </span>
                 </div>
 
                 <div className="mt-7">
                   <div className="text-xs text-white/50">Common topics</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {topics.map((t) => (
-                      <span key={t} className="signal-chip">
+                      <span
+                        key={t}
+                        className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60"
+                      >
                         {t}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-8 flex flex-wrap items-center gap-3">
+                <div className="mt-9 flex flex-wrap items-center gap-3">
                   <Link href="/pricing" className="btn-ghost">
                     View pricing
+                  </Link>
+                  <Link href="/features" className="btn-ghost">
+                    Explore features
                   </Link>
                   <Link href="/" className="btn-ghost">
                     Back to home
@@ -556,92 +577,79 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4">
-                <div className="group studio-frame p-5 md:p-6">
+              {/* RIGHT */}
+              <div className="space-y-4">
+                <div className="group surface-soft relative overflow-hidden p-6 md:p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
+
                   <div className="relative">
                     <div className="flex items-start justify-between gap-4">
-                        <div>
-                        <div className="text-sm font-semibold">Talk to support</div>
-                        <p className="mt-1.5 text-sm leading-relaxed text-white/60">
-                          Send a message and our team will see it.
+                      <div>
+                        <div className="text-sm font-semibold">Message us</div>
+                        <p className="mt-2 text-sm leading-relaxed text-white/60">
+                          Send a quick note and it goes straight to our team.
                         </p>
                       </div>
 
-                      <span className="signal-chip">
-                        <span className="live-dot" />
-                        <span>Online</span>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/55">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                        online
                       </span>
                     </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <div className="metric-chip">
-                        <div className="value">&lt; 24h</div>
-                        <div className="label">Reply Target</div>
-                      </div>
-                      <div className="metric-chip">
-                        <div className="value">support@orbito.cc</div>
-                        <div className="label">Email</div>
-                      </div>
+                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+                      <div className="text-xs text-white/45">Support email</div>
+                      <div className="mt-1 text-sm font-semibold text-white/85">support@orbito.cc</div>
                     </div>
 
-                    <div className="mt-5 flex flex-wrap gap-3">
+                    <div className="mt-6 flex flex-wrap gap-3">
                       <button type="button" className="btn-aurora" onClick={() => setOpen(true)}>
                         Write a message
                       </button>
                     </div>
+
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    { title: "Setup", text: "Account, login, and connection questions." },
-                    { title: "Billing", text: "Plans, credits, and charges." },
-                    { title: "Product", text: "Bugs, video quality, and posting problems." },
-                  ].map((item) => (
-                    <div key={item.title} className="surface-soft motion-card p-4">
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-white/42">{item.title}</div>
-                      <div className="mt-2 text-lg font-semibold text-white/90">{item.title}</div>
-                      <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
+                <div className="group surface-soft relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                  <HoverSheen />
+                  <div className="relative">
+                    <div className="text-xs text-white/50">Frequently asked questions</div>
+                    <div className="mt-3 space-y-2">
+                      {faqs.map((item) => (
+                        <details
+                          key={item.q}
+                          className="group/faq rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
+                        >
+                          <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
+                            <div className="flex items-center justify-between gap-3">
+                              <span>{item.q}</span>
+                              <span className="text-xs text-white/45 transition group-open/faq:rotate-45">+</span>
+                            </div>
+                          </summary>
+                          <div className="mt-2 text-xs leading-relaxed text-white/62">{item.a}</div>
+                        </details>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
+
+            <footer className="pb-10 pt-14 sm:pt-20 text-xs text-white/45">
+              <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {footerLinks.map((i) => (
+                    <a key={i.href} href={i.href} className="hover:text-white/70">
+                      {i.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </footer>
           </div>
         </section>
-
-        <section className="pt-6">
-          <div className="studio-frame p-4 md:p-5">
-            <div className="text-xs text-white/50">Frequently asked questions</div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              {faqs.map((item) => (
-                <details key={item.q} className="group/faq rounded-[24px] border border-white/10 bg-black/25 px-4 py-4">
-                  <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
-                    <div className="flex items-center justify-between gap-3">
-                      <span>{item.q}</span>
-                      <span className="text-xs text-white/45 transition group-open/faq:rotate-45">+</span>
-                    </div>
-                  </summary>
-                  <div className="mt-2 text-sm leading-relaxed text-white/62">{item.a}</div>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <footer className="pb-10 pt-12 text-xs text-white/45 sm:pt-16">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>© 2026 • Orbito by Sakib LLC. All rights reserved.</div>
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {footerLinks.map((i) => (
-                <a key={i.href} href={i.href} className="hover:text-white/70">
-                  {i.label}
-                </a>
-              ))}
-            </div>
-          </div>
-        </footer>
       </main>
 
       <SendMessageModal open={open} onClose={() => setOpen(false)} />

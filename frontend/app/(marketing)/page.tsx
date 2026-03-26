@@ -1,12 +1,20 @@
+// frontend/app/(marketing)/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
-import { SocialBrandRow } from "@/components/SocialBrand";
-
+import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 const ORBITO_WHOP_MARKETING_URL = "/whop";
+
+type MeResponse = {
+  name?: string | null;
+  email: string;
+  plan: string;
+  credits: number;
+  trial_used: boolean;
+};
 
 const GENERATE_PREVIEWS = [
   {
@@ -35,13 +43,20 @@ const GENERATE_PREVIEWS = [
   },
 ] as const;
 
-type MeResponse = {
-  name?: string | null;
-  email: string;
-  plan: string;
-  credits: number;
-  trial_used: boolean;
-};
+/* =========================================================
+   Orbito — Landing (Marketing)
+   GOALS (your notes):
+   - Much brighter overall (like how-it-works)
+   - Animated glows/orbs everywhere (but premium, not noisy)
+   - No extra Navbar here (MarketingLayout owns it)
+   - Never create double-scrollbars
+
+   FIX (this pass):
+   - REMOVE styled-jsx usage (<style jsx global>) to avoid Next App Router
+     "client-only" / Server Component parent build error.
+   - Use a plain <style> tag instead (safe in Client Components).
+   - Keep FX layers fixed and non-layout-affecting.
+========================================================= */
 
 function useReveal() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -53,296 +68,280 @@ function useReveal() {
     const items = Array.from(el.querySelectorAll("[data-reveal]"));
     const io = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            (entry.target as HTMLElement).classList.add("in");
-            io.unobserve(entry.target);
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).classList.add("in");
+            io.unobserve(e.target);
           }
         }
       },
       { threshold: 0.14 }
     );
 
-    items.forEach((node) => io.observe(node));
+    items.forEach((n) => io.observe(n));
     return () => io.disconnect();
   }, []);
 
   return ref;
 }
 
-function LandingBackdrop() {
+function H({ children }: { children: React.ReactNode }) {
+  return <span className="grad-text font-semibold tracking-tight">{children}</span>;
+}
+
+function HoverSheen() {
   return (
     <>
-      <style>{`
-        @keyframes orbitoStudioFloat {
-          0% { transform: translate3d(0, 0, 0) scale(1); }
-          50% { transform: translate3d(0, -14px, 0) scale(1.03); }
-          100% { transform: translate3d(0, 0, 0) scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .orbito-studio-anim {
-            animation: none !important;
-          }
-        }
-      `}</style>
-
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(980px_580px_at_14%_8%,rgba(82,152,255,0.18),transparent_68%),radial-gradient(920px_560px_at_86%_10%,rgba(255,186,77,0.14),transparent_70%),radial-gradient(940px_540px_at_50%_88%,rgba(44,206,173,0.08),transparent_72%)]" />
-        <div
-          className="orbito-studio-anim absolute left-[-10%] top-[4%] h-[440px] w-[440px] rounded-full blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(82,152,255,0.18) 0%, rgba(82,152,255,0.05) 38%, transparent 72%)",
-            animation: "orbitoStudioFloat 16s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="orbito-studio-anim absolute right-[-8%] top-[6%] h-[380px] w-[380px] rounded-full blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,186,77,0.16) 0%, rgba(255,186,77,0.05) 40%, transparent 72%)",
-            animation: "orbitoStudioFloat 18s ease-in-out infinite reverse",
-          }}
-        />
-      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-10 hidden opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 sm:block"
+        style={{
+          background:
+            "radial-gradient(120px 120px at 20% 25%, rgba(167,139,250,0.18), transparent 60%), radial-gradient(140px 140px at 80% 30%, rgba(125,211,252,0.15), transparent 62%), radial-gradient(140px 140px at 55% 85%, rgba(45,212,191,0.12), transparent 62%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.24), transparent)",
+        }}
+      />
     </>
   );
 }
 
-function SectionKicker({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-medium tracking-[0.04em] text-white/72">
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
-      <span>{children}</span>
-    </div>
-  );
-}
+function PricingCardGlow({ tone }: { tone: "orbito" | "labs" | "full" }) {
+  const background =
+    tone === "orbito"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(155,140,255,0.14), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(70,215,255,0.12), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(53,242,166,0.09), transparent 72%)"
+      : tone === "labs"
+      ? "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.24), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(251,86,7,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(58,134,255,0.16), transparent 72%)"
+      : "radial-gradient(520px 280px at 18% 14%, rgba(255,183,3,0.20), transparent 68%), radial-gradient(560px 320px at 85% 36%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(520px 320px at 52% 96%, rgba(70,215,255,0.16), transparent 72%)";
 
-function HeadingLine({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`heading-line mt-4 h-[3px] w-24 rounded-full bg-[linear-gradient(90deg,rgba(82,152,255,0.98),rgba(255,186,77,0.94),rgba(44,206,173,0.92))] shadow-[0_0_24px_rgba(82,152,255,0.24)] ${className}`}
+      className="pointer-events-none absolute -inset-12 opacity-75"
+      style={{ background }}
     />
   );
 }
 
-function WorkflowTicker() {
-  const items = [
-    "Upload your video",
-    "Or type your idea",
-    "Find the best hook",
-    "Make more versions",
-    "Add captions",
-    "Post it",
-  ];
+/**
+ * Brighter, more obvious ambient glows:
+ * - FX is fixed (does not affect layout height)
+ * - Content is above it
+ * - No overflow-y / no scroll containers created here
+ */
+function AmbientFX() {
+  const orbs = useMemo(
+    () => [
+      // top area
+      { x: "10%", y: "10%", s: 560, blur: 60, a: 0.24, d: 0.0, t: 22, h: 250 },
+      { x: "78%", y: "12%", s: 520, blur: 58, a: 0.22, d: 1.1, t: 24, h: 210 },
+      { x: "55%", y: "2%", s: 420, blur: 52, a: 0.18, d: 2.2, t: 20, h: 165 },
 
-  return (
-    <div className="marquee-shell rounded-full border border-white/10 bg-black/20 p-2">
-      <div className="marquee-track gap-2">
-        {[...items, ...items].map((item, index) => (
-          <div key={`${item}-${index}`} className="marquee-pill">
-            <span className="live-dot" />
-            <span>{item}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+      // mid / hero
+      { x: "6%", y: "38%", s: 620, blur: 70, a: 0.2, d: 0.8, t: 28, h: 225 },
+      { x: "86%", y: "42%", s: 680, blur: 74, a: 0.19, d: 1.8, t: 30, h: 290 },
+      { x: "52%", y: "44%", s: 760, blur: 86, a: 0.18, d: 2.7, t: 34, h: 190 },
+
+      // lower sections
+      { x: "14%", y: "72%", s: 760, blur: 88, a: 0.16, d: 1.6, t: 36, h: 240 },
+      { x: "86%", y: "78%", s: 860, blur: 96, a: 0.14, d: 3.2, t: 38, h: 205 },
+      { x: "46%", y: "88%", s: 940, blur: 110, a: 0.12, d: 2.4, t: 40, h: 175 },
+    ],
+    []
   );
-}
 
-function PreviewWall({
-  compact = false,
-  title = "Preview wall",
-}: {
-  compact?: boolean;
-  title?: string;
-}) {
+  const motes = useMemo(() => {
+    const pts: Array<{ x: string; y: string; d: number; t: number; o: number; s: number }> = [];
+    const seed = [
+      [8, 18],
+      [16, 28],
+      [26, 14],
+      [34, 34],
+      [44, 22],
+      [56, 16],
+      [66, 28],
+      [76, 18],
+      [88, 26],
+      [18, 56],
+      [30, 50],
+      [42, 60],
+      [58, 54],
+      [72, 62],
+      [86, 56],
+      [22, 86],
+      [44, 84],
+      [66, 82],
+      [86, 88],
+    ];
+    for (let i = 0; i < seed.length; i++) {
+      const [x, y] = seed[i];
+      pts.push({
+        x: `${x}%`,
+        y: `${y}%`,
+        d: (i % 9) * 0.55,
+        t: 6.8 + (i % 6) * 1.2,
+        o: 0.22 + (i % 4) * 0.06,
+        s: 1.5 + (i % 3) * 0.7,
+      });
+    }
+    return pts;
+  }, []);
+
   return (
-    <div className="relative rounded-[30px] border border-amber-300/18 bg-[linear-gradient(180deg,rgba(26,20,11,0.96),rgba(14,10,8,0.94))] p-4 shadow-[0_20px_70px_rgba(0,0,0,0.34)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(680px 240px at 10% 0%, rgba(255,186,77,0.10), transparent 62%), radial-gradient(520px 260px at 90% 12%, rgba(58,134,255,0.10), transparent 70%)",
-        }}
-      />
+    <>
+      {/* IMPORTANT: plain <style> (NOT styled-jsx) */}
+      <style>{`
+        @keyframes orbDrift {
+          0% { transform: translate3d(-12px, -12px, 0) scale(0.98); }
+          50% { transform: translate3d(16px, 10px, 0) scale(1.06); }
+          100% { transform: translate3d(-12px, -12px, 0) scale(0.98); }
+        }
+        @keyframes orbPulse {
+          0% { opacity: 0; }
+          14% { opacity: var(--orb-a); }
+          55% { opacity: calc(var(--orb-a) * 0.92); }
+          100% { opacity: 0; }
+        }
+        @keyframes washFloat {
+          0% { transform: translate3d(-2%, -1%, 0) scale(1.04); opacity: 0.14; }
+          100% { transform: translate3d(2.5%, 1.5%, 0) scale(1.12); opacity: 0.22; }
+        }
+        @keyframes sweep {
+          0% { transform: translate3d(-28vw, -4vh, 0) rotate(-10deg); opacity: 0.06; }
+          55% { transform: translate3d(72vw, 10vh, 0) rotate(10deg); opacity: 0.18; }
+          100% { transform: translate3d(120vw, 0vh, 0) rotate(6deg); opacity: 0.06; }
+        }
+        @keyframes mote {
+          0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.85); }
+          18% { opacity: var(--m-o); }
+          60% { opacity: calc(var(--m-o) * 0.55); }
+          100% { opacity: 0; transform: translate3d(0, -12px, 0) scale(1.25); }
+        }
+        .orbito-grain {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+          background-size: 180px 180px;
+          mix-blend-mode: overlay;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .orbito-anim { animation: none !important; }
+        }
+        @media (max-width: 900px), (pointer: coarse) {
+          .orbito-fx-heavy {
+            display: none !important;
+          }
+        }
+      `}</style>
 
-      <div className="relative flex items-center justify-between gap-3 text-sm text-white/56">
-        <span>{title}</span>
-        <span className="signal-chip border-amber-300/22 bg-amber-300/[0.10] text-amber-100">
-          <span className="live-dot" />
-          4 looks live
-        </span>
-      </div>
+      {/* FX layer ABOVE base background but BELOW content */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        {/* brighter base wash */}
+        <div
+          className="orbito-anim orbito-fx-heavy absolute -inset-[45%] blur-3xl"
+          style={{
+            background:
+              "radial-gradient(900px 520px at 18% 18%, rgba(56,130,246,0.48), transparent 64%), radial-gradient(920px 540px at 82% 22%, rgba(129,90,255,0.44), transparent 64%), radial-gradient(980px 580px at 55% 88%, rgba(20,184,166,0.38), transparent 66%)",
+            mixBlendMode: "screen",
+            opacity: 0.22,
+            animation: "washFloat 16s ease-in-out infinite alternate",
+            willChange: "transform, opacity",
+          }}
+        />
 
-      <div className={`relative mt-4 grid gap-3 ${compact ? "sm:grid-cols-2" : "md:grid-cols-2"}`}>
-        {GENERATE_PREVIEWS.map((preview, index) => (
-          <article
-            key={preview.title}
-            className={`preview-card preview-card-${(index % 4) + 1} overflow-hidden rounded-[24px] border border-white/10 bg-black/34 p-3`}
-          >
-            <div className="flex items-center justify-between gap-3 text-[11px] tracking-[0.12em] text-white/50">
-              <span>{preview.title}</span>
-              <span>{preview.aspect}</span>
-            </div>
-
-            <div className={`mt-3 overflow-hidden rounded-[20px] border border-white/10 bg-black/60 ${compact ? "h-[180px]" : "h-[240px]"}`}>
-              <video
-                src={preview.src}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                className="h-full w-full"
-                style={{ objectFit: "cover", objectPosition: "center center" }}
-              />
-            </div>
-
-            <div className="mt-3">
-              <div className="text-sm font-semibold text-white/90">{preview.title} style</div>
-              <div className="mt-1 text-sm leading-relaxed text-white/62">{preview.text}</div>
-            </div>
-          </article>
+        {/* primary orbs */}
+        {orbs.map((o, i) => (
+          <div
+            key={i}
+            className="orbito-anim orbito-fx-heavy absolute rounded-full"
+            style={{
+              left: o.x,
+              top: o.y,
+              width: o.s,
+              height: o.s,
+              opacity: 0,
+              // @ts-ignore
+              ["--orb-a" as any]: o.a,
+              // @ts-ignore
+              ["--orb-blur" as any]: `${o.blur}px`,
+              background: `radial-gradient(circle at 40% 35%,
+                hsla(${o.h}, 96%, 52%, 0.94), transparent 56%),
+                radial-gradient(circle at 70% 55%,
+                hsla(${(o.h + 110) % 360}, 92%, 46%, 0.82), transparent 58%),
+                radial-gradient(circle at 45% 70%,
+                hsla(${(o.h + 220) % 360}, 88%, 40%, 0.66), transparent 60%)`,
+              mixBlendMode: "screen",
+              filter: `blur(${o.blur}px)`,
+              animation: `orbDrift ${o.t}s ease-in-out infinite, orbPulse ${o.t + 10}s ease-in-out infinite`,
+              animationDelay: `${o.d}s, ${o.d * 0.8}s`,
+              transform: "translateZ(0)",
+              willChange: "transform, opacity",
+            }}
+          />
         ))}
-      </div>
-    </div>
-  );
-}
 
-function HeroStudioVisual() {
-  return (
-    <div className="studio-frame p-5 sm:p-6">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(760px 260px at 12% 0%, rgba(255,255,255,0.08), transparent 62%), radial-gradient(660px 340px at 86% 16%, rgba(255,186,77,0.12), transparent 74%), radial-gradient(620px 340px at 12% 86%, rgba(82,152,255,0.14), transparent 74%)",
-        }}
-      />
+        {/* sweeping highlight */}
+        <div
+          className="orbito-anim orbito-fx-heavy absolute left-[-30%] top-[6%] h-[420px] w-[720px] blur-3xl"
+          style={{
+            background:
+              "radial-gradient(closest-side, rgba(180,210,255,0.48), rgba(56,130,246,0.34), rgba(129,90,255,0.22), transparent 72%)",
+            mixBlendMode: "screen",
+            opacity: 0.12,
+            animation: "sweep 14s ease-in-out infinite",
+            willChange: "transform, opacity",
+          }}
+        />
 
-      <div className="relative flex items-center justify-between gap-3 text-sm text-white/56">
-        <span>Inside Orbito</span>
-        <span className="signal-chip border-emerald-300/20 bg-emerald-300/[0.10] text-emerald-100">
-          <span className="live-dot" />
-          Live studio
-        </span>
-      </div>
-
-      <div className="relative mt-5 grid gap-4 xl:grid-cols-[0.66fr_1.34fr]">
-        <div className="rounded-[28px] border border-sky-300/16 bg-[#09111d] p-5">
-          <div className="text-[11px] tracking-[0.12em] text-white/46">Clip flow</div>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-white/92">Upload once. Cut faster.</h3>
-          <p className="mt-2 text-sm leading-relaxed text-white/64">
-            Orbito finds the moments worth posting, then helps you clean them up and publish them.
-          </p>
-
-          <div className="mt-5 space-y-4">
-            {[
-              { label: "Best hook", width: "28%" },
-              { label: "Story payoff", width: "58%" },
-              { label: "Call to action", width: "76%" },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="mb-1.5 text-xs text-white/50">{item.label}</div>
-                <div className="live-bar">
-                  <span style={{ width: item.width }} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 grid gap-2">
-            {["Paste a link", "Pick the best cuts", "Post now or later"].map((item) => (
-              <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/74">
-                <span>{item}</span>
-                <span className="live-dot" />
-              </div>
-            ))}
-          </div>
+        {/* motes */}
+        <div className="hidden sm:block">
+          {motes.map((p, idx) => (
+            <span
+              key={idx}
+              className="orbito-anim absolute rounded-full"
+              style={{
+                left: p.x,
+                top: p.y,
+                width: p.s,
+                height: p.s,
+                background: "rgba(255,255,255,0.92)",
+                boxShadow:
+                  "0 0 14px rgba(125,211,252,0.50), 0 0 22px rgba(167,139,250,0.40), 0 0 34px rgba(45,212,191,0.30)",
+                opacity: 0,
+                // @ts-ignore
+                ["--m-o" as any]: p.o,
+                animation: `mote ${p.t}s ease-in-out infinite`,
+                animationDelay: `${p.d}s`,
+                willChange: "transform, opacity",
+              }}
+            />
+          ))}
         </div>
 
-        <PreviewWall compact title="Generate looks" />
+        {/* grain */}
+        <div className="absolute inset-0 opacity-[0.12] orbito-grain orbito-fx-heavy" />
       </div>
-    </div>
-  );
-}
 
-function HomeFact({
-  title,
-  text,
-}: {
-  title: string;
-  text: string;
-}) {
-  return (
-    <article className="motion-card rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.94),rgba(10,13,20,0.92))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-      <div className="text-lg font-semibold tracking-tight text-white/92">{title}</div>
-      <p className="mt-2 text-sm leading-relaxed text-white/64">{text}</p>
-      <HeadingLine className="mt-5 w-16" />
-    </article>
-  );
-}
-
-function PathCard({
-  tone,
-  title,
-  text,
-  bullets,
-  href,
-  cta,
-  children,
-}: {
-  tone: "clip" | "generate";
-  title: string;
-  text: string;
-  bullets: string[];
-  href: string;
-  cta: string;
-  children: React.ReactNode;
-}) {
-  const toneClass =
-    tone === "clip"
-      ? "border-cyan-300/18 bg-[linear-gradient(180deg,rgba(13,21,34,0.96),rgba(9,13,20,0.94))]"
-      : "border-amber-300/18 bg-[linear-gradient(180deg,rgba(27,20,11,0.96),rgba(14,10,8,0.94))]";
-
-  return (
-    <article className={`rounded-[32px] border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.34)] ${toneClass}`}>
-      <div className="grid gap-6 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
-        <div>
-          <SectionKicker>{tone === "clip" ? "Clip mode" : "Generate mode"}</SectionKicker>
-          <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">{title}</h3>
-          <HeadingLine />
-          <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">{text}</p>
-
-          <div className="mt-5 grid gap-2">
-            {bullets.map((item) => (
-              <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/76">
-                <span className="live-dot" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6">
-            <Link href={href} className={tone === "clip" ? "btn-orbito-cta" : "btn-clipforge"}>
-              {cta}
-            </Link>
-          </div>
+      {/* base background (slightly brighter) */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(1050px_650px_at_50%_10%,rgba(255,255,255,0.03),transparent_66%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_12%_18%,rgba(56,130,246,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_86%_22%,rgba(129,90,255,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 opacity-[0.72] hidden sm:block">
+          <div className="aurora" />
         </div>
-
-        <div>{children}</div>
       </div>
-    </article>
+    </>
   );
 }
 
 export default function Page() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const revealRef = useReveal();
 
   useEffect(() => {
@@ -366,13 +365,25 @@ export default function Page() {
     };
   }, []);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setPreviewIndex((value) => (value + 1) % GENERATE_PREVIEWS.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const trialLocked = Boolean(me?.trial_used);
+  const activePreview = GENERATE_PREVIEWS[previewIndex] || GENERATE_PREVIEWS[0];
 
   const startTrialCta = useMemo(
     () => (className: string) => {
       if (meLoading) {
         return (
-          <button type="button" disabled className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}>
+          <button
+            type="button"
+            disabled
+            className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+          >
             Checking trial…
           </button>
         );
@@ -409,330 +420,404 @@ export default function Page() {
     []
   );
 
-  const trustFacts = useMemo(
+  const heroSteps = useMemo(
     () => [
       {
-        title: "One login",
-        text: "Clip and Generate live inside the same Orbito account.",
+        id: "paste",
+        t: (
+          <>
+            Add your video
+          </>
+        ),
+        d: (
+          <>
+            Paste a YouTube link or upload a file.
+          </>
+        ),
       },
       {
-        title: "Post-ready",
-        text: "Make the video, add captions, and get it ready for social.",
+        id: "generate",
+        t: <>Pick your clips</>,
+        d: <>Orbito finds strong moments. You approve the ones you want.</>,
       },
       {
-        title: "Clear pricing",
-        text: "Start free. Upgrade only when you need more room.",
+        id: "export",
+        t: (
+          <>
+            Share anywhere from Orbito.
+          </>
+        ),
+        d: (
+          <>
+            <SocialBrandRow platforms={["tiktok", "reels", "shorts"]} compact />
+          </>
+        ),
       },
     ],
     []
   );
 
   return (
-    <div ref={revealRef} className="theme-merged relative overflow-x-hidden">
-      <LandingBackdrop />
-
-      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-16 pt-8 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+4.5rem)]">
-        <section className="relative pt-2">
-          <div className="grid gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
-            <div data-reveal className="reveal">
-              <SectionKicker>One studio for short videos</SectionKicker>
-              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white/96 sm:text-5xl md:text-6xl">
-                Clip what you filmed.
-                <br />
-                Make what you did not.
-              </h1>
-              <HeadingLine className="w-28" />
-              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/68 sm:text-base">
-                Upload footage or type a prompt. Orbito helps you clip, generate, caption, and post from one clean flow.
-              </p>
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                {startTrialCta("btn-orbito-cta")}
-                <Link href="/pricing" className="btn-ghost">
-                  See pricing
-                </Link>
-                <Link href="/#generate" className="btn-clipforge">
-                  See Generate
-                </Link>
+    // IMPORTANT: no overflow-y/scroll containers here — only document scroll
+    <div ref={revealRef as any} className="relative bg-transparent overflow-x-hidden">
+      <AmbientFX />
+      {/* Content ABOVE FX */}
+      <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
+        {/* HERO */}
+        <section className="relative">
+          <div data-reveal className="reveal relative">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-10 -z-10 opacity-65 blur-3xl"
+              style={{
+                background:
+                  "radial-gradient(720px 360px at 18% 18%, rgba(255,183,3,0.18), transparent 68%), radial-gradient(760px 420px at 82% 22%, rgba(136,120,255,0.20), transparent 70%), radial-gradient(780px 420px at 50% 96%, rgba(70,215,255,0.18), transparent 72%)",
+              }}
+            />
+            <div className="surface-soft relative overflow-hidden p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_28px_rgba(125,211,252,0.20),0_0_44px_rgba(251,146,60,0.14)] sm:p-6 md:p-10">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-[1] rounded-[inherit]">
+                <div
+                  className="absolute -inset-px rounded-[inherit] opacity-90"
+                  style={{
+                    padding: "1px",
+                    background:
+                      "conic-gradient(from 170deg at 50% 50%, rgba(125,211,252,0.95), rgba(167,139,250,0.92), rgba(45,212,191,0.88), rgba(251,146,60,0.92), rgba(125,211,252,0.95))",
+                    WebkitMask:
+                      "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
+                  }}
+                />
+                <div
+                  className="absolute -inset-10 rounded-[inherit] opacity-60 blur-3xl"
+                  style={{
+                    background:
+                      "radial-gradient(460px_180px_at_0%_50%,rgba(125,211,252,0.22),transparent_72%), radial-gradient(460px_180px_at_100%_50%,rgba(251,146,60,0.20),transparent_72%), radial-gradient(560px_220px_at_50%_0%,rgba(167,139,250,0.20),transparent_74%), radial-gradient(560px_220px_at_50%_100%,rgba(45,212,191,0.18),transparent_74%)",
+                  }}
+                />
+              </div>
+              <PricingCardGlow tone="full" />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+                <div className="aurora opacity-38 sm:opacity-48 hidden sm:block" />
+                <div className="absolute inset-0 bg-[radial-gradient(980px_560px_at_35%_25%,rgba(255,255,255,0.05),transparent_64%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(800px_520px_at_80%_40%,rgba(125,211,252,0.045),transparent_64%)]" />
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-2">
-                <SocialBrandRow platforms={["youtube", "tiktok", "reels", "shorts"]} compact />
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {["Clip + Generate", "Ready for social", "Stripe billing"].map((item) => (
-                  <div key={item} className="signal-chip">
-                    <span className="live-dot" />
-                    <span>{item}</span>
+              <div className="relative z-[2] grid gap-6 md:gap-8 md:grid-cols-[1.15fr_0.85fr]">
+                <div>
+                  <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-1.5 py-1 text-[12px] text-white/75">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                    <span className="whitespace-nowrap">Long videos in. Short clips out.</span>
+                    <SocialBrandPill platform="youtube" compact className="-mr-0.5" />
                   </div>
-                ))}
+
+                  <h1 className="mt-5 text-3xl font-semibold leading-[1.06] tracking-tight sm:text-4xl md:text-6xl">
+                    Stop editing. Start <H>earning</H>.
+                  </h1>
+
+                  <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-[15px]">
+                    Clip long videos, post more often, and open Whop when you want the money side. Need fresh videos too? Generate them in the same account.
+                  </p>
+
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                    {startTrialCta("btn-orbito-cta")}
+                    <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-whop">
+                      Get paid with <span className="whop-word">Whop</span>
+                    </Link>
+                    <div className="text-xs text-white/50">Less editing. More posting.</div>
+                  </div>
+
+                  <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-xs text-white/60">
+                    <span className="text-white/75">
+                      Upload once
+                    </span>{" "}
+                    → pick clips → post
+                    <span className="text-white/35"> • </span>
+                    <span className="text-white/70">Need new footage too? Scroll down and generate it.</span>
+                  </div>
+                </div>
+
+                {/* RIGHT PANEL */}
+                <div className="group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1">
+                  <HoverSheen />
+
+                  <div className="relative">
+                    <div className="flex items-center justify-between text-xs text-white/60">
+                      <div>Your simple workflow</div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
+                        active
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      {heroSteps.map((x) => (
+                        <div
+                          key={x.id}
+                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
+                        >
+                          <div className="text-sm font-semibold">{x.t}</div>
+                          <div className="mt-1 text-xs text-white/60">{x.d}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] text-white/65 sm:grid-cols-3">
+                      {[
+                        { k: "Start", v: "First clip in minutes" },
+                        { k: "Channels", v: "TikTok • Reels • Shorts" },
+                        { k: "Routine", v: "Post more often" },
+                      ].map((x) => (
+                        <div
+                          key={x.k}
+                          className="group/mini relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-all duration-300 hover:border-white/20 md:hover:-translate-y-0.5"
+                        >
+                          <HoverSheen />
+                          <div className="relative">
+                            <div className="text-white/50">{x.k}</div>
+                            <div className="mt-1 text-white/80">{x.v}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {/* /RIGHT PANEL */}
               </div>
             </div>
-
-            <div data-reveal className="reveal">
-              <HeroStudioVisual />
-            </div>
-          </div>
-
-          <div data-reveal className="reveal mt-8">
-            <WorkflowTicker />
           </div>
         </section>
 
-        <section className="pt-10">
-          <div className="grid gap-4 lg:grid-cols-3">
-            {trustFacts.map((item) => (
-              <div key={item.title} data-reveal className="reveal">
-                <HomeFact title={item.title} text={item.text} />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="how-it-works" className="pt-16">
+        {/* HOW IT WORKS */}
+        <section id="how-it-works" className="pt-14 sm:pt-16">
           <div data-reveal className="reveal">
-            <SectionKicker>How it works</SectionKicker>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              One tool. Two fast ways in.
-            </h2>
-            <HeadingLine />
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Start with a long video if you already filmed something. Start with a prompt if you want AI to build the video for you.
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">How it works</h2>
+            <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
+              One upload, more clips, and faster posting.
             </p>
           </div>
 
-          <div className="mt-6 grid gap-4">
-            <div data-reveal className="reveal">
-              <PathCard
-                tone="clip"
-                title="Have a long video?"
-                text="Paste a link or upload a file. Orbito finds the parts people are most likely to watch."
-                bullets={["Add a link or upload", "Pick the best cuts", "Caption and post from one place"]}
-                href="/app"
-                cta="Open Clip"
-              >
-                <div className="rounded-[28px] border border-sky-300/16 bg-[#09121f] p-5">
-                  <div className="flex items-center justify-between text-[11px] tracking-[0.12em] text-white/46">
-                    <span>Source video</span>
-                    <span>12:47</span>
-                  </div>
-                  <div className="mt-5 space-y-4">
-                    {[
-                      { label: "Best hook", width: "24%" },
-                      { label: "Strong middle", width: "57%" },
-                      { label: "Strong finish", width: "74%" },
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <div className="mb-1.5 text-xs text-white/50">{item.label}</div>
-                        <div className="live-bar">
-                          <span style={{ width: item.width }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </PathCard>
-            </div>
-
-            <div data-reveal className="reveal">
-              <PathCard
-                tone="generate"
-                title="Only have an idea?"
-                text="Write the idea once. Orbito Generate makes versions you can keep, change, and post."
-                bullets={["Write the idea once", "Pick the look you want", "Keep the best version and post it"]}
-                href="/#generate"
-                cta="See Generate"
-              >
-                <PreviewWall compact title="Live preview wall" />
-              </PathCard>
-            </div>
-          </div>
-        </section>
-
-        <section id="generate" className="pt-16">
-          <div data-reveal className="reveal rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(18,21,31,0.96),rgba(10,13,19,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-            <div className="grid gap-8 xl:grid-cols-[0.78fr_1.22fr] xl:items-start">
-              <div>
-                <SectionKicker>Generate inside Orbito</SectionKicker>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Type it. Pick a look. Keep the best take.
-                </h2>
-                <HeadingLine />
-                <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
-                  Generate is part of the same studio. You do not need a second product or a second workflow.
-                </p>
-
-                <div className="mt-5 grid gap-2">
-                  {[
-                    "Start with a simple prompt",
-                    "Try different looks fast",
-                    "Keep the version that feels right",
-                    "Move it into the same post flow",
-                  ].map((item) => (
-                    <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/76">
-                      <span className="live-dot" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
+          <div className="mt-8 grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+            <div
+              data-reveal
+              className="reveal group surface-soft relative overflow-hidden p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
+            >
+              <PricingCardGlow tone="orbito" />
+              <HoverSheen />
+              <div className="relative">
+                <div className="text-xl font-semibold text-white/90 sm:text-2xl">Upload, pick, post.</div>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">Use one clear flow from source video to final post.</p>
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <SocialBrandRow platforms={["youtube", "tiktok", "instagram", "facebook"]} compact />
                 </div>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {[
-                    { title: "Same account", text: "Clip and Generate stay together." },
-                    { title: "Built for social", text: "Fast hooks, captions, and vertical output." },
-                    { title: "Less tool switching", text: "One place to make and post." },
-                    { title: "More creative range", text: "Real, cartoon, anime, and comic looks." },
-                  ].map((item) => (
-                    <div key={item.title} className="motion-card rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                      <div className="text-lg font-semibold tracking-tight text-white/90">{item.title}</div>
-                      <div className="mt-2 text-sm leading-relaxed text-white/62">{item.text}</div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-xs text-white/50">Step 1</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Upload once</div>
+                    <div className="mt-1 text-xs text-white/60">Paste a link or upload a file.</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="text-xs text-white/50">Step 2</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Pick your clips</div>
+                    <div className="mt-1 text-xs text-white/60">Keep the good moments only.</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:col-span-2">
+                    <div className="text-xs text-white/50">Step 3</div>
+                    <div className="mt-1 text-sm font-semibold text-white/85">Post now or schedule later</div>
+                    <div className="mt-1 text-xs text-white/60">
+                      Post to one platform, or all connected platforms at the same time.
                     </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge">
-                    Open Generate
-                  </Link>
-                  <Link href="/pricing" className="btn-ghost">
-                    See pricing
-                  </Link>
-                </div>
-              </div>
-
-              <div>
-                <PreviewWall title="All preview looks" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="pt-16">
-          <div data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.96),rgba(10,13,20,0.94))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-            <div className="grid gap-4 md:grid-cols-[0.84fr_1.16fr] md:items-center">
-              <div>
-                <SectionKicker>Same finish</SectionKicker>
-                <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
-                  Both paths end in the same clean finish.
-                </h3>
-                <HeadingLine />
-                <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/64 sm:text-base">
-                  Check the video, add captions if you want them, and post when you are ready.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {["Check it", "Add captions", "Post now or later"].map((item) => (
-                  <div key={item} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/76">
-                    <span>{item}</span>
-                    <span className="live-dot" />
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="pt-16">
-          <div className="grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-            <div data-reveal className="reveal rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,19,28,0.96),rgba(10,13,20,0.93))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.32)]">
-              <SectionKicker>Simple pricing</SectionKicker>
-              <h3 className="mt-3 text-3xl font-semibold tracking-tight text-white/94">
-                Start free. Move up when it feels worth it.
-              </h3>
-              <HeadingLine />
-              <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/66 sm:text-base">
-                Try both paths first. Then pick Clip if you work from footage, or Generate if you want AI to make the video.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/pricing" className="btn-orbito-cta">
-                  View pricing
-                </Link>
-                {startTrialCta("btn-ghost")}
-              </div>
-            </div>
-
-            <div data-reveal className="reveal grid gap-3 sm:grid-cols-3">
-              {[
-                { title: "Free trial", text: "Try Clip and Generate before you pay." },
-                { title: "Clip starts at $15", text: "Best if you already have long videos." },
-                { title: "Generate starts at $39", text: "Best if you want AI to make the video." },
-              ].map((item) => (
-                <div key={item.title} className="motion-card rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-lg font-semibold tracking-tight text-white/90">{item.title}</div>
-                  <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
-                  <HeadingLine className="mt-5 w-16" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="pt-16">
-          <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,31,0.96),rgba(10,13,20,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.34)]">
-            <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr] xl:items-center">
-              <div>
-                <SectionKicker>Whop is optional</SectionKicker>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-                  Make here first. Earn later if you want.
-                </h2>
-                <HeadingLine />
-                <p className="mt-4 max-w-md text-sm leading-relaxed text-white/66 sm:text-base">
-                  Orbito is for making videos. Whop is a different site you can try later if you want that part too.
-                </p>
-                <div className="mt-5">
-                  <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-ghost">
-                    See Whop
-                  </Link>
                 </div>
               </div>
+            </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  { title: "Make", text: "Clip long videos or make new ones with AI." },
-                  { title: "Post", text: "Get them ready for your channels from one place." },
-                  { title: "Earn", text: "Open Whop later if that part matters to you." },
-                ].map((item) => (
-                  <div key={item.title} className="motion-card rounded-[24px] border border-white/10 bg-white/[0.03] p-4">
-                    <div className="text-lg font-semibold tracking-tight text-white/90">{item.title}</div>
-                    <div className="mt-2 text-sm leading-relaxed text-white/64">{item.text}</div>
-                    <HeadingLine className="mt-5 w-16" />
+            <div className="grid gap-3">
+              <div
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <PricingCardGlow tone="orbito" />
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-sm font-semibold text-white/90">YouTube, TikTok, Instagram, Facebook</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Connect once in Studio. Then schedule clips across all selected channels.
                   </div>
-                ))}
+                </div>
+              </div>
+
+              <div
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04] md:hover:-translate-y-1"
+              >
+                <PricingCardGlow tone="orbito" />
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-sm font-semibold text-white/90">Publish the same clip everywhere</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Connect channels once, then send approved clips to all selected destinations from one workflow.
+                  </div>
+                  <div className="mt-4 flex items-center gap-2 text-[11px] text-white/55">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80 animate-pulse" />
+                    Studio ready
+                  </div>
+                </div>
+              </div>
+
+              <div
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden p-5 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <PricingCardGlow tone="orbito" />
+                <HoverSheen />
+                <div className="relative">
+                  <div className="text-sm font-semibold text-white/90">Turn your clips into payouts with Whop</div>
+                  <div className="mt-2 text-sm leading-relaxed text-white/65">
+                    Publish strong clips, join campaigns, and start earning from the content you already create.
+                  </div>
+                  <div className="mt-4">
+                    <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-whop text-xs">
+                      Open <span className="whop-word">Whop</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            {startTrialCta("btn-orbito-cta")}
+            <a href="/pricing" className="btn-ghost">
+              View pricing
+            </a>
+            <a href="/contact" className="btn-ghost">
+              Contact
+            </a>
+          </div>
+        </section>
+
+        <section id="generate" className="pt-12 sm:pt-14">
+          <div
+            data-reveal
+            className="reveal relative overflow-hidden rounded-3xl border border-orange-300/55 bg-[linear-gradient(120deg,rgba(255,183,3,0.20),rgba(251,86,7,0.15),rgba(96,165,250,0.16))] p-[1px] shadow-[0_0_0_1px_rgba(251,146,60,0.22),0_0_24px_rgba(251,86,7,0.20),0_0_24px_rgba(96,165,250,0.16)]"
+          >
+            <PricingCardGlow tone="labs" />
+            <div
+              aria-hidden="true"
+              className="absolute -inset-10 opacity-70 blur-2xl"
+              style={{
+                background:
+                  "conic-gradient(from 120deg, rgba(255,183,3,0.28), rgba(251,86,7,0.24), rgba(96,165,250,0.24), rgba(255,183,3,0.28))",
+              }}
+            />
+            <div className="relative rounded-[22px] bg-[linear-gradient(140deg,rgba(16,12,8,0.88),rgba(8,10,20,0.86))] p-6 md:p-7">
+              <div className="grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+                <div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+                    <span className="rounded-full border border-orange-300/55 bg-[linear-gradient(90deg,rgba(255,183,3,0.16),rgba(251,86,7,0.14),rgba(96,165,250,0.14))] px-3 py-1">
+                      Orbito{" "}
+                      <span className="bg-[linear-gradient(90deg,#ffb703_0%,#fb5607_45%,#60a5fa_100%)] bg-clip-text text-transparent">
+                        Generate
+                      </span>
+                    </span>
+                  </div>
+
+                  <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                    Need fresh clips too? Generate them.
+                  </h2>
+                  <p className="mt-3 max-w-xl text-sm text-white/70 sm:text-base">
+                    Type the idea, wait a few seconds, keep the best version, and move it into the same posting flow.
+                  </p>
+
+                  <div className="mt-5 grid gap-3">
+                    {[
+                      "Write one simple prompt",
+                      "Preview one style at a time",
+                      "Keep the version that feels right",
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="relative overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(140deg,rgba(255,183,3,0.08),rgba(251,86,7,0.06),rgba(96,165,250,0.08))] px-4 py-3 text-sm text-white/78"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge">
+                      Open Generate
+                    </Link>
+                    <Link href="/pricing" className="btn-ghost">
+                      View pricing
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="group surface-soft relative overflow-hidden p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]">
+                  <HoverSheen />
+                  <div className="relative">
+                    <div className="flex items-center justify-between text-xs text-white/58">
+                      <span>{activePreview.title} preview</span>
+                      <span>{activePreview.aspect}</span>
+                    </div>
+
+                    <div className="mt-4 overflow-hidden rounded-[24px] border border-white/12 bg-black/60">
+                      <video
+                        key={activePreview.src}
+                        src={activePreview.src}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-[340px] w-full"
+                        style={{ objectFit: "cover", objectPosition: "center center" }}
+                      />
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="text-lg font-semibold text-white/90">{activePreview.title} style</div>
+                      <div className="mt-1 text-sm leading-relaxed text-white/66">{activePreview.text}</div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {GENERATE_PREVIEWS.map((preview, index) => {
+                        const active = index === previewIndex;
+                        return (
+                          <button
+                            key={preview.title}
+                            type="button"
+                            onClick={() => setPreviewIndex(index)}
+                            className={[
+                              "rounded-xl border px-3 py-2 text-left text-xs transition-all",
+                              active
+                                ? "border-orange-300/50 bg-orange-300/[0.12] text-white"
+                                : "border-white/10 bg-white/[0.03] text-white/62 hover:border-white/20 hover:text-white/82",
+                            ].join(" ")}
+                          >
+                            {preview.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="pt-16">
-          <div data-reveal className="reveal rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,27,0.96),rgba(9,12,18,0.94))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.36)]">
-            <SectionKicker>Ready to start</SectionKicker>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
-              Make your next short video today.
-            </h2>
-            <HeadingLine />
-            <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/66 sm:text-base">
-              Start with a long video or a simple prompt. Keep the version you like, then post it.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              {startTrialCta("btn-orbito-cta")}
-              <Link href="/pricing" className="btn-ghost">
-                Compare plans
-              </Link>
-              <Link href="/contact" className="btn-ghost">
-                Talk to support
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <footer className="pb-10 pt-14 text-xs text-white/50 sm:pt-16">
+        {/* FOOTER */}
+        <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              {footerLinks.map((item) => (
-                <a key={item.href} href={item.href} className="hover:text-white/75">
-                  {item.label}
+              {footerLinks.map((i) => (
+                <a key={i.href} href={i.href} className="hover:text-white/75">
+                  {i.label}
                 </a>
               ))}
             </div>
