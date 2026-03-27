@@ -238,11 +238,23 @@ function LandingFX() {
           0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
           50% { transform: translate3d(var(--drift-x, 0px), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
         }
-        @keyframes logoShoot {
-          0% { transform: translate3d(-22vw, -40px, 0) scale(0.74) rotate(-18deg); opacity: 0; }
+        @keyframes logoShootA {
+          0% { transform: translate3d(-24vw, -40px, 0) scale(0.74) rotate(-18deg); opacity: 0; }
           8% { opacity: 0.98; }
           82% { opacity: 0.98; }
-          100% { transform: translate3d(122vw, 34px, 0) scale(1.08) rotate(10deg); opacity: 0; }
+          100% { transform: translate3d(122vw, 36px, 0) scale(1.08) rotate(10deg); opacity: 0; }
+        }
+        @keyframes logoShootB {
+          0% { transform: translate3d(112vw, -60px, 0) scale(0.78) rotate(16deg); opacity: 0; }
+          10% { opacity: 0.98; }
+          80% { opacity: 0.98; }
+          100% { transform: translate3d(-28vw, 48px, 0) scale(1.02) rotate(-8deg); opacity: 0; }
+        }
+        @keyframes logoShootC {
+          0% { transform: translate3d(-18vw, 60px, 0) scale(0.7) rotate(-8deg); opacity: 0; }
+          12% { opacity: 0.98; }
+          78% { opacity: 0.98; }
+          100% { transform: translate3d(118vw, -24px, 0) scale(1.1) rotate(14deg); opacity: 0; }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -296,7 +308,7 @@ function LandingFX() {
           left: -16vw;
           width: 176px;
           height: 176px;
-          animation: logoShoot 6.2s linear infinite;
+          animation: logoShootA 6.2s linear infinite;
           filter: drop-shadow(0 0 36px rgba(129,140,248,0.95)) drop-shadow(0 0 60px rgba(251,146,60,0.84));
           opacity: 0;
           pointer-events: none;
@@ -314,10 +326,10 @@ function LandingFX() {
           background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.62), rgba(167,139,250,0.78), rgba(251,146,60,0.98));
           filter: blur(8px);
         }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 1.5s; top: 30%; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 3s; top: 52%; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 4.5s; top: 74%; }
+        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; animation-name: logoShootA; }
+        .orbito-logo-shooting.delay-2 { animation-delay: 1.6s; top: 30%; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-3 { animation-delay: 3.2s; top: 52%; animation-name: logoShootC; }
+        .orbito-logo-shooting.delay-4 { animation-delay: 4.8s; top: 74%; animation-name: logoShootB; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -684,16 +696,27 @@ function HeroVisual() {
           </div>
 
           <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
-            <video
-              src={HERO_PREVIEW_CLIPS[heroPreviewIndex]}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              className="h-[340px] w-full transition-opacity duration-500"
-              style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.02)" }}
-            />
+            <div className="relative h-[340px] w-full [contain:layout_paint]">
+              {HERO_PREVIEW_CLIPS.map((src, index) => (
+                <video
+                  key={src}
+                  src={src}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  aria-hidden={index !== heroPreviewIndex}
+                  className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: "center center",
+                    transform: "scale(1.02)",
+                    opacity: index === heroPreviewIndex ? 1 : 0,
+                  }}
+                />
+              ))}
+            </div>
             <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
               One workflow. Clip, generate, then publish.
             </div>
@@ -789,25 +812,33 @@ function GenerateStage({
               <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
               <div className="mt-4 mx-auto flex w-full max-w-[360px] items-center justify-center">
-                <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75">
-                  <video
-                    src={activePreview.src}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full transition-transform duration-700"
-                    style={{
-                      objectFit: "cover",
-                      objectPosition: activePreview.objectPosition,
-                      transform: `translateY(${activePreview.shiftY}) scale(${activePreview.zoom})`,
-                    }}
-                  />
+                <div className="relative flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75 [contain:layout_paint]">
+                  {GENERATE_PREVIEWS.map((preview, index) => {
+                    const active = index === previewIndex;
+                    return (
+                      <video
+                        key={preview.title}
+                        src={preview.src}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="auto"
+                        aria-hidden={!active}
+                        className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
+                        style={{
+                          objectFit: "cover",
+                          objectPosition: preview.objectPosition,
+                          transform: `translateY(${preview.shiftY}) scale(${preview.zoom})`,
+                          opacity: active ? 1 : 0,
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="mt-4 min-h-[72px]">
+              <div className="mt-4 min-h-[84px]">
                 <div className="text-lg font-semibold text-white/90">{activePreview.title} style</div>
                 <div className="mt-1 text-sm leading-relaxed text-white/66">{activePreview.text}</div>
               </div>
