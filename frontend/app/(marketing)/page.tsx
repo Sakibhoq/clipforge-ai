@@ -83,26 +83,26 @@ const PREVIEW_GALLERY = [
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const SIDE_SCATTERED_PREVIEWS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "1%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "5%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "12%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "16%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "24%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "28%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "35%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "39%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "47%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "51%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "58%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "62%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "69%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "73%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "80%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "84%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "88%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "90%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "94%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "96%", size: "large", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "2%", size: "large", tilt: "tilt-left", offset: "18px" },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "5%", size: "", tilt: "tilt-right", offset: "74px" },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "11%", size: "", tilt: "tilt-right", offset: "92px" },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "15%", size: "large", tilt: "tilt-left", offset: "26px" },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "22%", size: "", tilt: "tilt-left", offset: "42px" },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "27%", size: "", tilt: "tilt-right", offset: "106px" },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "33%", size: "large", tilt: "tilt-right", offset: "84px" },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "38%", size: "", tilt: "tilt-left", offset: "46px" },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "46%", size: "", tilt: "tilt-left", offset: "114px" },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "50%", size: "", tilt: "tilt-right", offset: "16px" },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "57%", size: "large", tilt: "tilt-right", offset: "28px" },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "61%", size: "", tilt: "tilt-left", offset: "92px" },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "68%", size: "", tilt: "tilt-left", offset: "58px" },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "72%", size: "large", tilt: "tilt-right", offset: "88px" },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "79%", size: "", tilt: "tilt-right", offset: "106px" },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "83%", size: "", tilt: "tilt-left", offset: "38px" },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "87%", size: "large", tilt: "tilt-left", offset: "72px" },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "90%", size: "", tilt: "tilt-right", offset: "116px" },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "93%", size: "", tilt: "tilt-right", offset: "24px" },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "96%", size: "large", tilt: "tilt-left", offset: "54px" },
 ];
 
 type MeResponse = {
@@ -234,11 +234,15 @@ function LandingFX() {
           0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
           50% { transform: translate3d(0, -14px, 0) scale(1.02); }
         }
+        @keyframes sideScatterFloat {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
+          50% { transform: translate3d(var(--drift-x, 0px), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
+        }
         @keyframes logoShoot {
-          0% { transform: translate3d(-18vw, -18px, 0) scale(0.72) rotate(-16deg); opacity: 0; }
-          10% { opacity: 0.96; }
-          72% { opacity: 0.96; }
-          100% { transform: translate3d(112vw, 20px, 0) scale(1) rotate(8deg); opacity: 0; }
+          0% { transform: translate3d(-22vw, -40px, 0) scale(0.74) rotate(-18deg); opacity: 0; }
+          8% { opacity: 0.98; }
+          82% { opacity: 0.98; }
+          100% { transform: translate3d(122vw, 34px, 0) scale(1.08) rotate(10deg); opacity: 0; }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -289,11 +293,11 @@ function LandingFX() {
         }
         .orbito-logo-shooting {
           position: absolute;
-          left: -12vw;
-          width: 112px;
-          height: 112px;
-          animation: logoShoot 8s linear infinite;
-          filter: drop-shadow(0 0 24px rgba(129,140,248,0.9)) drop-shadow(0 0 38px rgba(251,146,60,0.7));
+          left: -16vw;
+          width: 176px;
+          height: 176px;
+          animation: logoShoot 6.2s linear infinite;
+          filter: drop-shadow(0 0 36px rgba(129,140,248,0.95)) drop-shadow(0 0 60px rgba(251,146,60,0.84));
           opacity: 0;
           pointer-events: none;
           will-change: transform, opacity;
@@ -301,19 +305,19 @@ function LandingFX() {
         .orbito-logo-shooting::before {
           content: "";
           position: absolute;
-          left: -280px;
+          left: -420px;
           top: 50%;
-          width: 320px;
-          height: 8px;
+          width: 470px;
+          height: 12px;
           transform: translateY(-50%);
           border-radius: 999px;
-          background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.48), rgba(167,139,250,0.62), rgba(251,146,60,0.9));
-          filter: blur(6px);
+          background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.62), rgba(167,139,250,0.78), rgba(251,146,60,0.98));
+          filter: blur(8px);
         }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 8%; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 2.2s; top: 31%; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 4.6s; top: 56%; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 6.9s; top: 78%; }
+        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; }
+        .orbito-logo-shooting.delay-2 { animation-delay: 1.5s; top: 30%; }
+        .orbito-logo-shooting.delay-3 { animation-delay: 3s; top: 52%; }
+        .orbito-logo-shooting.delay-4 { animation-delay: 4.5s; top: 74%; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -343,6 +347,8 @@ function LandingFX() {
           gap: 24px;
         }
         .orbito-side-item {
+          --tilt: 0deg;
+          --drift-x: 0px;
           width: 186px;
           height: 332px;
           border-radius: 22px;
@@ -350,7 +356,7 @@ function LandingFX() {
           border: 1px solid rgba(255,255,255,0.14);
           background: rgba(7,9,18,0.85);
           box-shadow: 0 22px 60px rgba(0,0,0,0.38);
-          animation: previewFloat 9.5s ease-in-out infinite;
+          animation: sideScatterFloat 9.5s ease-in-out infinite;
         }
         .orbito-side-item.large {
           width: 214px;
@@ -363,10 +369,12 @@ function LandingFX() {
           object-position: center;
         }
         .orbito-side-item.tilt-left {
-          transform: rotate(-3deg);
+          --tilt: -4.5deg;
+          --drift-x: 9px;
         }
         .orbito-side-item.tilt-right {
-          transform: rotate(3deg);
+          --tilt: 4.5deg;
+          --drift-x: -11px;
         }
         .orbito-preview-item video {
           width: 100%;
@@ -382,7 +390,9 @@ function LandingFX() {
           .orbito-hero-rail,
           .orbito-top-rail,
           .orbito-preview-shell,
-          .orbito-breath {
+          .orbito-breath,
+          .orbito-logo-shooting,
+          .orbito-side-item {
             animation: none !important;
           }
         }
@@ -921,10 +931,6 @@ export default function Page() {
         style={{
           top: "420px",
           bottom: "170px",
-          WebkitMaskImage:
-            "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 27%, rgba(0,0,0,0) 73%, rgba(0,0,0,1) 80%, rgba(0,0,0,1) 100%)",
-          maskImage:
-            "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 27%, rgba(0,0,0,0) 73%, rgba(0,0,0,1) 80%, rgba(0,0,0,1) 100%)",
         }}
       >
         {SIDE_SCATTERED_PREVIEWS.map((item, idx) => (
@@ -933,20 +939,10 @@ export default function Page() {
             className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
             style={{
               top: item.top,
-              left:
-                item.side === "left"
-                  ? item.size === "large"
-                    ? "max(12px, calc(50vw - 61rem))"
-                    : "max(24px, calc(50vw - 59rem))"
-                  : undefined,
-              right:
-                item.side === "right"
-                  ? item.size === "large"
-                    ? "max(12px, calc(50vw - 61rem))"
-                    : "max(24px, calc(50vw - 59rem))"
-                  : undefined,
+              left: item.side === "left" ? item.offset : undefined,
+              right: item.side === "right" ? item.offset : undefined,
               animationDelay: `${idx * 0.45}s`,
-              opacity: 0.54,
+              opacity: item.size === "large" ? 0.58 : 0.5,
             }}
           >
             <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
@@ -956,8 +952,8 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 z-[20] hidden overflow-hidden min-[1400px]:block"
-        style={{ top: "420px", bottom: "170px", mixBlendMode: "screen" }}
+        className="pointer-events-none fixed inset-x-0 z-[30] hidden overflow-hidden min-[1280px]:block"
+        style={{ top: "120px", bottom: "40px" }}
       >
         <div className="orbito-logo-shooting delay-1">
           <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
