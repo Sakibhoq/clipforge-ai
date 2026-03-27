@@ -207,6 +207,14 @@ function LandingFX() {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
           50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 36px rgba(125,211,252,0.14), 0 0 48px rgba(251,146,60,0.16); }
         }
+        @keyframes previewMarquee {
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-50%, 0, 0); }
+        }
+        @keyframes previewMarqueeReverse {
+          0% { transform: translate3d(-50%, 0, 0); }
+          100% { transform: translate3d(0, 0, 0); }
+        }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
           50% { transform: translateY(-4px); box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 26px 64px rgba(0,0,0,0.36), 0 0 26px rgba(96,165,250,0.08); }
@@ -256,6 +264,35 @@ function LandingFX() {
         }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
+        }
+        .orbito-preview-marquee {
+          animation: previewMarquee 36s linear infinite;
+          will-change: transform;
+        }
+        .orbito-preview-marquee.reverse {
+          animation: previewMarqueeReverse 36s linear infinite;
+        }
+        .orbito-preview-track {
+          display: flex;
+          width: max-content;
+          gap: 18px;
+          align-items: center;
+          padding: 6px 0;
+        }
+        .orbito-preview-item {
+          width: 140px;
+          height: 248px;
+          border-radius: 18px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(7,9,18,0.85);
+          box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+        }
+        .orbito-preview-item video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
         }
         .orbito-breath {
           animation: panelBreath 8.5s ease-in-out infinite;
@@ -868,7 +905,21 @@ export default function Page() {
           </div>
         </section>
 
-        <section id="how-it-works" className="pt-10 sm:pt-12">
+        <section id="how-it-works" className="relative pt-10 sm:pt-12">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-10 -z-10 hidden h-[320px] overflow-hidden opacity-[0.55] sm:block"
+          >
+            <div className="orbito-preview-marquee">
+              <div className="orbito-preview-track">
+                {PREVIEW_GALLERY.concat(PREVIEW_GALLERY).map((src, idx) => (
+                  <div key={`${src}-${idx}-upper`} className="orbito-preview-item">
+                    <video src={src} autoPlay loop muted playsInline preload="metadata" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl md:text-4xl">
@@ -962,40 +1013,6 @@ export default function Page() {
           </div>
         </section>
 
-        <section className="pt-12 sm:pt-16">
-          <div data-reveal className="reveal">
-            <SectionKicker>Preview feed</SectionKicker>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl md:text-4xl">
-              More clips. More styles. More reasons to hit publish.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base">
-              A fast scroll of what Orbito Generate outputs right now.
-            </p>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {PREVIEW_GALLERY.map((src, idx) => (
-              <div
-                key={`${src}-${idx}`}
-                data-reveal
-                className="reveal group surface-soft relative overflow-hidden rounded-[24px] border border-white/10 bg-black/55 p-3 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
-              >
-                <div className="aspect-[9/16] overflow-hidden rounded-[20px] border border-white/10 bg-black/80">
-                  <video
-                    src={src}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full"
-                    style={{ objectFit: "cover", objectPosition: "center center" }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
 
         <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
