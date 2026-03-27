@@ -83,26 +83,26 @@ const PREVIEW_GALLERY = [
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const SIDE_SCATTERED_PREVIEWS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "2%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "6%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "4%", size: "large", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "8%", size: "", tilt: "tilt-right" },
   { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "16%", size: "", tilt: "tilt-right" },
   { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "20%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "30%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "34%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "44%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "48%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "58%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "62%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "72%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "76%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "86%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "90%", size: "large", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "100%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "104%", size: "", tilt: "tilt-left" },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "114%", size: "large", tilt: "tilt-left" },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "118%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "128%", size: "", tilt: "tilt-right" },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "132%", size: "large", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "28%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "32%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "40%", size: "large", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "44%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "52%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "56%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "64%", size: "large", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "68%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "76%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "80%", size: "large", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "88%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "92%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "98%", size: "large", tilt: "tilt-left" },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "102%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "110%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "114%", size: "large", tilt: "tilt-left" },
 ];
 
 type MeResponse = {
@@ -289,17 +289,20 @@ function LandingFX() {
         }
         .orbito-logo-shooting {
           position: absolute;
-          width: 120px;
-          height: 120px;
-          animation: logoShoot 2.8s ease-in-out infinite;
+          width: 140px;
+          height: 140px;
+          animation: logoShoot 2.6s linear infinite;
           filter: drop-shadow(0 0 28px rgba(129,140,248,0.55)) drop-shadow(0 0 36px rgba(251,146,60,0.35));
           opacity: 0;
           pointer-events: none;
         }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 8%; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 1.2s; top: 32%; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 2.4s; top: 58%; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 3.6s; top: 78%; }
+        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 10%; }
+        .orbito-logo-shooting.delay-2 { animation-delay: 0.9s; top: 36%; }
+        .orbito-logo-shooting.delay-3 { animation-delay: 1.8s; top: 58%; }
+        .orbito-logo-shooting.delay-4 { animation-delay: 2.7s; top: 80%; }
+        html, body {
+          overflow-x: clip;
+        }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -963,7 +966,7 @@ export default function Page() {
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-0 -z-10 hidden lg:block"
-            style={{ top: "calc(0px + 220px)", bottom: "140px" }}
+            style={{ top: "calc(0px + 180px)", bottom: "220px" }}
           >
             {SIDE_SCATTERED_PREVIEWS.map((item, idx) => (
               <div
@@ -971,7 +974,8 @@ export default function Page() {
                 className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
                 style={{
                   top: item.top,
-                  left: item.side === "left" ? "-18%" : "92%",
+                  left: item.side === "left" ? "2%" : undefined,
+                  right: item.side === "right" ? "2%" : undefined,
                   animationDelay: `${idx * 0.55}s`,
                   opacity: 0.42,
                 }}
