@@ -83,29 +83,29 @@ const PREVIEW_GALLERY = [
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const HERO_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "8%", size: "large", tilt: "tilt-left", offset: "1vw", scatterX: "132px", opacity: 0.52 },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "12%", size: "", tilt: "tilt-right", offset: "2vw", scatterX: "-128px", opacity: 0.48 },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "28%", size: "", tilt: "tilt-right", offset: "8vw", scatterX: "176px", opacity: 0.46 },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "34%", size: "large", tilt: "tilt-left", offset: "8vw", scatterX: "-168px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "54%", size: "", tilt: "tilt-left", offset: "3vw", scatterX: "94px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "63%", size: "", tilt: "tilt-right", offset: "11vw", scatterX: "-152px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "76%", size: "large", tilt: "tilt-right", offset: "6vw", scatterX: "148px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "82%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "-98px", opacity: 0.45 },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "6%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "42px", opacity: 0.52 },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "12%", left: "10%", size: "", tilt: "tilt-right", scatterX: "66px", opacity: 0.46 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "22%", left: "82%", size: "", tilt: "tilt-right", scatterX: "-52px", opacity: 0.46 },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "30%", left: "90%", size: "large", tilt: "tilt-left", scatterX: "-74px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "46%", left: "6%", size: "", tilt: "tilt-left", scatterX: "28px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "58%", left: "15%", size: "", tilt: "tilt-right", scatterX: "54px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "72%", left: "78%", size: "large", tilt: "tilt-right", scatterX: "-44px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "84%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-36px", opacity: 0.45 },
 ] as const;
 
 const WORKS_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "6%", size: "", tilt: "tilt-left", offset: "12vw", scatterX: "168px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "10%", size: "", tilt: "tilt-right", offset: "4vw", scatterX: "-84px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "24%", size: "large", tilt: "tilt-right", offset: "7vw", scatterX: "136px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "28%", size: "", tilt: "tilt-left", offset: "11vw", scatterX: "-168px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "42%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "102px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "48%", size: "large", tilt: "tilt-right", offset: "10vw", scatterX: "-184px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "60%", size: "", tilt: "tilt-right", offset: "13vw", scatterX: "190px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "66%", size: "", tilt: "tilt-left", offset: "6vw", scatterX: "-118px", opacity: 0.42 },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "76%", size: "large", tilt: "tilt-left", offset: "8vw", scatterX: "148px", opacity: 0.5 },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "82%", size: "", tilt: "tilt-right", offset: "14vw", scatterX: "-176px", opacity: 0.44 },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "88%", size: "", tilt: "tilt-right", offset: "3vw", scatterX: "86px", opacity: 0.42 },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "92%", size: "large", tilt: "tilt-left", offset: "7vw", scatterX: "-134px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "4%", left: "4%", size: "", tilt: "tilt-left", scatterX: "52px", opacity: 0.4 },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "10%", left: "11%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.36 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "16%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-68px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "26%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-46px", opacity: 0.36 },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "34%", left: "9%", size: "", tilt: "tilt-left", scatterX: "42px", opacity: 0.36 },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "42%", left: "16%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.32 },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "52%", left: "83%", size: "", tilt: "tilt-right", scatterX: "-58px", opacity: 0.38 },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "58%", left: "14%", size: "", tilt: "tilt-left", scatterX: "48px", opacity: 0.38 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "68%", left: "78%", size: "large", tilt: "tilt-left", scatterX: "-32px", opacity: 0.4 },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "74%", left: "16%", size: "", tilt: "tilt-right", scatterX: "56px", opacity: 0.36 },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "84%", left: "7%", size: "", tilt: "tilt-right", scatterX: "22px", opacity: 0.34 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "88%", left: "91%", size: "large", tilt: "tilt-left", scatterX: "-62px", opacity: 0.42 },
 ] as const;
 
 type MeResponse = {
@@ -309,10 +309,10 @@ function LandingFX() {
         .orbito-logo-shooting {
           position: absolute;
           left: -16vw;
-          width: 220px;
-          height: 220px;
+          width: 260px;
+          height: 260px;
           animation: logoShootA 5.2s linear infinite;
-          filter: drop-shadow(0 0 42px rgba(129,140,248,1)) drop-shadow(0 0 76px rgba(251,146,60,0.92));
+          filter: drop-shadow(0 0 52px rgba(129,140,248,1)) drop-shadow(0 0 96px rgba(251,146,60,0.98));
           opacity: 0;
           pointer-events: none;
           will-change: transform, opacity;
@@ -335,14 +335,14 @@ function LandingFX() {
         .orbito-logo-shooting::before {
           content: "";
           position: absolute;
-          left: -420px;
+          left: -540px;
           top: 50%;
-          width: 470px;
-          height: 12px;
+          width: 620px;
+          height: 16px;
           transform: translateY(-50%);
           border-radius: 999px;
           background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.62), rgba(167,139,250,0.78), rgba(251,146,60,0.98));
-          filter: blur(8px);
+          filter: blur(10px);
         }
         .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; animation-name: logoShootA; }
         .orbito-logo-shooting.delay-2 { animation-delay: 0.9s; top: 24%; animation-name: logoShootB; }
@@ -834,31 +834,22 @@ function GenerateStage({
               <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
               <div className="mt-4 mx-auto flex w-full max-w-[360px] items-center justify-center">
-                <div className="relative flex h-[520px] w-full max-w-[292px] flex-none items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75 [contain:layout_paint]">
-                  {GENERATE_PREVIEWS.map((preview, index) => {
-                    const active = index === previewIndex;
-                    return (
-                      <video
-                        key={preview.title}
-                        src={preview.src}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload="metadata"
-                        aria-hidden={!active}
-                        className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
-                        style={{
-                          objectFit: "cover",
-                          objectPosition: preview.objectPosition,
-                          transform: `translateY(${preview.shiftY}) scale(${preview.zoom})`,
-                          opacity: active ? 1 : 0,
-                          zIndex: active ? 1 : 0,
-                          backfaceVisibility: "hidden",
-                        }}
-                      />
-                    );
-                  })}
+                <div className="relative flex h-[520px] w-[292px] flex-none items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75 [contain:layout_paint]">
+                  <video
+                    key={activePreview.src}
+                    src={activePreview.src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="h-full w-full"
+                    style={{
+                      objectFit: "cover",
+                      objectPosition: activePreview.objectPosition,
+                      transform: `translateY(${activePreview.shiftY}) scale(${activePreview.zoom})`,
+                    }}
+                  />
                 </div>
               </div>
 
@@ -982,8 +973,7 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 z-[120] hidden overflow-visible min-[1180px]:block"
-        style={{ top: "40px", bottom: "40px" }}
+        className="pointer-events-none fixed inset-0 z-[999] hidden overflow-visible lg:block"
       >
         <div className="orbito-logo-shooting delay-1">
           <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
@@ -1009,7 +999,7 @@ export default function Page() {
         <section className="relative isolate">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 -top-2 -bottom-24 z-0 hidden overflow-visible min-[1650px]:block"
+            className="pointer-events-none absolute left-1/2 -top-2 -bottom-24 z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
           >
             {HERO_BACKGROUND_CLIPS.map((item, idx) => (
               <div
@@ -1017,8 +1007,7 @@ export default function Page() {
                 className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
                 style={{
                   top: item.top,
-                  left: item.side === "left" ? item.offset : undefined,
-                  right: item.side === "right" ? item.offset : undefined,
+                  left: item.left,
                   animationDelay: `${idx * 0.45}s`,
                   opacity: item.opacity,
                   ["--scatter-x" as any]: item.scatterX,
@@ -1096,7 +1085,7 @@ export default function Page() {
         <div className="relative">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-14 bottom-[34rem] z-0 hidden overflow-visible min-[1650px]:block"
+          className="pointer-events-none absolute left-1/2 top-14 z-0 hidden h-[42rem] w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
         >
           {WORKS_BACKGROUND_CLIPS.map((item, idx) => (
             <div
@@ -1104,8 +1093,7 @@ export default function Page() {
               className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
               style={{
                 top: item.top,
-                left: item.side === "left" ? item.offset : undefined,
-                right: item.side === "right" ? item.offset : undefined,
+                left: item.left,
                 animationDelay: `${idx * 0.45}s`,
                 opacity: item.opacity,
                 ["--scatter-x" as any]: item.scatterX,
