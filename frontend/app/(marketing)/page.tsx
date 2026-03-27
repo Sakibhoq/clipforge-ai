@@ -667,7 +667,6 @@ function HeroVisual() {
             "radial-gradient(460px_300px_at_18%_38%,rgba(125,211,252,0.12),transparent_74%), radial-gradient(520px_320px_at_84%_36%,rgba(251,146,60,0.12),transparent_76%)",
         }}
       />
-      <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-90" />
 
       <div className="relative z-10 pt-6">
         <div className="flex items-center justify-between text-xs text-white/58">
@@ -1091,7 +1090,6 @@ export default function Page() {
               className="reveal group surface-soft relative overflow-hidden rounded-[28px] p-6 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
             >
               <HoverSheen />
-              <div className="orbito-top-rail orbito-card-rail absolute top-4 h-[4px] rounded-full opacity-85" />
 
               <div className="relative pt-5">
                 <div className="text-xl font-semibold text-white/92 sm:text-2xl">Upload, pick, post.</div>
