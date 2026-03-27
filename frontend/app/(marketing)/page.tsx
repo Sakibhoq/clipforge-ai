@@ -82,28 +82,31 @@ const PREVIEW_GALLERY = [
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
-const SIDE_SCATTERED_PREVIEWS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "4%", size: "large", tilt: "tilt-left", offset: "2vw", scatterX: "120px" },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "7%", size: "", tilt: "tilt-right", offset: "2vw", scatterX: "-110px" },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "13%", size: "", tilt: "tilt-right", offset: "10vw", scatterX: "160px" },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "19%", size: "large", tilt: "tilt-left", offset: "9vw", scatterX: "-170px" },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "26%", size: "", tilt: "tilt-left", offset: "4vw", scatterX: "80px" },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "31%", size: "", tilt: "tilt-right", offset: "12vw", scatterX: "-140px" },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "37%", size: "large", tilt: "tilt-right", offset: "6vw", scatterX: "150px" },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "43%", size: "", tilt: "tilt-left", offset: "8vw", scatterX: "-90px" },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "50%", size: "", tilt: "tilt-left", offset: "14vw", scatterX: "190px" },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "55%", size: "", tilt: "tilt-right", offset: "4vw", scatterX: "-70px" },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "61%", size: "large", tilt: "tilt-right", offset: "8vw", scatterX: "120px" },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "66%", size: "", tilt: "tilt-left", offset: "12vw", scatterX: "-160px" },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "72%", size: "", tilt: "tilt-left", offset: "6vw", scatterX: "100px" },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "77%", size: "large", tilt: "tilt-right", offset: "11vw", scatterX: "-190px" },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "82%", size: "", tilt: "tilt-right", offset: "13vw", scatterX: "170px" },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "86%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "-120px" },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "90%", size: "large", tilt: "tilt-left", offset: "9vw", scatterX: "140px" },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "93%", size: "", tilt: "tilt-right", offset: "14vw", scatterX: "-180px" },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "96%", size: "", tilt: "tilt-right", offset: "3vw", scatterX: "90px" },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "98%", size: "large", tilt: "tilt-left", offset: "7vw", scatterX: "-140px" },
-];
+const HERO_BACKGROUND_CLIPS = [
+  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "8%", size: "large", tilt: "tilt-left", offset: "1vw", scatterX: "132px", opacity: 0.52 },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "12%", size: "", tilt: "tilt-right", offset: "2vw", scatterX: "-128px", opacity: 0.48 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "28%", size: "", tilt: "tilt-right", offset: "8vw", scatterX: "176px", opacity: 0.46 },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "34%", size: "large", tilt: "tilt-left", offset: "8vw", scatterX: "-168px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "54%", size: "", tilt: "tilt-left", offset: "3vw", scatterX: "94px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "63%", size: "", tilt: "tilt-right", offset: "11vw", scatterX: "-152px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "76%", size: "large", tilt: "tilt-right", offset: "6vw", scatterX: "148px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "82%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "-98px", opacity: 0.45 },
+] as const;
+
+const WORKS_BACKGROUND_CLIPS = [
+  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "6%", size: "", tilt: "tilt-left", offset: "12vw", scatterX: "168px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "10%", size: "", tilt: "tilt-right", offset: "4vw", scatterX: "-84px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "24%", size: "large", tilt: "tilt-right", offset: "7vw", scatterX: "136px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "28%", size: "", tilt: "tilt-left", offset: "11vw", scatterX: "-168px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "42%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "102px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "48%", size: "large", tilt: "tilt-right", offset: "10vw", scatterX: "-184px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "60%", size: "", tilt: "tilt-right", offset: "13vw", scatterX: "190px", opacity: 0.44 },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "66%", size: "", tilt: "tilt-left", offset: "6vw", scatterX: "-118px", opacity: 0.42 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "76%", size: "large", tilt: "tilt-left", offset: "8vw", scatterX: "148px", opacity: 0.5 },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "82%", size: "", tilt: "tilt-right", offset: "14vw", scatterX: "-176px", opacity: 0.44 },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "88%", size: "", tilt: "tilt-right", offset: "3vw", scatterX: "86px", opacity: 0.42 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "92%", size: "large", tilt: "tilt-left", offset: "7vw", scatterX: "-134px", opacity: 0.5 },
+] as const;
 
 type MeResponse = {
   name?: string | null;
@@ -314,6 +317,21 @@ function LandingFX() {
           pointer-events: none;
           will-change: transform, opacity;
         }
+        .orbito-logo-core {
+          display: flex;
+          height: 100%;
+          width: 100%;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.38), rgba(129,140,248,0.20) 38%, rgba(17,24,39,0.06) 72%, rgba(17,24,39,0));
+        }
+        .orbito-logo-core img {
+          height: 78%;
+          width: 78%;
+          object-fit: contain;
+          filter: drop-shadow(0 0 18px rgba(255,255,255,0.44));
+        }
         .orbito-logo-shooting::before {
           content: "";
           position: absolute;
@@ -326,10 +344,12 @@ function LandingFX() {
           background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.62), rgba(167,139,250,0.78), rgba(251,146,60,0.98));
           filter: blur(8px);
         }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 14%; animation-name: logoShootA; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 1.2s; top: 30%; animation-name: logoShootB; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 2.4s; top: 52%; animation-name: logoShootC; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 3.6s; top: 74%; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; animation-name: logoShootA; }
+        .orbito-logo-shooting.delay-2 { animation-delay: 0.9s; top: 24%; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-3 { animation-delay: 1.8s; top: 40%; animation-name: logoShootC; }
+        .orbito-logo-shooting.delay-4 { animation-delay: 2.7s; top: 56%; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-5 { animation-delay: 3.6s; top: 70%; animation-name: logoShootA; }
+        .orbito-logo-shooting.delay-6 { animation-delay: 4.5s; top: 82%; animation-name: logoShootC; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -814,7 +834,7 @@ function GenerateStage({
               <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
               <div className="mt-4 mx-auto flex w-full max-w-[360px] items-center justify-center">
-                <div className="relative flex aspect-[9/16] min-h-[520px] items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75 [contain:layout_paint]">
+                <div className="relative flex h-[520px] w-full max-w-[292px] flex-none items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75 [contain:layout_paint]">
                   {GENERATE_PREVIEWS.map((preview, index) => {
                     const active = index === previewIndex;
                     return (
@@ -962,51 +982,52 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 z-0 hidden overflow-hidden min-[1650px]:block"
-        style={{
-          top: "520px",
-          bottom: "360px",
-        }}
-      >
-        {SIDE_SCATTERED_PREVIEWS.map((item, idx) => (
-          <div
-            key={`${item.src}-${idx}`}
-            className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
-            style={{
-              top: item.top,
-              left: item.side === "left" ? item.offset : undefined,
-              right: item.side === "right" ? item.offset : undefined,
-              animationDelay: `${idx * 0.45}s`,
-              opacity: item.size === "large" ? 0.58 : 0.5,
-              ["--scatter-x" as any]: item.scatterX,
-            }}
-          >
-            <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
-          </div>
-        ))}
-      </div>
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 z-[90] hidden overflow-visible min-[1180px]:block"
-        style={{ top: "60px", bottom: "60px", mixBlendMode: "screen" }}
+        className="pointer-events-none fixed inset-x-0 z-[120] hidden overflow-visible min-[1180px]:block"
+        style={{ top: "40px", bottom: "40px" }}
       >
         <div className="orbito-logo-shooting delay-1">
-          <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
         </div>
         <div className="orbito-logo-shooting delay-2">
-          <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
         </div>
         <div className="orbito-logo-shooting delay-3">
-          <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
         </div>
         <div className="orbito-logo-shooting delay-4">
-          <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
+        </div>
+        <div className="orbito-logo-shooting delay-5">
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
+        </div>
+        <div className="orbito-logo-shooting delay-6">
+          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
         </div>
       </div>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative isolate">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-2 -bottom-24 z-0 hidden overflow-visible min-[1650px]:block"
+          >
+            {HERO_BACKGROUND_CLIPS.map((item, idx) => (
+              <div
+                key={`${item.src}-${idx}`}
+                className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
+                style={{
+                  top: item.top,
+                  left: item.side === "left" ? item.offset : undefined,
+                  right: item.side === "right" ? item.offset : undefined,
+                  animationDelay: `${idx * 0.45}s`,
+                  opacity: item.opacity,
+                  ["--scatter-x" as any]: item.scatterX,
+                }}
+              >
+                <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
+              </div>
+            ))}
+          </div>
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[6%] z-0 hidden opacity-[0.72] sm:block">
             <FlowLines />
           </div>
@@ -1073,6 +1094,27 @@ export default function Page() {
           </div>
         </section>
         <div className="relative">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-14 bottom-[34rem] z-0 hidden overflow-visible min-[1650px]:block"
+        >
+          {WORKS_BACKGROUND_CLIPS.map((item, idx) => (
+            <div
+              key={`${item.src}-${idx}`}
+              className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
+              style={{
+                top: item.top,
+                left: item.side === "left" ? item.offset : undefined,
+                right: item.side === "right" ? item.offset : undefined,
+                animationDelay: `${idx * 0.45}s`,
+                opacity: item.opacity,
+                ["--scatter-x" as any]: item.scatterX,
+              }}
+            >
+              <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
+            </div>
+          ))}
+        </div>
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
