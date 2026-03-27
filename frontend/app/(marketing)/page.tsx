@@ -238,24 +238,6 @@ function LandingFX() {
           0%, 100% { transform: translate3d(var(--scatter-x, 0px), 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
           50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
         }
-        @keyframes logoShootA {
-          0% { transform: translate3d(-340px, 0, 0) scale(0.78) rotate(-18deg); opacity: 0; }
-          10% { opacity: 1; }
-          84% { opacity: 1; }
-          100% { transform: translate3d(calc(100vw + 340px), 96px, 0) scale(1.06) rotate(10deg); opacity: 0; }
-        }
-        @keyframes logoShootB {
-          0% { transform: translate3d(calc(100vw + 340px), 0, 0) scale(0.82) rotate(16deg); opacity: 0; }
-          10% { opacity: 1; }
-          84% { opacity: 1; }
-          100% { transform: translate3d(-420px, -110px, 0) scale(1.04) rotate(-8deg); opacity: 0; }
-        }
-        @keyframes logoShootC {
-          0% { transform: translate3d(-340px, 82px, 0) scale(0.76) rotate(-8deg); opacity: 0; }
-          12% { opacity: 1; }
-          82% { opacity: 1; }
-          100% { transform: translate3d(calc(100vw + 340px), -92px, 0) scale(1.08) rotate(14deg); opacity: 0; }
-        }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
           50% { transform: translateY(-4px); box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 26px 64px rgba(0,0,0,0.36), 0 0 26px rgba(96,165,250,0.08); }
@@ -303,52 +285,6 @@ function LandingFX() {
           filter: drop-shadow(0 0 18px rgba(129,140,248,0.18)) drop-shadow(0 0 26px rgba(251,146,60,0.16));
           will-change: transform, opacity;
         }
-        .orbito-logo-shooting {
-          position: absolute;
-          left: 0;
-          width: 240px;
-          height: 240px;
-          animation: logoShootA 6.2s linear infinite;
-          filter: drop-shadow(0 0 54px rgba(129,140,248,1)) drop-shadow(0 0 110px rgba(251,146,60,1));
-          opacity: 0;
-          pointer-events: none;
-          will-change: transform, opacity;
-          z-index: 2147483647;
-          mix-blend-mode: screen;
-        }
-        .orbito-logo-core {
-          display: flex;
-          height: 100%;
-          width: 100%;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.58), rgba(129,140,248,0.34) 36%, rgba(17,24,39,0.10) 72%, rgba(17,24,39,0));
-        }
-        .orbito-logo-core img {
-          height: 82%;
-          width: 82%;
-          object-fit: contain;
-          filter: drop-shadow(0 0 28px rgba(255,255,255,0.7));
-        }
-        .orbito-logo-shooting::before {
-          content: "";
-          position: absolute;
-          left: -420px;
-          top: 50%;
-          width: 500px;
-          height: 18px;
-          transform: translateY(-50%);
-          border-radius: 999px;
-          background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.72), rgba(167,139,250,0.92), rgba(251,146,60,1));
-          filter: blur(12px);
-        }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 14vh; animation-name: logoShootA; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 1.2s; top: 30vh; animation-name: logoShootB; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 2.4s; top: 46vh; animation-name: logoShootC; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 3.6s; top: 60vh; animation-name: logoShootB; }
-        .orbito-logo-shooting.delay-5 { animation-delay: 4.8s; top: 74vh; animation-name: logoShootA; }
-        .orbito-logo-shooting.delay-6 { animation-delay: 6s; top: 86vh; animation-name: logoShootC; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -423,7 +359,6 @@ function LandingFX() {
           .orbito-top-rail,
           .orbito-preview-shell,
           .orbito-breath,
-          .orbito-logo-shooting,
           .orbito-side-item {
             animation: none !important;
           }
@@ -972,31 +907,7 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[2147483646] hidden overflow-visible md:block"
-      >
-        <div className="orbito-logo-shooting delay-1">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-        <div className="orbito-logo-shooting delay-2">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-        <div className="orbito-logo-shooting delay-3">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-        <div className="orbito-logo-shooting delay-4">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-        <div className="orbito-logo-shooting delay-5">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-        <div className="orbito-logo-shooting delay-6">
-          <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
-        </div>
-      </div>
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
+        className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 [overflow-x:clip] [overflow-y:visible] min-[1600px]:block"
         style={{ top: "220px", bottom: "240px" }}
       >
         {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
