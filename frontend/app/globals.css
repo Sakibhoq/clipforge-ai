@@ -1923,11 +1923,17 @@ body::-webkit-scrollbar-thumb:hover {
    Put this at the VERY BOTTOM of globals.css
 ========================================= */
 
-html,
-body {
+html {
   height: auto !important;
   min-height: 100% !important;
   overflow-y: auto !important;   /* browser scrollbar */
+  overflow-x: hidden !important;
+}
+
+body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: visible !important;
   overflow-x: hidden !important;
 }
 
