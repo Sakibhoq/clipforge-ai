@@ -84,25 +84,25 @@ const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const PAGE_BACKGROUND_CLIPS = [
   { src: previewSrc("Real Vertical Clip #48.mp4"), top: "0%", left: "2%", size: "large", tilt: "tilt-left", scatterX: "36px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "7%", left: "11%", size: "", tilt: "tilt-right", scatterX: "58px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "11%", left: "86%", size: "", tilt: "tilt-right", scatterX: "-44px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "6%", left: "11%", size: "", tilt: "tilt-right", scatterX: "58px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "12%", left: "86%", size: "", tilt: "tilt-right", scatterX: "-44px", opacity: 0.42 },
   { src: previewSrc("Real Vertical Clip #53.mp4"), top: "18%", left: "93%", size: "large", tilt: "tilt-left", scatterX: "-70px", opacity: 0.48 },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "26%", left: "4%", size: "", tilt: "tilt-left", scatterX: "24px", opacity: 0.4 },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "34%", left: "15%", size: "", tilt: "tilt-right", scatterX: "52px", opacity: 0.38 },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "40%", left: "83%", size: "large", tilt: "tilt-right", scatterX: "-40px", opacity: 0.46 },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "47%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-30px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "55%", left: "6%", size: "", tilt: "tilt-left", scatterX: "44px", opacity: 0.38 },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "63%", left: "18%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "69%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-62px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "76%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-40px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "82%", left: "5%", size: "", tilt: "tilt-left", scatterX: "36px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "88%", left: "14%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.3 },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "92%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-50px", opacity: 0.36 },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "96%", left: "93%", size: "", tilt: "tilt-left", scatterX: "-28px", opacity: 0.36 },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "86%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "30px", opacity: 0.38 },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "98%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-56px", opacity: 0.34 },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "72%", left: "2%", size: "", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "84%", left: "92%", size: "large", tilt: "tilt-left", scatterX: "-54px", opacity: 0.4 },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "24%", left: "4%", size: "", tilt: "tilt-left", scatterX: "24px", opacity: 0.4 },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "30%", left: "15%", size: "", tilt: "tilt-right", scatterX: "52px", opacity: 0.38 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "36%", left: "83%", size: "large", tilt: "tilt-right", scatterX: "-40px", opacity: 0.46 },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "42%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-30px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "48%", left: "6%", size: "", tilt: "tilt-left", scatterX: "44px", opacity: 0.38 },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "54%", left: "18%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "60%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-62px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "66%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-40px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "72%", left: "5%", size: "", tilt: "tilt-left", scatterX: "36px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "78%", left: "14%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.3 },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "84%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-50px", opacity: 0.36 },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "88%", left: "93%", size: "", tilt: "tilt-left", scatterX: "-28px", opacity: 0.36 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "92%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "30px", opacity: 0.38 },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "95%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-56px", opacity: 0.34 },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "97%", left: "2%", size: "", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "99%", left: "92%", size: "large", tilt: "tilt-left", scatterX: "-54px", opacity: 0.4 },
 ] as const;
 
 type MeResponse = {
@@ -239,22 +239,22 @@ function LandingFX() {
           50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
         }
         @keyframes logoShootA {
-          0% { transform: translate3d(-24vw, -40px, 0) scale(0.74) rotate(-18deg); opacity: 0; }
-          8% { opacity: 0.98; }
-          82% { opacity: 0.98; }
-          100% { transform: translate3d(122vw, 36px, 0) scale(1.08) rotate(10deg); opacity: 0; }
+          0% { transform: translate3d(-340px, 0, 0) scale(0.78) rotate(-18deg); opacity: 0; }
+          10% { opacity: 1; }
+          84% { opacity: 1; }
+          100% { transform: translate3d(calc(100vw + 340px), 96px, 0) scale(1.06) rotate(10deg); opacity: 0; }
         }
         @keyframes logoShootB {
-          0% { transform: translate3d(112vw, -60px, 0) scale(0.78) rotate(16deg); opacity: 0; }
-          10% { opacity: 0.98; }
-          80% { opacity: 0.98; }
-          100% { transform: translate3d(-28vw, 48px, 0) scale(1.02) rotate(-8deg); opacity: 0; }
+          0% { transform: translate3d(calc(100vw + 340px), 0, 0) scale(0.82) rotate(16deg); opacity: 0; }
+          10% { opacity: 1; }
+          84% { opacity: 1; }
+          100% { transform: translate3d(-420px, -110px, 0) scale(1.04) rotate(-8deg); opacity: 0; }
         }
         @keyframes logoShootC {
-          0% { transform: translate3d(-18vw, 60px, 0) scale(0.7) rotate(-8deg); opacity: 0; }
-          12% { opacity: 0.98; }
-          78% { opacity: 0.98; }
-          100% { transform: translate3d(118vw, -24px, 0) scale(1.1) rotate(14deg); opacity: 0; }
+          0% { transform: translate3d(-340px, 82px, 0) scale(0.76) rotate(-8deg); opacity: 0; }
+          12% { opacity: 1; }
+          82% { opacity: 1; }
+          100% { transform: translate3d(calc(100vw + 340px), -92px, 0) scale(1.08) rotate(14deg); opacity: 0; }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -305,15 +305,16 @@ function LandingFX() {
         }
         .orbito-logo-shooting {
           position: absolute;
-          left: -16vw;
-          width: 260px;
-          height: 260px;
-          animation: logoShootA 5.2s linear infinite;
-          filter: drop-shadow(0 0 52px rgba(129,140,248,1)) drop-shadow(0 0 96px rgba(251,146,60,0.98));
+          left: 0;
+          width: 240px;
+          height: 240px;
+          animation: logoShootA 6.2s linear infinite;
+          filter: drop-shadow(0 0 54px rgba(129,140,248,1)) drop-shadow(0 0 110px rgba(251,146,60,1));
           opacity: 0;
           pointer-events: none;
           will-change: transform, opacity;
           z-index: 2147483647;
+          mix-blend-mode: screen;
         }
         .orbito-logo-core {
           display: flex;
@@ -322,32 +323,32 @@ function LandingFX() {
           align-items: center;
           justify-content: center;
           border-radius: 999px;
-          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.38), rgba(129,140,248,0.20) 38%, rgba(17,24,39,0.06) 72%, rgba(17,24,39,0));
+          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.58), rgba(129,140,248,0.34) 36%, rgba(17,24,39,0.10) 72%, rgba(17,24,39,0));
         }
         .orbito-logo-core img {
-          height: 78%;
-          width: 78%;
+          height: 82%;
+          width: 82%;
           object-fit: contain;
-          filter: drop-shadow(0 0 18px rgba(255,255,255,0.44));
+          filter: drop-shadow(0 0 28px rgba(255,255,255,0.7));
         }
         .orbito-logo-shooting::before {
           content: "";
           position: absolute;
-          left: -540px;
+          left: -420px;
           top: 50%;
-          width: 620px;
-          height: 16px;
+          width: 500px;
+          height: 18px;
           transform: translateY(-50%);
           border-radius: 999px;
-          background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.62), rgba(167,139,250,0.78), rgba(251,146,60,0.98));
-          filter: blur(10px);
+          background: linear-gradient(90deg, rgba(125,211,252,0), rgba(125,211,252,0.72), rgba(167,139,250,0.92), rgba(251,146,60,1));
+          filter: blur(12px);
         }
-        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 12%; animation-name: logoShootA; }
-        .orbito-logo-shooting.delay-2 { animation-delay: 0.9s; top: 24%; animation-name: logoShootB; }
-        .orbito-logo-shooting.delay-3 { animation-delay: 1.8s; top: 40%; animation-name: logoShootC; }
-        .orbito-logo-shooting.delay-4 { animation-delay: 2.7s; top: 56%; animation-name: logoShootB; }
-        .orbito-logo-shooting.delay-5 { animation-delay: 3.6s; top: 70%; animation-name: logoShootA; }
-        .orbito-logo-shooting.delay-6 { animation-delay: 4.5s; top: 82%; animation-name: logoShootC; }
+        .orbito-logo-shooting.delay-1 { animation-delay: 0s; top: 14vh; animation-name: logoShootA; }
+        .orbito-logo-shooting.delay-2 { animation-delay: 1.2s; top: 30vh; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-3 { animation-delay: 2.4s; top: 46vh; animation-name: logoShootC; }
+        .orbito-logo-shooting.delay-4 { animation-delay: 3.6s; top: 60vh; animation-name: logoShootB; }
+        .orbito-logo-shooting.delay-5 { animation-delay: 4.8s; top: 74vh; animation-name: logoShootA; }
+        .orbito-logo-shooting.delay-6 { animation-delay: 6s; top: 86vh; animation-name: logoShootC; }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -971,7 +972,7 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[999] hidden overflow-visible lg:block"
+        className="pointer-events-none fixed inset-0 z-[2147483646] hidden overflow-visible md:block"
       >
         <div className="orbito-logo-shooting delay-1">
           <span className="orbito-logo-core"><img src={ORBITO_LOGO} alt="" /></span>
@@ -993,28 +994,30 @@ export default function Page() {
         </div>
       </div>
 
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
+        style={{ top: "220px", bottom: "240px" }}
+      >
+        {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
+          <div
+            key={`${item.src}-${idx}`}
+            className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
+            style={{
+              top: item.top,
+              left: item.left,
+              animationDelay: `${idx * 0.45}s`,
+              opacity: item.opacity,
+              ["--scatter-x" as any]: item.scatterX,
+            }}
+          >
+            <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
+          </div>
+        ))}
+      </div>
+
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative isolate">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-[220px] bottom-[120px] z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
-          >
-            {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
-              <div
-                key={`${item.src}-${idx}`}
-                className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
-                style={{
-                  top: item.top,
-                  left: item.left,
-                  animationDelay: `${idx * 0.45}s`,
-                  opacity: item.opacity,
-                  ["--scatter-x" as any]: item.scatterX,
-                }}
-              >
-                <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
-              </div>
-            ))}
-          </div>
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[6%] z-0 hidden opacity-[0.72] sm:block">
             <FlowLines />
           </div>
