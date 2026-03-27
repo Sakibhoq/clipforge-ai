@@ -1672,6 +1672,8 @@ class GenerateVideoRequest(BaseModel):
     input_image_key: str | None = Field(default=None, max_length=512)
     watermark_enabled: bool = Field(default=True)
     dialogue_script: str | None = Field(default=None, max_length=5000)
+    voice_name: str | None = Field(default=None, max_length=64)
+    voice_mode: str | None = Field(default=None, max_length=16)
 
 
 class GenerateImageRequest(BaseModel):
@@ -1848,6 +1850,10 @@ def create_video_generation(
     style_preset = (payload.style_preset or "social-native")
     dialogue_script = _clean_dialogue_script(payload.dialogue_script)
     composed_prompt = _compose_prompt_with_dialogue(prompt, dialogue_script)
+    voice_name = (payload.voice_name or "").strip()[:64]
+    voice_mode = (payload.voice_mode or "").strip().lower()
+    if voice_mode not in {"narration", "dialogue", ""}:
+        voice_mode = ""
     credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset)
 
     def _plan_guard(plan: str) -> None:
@@ -1875,6 +1881,8 @@ def create_video_generation(
         "seed": payload.seed,
         "input_image_key": input_image_key,
         "dialogue_script": dialogue_script,
+        "voice_name": voice_name or None,
+        "voice_mode": voice_mode or None,
         "watermark_enabled": bool(payload.watermark_enabled),
     }
 

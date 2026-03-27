@@ -389,6 +389,10 @@ def _nearest_supported_duration(requested_seconds: int, supported_durations: lis
     if not safe_supported:
         return max(1, int(requested_seconds or 6))
     requested = max(1, int(requested_seconds or 6))
+    # Prefer exact or longer duration when available to avoid shaving requested time.
+    candidates = [v for v in safe_supported if v >= requested]
+    if candidates:
+        return min(candidates)
     return min(safe_supported, key=lambda candidate: (abs(candidate - requested), candidate))
 
 
@@ -2708,6 +2712,40 @@ def _trim_video_to_duration(*, src_path: str, out_path: str, duration_seconds: f
         raise RuntimeError((copy_proc.stderr or copy_proc.stdout or "ffmpeg trim failed").strip()[:500])
 
 
+def _pad_video_to_duration(*, src_path: str, out_path: str, target_seconds: float, current_seconds: float) -> None:
+    safe_target = max(0.35, float(target_seconds or 0.35))
+    safe_current = max(0.0, float(current_seconds or 0.0))
+    pad_seconds = max(0.0, safe_target - safe_current)
+    if pad_seconds <= 0.05:
+        shutil.copyfile(src_path, out_path)
+        return
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        src_path,
+        "-vf",
+        f"tpad=stop_mode=clone:stop_duration={pad_seconds:.3f}",
+        "-t",
+        f"{safe_target:.3f}",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-an",
+        out_path,
+    ]
+    proc = _run_media_cmd(cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+    if proc.returncode != 0:
+        raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg pad failed").strip()[:500])
+
+
 def _voice_language_code(voice_name: str) -> str:
     raw = (voice_name or "").replace("_", "-").strip()
     if not raw:
@@ -3054,6 +3092,63 @@ def _run_google_tts_voiceover(*, script: str, voice_name: str, speed_wpm: int, o
         last_error = "google tts response missing audio payload"
 
     raise RuntimeError(last_error)
+
+
+def _render_dialogue_voiceover(*, script: str, voice_name: str, speed_wpm: int, out_path: str) -> None:
+    """Render dialogue with two alternating voices when possible."""
+    lines = [ln.strip() for ln in (script or "").replace("\r", "\n").split("\n") if ln.strip()]
+    if len(lines) < 2:
+        _run_google_tts_voiceover(script=script, voice_name=voice_name, speed_wpm=speed_wpm, out_path=out_path)
+        return
+
+    primary = (voice_name or DEFAULT_TTS_VOICE).strip() or DEFAULT_TTS_VOICE
+    fallback = (_env("GOOGLE_TTS_FALLBACK_VOICE", DEFAULT_TTS_VOICE) or DEFAULT_TTS_VOICE).strip() or DEFAULT_TTS_VOICE
+    secondary = fallback if fallback != primary else FALLBACK_TTS_VOICE
+
+    segment_paths: list[str] = []
+    list_path = ""
+    try:
+        for idx, line in enumerate(lines):
+            fd_seg, seg_path = tempfile.mkstemp(prefix=f"cflabs-dialogue-{idx}-", suffix=".mp3")
+            os.close(fd_seg)
+            segment_paths.append(seg_path)
+            speaker_voice = primary if idx % 2 == 0 else secondary
+            _run_google_tts_voiceover(script=line, voice_name=speaker_voice, speed_wpm=speed_wpm, out_path=seg_path)
+
+        fd_list, list_path = tempfile.mkstemp(prefix="cflabs-dialogue-list-", suffix=".txt")
+        os.close(fd_list)
+        with open(list_path, "w", encoding="utf-8") as f:
+            for seg in segment_paths:
+                quoted = seg.replace("'", "'\\''")
+                f.write(f"file '{quoted}'\n")
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            list_path,
+            "-c",
+            "copy",
+            out_path,
+        ]
+        proc = _run_media_cmd(cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "ffmpeg dialogue concat failed").strip()[:500])
+    finally:
+        if list_path:
+            try:
+                os.unlink(list_path)
+            except Exception:
+                pass
+        for seg in segment_paths:
+            try:
+                os.unlink(seg)
+            except Exception:
+                pass
 
 
 def _call_google_generation_endpoint(
@@ -4491,6 +4586,9 @@ def _process_job(job: dict) -> dict[str, Any]:
     os.close(fd)
     try:
         generation_speed = str(settings.get("generation_speed") or "relax").strip().lower()
+        voice_name = str(settings.get("voice_name") or "").strip()
+        voice_mode = str(settings.get("voice_mode") or "").strip().lower()
+        voice_enabled = bool(voice_name)
         content_type = "video/mp4"
         provider_duration: float | None = None
         provider_title: str | None = None
@@ -4580,6 +4678,30 @@ def _process_job(job: dict) -> dict[str, Any]:
             if not valid_video:
                 raise RuntimeError("Trimmed provider video is unreadable")
 
+        if detected_duration > 0 and detected_duration + 0.35 < requested_duration:
+            fd_pad, pad_path = tempfile.mkstemp(prefix=f"cflabs-video-pad-{job_id}-", suffix=".mp4")
+            os.close(fd_pad)
+            try:
+                _pad_video_to_duration(
+                    src_path=out_path,
+                    out_path=pad_path,
+                    target_seconds=requested_duration,
+                    current_seconds=detected_duration,
+                )
+                shutil.move(pad_path, out_path)
+            finally:
+                if os.path.exists(pad_path):
+                    try:
+                        os.unlink(pad_path)
+                    except Exception:
+                        pass
+            valid_video, detected_duration = _valid_video_file(
+                out_path,
+                reject_mostly_black=provider_generated,
+            )
+            if not valid_video:
+                raise RuntimeError("Padded provider video is unreadable")
+
         if watermark_enabled:
             fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-video-overlay-{job_id}-", suffix=".mp4")
             os.close(fd_overlay)
@@ -4599,6 +4721,66 @@ def _process_job(job: dict) -> dict[str, Any]:
                         os.unlink(overlay_path)
                     except Exception:
                         pass
+
+        if voice_enabled:
+            fd_voice, voice_path = tempfile.mkstemp(prefix=f"cflabs-video-voice-{job_id}-", suffix=".mp3")
+            os.close(fd_voice)
+            try:
+                if voice_mode == "dialogue":
+                    _render_dialogue_voiceover(
+                        script=dialogue_script or prompt or "Untitled voiceover",
+                        voice_name=voice_name,
+                        speed_wpm=POST_BASE_VOICE_WPM,
+                        out_path=voice_path,
+                    )
+                else:
+                    _run_google_tts_voiceover(
+                        script=prompt or "Untitled voiceover",
+                        voice_name=voice_name,
+                        speed_wpm=POST_BASE_VOICE_WPM,
+                        out_path=voice_path,
+                    )
+
+                fd_mix, mix_path = tempfile.mkstemp(prefix=f"cflabs-video-mix-{job_id}-", suffix=".mp4")
+                os.close(fd_mix)
+                try:
+                    mix_cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-i",
+                        out_path,
+                        "-i",
+                        voice_path,
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "1:a:0",
+                        "-c:v",
+                        "copy",
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        "160k",
+                        "-shortest",
+                        "-movflags",
+                        "+faststart",
+                        mix_path,
+                    ]
+                    mix_proc = _run_media_cmd(mix_cmd, timeout_seconds=max(120, _media_cmd_timeout_seconds()))
+                    if mix_proc.returncode != 0:
+                        raise RuntimeError((mix_proc.stderr or mix_proc.stdout or "ffmpeg voice mux failed").strip()[:500])
+                    shutil.move(mix_path, out_path)
+                finally:
+                    if os.path.exists(mix_path):
+                        try:
+                            os.unlink(mix_path)
+                        except Exception:
+                            pass
+            finally:
+                try:
+                    os.unlink(voice_path)
+                except Exception:
+                    pass
 
         valid_video, detected_duration = _valid_video_file(
             out_path,

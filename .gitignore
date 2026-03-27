@@ -44,6 +44,7 @@ yarn-error.log*
 *.avi
 *.tgz
 *.zip
+!frontend/public/previews/*.mp4
 !clipforge-labs/frontend/public/previews/*.mp4
 
 # editor

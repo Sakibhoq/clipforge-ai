@@ -9,11 +9,13 @@ import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 
 const ORBITO_WHOP_MARKETING_URL = "/whop";
 
+const previewSrc = (name: string) => `/previews/${encodeURIComponent(name)}`;
+
 const GENERATE_PREVIEWS = [
   {
     title: "Real",
     text: "Clean and polished for product videos.",
-    src: "https://app.orbito.cc/app/labs/previews/labs-preview-1.mp4",
+    src: previewSrc("labs-preview-1.mp4.mp4"),
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
@@ -22,16 +24,16 @@ const GENERATE_PREVIEWS = [
   {
     title: "Cartoon",
     text: "Bright and fun for fast social posts.",
-    src: "https://app.orbito.cc/app/labs/previews/labs-preview-2.mp4",
+    src: previewSrc("labs-preview-2.mp4.mp4"),
     aspect: "16:9",
-    objectPosition: "50% 68%",
-    zoom: 1.46,
+    objectPosition: "50% 50%",
+    zoom: 1,
     shiftY: "0%",
   },
   {
     title: "Anime",
     text: "More energy for stronger hooks.",
-    src: "https://app.orbito.cc/app/labs/previews/labs-preview-3.mp4",
+    src: previewSrc("labs-preview-3.mp4.mp4"),
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
@@ -40,13 +42,45 @@ const GENERATE_PREVIEWS = [
   {
     title: "Comic",
     text: "Bold and clear for story or promo videos.",
-    src: "https://app.orbito.cc/app/labs/previews/labs-preview-4.mp4",
+    src: previewSrc("labs-preview-4.mp4.mp4"),
     aspect: "9:16",
     objectPosition: "center center",
     zoom: 1,
     shiftY: "0%",
   },
 ] as const;
+
+const HERO_PREVIEW_CLIPS = [
+  previewSrc("Real Vertical Clip #48.mp4"),
+  previewSrc("Real Vertical Clip #53.mp4"),
+  previewSrc("Real Vertical Clip #58.mp4"),
+  previewSrc("Anime Vertical Clip #66.mp4"),
+  previewSrc("Anime Vertical Clip #67.mp4"),
+  previewSrc("Comic Vertical Clip #70.mp4"),
+  previewSrc("Comic Vertical Clip #71.mp4"),
+];
+
+const PREVIEW_GALLERY = [
+  previewSrc("Real Vertical Clip #48.mp4"),
+  previewSrc("Real Vertical Clip #49.mp4"),
+  previewSrc("Real Vertical Clip #51.mp4"),
+  previewSrc("Real Vertical Clip #53.mp4"),
+  previewSrc("Real Vertical Clip #54.mp4"),
+  previewSrc("Real Vertical Clip #55.mp4"),
+  previewSrc("Real Vertical Clip #56.mp4"),
+  previewSrc("Real Vertical Clip #57.mp4"),
+  previewSrc("Real Vertical Clip #58.mp4"),
+  previewSrc("Real Vertical Clip #61.mp4"),
+  previewSrc("Real Vertical Clip #63.mp4"),
+  previewSrc("Real Vertical Clip #64.mp4"),
+  previewSrc("Real Vertical Clip #65.mp4"),
+  previewSrc("Anime Vertical Clip #66.mp4"),
+  previewSrc("Anime Vertical Clip #67.mp4"),
+  previewSrc("Comic Vertical Clip #70.mp4"),
+  previewSrc("Comic Vertical Clip #71.mp4"),
+];
+
+const ORBITO_LOGO = previewSrc("Orbito.png");
 
 type MeResponse = {
   name?: string | null;
@@ -162,8 +196,8 @@ function LandingFX() {
           50% { transform: translate3d(-24px, -12px, 0); }
         }
         @keyframes flowPan {
-          0%, 100% { transform: translate3d(-3%, 14px, 0) scale(1.02); }
-          50% { transform: translate3d(3%, -12px, 0) scale(1.03); }
+          0%, 100% { transform: translate3d(-3%, 28px, 0) scale(1.02); }
+          50% { transform: translate3d(3%, 6px, 0) scale(1.03); }
         }
         @keyframes flowPulse {
           0%, 100% { opacity: 0.88; }
@@ -210,6 +244,16 @@ function LandingFX() {
         .orbito-flow-a { animation: flowDriftA 6.8s ease-in-out infinite; }
         .orbito-flow-b { animation: flowDriftB 7.8s ease-in-out infinite; }
         .orbito-flow-c { animation: flowDriftC 8.8s ease-in-out infinite; }
+        @keyframes logoSpin {
+          0% { transform: translate(-50%, -50%) scale(0.98) rotate(-6deg); opacity: 0.42; }
+          50% { transform: translate(-50%, -50%) scale(1.06) rotate(6deg); opacity: 0.78; }
+          100% { transform: translate(-50%, -50%) scale(0.98) rotate(-6deg); opacity: 0.42; }
+        }
+        .orbito-logo-float {
+          animation: logoSpin 10.5s ease-in-out infinite;
+          filter: drop-shadow(0 0 18px rgba(129,140,248,0.18)) drop-shadow(0 0 26px rgba(251,146,60,0.16));
+          will-change: transform, opacity;
+        }
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
@@ -463,6 +507,15 @@ function HeroFlowBackdrop() {
 }
 
 function HeroVisual() {
+  const [heroPreviewIndex, setHeroPreviewIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setHeroPreviewIndex((value) => (value + 1) % HERO_PREVIEW_CLIPS.length);
+    }, 3600);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <div className="group surface-soft relative hidden overflow-hidden rounded-[28px] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.34)] md:block md:p-6">
       <HeroFlowBackdrop />
@@ -505,14 +558,15 @@ function HeroVisual() {
 
           <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
             <video
-              src={GENERATE_PREVIEWS[0].src}
+              key={HERO_PREVIEW_CLIPS[heroPreviewIndex]}
+              src={HERO_PREVIEW_CLIPS[heroPreviewIndex]}
               autoPlay
               loop
               muted
               playsInline
               preload="metadata"
               className="h-[340px] w-full"
-              style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.06)" }}
+              style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.02)" }}
             />
             <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
               One workflow. Clip, generate, then publish.
@@ -608,8 +662,8 @@ function GenerateStage({
               </div>
               <div className="orbito-top-rail mt-3 h-[3px] rounded-full opacity-90" />
 
-              <div className="mt-4 mx-auto w-full max-w-[360px]">
-                <div className="aspect-[9/16] overflow-hidden rounded-[24px] border border-white/12 bg-black/75">
+              <div className="mt-4 mx-auto flex w-full max-w-[360px] items-center justify-center">
+                <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75">
                   <video
                     key={activePreview.src}
                     src={activePreview.src}
@@ -748,8 +802,14 @@ export default function Page() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative isolate">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[22%] z-0 hidden opacity-[0.72] sm:block">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-[6%] z-0 hidden opacity-[0.72] sm:block">
             <FlowLines />
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-[6%] z-0 hidden h-[140px] w-[140px] md:block"
+          >
+            <img src={ORBITO_LOGO} alt="" className="orbito-logo-float absolute left-1/2 top-1/2 h-full w-full" />
           </div>
 
           <div data-reveal className="reveal relative z-10">
@@ -899,6 +959,41 @@ export default function Page() {
         <section id="generate" className="scroll-mt-28 pt-12 sm:pt-14">
           <div data-reveal className="reveal">
             <GenerateStage previewIndex={previewIndex} setPreviewIndex={setPreviewIndex} />
+          </div>
+        </section>
+
+        <section className="pt-12 sm:pt-16">
+          <div data-reveal className="reveal">
+            <SectionKicker>Preview feed</SectionKicker>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl md:text-4xl">
+              More clips. More styles. More reasons to hit publish.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base">
+              A fast scroll of what Orbito Generate outputs right now.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {PREVIEW_GALLERY.map((src, idx) => (
+              <div
+                key={`${src}-${idx}`}
+                data-reveal
+                className="reveal group surface-soft relative overflow-hidden rounded-[24px] border border-white/10 bg-black/55 p-3 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <div className="aspect-[9/16] overflow-hidden rounded-[20px] border border-white/10 bg-black/80">
+                  <video
+                    src={src}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full"
+                    style={{ objectFit: "cover", objectPosition: "center center" }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

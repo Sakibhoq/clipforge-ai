@@ -63,6 +63,7 @@ type JobSettings = {
   voice_script?: string;
   dialogue_script?: string;
   voice_name?: string;
+  voice_mode?: "narration" | "dialogue" | null;
   speed_wpm?: number;
   style_preset?: string;
   caption_style_preset?: string;
@@ -470,6 +471,8 @@ export default function GenerateClient() {
   const [voiceName, setVoiceName] = useState<string>(DEFAULT_VOICE_NAME);
   const [voiceSpeedMultiplier, setVoiceSpeedMultiplier] = useState<number>(1);
   const [videoDialogueScript, setVideoDialogueScript] = useState("");
+  const [videoVoiceEnabled, setVideoVoiceEnabled] = useState(false);
+  const [videoVoiceMode, setVideoVoiceMode] = useState<"narration" | "dialogue">("narration");
   const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
@@ -641,6 +644,18 @@ export default function GenerateClient() {
 
     setMode("video");
     setVideoDialogueScript(typeof settings.dialogue_script === "string" ? settings.dialogue_script : "");
+    if (typeof settings.voice_name === "string" && settings.voice_name.trim()) {
+      setVideoVoiceEnabled(true);
+      setVoiceName(settings.voice_name.trim());
+    } else {
+      setVideoVoiceEnabled(false);
+    }
+    const savedVoiceMode = typeof settings.voice_mode === "string" ? settings.voice_mode.trim().toLowerCase() : "";
+    if (savedVoiceMode === "dialogue") {
+      setVideoVoiceMode("dialogue");
+    } else {
+      setVideoVoiceMode("narration");
+    }
     const durationSeconds =
       typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
     if (Number.isFinite(durationSeconds) && [5, 6, 7].includes(durationSeconds)) {
@@ -988,6 +1003,8 @@ export default function GenerateClient() {
           model: "google",
           style_preset: stylePreset,
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
+          voice_name: videoVoiceEnabled ? voiceName : undefined,
+          voice_mode: videoVoiceEnabled ? videoVoiceMode : undefined,
         };
       }
 
@@ -1522,6 +1539,57 @@ export default function GenerateClient() {
                         </button>
                       </div>
                       {!fastEligible ? <div className="text-[11px] text-white/55">Creator plan required for 4K.</div> : null}
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Voice (optional)</label>
+                      <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={videoVoiceEnabled}
+                          onChange={(e) => setVideoVoiceEnabled(e.target.checked)}
+                          className="h-4 w-4 accent-orange-500"
+                        />
+                        <span className="text-xs text-white/80">Add voiceover</span>
+                      </label>
+                      {videoVoiceEnabled ? (
+                        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-3">
+                          <div className="grid gap-2">
+                            <label className="text-[11px] font-semibold text-white/70">Voice style</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setVideoVoiceMode("narration")}
+                                className={cx(
+                                  "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                                  videoVoiceMode === "narration"
+                                    ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
+                                    : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                                )}
+                              >
+                                Narration
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setVideoVoiceMode("dialogue")}
+                                className={cx(
+                                  "rounded-xl border px-3 py-2 text-xs font-semibold transition",
+                                  videoVoiceMode === "dialogue"
+                                    ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
+                                    : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                                )}
+                              >
+                                Dialogue
+                              </button>
+                            </div>
+                          </div>
+                          {renderVoiceSelector(VOICE_BASE_WPM)}
+                          {videoVoiceMode === "dialogue" ? (
+                            <div className="text-[11px] text-white/55">
+                              Dialogue uses your dialogue lines to alternate two voices for back-and-forth speech.
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </>
                 ) : null}
