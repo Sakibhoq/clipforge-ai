@@ -83,26 +83,26 @@ const PREVIEW_GALLERY = [
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const SIDE_SCATTERED_PREVIEWS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "2%", size: "large", tilt: "tilt-left", offset: "18px" },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "5%", size: "", tilt: "tilt-right", offset: "74px" },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "11%", size: "", tilt: "tilt-right", offset: "92px" },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "15%", size: "large", tilt: "tilt-left", offset: "26px" },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "22%", size: "", tilt: "tilt-left", offset: "42px" },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "27%", size: "", tilt: "tilt-right", offset: "106px" },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "33%", size: "large", tilt: "tilt-right", offset: "84px" },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "38%", size: "", tilt: "tilt-left", offset: "46px" },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "46%", size: "", tilt: "tilt-left", offset: "114px" },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "50%", size: "", tilt: "tilt-right", offset: "16px" },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "57%", size: "large", tilt: "tilt-right", offset: "28px" },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "61%", size: "", tilt: "tilt-left", offset: "92px" },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "68%", size: "", tilt: "tilt-left", offset: "58px" },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "72%", size: "large", tilt: "tilt-right", offset: "88px" },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "79%", size: "", tilt: "tilt-right", offset: "106px" },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "83%", size: "", tilt: "tilt-left", offset: "38px" },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "87%", size: "large", tilt: "tilt-left", offset: "72px" },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "90%", size: "", tilt: "tilt-right", offset: "116px" },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "93%", size: "", tilt: "tilt-right", offset: "24px" },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "96%", size: "large", tilt: "tilt-left", offset: "54px" },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), side: "left", top: "3%", size: "large", tilt: "tilt-left", offset: "6vw", scatterX: "28px" },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), side: "right", top: "6%", size: "", tilt: "tilt-right", offset: "5vw", scatterX: "-34px" },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), side: "left", top: "12%", size: "", tilt: "tilt-right", offset: "9vw", scatterX: "54px" },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), side: "right", top: "18%", size: "large", tilt: "tilt-left", offset: "7vw", scatterX: "-48px" },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), side: "left", top: "24%", size: "", tilt: "tilt-left", offset: "4vw", scatterX: "18px" },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), side: "right", top: "29%", size: "", tilt: "tilt-right", offset: "10vw", scatterX: "-62px" },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), side: "left", top: "35%", size: "large", tilt: "tilt-right", offset: "8vw", scatterX: "44px" },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), side: "right", top: "41%", size: "", tilt: "tilt-left", offset: "6vw", scatterX: "-26px" },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), side: "left", top: "47%", size: "", tilt: "tilt-left", offset: "12vw", scatterX: "66px" },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), side: "right", top: "52%", size: "", tilt: "tilt-right", offset: "4vw", scatterX: "-12px" },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), side: "left", top: "58%", size: "large", tilt: "tilt-right", offset: "6vw", scatterX: "36px" },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), side: "right", top: "63%", size: "", tilt: "tilt-left", offset: "9vw", scatterX: "-52px" },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), side: "left", top: "69%", size: "", tilt: "tilt-left", offset: "5vw", scatterX: "24px" },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), side: "right", top: "74%", size: "large", tilt: "tilt-right", offset: "11vw", scatterX: "-70px" },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), side: "left", top: "80%", size: "", tilt: "tilt-right", offset: "10vw", scatterX: "58px" },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), side: "right", top: "84%", size: "", tilt: "tilt-left", offset: "6vw", scatterX: "-30px" },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), side: "left", top: "88%", size: "large", tilt: "tilt-left", offset: "8vw", scatterX: "48px" },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), side: "right", top: "91%", size: "", tilt: "tilt-right", offset: "12vw", scatterX: "-64px" },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), side: "left", top: "94%", size: "", tilt: "tilt-right", offset: "4vw", scatterX: "20px" },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), side: "right", top: "97%", size: "large", tilt: "tilt-left", offset: "7vw", scatterX: "-40px" },
 ];
 
 type MeResponse = {
@@ -235,8 +235,8 @@ function LandingFX() {
           50% { transform: translate3d(0, -14px, 0) scale(1.02); }
         }
         @keyframes sideScatterFloat {
-          0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
-          50% { transform: translate3d(var(--drift-x, 0px), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
+          0%, 100% { transform: translate3d(var(--scatter-x, 0px), 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
+          50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
         }
         @keyframes logoShootA {
           0% { transform: translate3d(-24vw, -40px, 0) scale(0.74) rotate(-18deg); opacity: 0; }
@@ -361,6 +361,7 @@ function LandingFX() {
         .orbito-side-item {
           --tilt: 0deg;
           --drift-x: 0px;
+          --scatter-x: 0px;
           width: 186px;
           height: 332px;
           border-radius: 22px;
@@ -705,14 +706,16 @@ function HeroVisual() {
                   loop
                   muted
                   playsInline
-                  preload="auto"
+                  preload="metadata"
                   aria-hidden={index !== heroPreviewIndex}
                   className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
                   style={{
                     objectFit: "cover",
                     objectPosition: "center center",
-                    transform: "scale(1.02)",
+                    transform: "scale(1.02) translateZ(0)",
                     opacity: index === heroPreviewIndex ? 1 : 0,
+                    zIndex: index === heroPreviewIndex ? 1 : 0,
+                    backfaceVisibility: "hidden",
                   }}
                 />
               ))}
@@ -823,7 +826,7 @@ function GenerateStage({
                         loop
                         muted
                         playsInline
-                        preload="auto"
+                        preload="metadata"
                         aria-hidden={!active}
                         className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
                         style={{
@@ -831,6 +834,8 @@ function GenerateStage({
                           objectPosition: preview.objectPosition,
                           transform: `translateY(${preview.shiftY}) scale(${preview.zoom})`,
                           opacity: active ? 1 : 0,
+                          zIndex: active ? 1 : 0,
+                          backfaceVisibility: "hidden",
                         }}
                       />
                     );
@@ -974,6 +979,7 @@ export default function Page() {
               right: item.side === "right" ? item.offset : undefined,
               animationDelay: `${idx * 0.45}s`,
               opacity: item.size === "large" ? 0.58 : 0.5,
+              ["--scatter-x" as any]: item.scatterX,
             }}
           >
             <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
@@ -983,8 +989,8 @@ export default function Page() {
 
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 z-[30] hidden overflow-hidden min-[1280px]:block"
-        style={{ top: "120px", bottom: "40px" }}
+        className="pointer-events-none fixed inset-x-0 z-[60] hidden overflow-visible min-[1180px]:block"
+        style={{ top: "80px", bottom: "40px", mixBlendMode: "screen" }}
       >
         <div className="orbito-logo-shooting delay-1">
           <img src={ORBITO_LOGO} alt="" className="h-full w-full object-contain" />
