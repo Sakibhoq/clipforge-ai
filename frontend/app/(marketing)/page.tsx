@@ -651,14 +651,13 @@ function HeroVisual() {
 
           <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
             <video
-              key={HERO_PREVIEW_CLIPS[heroPreviewIndex]}
               src={HERO_PREVIEW_CLIPS[heroPreviewIndex]}
               autoPlay
               loop
               muted
               playsInline
               preload="metadata"
-              className="h-[340px] w-full"
+              className="h-[340px] w-full transition-opacity duration-500"
               style={{ objectFit: "cover", objectPosition: "center center", transform: "scale(1.02)" }}
             />
             <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
@@ -758,7 +757,6 @@ function GenerateStage({
               <div className="mt-4 mx-auto flex w-full max-w-[360px] items-center justify-center">
                 <div className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[24px] border border-white/12 bg-black/75">
                   <video
-                    key={activePreview.src}
                     src={activePreview.src}
                     autoPlay
                     loop
@@ -775,7 +773,7 @@ function GenerateStage({
                 </div>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-4 min-h-[72px]">
                 <div className="text-lg font-semibold text-white/90">{activePreview.title} style</div>
                 <div className="mt-1 text-sm leading-relaxed text-white/66">{activePreview.text}</div>
               </div>
