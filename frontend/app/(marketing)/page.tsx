@@ -91,6 +91,20 @@ const SCATTERED_PREVIEWS = [
   { src: previewSrc("Comic Vertical Clip #71.mp4"), left: "78%", top: "56%", size: "", tilt: "tilt-left" },
 ];
 
+const SIDE_LEFT_PREVIEWS = [
+  previewSrc("Real Vertical Clip #49.mp4"),
+  previewSrc("Real Vertical Clip #55.mp4"),
+  previewSrc("Anime Vertical Clip #67.mp4"),
+  previewSrc("Real Vertical Clip #61.mp4"),
+];
+
+const SIDE_RIGHT_PREVIEWS = [
+  previewSrc("Real Vertical Clip #64.mp4"),
+  previewSrc("Comic Vertical Clip #70.mp4"),
+  previewSrc("Real Vertical Clip #58.mp4"),
+  previewSrc("Comic Vertical Clip #71.mp4"),
+];
+
 type MeResponse = {
   name?: string | null;
   email: string;
@@ -289,6 +303,27 @@ function LandingFX() {
         }
         .orbito-preview-item.tilt-right {
           transform: rotate(2deg);
+        }
+        .orbito-side-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+        .orbito-side-item {
+          width: 240px;
+          height: 420px;
+          border-radius: 22px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: rgba(7,9,18,0.85);
+          box-shadow: 0 22px 60px rgba(0,0,0,0.45);
+          animation: previewFloat 9.5s ease-in-out infinite;
+        }
+        .orbito-side-item video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center;
         }
         .orbito-preview-item video {
           width: 100%;
@@ -907,6 +942,32 @@ export default function Page() {
           </div>
         </section>
 
+        <div className="relative">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 hidden lg:block">
+            <div className="orbito-side-stack absolute left-0 top-0 translate-x-[-38%]">
+              {SIDE_LEFT_PREVIEWS.map((src, idx) => (
+                <div
+                  key={`${src}-left-${idx}`}
+                  className={`orbito-side-item ${idx % 2 === 0 ? "tilt-left" : "tilt-right"}`}
+                  style={{ animationDelay: `${idx * 0.7}s`, opacity: 0.42 }}
+                >
+                  <video src={src} autoPlay loop muted playsInline preload="metadata" />
+                </div>
+              ))}
+            </div>
+            <div className="orbito-side-stack absolute right-0 top-0 translate-x-[38%]">
+              {SIDE_RIGHT_PREVIEWS.map((src, idx) => (
+                <div
+                  key={`${src}-right-${idx}`}
+                  className={`orbito-side-item ${idx % 2 === 0 ? "tilt-right" : "tilt-left"}`}
+                  style={{ animationDelay: `${idx * 0.7}s`, opacity: 0.42 }}
+                >
+                  <video src={src} autoPlay loop muted playsInline preload="metadata" />
+                </div>
+              ))}
+            </div>
+          </div>
+
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 hidden sm:block">
             {SCATTERED_PREVIEWS.map((item, idx) => (
@@ -1016,8 +1077,6 @@ export default function Page() {
             <GenerateStage previewIndex={previewIndex} setPreviewIndex={setPreviewIndex} />
           </div>
         </section>
-
-
         <footer className="pb-10 pt-16 text-xs text-white/50 sm:pt-20">
           <div className="mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>© 2026 • {BRAND.name} by Sakib LLC. All rights reserved.</div>
@@ -1030,6 +1089,7 @@ export default function Page() {
             </div>
           </div>
         </footer>
+        </div>
       </main>
     </div>
   );
