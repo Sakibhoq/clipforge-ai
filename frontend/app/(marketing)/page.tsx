@@ -82,6 +82,15 @@ const PREVIEW_GALLERY = [
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
+const SCATTERED_PREVIEWS = [
+  { src: previewSrc("Real Vertical Clip #48.mp4"), left: "6%", top: "-6%", size: "large", tilt: "tilt-left" },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), left: "18%", top: "18%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), left: "74%", top: "-10%", size: "", tilt: "tilt-left" },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), left: "62%", top: "22%", size: "large", tilt: "tilt-right" },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), left: "4%", top: "52%", size: "", tilt: "tilt-right" },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), left: "78%", top: "56%", size: "", tilt: "tilt-left" },
+];
+
 type MeResponse = {
   name?: string | null;
   email: string;
@@ -207,13 +216,9 @@ function LandingFX() {
           0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 26px rgba(251,146,60,0.12); }
           50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 0 36px rgba(125,211,252,0.14), 0 0 48px rgba(251,146,60,0.16); }
         }
-        @keyframes previewMarquee {
-          0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-50%, 0, 0); }
-        }
-        @keyframes previewMarqueeReverse {
-          0% { transform: translate3d(-50%, 0, 0); }
-          100% { transform: translate3d(0, 0, 0); }
+        @keyframes previewFloat {
+          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(0, -14px, 0) scale(1.02); }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -265,28 +270,25 @@ function LandingFX() {
         .orbito-preview-shell {
           animation: previewGlow 5.2s ease-in-out infinite, panelBreath 8.5s ease-in-out infinite;
         }
-        .orbito-preview-marquee {
-          animation: previewMarquee 36s linear infinite;
-          will-change: transform;
-        }
-        .orbito-preview-marquee.reverse {
-          animation: previewMarqueeReverse 36s linear infinite;
-        }
-        .orbito-preview-track {
-          display: flex;
-          width: max-content;
-          gap: 18px;
-          align-items: center;
-          padding: 6px 0;
-        }
         .orbito-preview-item {
-          width: 140px;
-          height: 248px;
-          border-radius: 18px;
+          width: 220px;
+          height: 392px;
+          border-radius: 22px;
           overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.12);
+          border: 1px solid rgba(255,255,255,0.14);
           background: rgba(7,9,18,0.85);
-          box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+          box-shadow: 0 22px 60px rgba(0,0,0,0.45);
+          animation: previewFloat 8.5s ease-in-out infinite;
+        }
+        .orbito-preview-item.large {
+          width: 260px;
+          height: 462px;
+        }
+        .orbito-preview-item.tilt-left {
+          transform: rotate(-2deg);
+        }
+        .orbito-preview-item.tilt-right {
+          transform: rotate(2deg);
         }
         .orbito-preview-item video {
           width: 100%;
@@ -906,19 +908,21 @@ export default function Page() {
         </section>
 
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 -top-10 -z-10 hidden h-[320px] overflow-hidden opacity-[0.55] sm:block"
-          >
-            <div className="orbito-preview-marquee">
-              <div className="orbito-preview-track">
-                {PREVIEW_GALLERY.concat(PREVIEW_GALLERY).map((src, idx) => (
-                  <div key={`${src}-${idx}-upper`} className="orbito-preview-item">
-                    <video src={src} autoPlay loop muted playsInline preload="metadata" />
-                  </div>
-                ))}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 hidden sm:block">
+            {SCATTERED_PREVIEWS.map((item, idx) => (
+              <div
+                key={`${item.src}-${idx}`}
+                className={["orbito-preview-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
+                style={{
+                  left: item.left,
+                  top: item.top,
+                  animationDelay: `${idx * 0.6}s`,
+                  opacity: 0.42,
+                }}
+              >
+                <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
               </div>
-            </div>
+            ))}
           </div>
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
