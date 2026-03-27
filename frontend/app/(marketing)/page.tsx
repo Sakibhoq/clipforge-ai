@@ -82,30 +82,27 @@ const PREVIEW_GALLERY = [
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
-const HERO_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "6%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "42px", opacity: 0.52 },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "12%", left: "10%", size: "", tilt: "tilt-right", scatterX: "66px", opacity: 0.46 },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "22%", left: "82%", size: "", tilt: "tilt-right", scatterX: "-52px", opacity: 0.46 },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "30%", left: "90%", size: "large", tilt: "tilt-left", scatterX: "-74px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "46%", left: "6%", size: "", tilt: "tilt-left", scatterX: "28px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "58%", left: "15%", size: "", tilt: "tilt-right", scatterX: "54px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "72%", left: "78%", size: "large", tilt: "tilt-right", scatterX: "-44px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "84%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-36px", opacity: 0.45 },
-] as const;
-
-const WORKS_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "4%", left: "4%", size: "", tilt: "tilt-left", scatterX: "52px", opacity: 0.4 },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "10%", left: "11%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.36 },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "16%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-68px", opacity: 0.44 },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "26%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-46px", opacity: 0.36 },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "34%", left: "9%", size: "", tilt: "tilt-left", scatterX: "42px", opacity: 0.36 },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "42%", left: "16%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.32 },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "52%", left: "83%", size: "", tilt: "tilt-right", scatterX: "-58px", opacity: 0.38 },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "58%", left: "14%", size: "", tilt: "tilt-left", scatterX: "48px", opacity: 0.38 },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "68%", left: "78%", size: "large", tilt: "tilt-left", scatterX: "-32px", opacity: 0.4 },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "74%", left: "16%", size: "", tilt: "tilt-right", scatterX: "56px", opacity: 0.36 },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "84%", left: "7%", size: "", tilt: "tilt-right", scatterX: "22px", opacity: 0.34 },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "88%", left: "91%", size: "large", tilt: "tilt-left", scatterX: "-62px", opacity: 0.42 },
+const PAGE_BACKGROUND_CLIPS = [
+  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "0%", left: "2%", size: "large", tilt: "tilt-left", scatterX: "36px", opacity: 0.5 },
+  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "7%", left: "11%", size: "", tilt: "tilt-right", scatterX: "58px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "11%", left: "86%", size: "", tilt: "tilt-right", scatterX: "-44px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "18%", left: "93%", size: "large", tilt: "tilt-left", scatterX: "-70px", opacity: 0.48 },
+  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "26%", left: "4%", size: "", tilt: "tilt-left", scatterX: "24px", opacity: 0.4 },
+  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "34%", left: "15%", size: "", tilt: "tilt-right", scatterX: "52px", opacity: 0.38 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "40%", left: "83%", size: "large", tilt: "tilt-right", scatterX: "-40px", opacity: 0.46 },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "47%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-30px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "55%", left: "6%", size: "", tilt: "tilt-left", scatterX: "44px", opacity: 0.38 },
+  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "63%", left: "18%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "69%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-62px", opacity: 0.42 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "76%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-40px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "82%", left: "5%", size: "", tilt: "tilt-left", scatterX: "36px", opacity: 0.34 },
+  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "88%", left: "14%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.3 },
+  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "92%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-50px", opacity: 0.36 },
+  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "96%", left: "93%", size: "", tilt: "tilt-left", scatterX: "-28px", opacity: 0.36 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "86%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "30px", opacity: 0.38 },
+  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "98%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-56px", opacity: 0.34 },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "72%", left: "2%", size: "", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "84%", left: "92%", size: "large", tilt: "tilt-left", scatterX: "-54px", opacity: 0.4 },
 ] as const;
 
 type MeResponse = {
@@ -316,6 +313,7 @@ function LandingFX() {
           opacity: 0;
           pointer-events: none;
           will-change: transform, opacity;
+          z-index: 2147483647;
         }
         .orbito-logo-core {
           display: flex;
@@ -999,9 +997,9 @@ export default function Page() {
         <section className="relative isolate">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 -top-2 -bottom-24 z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
+            className="pointer-events-none absolute left-1/2 top-[220px] bottom-[120px] z-0 hidden w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
           >
-            {HERO_BACKGROUND_CLIPS.map((item, idx) => (
+            {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
               <div
                 key={`${item.src}-${idx}`}
                 className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
@@ -1083,26 +1081,6 @@ export default function Page() {
           </div>
         </section>
         <div className="relative">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-14 z-0 hidden h-[42rem] w-screen -translate-x-1/2 overflow-visible min-[1600px]:block"
-        >
-          {WORKS_BACKGROUND_CLIPS.map((item, idx) => (
-            <div
-              key={`${item.src}-${idx}`}
-              className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
-              style={{
-                top: item.top,
-                left: item.left,
-                animationDelay: `${idx * 0.45}s`,
-                opacity: item.opacity,
-                ["--scatter-x" as any]: item.scatterX,
-              }}
-            >
-              <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
-            </div>
-          ))}
-        </div>
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
