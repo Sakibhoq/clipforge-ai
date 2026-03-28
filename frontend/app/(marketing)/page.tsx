@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
@@ -60,49 +61,19 @@ const HERO_PREVIEW_CLIPS = [
   previewSrc("Comic Vertical Clip #71.mp4"),
 ];
 
-const PREVIEW_GALLERY = [
-  previewSrc("Real Vertical Clip #48.mp4"),
-  previewSrc("Real Vertical Clip #49.mp4"),
-  previewSrc("Real Vertical Clip #51.mp4"),
-  previewSrc("Real Vertical Clip #53.mp4"),
-  previewSrc("Real Vertical Clip #54.mp4"),
-  previewSrc("Real Vertical Clip #55.mp4"),
-  previewSrc("Real Vertical Clip #56.mp4"),
-  previewSrc("Real Vertical Clip #57.mp4"),
-  previewSrc("Real Vertical Clip #58.mp4"),
-  previewSrc("Real Vertical Clip #61.mp4"),
-  previewSrc("Real Vertical Clip #63.mp4"),
-  previewSrc("Real Vertical Clip #64.mp4"),
-  previewSrc("Real Vertical Clip #65.mp4"),
-  previewSrc("Anime Vertical Clip #66.mp4"),
-  previewSrc("Anime Vertical Clip #67.mp4"),
-  previewSrc("Comic Vertical Clip #70.mp4"),
-  previewSrc("Comic Vertical Clip #71.mp4"),
-];
-
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const PAGE_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "0%", left: "2%", size: "large", tilt: "tilt-left", scatterX: "36px", opacity: 0.5 },
-  { src: previewSrc("Real Vertical Clip #49.mp4"), top: "6%", left: "11%", size: "", tilt: "tilt-right", scatterX: "58px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "12%", left: "86%", size: "", tilt: "tilt-right", scatterX: "-44px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "18%", left: "93%", size: "large", tilt: "tilt-left", scatterX: "-70px", opacity: 0.48 },
-  { src: previewSrc("Real Vertical Clip #54.mp4"), top: "24%", left: "4%", size: "", tilt: "tilt-left", scatterX: "24px", opacity: 0.4 },
-  { src: previewSrc("Real Vertical Clip #55.mp4"), top: "30%", left: "15%", size: "", tilt: "tilt-right", scatterX: "52px", opacity: 0.38 },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "36%", left: "83%", size: "large", tilt: "tilt-right", scatterX: "-40px", opacity: 0.46 },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "42%", left: "92%", size: "", tilt: "tilt-left", scatterX: "-30px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #58.mp4"), top: "48%", left: "6%", size: "", tilt: "tilt-left", scatterX: "44px", opacity: 0.38 },
-  { src: previewSrc("Real Vertical Clip #59.mp4"), top: "54%", left: "18%", size: "", tilt: "tilt-right", scatterX: "34px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "60%", left: "87%", size: "large", tilt: "tilt-right", scatterX: "-62px", opacity: 0.42 },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "66%", left: "80%", size: "", tilt: "tilt-left", scatterX: "-40px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #62.mp4"), top: "72%", left: "5%", size: "", tilt: "tilt-left", scatterX: "36px", opacity: 0.34 },
-  { src: previewSrc("Real Vertical Clip #63.mp4"), top: "78%", left: "14%", size: "large", tilt: "tilt-right", scatterX: "22px", opacity: 0.3 },
-  { src: previewSrc("Real Vertical Clip #64.mp4"), top: "84%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-50px", opacity: 0.36 },
-  { src: previewSrc("Real Vertical Clip #65.mp4"), top: "88%", left: "93%", size: "", tilt: "tilt-left", scatterX: "-28px", opacity: 0.36 },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "92%", left: "3%", size: "large", tilt: "tilt-left", scatterX: "30px", opacity: 0.38 },
-  { src: previewSrc("Anime Vertical Clip #67.mp4"), top: "95%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-56px", opacity: 0.34 },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "97%", left: "2%", size: "", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "99%", left: "92%", size: "large", tilt: "tilt-left", scatterX: "-54px", opacity: 0.4 },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "8%", left: "4%", size: "", tilt: "tilt-left", scatterX: "12px", opacity: 0.24 },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "18%", left: "11%", size: "large", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
+  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "34%", left: "6%", size: "", tilt: "tilt-left", scatterX: "10px", opacity: 0.22 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "51%", left: "13%", size: "", tilt: "tilt-right", scatterX: "16px", opacity: 0.24 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "70%", left: "7%", size: "large", tilt: "tilt-left", scatterX: "14px", opacity: 0.28 },
+  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "86%", left: "12%", size: "", tilt: "tilt-right", scatterX: "10px", opacity: 0.22 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "12%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-14px", opacity: 0.24 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "28%", left: "89%", size: "large", tilt: "tilt-left", scatterX: "-20px", opacity: 0.3 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "55%", left: "83%", size: "", tilt: "tilt-right", scatterX: "-14px", opacity: 0.24 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "78%", left: "88%", size: "large", tilt: "tilt-left", scatterX: "-18px", opacity: 0.28 },
 ] as const;
 
 type MeResponse = {
@@ -236,7 +207,7 @@ function LandingFX() {
         }
         @keyframes sideScatterFloat {
           0%, 100% { transform: translate3d(var(--scatter-x, 0px), 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
-          50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -18px, 0) rotate(calc(var(--tilt, 0deg) + 1.2deg)) scale(1.02); }
+          50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -10px, 0) rotate(calc(var(--tilt, 0deg) + 0.7deg)) scale(1.01); }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -317,18 +288,18 @@ function LandingFX() {
           --tilt: 0deg;
           --drift-x: 0px;
           --scatter-x: 0px;
-          width: 186px;
-          height: 332px;
+          width: 164px;
+          height: 292px;
           border-radius: 22px;
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.14);
           background: rgba(7,9,18,0.85);
-          box-shadow: 0 22px 60px rgba(0,0,0,0.38);
-          animation: sideScatterFloat 9.5s ease-in-out infinite;
+          box-shadow: 0 18px 46px rgba(0,0,0,0.3);
+          animation: sideScatterFloat 11.5s ease-in-out infinite;
         }
         .orbito-side-item.large {
-          width: 214px;
-          height: 380px;
+          width: 188px;
+          height: 334px;
         }
         .orbito-side-item video {
           width: 100%;
@@ -856,39 +827,36 @@ export default function Page() {
 
   const trialLocked = Boolean(me?.trial_used);
 
-  const startTrialCta = useMemo(
-    () => (className: string) => {
-      if (meLoading) {
-        return (
-          <button
-            type="button"
-            disabled
-            className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
-          >
-            Checking trial…
-          </button>
-        );
-      }
-      if (trialLocked) {
-        return (
-          <button
-            type="button"
-            disabled
-            className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
-            title="Your free trial has already been used. Upgrade to a paid plan."
-          >
-            Trial already used
-          </button>
-        );
-      }
+  function renderStartTrialCta(className: string) {
+    if (meLoading) {
       return (
-        <a href="/start-trial" className={className}>
-          Start free
-        </a>
+        <button
+          type="button"
+          disabled
+          className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+        >
+          Checking trial…
+        </button>
       );
-    },
-    [meLoading, trialLocked]
-  );
+    }
+    if (trialLocked) {
+      return (
+        <button
+          type="button"
+          disabled
+          className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
+          title="Your free trial has already been used. Upgrade to a paid plan."
+        >
+          Trial already used
+        </button>
+      );
+    }
+    return (
+      <a href="/start-trial" className={className}>
+        Start free
+      </a>
+    );
+  }
 
   const footerLinks = useMemo(
     () => [
@@ -908,7 +876,7 @@ export default function Page() {
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 [overflow-x:clip] [overflow-y:visible] min-[1600px]:block"
-        style={{ top: "220px", bottom: "240px" }}
+        style={{ top: "280px", bottom: "300px" }}
       >
         {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
           <div
@@ -936,7 +904,13 @@ export default function Page() {
             aria-hidden="true"
             className="pointer-events-none absolute left-1/2 top-[6%] z-0 hidden h-[140px] w-[140px] md:block"
           >
-            <img src={ORBITO_LOGO} alt="" className="orbito-logo-float absolute left-1/2 top-1/2 h-full w-full" />
+            <Image
+              src={ORBITO_LOGO}
+              alt=""
+              fill
+              sizes="140px"
+              className="orbito-logo-float absolute left-1/2 top-1/2 h-full w-full object-contain"
+            />
           </div>
 
           <div data-reveal className="reveal relative z-10">
@@ -970,7 +944,7 @@ export default function Page() {
                   </p>
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                    {startTrialCta("btn-orbito-cta")}
+                    {renderStartTrialCta("btn-orbito-cta")}
                     <Link href={ORBITO_WHOP_MARKETING_URL} className="btn-whop">
                       Get paid with <span className="whop-word">Whop</span>
                     </Link>
@@ -1072,7 +1046,7 @@ export default function Page() {
           </div>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            {startTrialCta("btn-orbito-cta")}
+            {renderStartTrialCta("btn-orbito-cta")}
             <Link href="/pricing" className="btn-ghost">
               View pricing
             </Link>

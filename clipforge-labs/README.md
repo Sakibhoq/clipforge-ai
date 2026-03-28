@@ -2,6 +2,12 @@
 
 Sister project to Orbito. Orbito Labs generates short AI videos from a prompt and lets you publish to connected social platforms.
 
+## Codebase Map
+
+See the repo-wide structure guide in:
+
+- `docs/CODEBASE_MAP.md`
+
 ## Dev (Docker Compose)
 
 From `clipforge-labs/`:

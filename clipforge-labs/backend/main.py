@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact, settings, generate
+from routers import auth, upload, jobs, health, clips, billing, oauth, social, automations, storefront, contact, settings, generate, editor
 from routers import storage as storage_router
 from routers import upload_register
 from core.db_init import init_db
@@ -191,6 +191,7 @@ app.include_router(social.router)
 app.include_router(automations.router)
 app.include_router(storefront.router)
 app.include_router(generate.router)
+app.include_router(editor.router)
 
 app.include_router(upload.router)
 app.include_router(upload_register.router)

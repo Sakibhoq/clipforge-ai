@@ -1,4 +1,4 @@
-// frontend/middleware.ts
+// frontend/proxy.ts
 import { NextRequest, NextResponse } from "next/server";
 
 const AUTH_COOKIE = "cf_token";
@@ -27,12 +27,36 @@ const PROTECTED_PREFIXES = [
   "/settings",
 ];
 
+const APP_SURFACE_PREFIXES = [
+  "/app",
+  "/dashboard",
+  "/upload",
+  "/clips",
+  "/billing",
+  "/settings",
+  "/studio",
+  "/connections",
+  "/automations",
+  "/storefront",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/start-trial",
+];
+
 function hostWithoutPort(host: string) {
   return host.split(":")[0]?.toLowerCase() || host.toLowerCase();
 }
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+function isAppSurface(pathname: string) {
+  return APP_SURFACE_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 }
@@ -62,7 +86,7 @@ function applySecurityHeaders(
   return res;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hostHeader = req.headers.get("host") || req.nextUrl.host || "";
   const host = hostWithoutPort(hostHeader);
@@ -156,7 +180,34 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // ✅ DEV/CODESPACES/LOCAL: do NOT enforce auth in middleware
+  // Enforce trust: marketing on apex, product on app subdomain.
+  if (
+    isProduction &&
+    !isCodespaces &&
+    !isLocal &&
+    orbitoAppHost &&
+    canonicalApexHost &&
+    orbitoAppHost !== canonicalApexHost
+  ) {
+    if (host === orbitoAppHost && !isAppSurface(pathname)) {
+      const url = req.nextUrl.clone();
+      url.protocol = "https:";
+      url.host = canonicalApexHost;
+      return applySecurityHeaders(NextResponse.redirect(url, 308), {
+        production: isProduction,
+        https: true,
+      });
+    }
+    if (host === canonicalApexHost && isAppSurface(pathname)) {
+      const target = new URL(req.nextUrl.pathname + req.nextUrl.search, ORBITO_APP_ORIGIN);
+      return applySecurityHeaders(NextResponse.redirect(target, 308), {
+        production: isProduction,
+        https: true,
+      });
+    }
+  }
+
+  // ✅ DEV/CODESPACES/LOCAL: do NOT enforce auth in proxy
   // Cookie is set on backend origin (8000) and not readable on frontend origin (3000).
   // In dev, auth is enforced by /auth/me in the app layout.
   if (!isProduction || isCodespaces || isLocal) {

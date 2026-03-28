@@ -1,8 +1,13 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const ignoreBuildErrors = process.env.NEXT_IGNORE_TYPECHECK === "1";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    // Pin the monorepo root explicitly so Next does not guess across multiple lockfiles.
+    root: path.resolve(__dirname, ".."),
+  },
   async rewrites() {
     return [
       // Proxy browser calls like /api/auth/login, /api/auth/me, /api/clips, etc.

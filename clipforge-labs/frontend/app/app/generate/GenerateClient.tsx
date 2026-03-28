@@ -7,11 +7,11 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { normalizeAppPlan } from "@/lib/plans";
 
+// API payloads and persisted draft state for the Labs generator surface.
 type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "4k";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 type StylePreset = "real" | "anime" | "cartoon" | "comic";
-type CaptionStylePreset = "none" | "bold_center" | "clean_bottom" | "minimal";
 
 type GenerateResponse = {
   upload_id: number;
@@ -36,6 +36,7 @@ type PromptHelperResponse = {
   duration_seconds: number;
   style_preset: string;
   analysis?: PromptHelperAnalysis | null;
+  storyboard?: PromptHelperStoryboardBeat[] | null;
 };
 
 type PromptHelperAnalysis = {
@@ -43,6 +44,14 @@ type PromptHelperAnalysis = {
   hook_focus?: string;
   quality_guardrails?: string[];
   camera_plan?: string[];
+};
+
+type PromptHelperStoryboardBeat = {
+  label?: string;
+  time_range?: string;
+  visual_beat?: string;
+  voice_beat?: string;
+  camera?: string;
 };
 
 type JobRow = {
@@ -70,6 +79,33 @@ type JobSettings = {
   generation_speed?: string;
   watermark_enabled?: boolean;
   captions_enabled?: boolean;
+  seed?: number;
+  continuation_job_id?: number;
+  reference_job_id?: number;
+  continuity_anchor?: string;
+};
+
+type GenerateDraft = {
+  mode?: GenerationMode;
+  prompt?: string;
+  aspectRatio?: string;
+  duration?: number;
+  videoSpeed?: VideoSpeedMode;
+  stylePreset?: StylePreset;
+  postVisualPrompt?: string;
+  postVoiceScript?: string;
+  postDialogueScript?: string;
+  postIdeaSeed?: string;
+  postDurationSeconds?: number;
+  postCaptionsEnabled?: boolean;
+  watermarkEnabled?: boolean;
+  voiceName?: string;
+  voiceSpeedMultiplier?: number;
+  videoDialogueScript?: string;
+  videoVoiceEnabled?: boolean;
+  videoVoiceMode?: "narration" | "dialogue";
+  continuationJobId?: number | null;
+  referenceJobId?: number | null;
 };
 
 const CREDIT_USD_VALUE = 0.10;
@@ -91,12 +127,13 @@ const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 6;
 const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
 const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
-const VIDEO_PROMPT_MAX_CHARS = 1200;
-const IMAGE_PROMPT_MAX_CHARS = 1200;
-const POST_VISUAL_PROMPT_MAX_CHARS = 1200;
+const VIDEO_PROMPT_MAX_CHARS = 3000;
+const IMAGE_PROMPT_MAX_CHARS = 3000;
+const POST_VISUAL_PROMPT_MAX_CHARS = 3000;
 const POST_VOICE_SCRIPT_MAX_CHARS = 12000;
 const VOICEOVER_SCRIPT_MAX_CHARS = 6000;
 const LOW_COST_STYLES = new Set<StylePreset>(["anime", "cartoon", "comic"]);
+const GENERATOR_DRAFT_STORAGE_KEY = "clipforge-labs-generate-draft-v4";
 const VOICE_SPEED_OPTIONS = [
   { value: 0.5, label: "0.5x" },
   { value: 0.75, label: "0.75x" },
@@ -111,12 +148,6 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "comic", label: "Comic" },
-];
-const CAPTION_STYLE_OPTIONS: Array<{ value: CaptionStylePreset; label: string; hint: string }> = [
-  { value: "none", label: "No captions", hint: "Disable burned-in captions for this render." },
-  { value: "bold_center", label: "Bold center", hint: "High contrast, centered lower-third." },
-  { value: "clean_bottom", label: "Clean bottom", hint: "Bottom aligned with softer background." },
-  { value: "minimal", label: "Minimal", hint: "Smaller clean text with light highlight." },
 ];
 
 const VOICE_OPTIONS = [
@@ -137,8 +168,12 @@ const VOICE_OPTIONS = [
 const DEFAULT_VOICE_NAME = "en-US-Neural2-H";
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
-const CAPTION_STYLE_VALUES = new Set<CaptionStylePreset>(CAPTION_STYLE_OPTIONS.map((opt) => opt.value));
 const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
+const STORY_MEMORY_EXAMPLES = [
+  "A luxury skincare founder telling the brand origin in a calm, premium tone.",
+  "An anime comeback arc where the hero returns stronger after losing everything.",
+  "A suspenseful true-story style explainer about a forgotten tech invention.",
+];
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -188,6 +223,35 @@ function shortPromptLabel(prompt: string | null | undefined, fallbackId: number)
   if (!value) return `Job #${fallbackId}`;
   if (value.length <= 120) return value;
   return `${value.slice(0, 117).trimEnd()}...`;
+}
+
+function clipText(value: string | null | undefined, maxChars: number): string {
+  const text = String(value || "").trim();
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
+}
+
+function normalizePromptStoryboard(value: unknown): PromptHelperStoryboardBeat[] {
+  if (!Array.isArray(value)) return [];
+  const beats: PromptHelperStoryboardBeat[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const label = String(row.label || "").trim();
+    const timeRange = String(row.time_range || "").trim();
+    const visualBeat = String(row.visual_beat || "").trim();
+    const voiceBeat = String(row.voice_beat || "").trim();
+    const camera = String(row.camera || "").trim();
+    if (!label && !visualBeat && !voiceBeat) continue;
+    beats.push({
+      label: label || "Beat",
+      time_range: timeRange,
+      visual_beat: visualBeat,
+      voice_beat: voiceBeat,
+      camera,
+    });
+  }
+  return beats;
 }
 
 function durationPresetLabel(durationSeconds: number | null | undefined): string {
@@ -449,6 +513,7 @@ export default function GenerateClient() {
   const searchParams = useSearchParams();
   const spKey = useMemo(() => (searchParams ? searchParams.toString() : ""), [searchParams]);
 
+  // Core generation state lives here so the form, queue, and continuity tools stay in sync.
   const [mode, setMode] = useState<GenerationMode>("post");
 
   const [prompt, setPrompt] = useState("");
@@ -464,8 +529,9 @@ export default function GenerateClient() {
   const [postIdeaLoading, setPostIdeaLoading] = useState(false);
   const [postIdeaError, setPostIdeaError] = useState<string | null>(null);
   const [postIdeaAnalysis, setPostIdeaAnalysis] = useState<PromptHelperAnalysis | null>(null);
+  const [postIdeaStoryboard, setPostIdeaStoryboard] = useState<PromptHelperStoryboardBeat[]>([]);
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
-  const [postCaptionStylePreset, setPostCaptionStylePreset] = useState<CaptionStylePreset>("bold_center");
+  const [postCaptionsEnabled, setPostCaptionsEnabled] = useState(true);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
   const [voiceName, setVoiceName] = useState<string>(DEFAULT_VOICE_NAME);
@@ -473,6 +539,8 @@ export default function GenerateClient() {
   const [videoDialogueScript, setVideoDialogueScript] = useState("");
   const [videoVoiceEnabled, setVideoVoiceEnabled] = useState(false);
   const [videoVoiceMode, setVideoVoiceMode] = useState<"narration" | "dialogue">("narration");
+  const [continuationJobId, setContinuationJobId] = useState<number | null>(null);
+  const [referenceJobId, setReferenceJobId] = useState<number | null>(null);
   const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
@@ -488,10 +556,12 @@ export default function GenerateClient() {
 
   const pollTimer = useRef<number | null>(null);
   const hydratedFromQuery = useRef(false);
+  const hydratedFromDraft = useRef(false);
   const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
   const voiceWordCount = useMemo(() => countWords(prompt), [prompt]);
+  const postVisualLength = useMemo(() => postVisualPrompt.trim().length, [postVisualPrompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
   const voiceSpeedWpm = useMemo(() => speedMultiplierToWpm(voiceSpeedMultiplier), [voiceSpeedMultiplier]);
   const postWordCount = useMemo(() => countWords(postVoiceScript), [postVoiceScript]);
@@ -573,10 +643,14 @@ export default function GenerateClient() {
     }
   }, [videoDurationOptions, duration]);
 
-  function hydrateFormFromJob(job: JobRow) {
+  function hydrateFormFromJob(job: JobRow, opts?: { preservePrompt?: boolean }) {
+    const preservePrompt = !!opts?.preservePrompt;
     const kind = String(job?.kind || "").toLowerCase();
     const settings: JobSettings =
       job?.settings && typeof job.settings === "object" ? (job.settings as JobSettings) : {};
+    setPostIdeaAnalysis(null);
+    setPostIdeaStoryboard([]);
+    setPostIdeaError(null);
 
     const aspect = typeof job.aspect_ratio === "string" ? job.aspect_ratio : null;
     if (aspect && ["9:16", "16:9", "1:1"].includes(aspect)) {
@@ -597,11 +671,16 @@ export default function GenerateClient() {
     } else if (typeof settings.watermark_enabled === "boolean") {
       setWatermarkEnabled(settings.watermark_enabled);
     }
+    setReferenceJobId(Number.isFinite(Number(settings.reference_job_id)) ? Number(settings.reference_job_id) : null);
 
     if (kind === "generate_post") {
       setMode("post");
-      setPostVisualPrompt(typeof settings.visual_prompt === "string" ? settings.visual_prompt : String(job.prompt || ""));
-      setPostVoiceScript(typeof settings.voice_script === "string" ? settings.voice_script : "");
+      if (!preservePrompt || !postVisualPrompt.trim()) {
+        setPostVisualPrompt(typeof settings.visual_prompt === "string" ? settings.visual_prompt : String(job.prompt || ""));
+      }
+      if (!preservePrompt || !postVoiceScript.trim()) {
+        setPostVoiceScript(typeof settings.voice_script === "string" ? settings.voice_script : "");
+      }
       setPostDialogueScript(typeof settings.dialogue_script === "string" ? settings.dialogue_script : "");
       const postDurationRaw =
         typeof job.duration_seconds === "number" ? job.duration_seconds : Number.parseInt(String(job.duration_seconds || ""), 10);
@@ -609,21 +688,15 @@ export default function GenerateClient() {
         setPostDurationSeconds(postDurationRaw);
       }
 
-      const captionsEnabled =
-        typeof settings.captions_enabled === "boolean" ? settings.captions_enabled : true;
-      const captionPreset = typeof settings.caption_style_preset === "string" ? settings.caption_style_preset : "";
-      if (!captionsEnabled) {
-        setPostCaptionStylePreset("none");
-      } else if (CAPTION_STYLE_VALUES.has(captionPreset as CaptionStylePreset)) {
-        setPostCaptionStylePreset(captionPreset as CaptionStylePreset);
-      } else {
-        setPostCaptionStylePreset("bold_center");
-      }
+      setPostCaptionsEnabled(typeof settings.captions_enabled === "boolean" ? settings.captions_enabled : true);
+      setContinuationJobId(Number.isFinite(Number(settings.continuation_job_id)) ? Number(settings.continuation_job_id) : null);
       return;
     }
 
     const promptText = String(job.prompt || "");
-    setPrompt(promptText);
+    if (!preservePrompt || !prompt.trim()) {
+      setPrompt(promptText);
+    }
 
     if (kind === "generate_image") {
       setMode("image");
@@ -669,6 +742,7 @@ export default function GenerateClient() {
     } else if (generationSpeed === "4k" || generationSpeed === "uhd" || generationSpeed === "fast") {
       setVideoSpeed("4k");
     }
+    setContinuationJobId(Number.isFinite(Number(settings.continuation_job_id)) ? Number(settings.continuation_job_id) : null);
   }
 
   async function openJobFromQueue(summary: JobRow) {
@@ -797,6 +871,47 @@ export default function GenerateClient() {
     );
   }
 
+  function storyJobLabel(job: JobRow) {
+    const created = job.created_at ? new Date(job.created_at) : null;
+    if (!created || Number.isNaN(created.getTime())) return shortPromptLabel(job.prompt, job.id);
+    return `${shortPromptLabel(job.prompt, job.id)} • ${created.toLocaleDateString()}`;
+  }
+
+  function isReferenceEligibleJob(job: JobRow) {
+    const kind = String(job.kind || "").toLowerCase();
+    const status = String(job.status || "").toLowerCase();
+    return status === "done" && (kind === "generate" || kind === "generate_post" || kind === "generate_image");
+  }
+
+  function applyContinuationFromJob(job: JobRow) {
+    const kind = String(job.kind || "").toLowerCase();
+    if (kind === "generate_post") {
+      hydrateFormFromJob(job, { preservePrompt: true });
+      setMode("post");
+      setContinuationJobId(job.id);
+      setReferenceJobId(null);
+      return;
+    }
+    if (kind === "generate") {
+      hydrateFormFromJob(job, { preservePrompt: true });
+      setMode("video");
+      setContinuationJobId(job.id);
+      setReferenceJobId(null);
+    }
+  }
+
+  function applyReferenceFromJob(job: JobRow) {
+    if (!isReferenceEligibleJob(job)) return;
+    const settings: JobSettings =
+      job?.settings && typeof job.settings === "object" ? (job.settings as JobSettings) : {};
+    const style = typeof settings.style_preset === "string" ? settings.style_preset : "";
+    if (STYLE_PRESET_VALUES.has(style as StylePreset)) {
+      setStylePreset(style as StylePreset);
+    }
+    setReferenceJobId(job.id);
+    setContinuationJobId(null);
+  }
+
   async function refreshJobs() {
     try {
       const rows = (await apiFetch<JobRow[]>("/labs/jobs", { method: "GET" })) || [];
@@ -875,6 +990,125 @@ export default function GenerateClient() {
   }, [freeTrialWatermarkLocked]);
 
   useEffect(() => {
+    if (hydratedFromDraft.current || typeof window === "undefined") return;
+    hydratedFromDraft.current = true;
+    try {
+      const raw = window.localStorage.getItem(GENERATOR_DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as GenerateDraft;
+      if (draft.mode === "post" || draft.mode === "video" || draft.mode === "image" || draft.mode === "voiceover") {
+        setMode(draft.mode);
+      }
+      if (typeof draft.prompt === "string") setPrompt(draft.prompt);
+      if (draft.aspectRatio && ["9:16", "16:9", "1:1"].includes(draft.aspectRatio)) setAspectRatio(draft.aspectRatio);
+      if (typeof draft.duration === "number" && VIDEO_DURATION_OPTIONS.includes(draft.duration)) setDuration(draft.duration);
+      if (draft.videoSpeed === "relax" || draft.videoSpeed === "4k") setVideoSpeed(draft.videoSpeed);
+      if (draft.stylePreset && STYLE_PRESET_VALUES.has(draft.stylePreset)) setStylePreset(draft.stylePreset);
+      if (typeof draft.postVisualPrompt === "string") setPostVisualPrompt(draft.postVisualPrompt);
+      if (typeof draft.postVoiceScript === "string") setPostVoiceScript(draft.postVoiceScript);
+      if (typeof draft.postDialogueScript === "string") setPostDialogueScript(draft.postDialogueScript);
+      if (typeof draft.postIdeaSeed === "string") setPostIdeaSeed(draft.postIdeaSeed);
+      if (typeof draft.postDurationSeconds === "number" && POST_DURATION_OPTIONS.includes(draft.postDurationSeconds)) {
+        setPostDurationSeconds(draft.postDurationSeconds);
+      }
+      if (typeof draft.postCaptionsEnabled === "boolean") setPostCaptionsEnabled(draft.postCaptionsEnabled);
+      if (!freeTrialWatermarkLocked && typeof draft.watermarkEnabled === "boolean") {
+        setWatermarkEnabled(draft.watermarkEnabled);
+      }
+      if (typeof draft.voiceName === "string" && VOICE_VALUES.has(draft.voiceName)) setVoiceName(draft.voiceName);
+      if (typeof draft.voiceSpeedMultiplier === "number") setVoiceSpeedMultiplier(draft.voiceSpeedMultiplier);
+      if (typeof draft.videoDialogueScript === "string") setVideoDialogueScript(draft.videoDialogueScript);
+      if (typeof draft.videoVoiceEnabled === "boolean") setVideoVoiceEnabled(draft.videoVoiceEnabled);
+      if (draft.videoVoiceMode === "narration" || draft.videoVoiceMode === "dialogue") setVideoVoiceMode(draft.videoVoiceMode);
+      if (Number.isFinite(Number(draft.continuationJobId))) {
+        setContinuationJobId(Number(draft.continuationJobId));
+      }
+      if (Number.isFinite(Number(draft.referenceJobId))) {
+        setReferenceJobId(Number(draft.referenceJobId));
+      }
+    } catch {
+      // ignore invalid saved drafts
+    }
+  }, [freeTrialWatermarkLocked]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hydratedFromDraft.current) return;
+    const payload: GenerateDraft = {
+      mode,
+      prompt,
+      aspectRatio,
+      duration,
+      videoSpeed,
+      stylePreset,
+      postVisualPrompt,
+      postVoiceScript,
+      postDialogueScript,
+      postIdeaSeed,
+      postDurationSeconds,
+      postCaptionsEnabled,
+      watermarkEnabled,
+      voiceName,
+      voiceSpeedMultiplier,
+      videoDialogueScript,
+      videoVoiceEnabled,
+      videoVoiceMode,
+      continuationJobId,
+      referenceJobId,
+    };
+    window.localStorage.setItem(GENERATOR_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+  }, [
+    aspectRatio,
+    continuationJobId,
+    duration,
+    mode,
+    postCaptionsEnabled,
+    postDialogueScript,
+    postDurationSeconds,
+    postIdeaSeed,
+    postVisualPrompt,
+    postVoiceScript,
+    prompt,
+    referenceJobId,
+    stylePreset,
+    videoDialogueScript,
+    videoSpeed,
+    videoVoiceEnabled,
+    videoVoiceMode,
+    voiceName,
+    voiceSpeedMultiplier,
+    watermarkEnabled,
+  ]);
+
+  useEffect(() => {
+    if (mode === "post" || mode === "video") return;
+    setContinuationJobId(null);
+    setReferenceJobId(null);
+  }, [mode]);
+
+  useEffect(() => {
+    if (!continuationJobId) return;
+    const job = (activeJob && activeJob.id === continuationJobId ? activeJob : null) || jobs.find((row) => row.id === continuationJobId) || null;
+    if (!job) return;
+    const kind = String(job.kind || "").toLowerCase();
+    if ((mode === "post" && kind !== "generate_post") || (mode === "video" && kind !== "generate")) {
+      setContinuationJobId(null);
+    }
+  }, [activeJob, continuationJobId, jobs, mode]);
+
+  useEffect(() => {
+    if (!referenceJobId) return;
+    const job = (activeJob && activeJob.id === referenceJobId ? activeJob : null) || jobs.find((row) => row.id === referenceJobId) || null;
+    if (!job) return;
+    if (mode !== "post" && mode !== "video") {
+      setReferenceJobId(null);
+      return;
+    }
+    if (!isReferenceEligibleJob(job)) {
+      setReferenceJobId(null);
+    }
+  }, [activeJob, jobs, mode, referenceJobId]);
+
+  useEffect(() => {
     if (hydratedFromQuery.current) return;
     hydratedFromQuery.current = true;
 
@@ -903,9 +1137,25 @@ export default function GenerateClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spKey]);
 
-  const selectedCaptionStyleHint = useMemo(() => {
-    return CAPTION_STYLE_OPTIONS.find((opt) => opt.value === postCaptionStylePreset)?.hint || "";
-  }, [postCaptionStylePreset]);
+  const storyMemoryJobs = useMemo(() => {
+    const allowedKinds = mode === "post" ? new Set(["generate_post"]) : mode === "video" ? new Set(["generate"]) : null;
+    if (!allowedKinds) return [] as JobRow[];
+    return jobs
+      .filter((job) => allowedKinds.has(String(job.kind || "").toLowerCase()) && String(job.status || "").toLowerCase() === "done")
+      .slice(0, 5);
+  }, [jobs, mode]);
+
+  const continuationJob = useMemo(() => {
+    if (!continuationJobId) return null;
+    if (activeJob && activeJob.id === continuationJobId) return activeJob;
+    return jobs.find((job) => job.id === continuationJobId) || null;
+  }, [activeJob, continuationJobId, jobs]);
+
+  const referenceJob = useMemo(() => {
+    if (!referenceJobId) return null;
+    if (activeJob && activeJob.id === referenceJobId) return activeJob;
+    return jobs.find((job) => job.id === referenceJobId) || null;
+  }, [activeJob, jobs, referenceJobId]);
 
   async function startGeneration() {
     setError(null);
@@ -959,7 +1209,6 @@ export default function GenerateClient() {
       let body: Record<string, string | number | boolean | undefined> = {};
 
       if (mode === "post") {
-        const captionsEnabled = postCaptionStylePreset !== "none";
         endpoint = "/labs/generate/post";
         body = {
           visual_prompt: postPrompt,
@@ -971,9 +1220,11 @@ export default function GenerateClient() {
           model: "google",
           voice_name: voiceName,
           style_preset: stylePreset,
-          caption_style_preset: captionsEnabled ? postCaptionStylePreset : "none",
-          captions_enabled: captionsEnabled,
+          caption_style_preset: postCaptionsEnabled ? "orbito" : "none",
+          captions_enabled: postCaptionsEnabled,
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
+          continuation_job_id: continuationJobId || undefined,
+          reference_job_id: referenceJobId || undefined,
         };
       } else if (mode === "image") {
         endpoint = "/labs/generate/image";
@@ -1005,6 +1256,8 @@ export default function GenerateClient() {
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
           voice_name: videoVoiceEnabled ? voiceName : undefined,
           voice_mode: videoVoiceEnabled ? videoVoiceMode : undefined,
+          continuation_job_id: continuationJobId || undefined,
+          reference_job_id: referenceJobId || undefined,
         };
       }
 
@@ -1039,6 +1292,7 @@ export default function GenerateClient() {
   }
 
   async function generatePostPromptPack() {
+    // Prompt-helper is the low-friction planning step before spending credits on a full render.
     const idea = postIdeaSeed.trim();
     if (idea.length < 3) {
       setPostIdeaError("Share a short idea first.");
@@ -1054,6 +1308,8 @@ export default function GenerateClient() {
           style_preset: stylePreset,
           aspect_ratio: aspectRatio,
           duration_seconds: postDurationSeconds,
+          continuation_job_id: continuationJobId || undefined,
+          reference_job_id: referenceJobId || undefined,
         },
       });
       const visual = String(res?.visual_prompt || "").trim();
@@ -1064,8 +1320,10 @@ export default function GenerateClient() {
       setPostVisualPrompt(visual);
       setPostVoiceScript(voice);
       setPostIdeaAnalysis(res && typeof res.analysis === "object" ? (res.analysis as PromptHelperAnalysis) : null);
+      setPostIdeaStoryboard(normalizePromptStoryboard(res?.storyboard));
     } catch (err: any) {
       const detail = String(err?.detail || err?.message || "Could not generate a prompt pack.");
+      setPostIdeaStoryboard([]);
       setPostIdeaError(detail);
     } finally {
       setPostIdeaLoading(false);
@@ -1100,8 +1358,11 @@ export default function GenerateClient() {
             <div className="relative flex h-full flex-col">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Generate Clips</h1>
-                  <p className="mt-1 text-sm text-white/65">Create ready-to-post clips with image, video, and voice generation.</p>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">AI Clip Studio</div>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Create polished clips without fighting the UI.</h1>
+                  <p className="mt-1 max-w-2xl text-sm text-white/65">
+                    Start with one brief, keep the flow simple, and reuse prior generations as story memory whenever you want to continue a character or world.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
@@ -1133,6 +1394,103 @@ export default function GenerateClient() {
                   </button>
                 ))}
               </div>
+
+              {(mode === "post" || mode === "video") ? (
+                <div className="mt-4 rounded-3xl border border-white/10 bg-[linear-gradient(145deg,rgba(14,18,32,0.92),rgba(10,14,24,0.9),rgba(8,20,18,0.86))] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">Story Memory</div>
+                      <div className="mt-1 text-sm font-semibold text-white/92">
+                        {mode === "post" ? "Keep the same world across multiple AI posts." : "Continue a previous video generation with the same visual identity."}
+                      </div>
+                      <div className="mt-1 text-[12px] text-white/58">
+                        Select a finished generation below, then write the next beat. We’ll keep the style and character continuity anchored.
+                      </div>
+                    </div>
+                    {continuationJob ? (
+                      <button
+                        type="button"
+                        onClick={() => setContinuationJobId(null)}
+                        className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/16"
+                      >
+                        Clear story memory
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {continuationJob ? (
+                    <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-[12px] text-amber-50/95">
+                      Continuing from <span className="font-semibold">{storyJobLabel(continuationJob)}</span>.
+                      <div className="mt-1 text-amber-50/80">Your next prompt becomes the next chapter instead of starting from zero.</div>
+                    </div>
+                  ) : null}
+
+                  {storyMemoryJobs.length ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {storyMemoryJobs.map((job) => {
+                        const active = continuationJobId === job.id;
+                        return (
+                          <button
+                            key={job.id}
+                            type="button"
+                            onClick={() => applyContinuationFromJob(job)}
+                            className={cx(
+                              "rounded-2xl border px-3 py-3 text-left transition",
+                              active
+                                ? "border-amber-300/30 bg-amber-400/12 text-white"
+                                : "border-white/10 bg-black/28 text-white/86 hover:bg-white/[0.06]"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="truncate text-[12px] font-semibold">{shortPromptLabel(job.prompt, job.id)}</div>
+                              <span className={cx("rounded-full border px-2 py-0.5 text-[10px] font-semibold", statusTone(job.status))}>
+                                {kindLabel(job.kind)}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-white/55">
+                              Job #{job.id} • {durationPresetLabel(job.duration_seconds)}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-[12px] text-white/58">
+                      Finish one {modeLabel(mode).toLowerCase()} first and it will appear here as reusable story memory.
+                    </div>
+                  )}
+
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/24 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">Reference Look</div>
+                        <div className="mt-1 text-[12px] text-white/62">
+                          Optional. Use any finished visual generation from Queue to borrow its look without continuing the exact same storyline.
+                        </div>
+                      </div>
+                      {referenceJob ? (
+                        <button
+                          type="button"
+                          onClick={() => setReferenceJobId(null)}
+                          className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-400/16"
+                        >
+                          Clear reference
+                        </button>
+                      ) : null}
+                    </div>
+                    {referenceJob ? (
+                      <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-[12px] text-cyan-50/95">
+                        Using <span className="font-semibold">{storyJobLabel(referenceJob)}</span> as the visual reference.
+                        <div className="mt-1 text-cyan-50/80">The next generation will keep its visual identity while creating a new scene or story beat.</div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-3 text-[12px] text-white/55">
+                        Pick “Use as reference look” on any finished visual job in Queue when you want consistent polish or character identity.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               {activeJob ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
@@ -1194,30 +1552,49 @@ export default function GenerateClient() {
                       <div className="relative">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Assistant</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Start With One Brief</div>
                             <div className="mt-1 text-base font-semibold text-white sm:text-lg">
-                              Don&apos;t have a prompt? Just tell me what you&apos;re thinking.
+                              Give Orbito Labs the core idea and let it build the first pass for you.
                             </div>
                             <p className="mt-1 text-xs text-white/68">
-                              You type the idea. Orbito Labs returns a ready-to-paste visual direction and matching voiceover script.
+                              This is the fastest path when the generator feels off. Start broad here, then refine the visual direction and narration below.
                             </p>
                           </div>
                           <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
-                            AI
+                            Guided
                           </span>
                         </div>
 
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {STORY_MEMORY_EXAMPLES.map((example) => (
+                            <button
+                              key={example}
+                              type="button"
+                              onClick={() => {
+                                setPostIdeaSeed(example);
+                                setPostIdeaAnalysis(null);
+                                setPostIdeaStoryboard([]);
+                                setPostIdeaError(null);
+                              }}
+                            className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
+                          >
+                              {clipText(example, 60)}
+                            </button>
+                          ))}
+                        </div>
+
                         <div className="mt-4 grid gap-2">
-                          <label className="text-xs font-medium text-white/72">Idea brief</label>
+                          <label className="text-xs font-medium text-white/72">Core idea</label>
                           <textarea
                             value={postIdeaSeed}
                             onChange={(e) => {
                               setPostIdeaSeed(e.target.value);
                               setPostIdeaAnalysis(null);
+                              setPostIdeaStoryboard([]);
                               if (postIdeaError) setPostIdeaError(null);
                             }}
                             rows={4}
-                            placeholder="Example: I want a motivational gym comeback story with anime style and strong scene-by-scene pacing."
+                            placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
                             className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
                           />
                         </div>
@@ -1226,7 +1603,7 @@ export default function GenerateClient() {
                           <div className="text-[11px] text-white/58">
                             {postIdeaSeed.trim().length.toLocaleString()} chars
                             <span className="mx-2 text-white/30">•</span>
-                            Optimized for AI Post
+                            Up to {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} chars
                           </div>
                           <button
                             type="button"
@@ -1271,6 +1648,28 @@ export default function GenerateClient() {
                             ) : null}
                           </div>
                         ) : null}
+                        {postIdeaStoryboard.length ? (
+                          <div className="mt-3 grid gap-2">
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">Storyboard Review</div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {postIdeaStoryboard.map((beat, index) => (
+                                <div key={`${beat.label || "beat"}-${index}`} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/72">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="font-semibold text-white/90">{beat.label || `Beat ${index + 1}`}</div>
+                                    {beat.time_range ? <div className="text-white/46">{beat.time_range}</div> : null}
+                                  </div>
+                                  {beat.visual_beat ? <div className="mt-2 text-white/84">{beat.visual_beat}</div> : null}
+                                  {beat.voice_beat ? <div className="mt-1 text-white/62">{beat.voice_beat}</div> : null}
+                                  {beat.camera ? (
+                                    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[10px] text-white/58">
+                                      Camera: {beat.camera}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
@@ -1282,6 +1681,9 @@ export default function GenerateClient() {
                       placeholder="Describe shots, scene style, camera behavior, and pacing."
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
+                    <div className="text-[11px] text-white/50">
+                      {postVisualLength.toLocaleString()} / {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} characters
+                    </div>
 
                     <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
                     <textarea
@@ -1291,15 +1693,22 @@ export default function GenerateClient() {
                       placeholder="Write the narration for your 1-minute clip."
                       className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
                     />
-                    <label className="mt-1 text-xs font-medium text-white/70">Character dialogue (optional)</label>
-                    <textarea
-                      value={postDialogueScript}
-                      onChange={(e) => setPostDialogueScript(e.target.value)}
-                      rows={4}
-                      placeholder="Optional: Hero: We have to move now. Sidekick: I’m right behind you."
-                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
-                    />
-                    <div className="text-[11px] text-white/50">{postVoiceLength.toLocaleString()} characters</div>
+                    <div className="text-[11px] text-white/50">
+                      {postVoiceLength.toLocaleString()} / {POST_VOICE_SCRIPT_MAX_CHARS.toLocaleString()} characters
+                    </div>
+                    <details className="rounded-2xl border border-white/10 bg-black/28 px-4 py-3 text-[12px] text-white/70">
+                      <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for character lines</summary>
+                      <div className="mt-3 grid gap-2">
+                        <label className="text-xs font-medium text-white/70">Character dialogue</label>
+                        <textarea
+                          value={postDialogueScript}
+                          onChange={(e) => setPostDialogueScript(e.target.value)}
+                          rows={4}
+                          placeholder="Optional: Founder: We almost quit. Partner: But we kept showing up."
+                          className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                        />
+                      </div>
+                    </details>
                     <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-white/72">
                       <div>
                         Estimated voice length at 1x:{" "}
@@ -1336,19 +1745,26 @@ export default function GenerateClient() {
                     />
                     <div className="text-[11px] text-white/50">
                       {mode === "voiceover"
-                        ? `${textLength.toLocaleString()} characters`
-                        : "Keep prompts short and specific for cleaner output."}
+                        ? `${textLength.toLocaleString()} / ${VOICEOVER_SCRIPT_MAX_CHARS.toLocaleString()} characters`
+                        : `${textLength.toLocaleString()} / ${
+                            (mode === "image" ? IMAGE_PROMPT_MAX_CHARS : VIDEO_PROMPT_MAX_CHARS).toLocaleString()
+                          } characters`}
                     </div>
                     {mode === "video" ? (
                       <>
-                        <label className="text-xs font-medium text-white/70">Character dialogue (optional)</label>
-                        <textarea
-                          value={videoDialogueScript}
-                          onChange={(e) => setVideoDialogueScript(e.target.value)}
-                          rows={4}
-                          placeholder="Optional speaking lines to guide lip-sync and emotional tone."
-                          className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
-                        />
+                        <details className="rounded-2xl border border-white/10 bg-black/28 px-4 py-3 text-[12px] text-white/70">
+                          <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for voice mode</summary>
+                          <div className="mt-3 grid gap-2">
+                            <label className="text-xs font-medium text-white/70">Character dialogue</label>
+                            <textarea
+                              value={videoDialogueScript}
+                              onChange={(e) => setVideoDialogueScript(e.target.value)}
+                              rows={4}
+                              placeholder="Optional speaking lines to guide lip-sync and emotional tone."
+                              className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                            />
+                          </div>
+                        </details>
                       </>
                     ) : null}
                   </>
@@ -1395,7 +1811,8 @@ export default function GenerateClient() {
 
           <aside className="grid gap-4">
             <div className="surface-soft rounded-3xl border border-[#fb560740] p-5">
-              <div className="text-sm font-semibold text-white/88">Settings</div>
+              <div className="text-sm font-semibold text-white/88">Render setup</div>
+              <div className="mt-1 text-[12px] text-white/56">Keep the visible controls tight. Everything else stays automatic.</div>
               <div className="mt-3 grid gap-3">
                 {(mode === "post" || mode === "video" || mode === "image") ? (
                   <div className="grid gap-2">
@@ -1448,8 +1865,7 @@ export default function GenerateClient() {
                 {mode === "post" ? (
                   <>
                     <div className="rounded-xl border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-[11px] text-amber-100/95">
-                      Warning: AI Post currently runs in image + voice mode for all styles to keep user costs lower.
-                      If you want full video posts, generate in Video mode, then use Editor to turn that output into a post.
+                      AI Post is optimized for faster, lower-friction story generation. For single cinematic shots, switch to Video mode.
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>
@@ -1470,21 +1886,16 @@ export default function GenerateClient() {
                         <div className="text-[11px] text-white/55">Upgrade to Starter to unlock 90s and 120s AI posts.</div>
                       ) : null}
                     </div>
-                    <div className="grid gap-2">
-                      <label className="text-xs font-medium text-white/70">Caption style</label>
-                      <select
-                        value={postCaptionStylePreset}
-                        onChange={(e) => setPostCaptionStylePreset(e.target.value as CaptionStylePreset)}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
-                      >
-                        {CAPTION_STYLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="text-[11px] text-white/55">{selectedCaptionStyleHint}</div>
-                    </div>
+                    <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={postCaptionsEnabled}
+                        onChange={(e) => setPostCaptionsEnabled(e.target.checked)}
+                        className="h-4 w-4 accent-orange-500"
+                      />
+                      <span className="text-xs text-white/80">Burn-in captions</span>
+                    </label>
+                    <div className="text-[11px] text-white/55">Captions use Orbito Labs’ default burn-in style. It’s either on or off now.</div>
                     {renderVoiceSelector(VOICE_BASE_WPM)}
                   </>
                 ) : null}
@@ -1666,6 +2077,44 @@ export default function GenerateClient() {
                       </div>
                       <div className="mt-1 text-xs text-white/55">
                         {kindLabel(j.kind)} • {durationPresetLabel(j.duration_seconds)}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openJobFromQueue(j);
+                          }}
+                          className="rounded-xl border border-white/10 bg-black/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]"
+                        >
+                          Load settings
+                        </button>
+                        {((mode === "post" && String(j.kind || "").toLowerCase() === "generate_post") ||
+                          (mode === "video" && String(j.kind || "").toLowerCase() === "generate")) &&
+                        String(j.status || "").toLowerCase() === "done" ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              applyContinuationFromJob(j);
+                            }}
+                            className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/18"
+                          >
+                            Use as story memory
+                          </button>
+                        ) : null}
+                        {(mode === "post" || mode === "video") && isReferenceEligibleJob(j) ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              applyReferenceFromJob(j);
+                            }}
+                            className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-400/18"
+                          >
+                            Use as reference look
+                          </button>
+                        ) : null}
                       </div>
                       {(String(j.status || "").toLowerCase() === "failed" || String(j.status || "").toLowerCase() === "canceled") ? (
                         <div className="mt-2 rounded-xl border border-rose-300/20 bg-rose-500/10 px-2.5 py-2 text-[11px] text-rose-100/90">

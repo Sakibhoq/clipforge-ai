@@ -1025,11 +1025,11 @@ export default function ClipsPage() {
           <div className="relative grid gap-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <div className="text-xs text-white/55">{generatedOnly ? "• AI Clips" : "• Asset Command Center"}</div>
+                <div className="text-xs text-white/55">{generatedOnly ? "• AI Review Workspace" : "• Asset Command Center"}</div>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white/95 sm:text-4xl">
                   {generatedOnly ? (
                     <>
-                      AI <span className="grad-text">Clips</span>
+                      AI <span className="grad-text">Clips Workspace</span>
                     </>
                   ) : (
                     <>
@@ -1039,7 +1039,7 @@ export default function ClipsPage() {
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm text-white/68 sm:text-[15px]">
                   {generatedOnly
-                    ? "Only AI-generated clips from Orbito Labs appear here. Review, edit, and publish from one workflow."
+                    ? "Review finished AI outputs, open them in the editor, and publish without digging through extra UI."
                     : "Shared Orbito clip library for review, editor flow, and scheduling in one place."}
                 </p>
               </div>
@@ -1082,6 +1082,19 @@ export default function ClipsPage() {
               <span className="text-[11px] text-white/50">Switch between shared Orbito clips and Labs AI-only clips.</span>
             </div>
 
+            {generatedOnly ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {["Review faster", "Edit in one click", "Publish from the same page"].map((item) => (
+                  <span
+                    key={item}
+                    className={cx("rounded-full border border-white/12 px-3 py-1.5 text-[11px] text-white/72", clipsSurfaceInsetClass)}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {[
                 { label: "Total Assets", value: counts.total },
@@ -1096,6 +1109,37 @@ export default function ClipsPage() {
                 </div>
               ))}
             </div>
+
+            {generatedOnly ? (
+              <div className="grid gap-3 lg:grid-cols-3">
+                {[
+                  {
+                    title: "Review",
+                    body: "Scan finished outputs quickly and keep only the clips worth refining.",
+                  },
+                  {
+                    title: "Refine",
+                    body: "Jump straight into the editor to crop, place text, and polish timing.",
+                  },
+                  {
+                    title: "Publish",
+                    body: "Move from approved AI clips to scheduling without hunting through extra controls.",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.title}
+                    className={cx(
+                      "rounded-[24px] border border-[#fb560738] bg-[linear-gradient(145deg,rgba(16,22,35,0.92),rgba(11,16,28,0.9),rgba(10,25,23,0.86))] px-4 py-4",
+                      clipsSurfacePrimaryClass
+                    )}
+                  >
+                    <div className="text-[11px] uppercase tracking-[0.12em] text-[#ffbe6a]/85">{item.title}</div>
+                    <div className="mt-2 text-sm font-semibold text-white/92">{item.title} your AI clips with less friction</div>
+                    <div className="mt-2 text-[12px] leading-5 text-white/62">{item.body}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 

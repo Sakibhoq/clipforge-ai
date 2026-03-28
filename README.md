@@ -4,6 +4,13 @@ Monorepo:
 - `frontend/`: Next.js app
 - `backend/`: FastAPI API
 - `worker/`: video processing worker (claims jobs from DB)
+- `clipforge-labs/`: Labs product with its own frontend, backend, and worker
+
+## Codebase Map
+
+Start here for the folder-by-folder guide:
+
+- `docs/CODEBASE_MAP.md`
 
 ## Dev (docker compose)
 

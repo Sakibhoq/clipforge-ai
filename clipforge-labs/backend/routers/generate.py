@@ -40,6 +40,7 @@ ALLOWED_DURATIONS = {5, 6, 7}
 POST_ALLOWED_DURATIONS = {60, 90, 120}
 POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 6
+PROMPT_MAX_CHARS = 3000
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
@@ -1050,6 +1051,66 @@ def _build_prompt_helper_analysis(*, idea: str, style_preset: str | None, durati
     }
 
 
+def _storyboard_labels(scene_count: int) -> list[str]:
+    safe_count = max(1, int(scene_count or 1))
+    if safe_count <= 4:
+        return ["Hook", "Setup", "Turn", "Payoff"][:safe_count]
+    if safe_count == 5:
+        return ["Hook", "Setup", "Pressure", "Turn", "Payoff"]
+    return ["Hook", "Setup", "Pressure", "Escalation", "Turn", "Payoff"][:safe_count]
+
+
+def _build_prompt_helper_storyboard(
+    *,
+    idea: str,
+    style_preset: str | None,
+    duration_seconds: int,
+) -> list[dict[str, str]]:
+    # Storyboard beats are lightweight review cards shown before a paid generation starts.
+    concept = _core_idea_phrase(idea) or _clean_spaces(idea)
+    subject, trait = _extract_subject_and_trait(concept)
+    trait_display = _trait_display(trait)
+    style = _normalize_style_preset(style_preset)
+    dialogue_mode = _idea_implies_dialogue(concept)
+    scene_count = 4 if duration_seconds <= 60 else (5 if duration_seconds <= 90 else 6)
+    labels = _storyboard_labels(scene_count)
+    beats: list[dict[str, str]] = []
+
+    for idx, (start, end) in enumerate(_scene_ranges(duration_seconds, scene_count)):
+        label = labels[idx] if idx < len(labels) else f"Beat {idx + 1}"
+        camera = _camera_directive_for_scene(
+            style=style,
+            scene_index=idx,
+            scene_count=scene_count,
+            dialogue_mode=dialogue_mode,
+        )
+        if idx == 0:
+            visual_beat = f"Introduce {subject} immediately with premium readability and visible stakes."
+            voice_beat = f"Open fast, name the tension, and hint that {trait_display} changes everything."
+        elif idx == scene_count - 1:
+            visual_beat = f"Land the final image on {subject} with a polished hero hold and clean closure."
+            voice_beat = "Resolve the promise, then end on a line that feels finished instead of abrupt."
+        elif idx >= scene_count - 2:
+            visual_beat = f"Show {subject} turning momentum with {trait_display} in a clear payoff beat."
+            voice_beat = "Deliver the emotional turn and make the payoff feel earned."
+        elif idx == 1:
+            visual_beat = "Clarify the world, tone, and obstacle so the viewer instantly understands the setup."
+            voice_beat = "Add context without slowing the pace or over-explaining."
+        else:
+            visual_beat = f"Raise pressure around {subject} while keeping the same identity, wardrobe palette, and environment family."
+            voice_beat = "Escalate the conflict with one specific detail that makes the next beat feel bigger."
+        beats.append(
+            {
+                "label": label,
+                "time_range": f"{start}-{end}s",
+                "visual_beat": visual_beat,
+                "voice_beat": voice_beat,
+                "camera": camera,
+            }
+        )
+    return beats
+
+
 def _post_credits_needed(
     image_count: int,
     voice_script: str,
@@ -1505,6 +1566,127 @@ def _assert_user_owned_key(user_id: int, key: str | None) -> str | None:
     return value
 
 
+def _parse_settings_payload(raw: object) -> dict:
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        value = raw.strip()
+        if not value:
+            return {}
+        try:
+            data = json.loads(value)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
+    return {}
+
+
+def _stable_seed(text: str) -> int:
+    value = (text or "").strip()
+    if not value:
+        return 1
+    seed = 0
+    for ch in value:
+        seed = (seed * 31 + ord(ch)) % 2_147_483_647
+    return int(seed or 1)
+
+
+def _resolve_reference_job_context(
+    *,
+    db: Session,
+    current_user: User,
+    job_id: int,
+    allowed_kinds: set[str],
+    missing_detail: str,
+    fallback_style: str | None = None,
+) -> dict[str, object]:
+    # Reuse only completed visual generations so continuity/reference picks are stable and user-owned.
+    job = (
+        db.query(Job)
+        .join(Upload, Job.upload_id == Upload.id)
+        .filter(Job.id == job_id, Upload.user_id == current_user.id)
+        .first()
+    )
+    if (
+        not job
+        or str(getattr(job, "kind", "") or "") not in allowed_kinds
+        or str(getattr(job, "status", "") or "").lower() != "done"
+    ):
+        raise HTTPException(status_code=404, detail=missing_detail)
+
+    settings = _parse_settings_payload(getattr(job, "caption_style_json", None))
+    prompt_source = str(settings.get("visual_prompt") or getattr(job, "prompt", "") or "").strip()
+    style_preset = str(settings.get("style_preset") or fallback_style or "").strip()
+    continuity_anchor = str(settings.get("continuity_anchor") or "").strip()
+    if not continuity_anchor:
+        subject, trait = _extract_subject_and_trait(_core_idea_phrase(prompt_source) or prompt_source)
+        continuity_anchor = _character_anchor(subject, _trait_display(trait))
+
+    seed_value = settings.get("seed")
+    if isinstance(seed_value, int) and seed_value > 0:
+        seed = int(seed_value)
+    else:
+        seed = _stable_seed(prompt_source or continuity_anchor)
+
+    return {
+        "job_id": int(job.id),
+        "job_kind": str(getattr(job, "kind", "") or ""),
+        "prompt": prompt_source,
+        "style_preset": style_preset,
+        "continuity_anchor": continuity_anchor,
+        "seed": seed,
+    }
+
+
+def _merge_continuation_prompt(base_prompt: str, continuity_anchor: str | None) -> str:
+    anchor_text = (continuity_anchor or "").strip()
+    prefix = "Continuation clip. Keep the same main character identity, wardrobe palette, and visual style."
+    if anchor_text:
+        prefix = f"{prefix} Character anchor: {anchor_text}"
+    merged = f"{prefix}\n\n{base_prompt}".strip()
+    if len(merged) <= PROMPT_MAX_CHARS:
+        return merged
+    trimmed_anchor = anchor_text[:240].rstrip() if anchor_text else ""
+    if trimmed_anchor:
+        prefix = (
+            "Continuation clip. Keep the same main character identity, wardrobe palette, and visual style. "
+            f"Character anchor: {trimmed_anchor}"
+        )
+    merged = f"{prefix}\n\n{base_prompt}".strip()
+    if len(merged) <= PROMPT_MAX_CHARS:
+        return merged
+    return merged[:PROMPT_MAX_CHARS].rstrip()
+
+
+def _merge_reference_prompt(
+    base_prompt: str,
+    reference_prompt: str | None,
+    continuity_anchor: str | None,
+) -> str:
+    # This is safe prompt-level continuity, not true model-side image conditioning.
+    reference_text = _clean_spaces(reference_prompt or "")
+    anchor_text = _clean_spaces(continuity_anchor or "")
+    prefix = (
+        "Reference look only. Keep the same premium visual identity, face structure, wardrobe palette, "
+        "lighting mood, and environment family from the reference generation while creating a fresh beat."
+    )
+    if anchor_text:
+        prefix = f"{prefix} Character anchor: {anchor_text}"
+    if reference_text:
+        prefix = f"{prefix} Reference cues: {reference_text[:320].rstrip()}"
+    merged = f"{prefix}\n\n{base_prompt}".strip()
+    if len(merged) <= PROMPT_MAX_CHARS:
+        return merged
+    if reference_text:
+        prefix = prefix.replace(reference_text[:320].rstrip(), reference_text[:180].rstrip())
+        merged = f"{prefix}\n\n{base_prompt}".strip()
+        if len(merged) <= PROMPT_MAX_CHARS:
+            return merged
+    return merged[:PROMPT_MAX_CHARS].rstrip()
+
+
 def _create_generation_job(
     *,
     db: Session,
@@ -1661,8 +1843,8 @@ def _create_generation_job(
 
 
 class GenerateVideoRequest(BaseModel):
-    prompt: str = Field(min_length=3, max_length=1200)
-    negative_prompt: str | None = Field(default=None, max_length=1200)
+    prompt: str = Field(min_length=3, max_length=PROMPT_MAX_CHARS)
+    negative_prompt: str | None = Field(default=None, max_length=PROMPT_MAX_CHARS)
     aspect_ratio: str = "9:16"
     duration_seconds: int = Field(default=6, ge=5, le=7)
     generation_speed: str = Field(default="relax", max_length=16)
@@ -1674,10 +1856,12 @@ class GenerateVideoRequest(BaseModel):
     dialogue_script: str | None = Field(default=None, max_length=5000)
     voice_name: str | None = Field(default=None, max_length=64)
     voice_mode: str | None = Field(default=None, max_length=16)
+    continuation_job_id: int | None = Field(default=None, ge=1)
+    reference_job_id: int | None = Field(default=None, ge=1)
 
 
 class GenerateImageRequest(BaseModel):
-    prompt: str = Field(min_length=3, max_length=1200)
+    prompt: str = Field(min_length=3, max_length=PROMPT_MAX_CHARS)
     aspect_ratio: str = "1:1"
     model: str | None = Field(default="google", max_length=64)
     style_preset: str | None = Field(default="photo-real", max_length=64)
@@ -1693,7 +1877,7 @@ class GenerateVoiceoverRequest(BaseModel):
 
 
 class GeneratePostRequest(BaseModel):
-    visual_prompt: str = Field(min_length=3, max_length=1200)
+    visual_prompt: str = Field(min_length=3, max_length=PROMPT_MAX_CHARS)
     voice_script: str = Field(min_length=30, max_length=12000)
     dialogue_script: str | None = Field(default=None, max_length=5000)
     aspect_ratio: str = "9:16"
@@ -1706,6 +1890,9 @@ class GeneratePostRequest(BaseModel):
     caption_style_preset: str | None = Field(default="bold_center", max_length=64)
     captions_enabled: bool = Field(default=True)
     watermark_enabled: bool = Field(default=True)
+    seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
+    continuation_job_id: int | None = Field(default=None, ge=1)
+    reference_job_id: int | None = Field(default=None, ge=1)
 
 
 class GenerateResponse(BaseModel):
@@ -1723,6 +1910,16 @@ class PromptHelperRequest(BaseModel):
     style_preset: str | None = Field(default="real", max_length=64)
     aspect_ratio: str = Field(default="9:16", max_length=16)
     duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
+    continuation_job_id: int | None = Field(default=None, ge=1)
+    reference_job_id: int | None = Field(default=None, ge=1)
+
+
+class PromptHelperStoryboardBeat(BaseModel):
+    label: str
+    time_range: str
+    visual_beat: str
+    voice_beat: str
+    camera: str
 
 
 class PromptHelperResponse(BaseModel):
@@ -1733,6 +1930,7 @@ class PromptHelperResponse(BaseModel):
     duration_seconds: int
     style_preset: str
     analysis: dict[str, object] | None = None
+    storyboard: list[PromptHelperStoryboardBeat] | None = None
 
 
 class VoicePreviewRequest(BaseModel):
@@ -1750,6 +1948,7 @@ class VoicePreviewResponse(BaseModel):
 @router.post("/prompt-helper", response_model=PromptHelperResponse)
 def prompt_helper(
     payload: PromptHelperRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     # Auth guard to avoid anonymous abuse.
@@ -1769,18 +1968,63 @@ def prompt_helper(
     if duration_seconds not in POST_ALLOWED_DURATIONS:
         duration_seconds = POST_DEFAULT_DURATION_SECONDS
 
+    continuation_job_id = int(payload.continuation_job_id) if payload.continuation_job_id else None
+    reference_job_id = int(payload.reference_job_id) if payload.reference_job_id else None
+    continuity_anchor: str | None = None
+    reference_context: dict[str, object] | None = None
+    if continuation_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=continuation_job_id,
+            allowed_kinds={JOB_KIND_POST},
+            missing_detail="Continuation job not found",
+            fallback_style=style,
+        )
+        if str(reference_context.get("style_preset") or "").strip():
+            style = str(reference_context.get("style_preset") or "").strip()
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+    elif reference_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=reference_job_id,
+            allowed_kinds={JOB_KIND_VIDEO, JOB_KIND_POST, JOB_KIND_IMAGE},
+            missing_detail="Reference generation not found",
+            fallback_style=style,
+        )
+        if str(reference_context.get("style_preset") or "").strip():
+            style = str(reference_context.get("style_preset") or "").strip()
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+
     visual_prompt = _build_visual_prompt_pack(
         idea=idea,
         style_preset=style,
         aspect_ratio=aspect,
         duration_seconds=duration_seconds,
     )
+    if continuation_job_id:
+        visual_prompt = _merge_continuation_prompt(visual_prompt, continuity_anchor)
+    elif reference_context:
+        visual_prompt = _merge_reference_prompt(
+            visual_prompt,
+            str(reference_context.get("prompt") or ""),
+            continuity_anchor,
+        )
     voice_script = _build_voice_script_pack(
         idea=idea,
         style_preset=style,
         duration_seconds=duration_seconds,
     )
     analysis = _build_prompt_helper_analysis(
+        idea=idea,
+        style_preset=style,
+        duration_seconds=duration_seconds,
+    )
+    if continuity_anchor:
+        analysis = dict(analysis or {})
+        analysis["continuity_anchor"] = continuity_anchor
+    storyboard = _build_prompt_helper_storyboard(
         idea=idea,
         style_preset=style,
         duration_seconds=duration_seconds,
@@ -1793,6 +2037,7 @@ def prompt_helper(
         duration_seconds=duration_seconds,
         style_preset=style,
         analysis=analysis,
+        storyboard=storyboard,
     )
 
 
@@ -1854,6 +2099,48 @@ def create_video_generation(
     voice_mode = (payload.voice_mode or "").strip().lower()
     if voice_mode not in {"narration", "dialogue", ""}:
         voice_mode = ""
+    continuation_job_id = int(payload.continuation_job_id) if payload.continuation_job_id else None
+    reference_job_id = int(payload.reference_job_id) if payload.reference_job_id else None
+    continuity_seed: int | None = payload.seed
+    continuity_anchor: str | None = None
+    reference_context: dict[str, object] | None = None
+    if continuation_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=continuation_job_id,
+            allowed_kinds={JOB_KIND_VIDEO},
+            missing_detail="Continuation job not found",
+            fallback_style=style_preset,
+        )
+        prev_prompt = str(reference_context.get("prompt") or "").strip()
+        prev_style = str(reference_context.get("style_preset") or style_preset or "").strip()
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+        if continuity_seed is None:
+            continuity_seed = int(reference_context.get("seed") or 0) or _stable_seed(prev_prompt or composed_prompt)
+        if prev_style:
+            style_preset = prev_style
+        composed_prompt = _merge_continuation_prompt(composed_prompt, continuity_anchor)
+    elif reference_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=reference_job_id,
+            allowed_kinds={JOB_KIND_VIDEO, JOB_KIND_POST, JOB_KIND_IMAGE},
+            missing_detail="Reference generation not found",
+            fallback_style=style_preset,
+        )
+        ref_style = str(reference_context.get("style_preset") or style_preset or "").strip()
+        if ref_style:
+            style_preset = ref_style
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+        if continuity_seed is None:
+            continuity_seed = int(reference_context.get("seed") or 0) or _stable_seed(composed_prompt)
+        composed_prompt = _merge_reference_prompt(
+            composed_prompt,
+            str(reference_context.get("prompt") or ""),
+            continuity_anchor,
+        )
     credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset)
 
     def _plan_guard(plan: str) -> None:
@@ -1878,13 +2165,21 @@ def create_video_generation(
         "mode": "video",
         "generation_speed": generation_speed,
         "style_preset": style_preset,
-        "seed": payload.seed,
+        "seed": continuity_seed,
         "input_image_key": input_image_key,
         "dialogue_script": dialogue_script,
         "voice_name": voice_name or None,
         "voice_mode": voice_mode or None,
         "watermark_enabled": bool(payload.watermark_enabled),
     }
+    if continuation_job_id:
+        settings_payload["continuation_job_id"] = continuation_job_id
+    if reference_job_id and not continuation_job_id:
+        settings_payload["reference_job_id"] = reference_job_id
+        if reference_context and str(reference_context.get("job_kind") or "").strip():
+            settings_payload["reference_job_kind"] = str(reference_context.get("job_kind") or "").strip()
+    if continuity_anchor:
+        settings_payload["continuity_anchor"] = continuity_anchor
 
     upload, job = _create_generation_job(
         db=db,
@@ -2040,6 +2335,48 @@ def create_post_generation(
     model = _check_model_supported(payload.model)
     style_preset = (payload.style_preset or "social-native")
     dialogue_script = _clean_dialogue_script(payload.dialogue_script)
+    continuation_job_id = int(payload.continuation_job_id) if payload.continuation_job_id else None
+    reference_job_id = int(payload.reference_job_id) if payload.reference_job_id else None
+    continuity_seed: int | None = payload.seed
+    continuity_anchor: str | None = None
+    reference_context: dict[str, object] | None = None
+    if continuation_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=continuation_job_id,
+            allowed_kinds={JOB_KIND_POST},
+            missing_detail="Continuation job not found",
+            fallback_style=style_preset,
+        )
+        prev_prompt = str(reference_context.get("prompt") or "").strip()
+        ref_style = str(reference_context.get("style_preset") or style_preset or "").strip()
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+        if continuity_seed is None:
+            continuity_seed = int(reference_context.get("seed") or 0) or _stable_seed(prev_prompt or visual_prompt)
+        if ref_style:
+            style_preset = ref_style
+        visual_prompt = _merge_continuation_prompt(visual_prompt, continuity_anchor)
+    elif reference_job_id:
+        reference_context = _resolve_reference_job_context(
+            db=db,
+            current_user=current_user,
+            job_id=reference_job_id,
+            allowed_kinds={JOB_KIND_VIDEO, JOB_KIND_POST, JOB_KIND_IMAGE},
+            missing_detail="Reference generation not found",
+            fallback_style=style_preset,
+        )
+        ref_style = str(reference_context.get("style_preset") or style_preset or "").strip()
+        if ref_style:
+            style_preset = ref_style
+        continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
+        if continuity_seed is None:
+            continuity_seed = int(reference_context.get("seed") or 0) or _stable_seed(visual_prompt)
+        visual_prompt = _merge_reference_prompt(
+            visual_prompt,
+            str(reference_context.get("prompt") or ""),
+            continuity_anchor,
+        )
     if duration_seconds > 60 and not _is_low_cost_style(style_preset):
         raise HTTPException(
             status_code=422,
@@ -2091,6 +2428,7 @@ def create_post_generation(
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
         "style_preset": style_preset,
+        "seed": continuity_seed,
         "caption_style_preset": (
             "none"
             if not bool(payload.captions_enabled)
@@ -2099,6 +2437,14 @@ def create_post_generation(
         "captions_enabled": bool(payload.captions_enabled),
         "watermark_enabled": bool(payload.watermark_enabled),
     }
+    if continuation_job_id:
+        settings_payload["continuation_job_id"] = continuation_job_id
+    if reference_job_id and not continuation_job_id:
+        settings_payload["reference_job_id"] = reference_job_id
+        if reference_context and str(reference_context.get("job_kind") or "").strip():
+            settings_payload["reference_job_kind"] = str(reference_context.get("job_kind") or "").strip()
+    if continuity_anchor:
+        settings_payload["continuity_anchor"] = continuity_anchor
 
     upload, job = _create_generation_job(
         db=db,

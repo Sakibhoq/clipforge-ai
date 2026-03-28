@@ -8,3 +8,4 @@ from .youtube_channel import YouTubeChannel
 from .youtube_ingest import YouTubeIngestItem
 from .automation import AutomationRule
 from .storefront import Storefront
+from .editor_project import EditorProject

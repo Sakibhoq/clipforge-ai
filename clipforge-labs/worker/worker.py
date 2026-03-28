@@ -32,20 +32,21 @@ _GOOGLE_PROJECT_CACHE: str | None = None
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
 FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
-    "en-US-Wavenet-A",
-    "en-US-Wavenet-C",
-    "en-US-Wavenet-E",
-    "en-US-Neural2-A",
-    "en-US-Neural2-J",
-    "en-US-Standard-C",
-    "en-US-Standard-D",
-    "en-US-Standard-E",
-    "en-US-Standard-F",
+  "en-US-Neural2-H",
+  "en-US-Neural2-I",
+  "en-US-Studio-Q",
+  "en-US-Studio-O",
+  "en-US-Wavenet-A",
+  "en-US-Wavenet-C",
+  "en-US-Wavenet-E",
+  "en-US-Neural2-A",
+  "en-US-Neural2-J",
+  "en-US-Standard-C",
+  "en-US-Standard-D",
+  "en-US-Standard-E",
+  "en-US-Standard-F",
 ]
+PROMPT_MAX_CHARS = 3000
 
 
 def _env(name: str, default: str = "") -> str:
@@ -1970,29 +1971,17 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
         return max(min_value, scaled)
 
     style = (preset or "").strip().lower()
-    if style == "minimal":
-        font_size = _scaled_font(min(26, max(18, int(video_h * 0.013))), 12)
-        margin_v = max(46, int(video_h * 0.042))
-        return (
-            f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00F7F7F7,OutlineColour=&H00151515,BackColour=&H00000000,"
-            "BorderStyle=1,Outline=1,Shadow=0,Bold=0,Italic=0,MarginL=38,MarginR=38,WrapStyle=2"
-        )
-    if style == "clean_bottom":
-        font_size = _scaled_font(min(30, max(21, int(video_h * 0.016))), 14)
-        margin_v = max(54, int(video_h * 0.050))
-        return (
-            f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00242424,BackColour=&H66202020,"
-            "BorderStyle=3,Outline=0,Shadow=0,Bold=1,MarginL=42,MarginR=42,WrapStyle=2"
-        )
-    # default: bold_center
-    font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
-    margin_v = max(80, int(video_h * 0.070))
+    if style in {"none", "off", "disabled"}:
+        return ""
+
+    # Labs now uses one premium default caption look instead of multiple presets:
+    # raised bottom-center placement, stronger contrast, and roomier margins.
+    font_size = _scaled_font(min(38, max(28, int(video_h * 0.020))), 18)
+    margin_v = max(96, int(video_h * 0.084))
     return (
-        f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=5,MarginV={margin_v},"
-        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H7A000000,"
-        "BorderStyle=3,Outline=0,Shadow=0,Bold=1,MarginL=46,MarginR=46,WrapStyle=2"
+        f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
+        "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
+        "BorderStyle=3,Outline=0,Shadow=0,Bold=1,Italic=0,MarginL=54,MarginR=54,Spacing=0.1,WrapStyle=2"
     )
 
 
@@ -2011,16 +2000,40 @@ def _build_word_caption_events(script: str, duration_seconds: float) -> list[dic
     if not tokens:
         return []
     safe_duration = max(0.6, float(duration_seconds or 0.0))
-    slot = safe_duration / float(len(tokens))
+    chunks: list[str] = []
+    current: list[str] = []
+    for token in tokens:
+        current.append(token)
+        joined = " ".join(current).strip()
+        punctuation_break = token.endswith((".", "!", "?", ";", ":"))
+        soft_break = token.endswith(",") and len(current) >= 2
+        length_break = len(current) >= 4 or len(joined) >= 28
+        if punctuation_break or soft_break or length_break:
+            chunks.append(joined)
+            current = []
+    if current:
+        chunks.append(" ".join(current).strip())
+    if not chunks:
+        return []
+
+    weights: list[float] = []
+    for chunk in chunks:
+        word_count = max(1, len(re.findall(r"\S+", chunk)))
+        punctuation_bonus = 0.28 if chunk.endswith((".", "!", "?", ";", ":")) else 0.12 if chunk.endswith(",") else 0.0
+        weights.append(float(word_count) + punctuation_bonus)
+    total_weight = sum(weights) or float(len(chunks))
     events: list[dict[str, float | str]] = []
-    for idx, token in enumerate(tokens):
-        start = round(float(idx) * slot, 3)
-        end = round(float(idx + 1) * slot, 3)
-        if idx == len(tokens) - 1:
+    cursor = 0.0
+    for idx, chunk in enumerate(chunks):
+        slot = safe_duration * (weights[idx] / total_weight)
+        start = round(cursor, 3)
+        end = round(cursor + slot, 3)
+        if idx == len(chunks) - 1:
             end = max(end, safe_duration)
         if end <= start:
-            end = round(start + 0.08, 3)
-        events.append({"word": token, "start": start, "end": end})
+            end = round(start + 0.18, 3)
+        events.append({"word": chunk, "start": start, "end": end})
+        cursor = end
     return events
 
 

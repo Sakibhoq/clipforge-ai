@@ -281,6 +281,27 @@ def _ensure_sqlite_clip_schema(db: Session) -> None:
             raise
 
 
+def _ffmpeg_drawtext_escape(text: str) -> str:
+    value = str(text or "")
+    value = value.replace("\\", r"\\")
+    value = value.replace(":", r"\:")
+    value = value.replace("'", r"\'")
+    value = value.replace("%", r"\%")
+    value = value.replace("[", r"\[")
+    value = value.replace("]", r"\]")
+    value = value.replace("\n", r"\n")
+    return value
+
+
+class TextOverlayRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=240)
+    start: float = Field(default=0.0, ge=0.0)
+    end: float = Field(default=0.0, ge=0.0)
+    x: float = Field(default=0.5, ge=0.0, le=1.0)
+    y: float = Field(default=0.82, ge=0.0, le=1.0)
+    font_scale: float = Field(default=1.0, ge=0.5, le=2.5)
+
+
 class ClipCropRequest(BaseModel):
     x: float = Field(default=0.0, ge=0.0, le=1.0)
     y: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -288,6 +309,7 @@ class ClipCropRequest(BaseModel):
     h: float = Field(default=1.0, gt=0.0, le=1.0)
     trim_start: float = Field(default=0.0, ge=0.0)
     trim_end: Optional[float] = Field(default=None, ge=0.0)
+    text_overlays: list[TextOverlayRequest] = Field(default_factory=list)
 
 
 @router.get("/{clip_id}/download")
@@ -389,6 +411,42 @@ def crop_clip(
         if y % 2:
             y = max(0, y - 1)
 
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        vf_parts = [f"crop={crop_w}:{crop_h}:{x}:{y}", "setpts=PTS-STARTPTS"]
+        overlay_count = 0
+        font_prefix = f"fontfile='{font_path}':" if os.path.exists(font_path) else ""
+        for overlay in list(payload.text_overlays or [])[:24]:
+            text_value = str(overlay.text or "").strip()
+            start_at = max(0.0, float(overlay.start or 0.0))
+            end_at = max(0.0, float(overlay.end or 0.0))
+            if not text_value or end_at <= start_at:
+                continue
+            safe_x = max(0.08, min(0.92, float(overlay.x or 0.5)))
+            safe_y = max(0.08, min(0.92, float(overlay.y or 0.82)))
+            safe_scale = max(0.7, min(1.8, float(overlay.font_scale or 1.0)))
+            font_size = max(24, min(96, int(round(float(crop_h) * 0.042 * safe_scale))))
+            margin = max(18, int(round(float(crop_w) * 0.04)))
+            text_escaped = _ffmpeg_drawtext_escape(text_value)
+            x_expr = f"min(max(w*{safe_x:.4f}-text_w/2,{margin}),w-text_w-{margin})"
+            y_expr = f"min(max(h*{safe_y:.4f}-text_h/2,{margin}),h-text_h-{margin})"
+            vf_parts.append(
+                "drawtext="
+                f"{font_prefix}"
+                f"text='{text_escaped}':"
+                f"x={x_expr}:"
+                f"y={y_expr}:"
+                f"fontsize={font_size}:"
+                "fontcolor=white:"
+                "line_spacing=6:"
+                "borderw=2:"
+                "bordercolor=black@0.85:"
+                "box=1:"
+                "boxcolor=black@0.34:"
+                "boxborderw=18:"
+                f"enable='between(t,{start_at:.3f},{end_at:.3f})'"
+            )
+            overlay_count += 1
+
         ffmpeg_cmd = [
             "ffmpeg",
             "-y",
@@ -399,7 +457,7 @@ def crop_clip(
             "-to",
             f"{trim_end:.3f}",
             "-vf",
-            f"crop={crop_w}:{crop_h}:{x}:{y}",
+            ",".join(vf_parts),
             "-c:v",
             "libx264",
             "-preset",
@@ -421,7 +479,7 @@ def crop_clip(
 
         parent = clip.storage_key.rsplit("/", 1)[0] if "/" in clip.storage_key else f"users/{current_user.id}/clips"
         title_base = (clip.title or f"Clip {clip.id}").strip() or f"Clip {clip.id}"
-        cropped_title = f"{title_base} (Cropped)"
+        cropped_title = f"{title_base} ({'Edited' if overlay_count else 'Cropped'})"
         stem = _slugify_filename_base(cropped_title, fallback=f"clip-{clip.id}-cropped")
         new_key = f"{parent}/{stem}.mp4"
         if hasattr(storage, "exists"):

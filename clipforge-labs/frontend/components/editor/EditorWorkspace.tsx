@@ -4,6 +4,7 @@ import Link from "next/link";
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, getApiBase } from "@/lib/api";
 
+// Timeline/editor models for the Labs desktop editor.
 type AssetType = "video" | "image" | "audio";
 type TrackKey = "visual" | "voiceover" | "music" | "captions";
 type FrameRatio = "9:16" | "1:1" | "16:9";
@@ -50,6 +51,13 @@ type TimelineDragState = {
   itemDuration: number;
   moved: boolean;
 };
+type CaptionDragState = {
+  itemId: string;
+  stageLeft: number;
+  stageTop: number;
+  stageW: number;
+  stageH: number;
+};
 
 type ClipRow = {
   id: number;
@@ -91,6 +99,9 @@ type TimelineItem = {
   text?: string;
   motion?: "none" | "kenburns";
   crop?: CropRect;
+  x?: number;
+  y?: number;
+  fontScale?: number;
 };
 
 type ProjectState = {
@@ -113,7 +124,33 @@ type LocalMusicAsset = {
   size: number;
 };
 
+type SavedEditorProject = {
+  id: number;
+  name: string;
+  frame: FrameRatio;
+  project: ProjectState;
+  summary?: {
+    visual_count?: number;
+    voiceover_count?: number;
+    music_count?: number;
+    caption_count?: number;
+    target_duration?: number;
+  } | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type TextOverlayPayload = {
+  text: string;
+  start: number;
+  end: number;
+  x: number;
+  y: number;
+  font_scale: number;
+};
+
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
+const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -272,6 +309,9 @@ function captionItemsFromWordEvents(events: WordCaptionEvent[]): TimelineItem[] 
     volume: 1,
     text: event.word,
     motion: "none",
+    x: 0.5,
+    y: 0.82,
+    fontScale: 1,
   }));
 }
 
@@ -458,6 +498,7 @@ type EditorWorkspaceProps = {
 
 export default function EditorWorkspace({ mode = "page", onClose, initialClipId }: EditorWorkspaceProps) {
   const cardMode = mode === "card";
+  // Keep editor-wide state centralized so preview, timeline, and export controls stay in sync.
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,6 +512,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
   const [playing, setPlaying] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [lastExportClipId, setLastExportClipId] = useState<number | null>(null);
+  const [serverProjectId, setServerProjectId] = useState<number | null>(null);
+  const [savedProjects, setSavedProjects] = useState<SavedEditorProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectSyncBusy, setProjectSyncBusy] = useState(false);
+  const [projectSyncNotice, setProjectSyncNotice] = useState<string | null>(null);
   const [timelineHoverLens, setTimelineHoverLens] = useState<TimelineHoverLens | null>(null);
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [snapToGrid] = useState(true);
@@ -494,6 +540,8 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
   const timelineDragRef = useRef<TimelineDragState | null>(null);
   const clearTimelineDragListenersRef = useRef<(() => void) | null>(null);
   const suppressClickKeyRef = useRef<string | null>(null);
+  const captionDragRef = useRef<CaptionDragState | null>(null);
+  const clearCaptionDragListenersRef = useRef<(() => void) | null>(null);
 
   const profile = useMemo(() => profileForFrame(project.frame), [project.frame]);
   const activeFrameAspect = useMemo(() => frameAspectRatio(project.frame), [project.frame]);
@@ -559,6 +607,14 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
   }, [project.captions, playhead]);
 
   const previewStageHeight = useMemo(() => (cardMode ? 420 : 500), [cardMode]);
+  const hasServerRenderableVisuals = useMemo(
+    () => project.visual.some((item) => item.clipId && (item.type === "video" || item.type === "image")),
+    [project.visual]
+  );
+  const hasLocalOnlyAudio = useMemo(
+    () => [...project.voiceover, ...project.music].some((item) => !item.clipId),
+    [project.music, project.voiceover]
+  );
   const surfacePrimaryClass = "bg-[linear-gradient(145deg,rgba(22,28,44,0.96),rgba(14,20,34,0.93),rgba(10,30,27,0.9))]";
   const surfaceSoftClass = "bg-[linear-gradient(145deg,rgba(17,22,37,0.9),rgba(12,18,30,0.87),rgba(9,24,22,0.82))]";
   const surfaceInsetClass = "bg-[linear-gradient(145deg,rgba(11,16,28,0.95),rgba(8,13,23,0.92),rgba(8,19,18,0.88))]";
@@ -609,6 +665,9 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       volume: 1,
       text: "Type caption text",
       motion: "none",
+      x: 0.5,
+      y: 0.82,
+      fontScale: 1,
     };
     setTrackItems("captions", (items) => [...items, item]);
     setSelected({ track: "captions", itemId: item.id });
@@ -750,6 +809,55 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
     setTrackItems(selected.track, (items) =>
       items.map((item) => (item.id === selected.itemId ? { ...item, ...patch } : item))
     );
+  }
+
+  function beginCaptionDrag(event: React.PointerEvent<HTMLDivElement>, item: TimelineItem) {
+    if (item.type !== "caption" || !previewStageRef.current) return;
+    const bounds = previewStageRef.current.getBoundingClientRect();
+    if (bounds.width < 2 || bounds.height < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelected({ track: "captions", itemId: item.id });
+
+    clearCaptionDragListenersRef.current?.();
+    captionDragRef.current = {
+      itemId: item.id,
+      stageLeft: bounds.left,
+      stageTop: bounds.top,
+      stageW: bounds.width,
+      stageH: bounds.height,
+    };
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const drag = captionDragRef.current;
+      if (!drag) return;
+      const x = clamp01((moveEvent.clientX - drag.stageLeft) / Math.max(1, drag.stageW));
+      const y = clamp01((moveEvent.clientY - drag.stageTop) / Math.max(1, drag.stageH));
+      setTrackItems("captions", (items) =>
+        items.map((caption) =>
+          caption.id === drag.itemId
+            ? {
+                ...caption,
+                x: clamp(x, 0.08, 0.92),
+                y: clamp(y, 0.08, 0.92),
+              }
+            : caption
+        )
+      );
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      clearCaptionDragListenersRef.current = null;
+      captionDragRef.current = null;
+    };
+
+    const onUp = () => cleanup();
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { once: true });
+    clearCaptionDragListenersRef.current = cleanup;
   }
 
   function duplicateSelected() {
@@ -1170,6 +1278,27 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
 
     const crop = normalizeCropRect(target.crop || { x: 0, y: 0, w: 1, h: 1 }, 0.02);
     const trimEnd = Math.max(0.35, Number(target.duration || 0.35));
+    const textOverlays: TextOverlayPayload[] = project.captions
+      .map((caption) => {
+        const text = String(caption.text || "").trim();
+        if (!text) return null;
+        const overlapStart = Math.max(Number(caption.start || 0), Number(target.start || 0));
+        const overlapEnd = Math.min(
+          Number(caption.start || 0) + Number(caption.duration || 0),
+          Number(target.start || 0) + trimEnd
+        );
+        if (overlapEnd <= overlapStart) return null;
+        return {
+          text,
+          start: Number((overlapStart - Number(target.start || 0)).toFixed(3)),
+          end: Number((overlapEnd - Number(target.start || 0)).toFixed(3)),
+          x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
+          y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.7, 1.8),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 24) as TextOverlayPayload[];
 
     setExporting(true);
     try {
@@ -1182,6 +1311,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           h: crop.h,
           trim_start: 0,
           trim_end: trimEnd,
+          text_overlays: textOverlays,
         },
       });
       setLastExportClipId(Number(created?.id || 0) || null);
@@ -1191,6 +1321,163 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       }
     } catch (err: any) {
       setError(err?.detail || err?.message || "Could not export clip.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function saveProjectToCloud({ saveAsNew = false }: { saveAsNew?: boolean } = {}) {
+    // Cloud saves let the same timeline follow the user across sessions and devices.
+    if (projectSyncBusy) return;
+    setProjectSyncBusy(true);
+    setProjectSyncNotice(null);
+    try {
+      const safeProject = sanitizeForPersistence(project);
+      const payload = {
+        name: safeProject.name,
+        frame: safeProject.frame,
+        project: safeProject,
+      };
+      const saved =
+        serverProjectId && !saveAsNew
+          ? await apiFetch<SavedEditorProject>(`/editor/projects/${serverProjectId}`, {
+              method: "PUT",
+              body: payload,
+            })
+          : await apiFetch<SavedEditorProject>("/editor/projects", {
+              method: "POST",
+              body: payload,
+            });
+      setServerProjectId(Number(saved?.id || 0) || null);
+      setProjectSyncNotice(saveAsNew || !serverProjectId ? "Project saved to cloud." : "Cloud project updated.");
+      await loadSavedProjects();
+    } catch (err: any) {
+      setProjectSyncNotice(err?.detail || err?.message || "Could not save this project to cloud.");
+    } finally {
+      setProjectSyncBusy(false);
+    }
+  }
+
+  async function loadCloudProject(projectId: number) {
+    if (projectSyncBusy) return;
+    setProjectSyncBusy(true);
+    setProjectSyncNotice(null);
+    try {
+      const saved = await apiFetch<SavedEditorProject>(`/editor/projects/${projectId}`, { method: "GET" });
+      setProject(normalizeLoadedProject(saved?.project));
+      setServerProjectId(Number(saved?.id || 0) || null);
+      setSelected(null);
+      setPlayhead(0);
+      setProjectSyncNotice(`Loaded "${saved?.name || "project"}" from cloud.`);
+    } catch (err: any) {
+      setProjectSyncNotice(err?.detail || err?.message || "Could not load this cloud project.");
+    } finally {
+      setProjectSyncBusy(false);
+    }
+  }
+
+  async function deleteCloudProject(projectId: number) {
+    if (projectSyncBusy) return;
+    setProjectSyncBusy(true);
+    setProjectSyncNotice(null);
+    try {
+      await apiFetch(`/editor/projects/${projectId}`, { method: "DELETE" });
+      if (serverProjectId === projectId) {
+        setServerProjectId(null);
+      }
+      setProjectSyncNotice("Cloud project deleted.");
+      await loadSavedProjects();
+    } catch (err: any) {
+      setProjectSyncNotice(err?.detail || err?.message || "Could not delete this cloud project.");
+    } finally {
+      setProjectSyncBusy(false);
+    }
+  }
+
+  async function renderTimelineProject({ download }: { download: boolean }) {
+    // Full timeline render happens server-side so captions, crop, and media timing stay consistent.
+    if (exporting) return;
+    setError(null);
+    setLastExportClipId(null);
+
+    const visualItems = project.visual
+      .filter((item) => item.clipId && (item.type === "video" || item.type === "image"))
+      .map((item) => ({
+        clip_id: Number(item.clipId),
+        type: item.type,
+        start: Math.max(0, Number(item.start || 0)),
+        duration: Math.max(0.25, Number(item.duration || 0.25)),
+        motion: item.motion || undefined,
+        crop: item.crop || undefined,
+        title: item.title || undefined,
+      }));
+
+    if (!visualItems.length) {
+      setError("Add at least one video or image block to the visual track before rendering.");
+      return;
+    }
+
+    const invalidAudio = [...project.voiceover, ...project.music].find((item) => !item.clipId);
+    if (invalidAudio) {
+      setError("Cloud timeline render only supports library audio right now. Remove local uploaded music before exporting the full timeline.");
+      return;
+    }
+
+    const voiceoverItems = project.voiceover
+      .filter((item) => item.clipId)
+      .map((item) => ({
+        clip_id: Number(item.clipId),
+        start: Math.max(0, Number(item.start || 0)),
+        duration: Math.max(0.25, Number(item.duration || 0.25)),
+        volume: clamp(Number(item.volume || 1), 0, 2),
+      }));
+
+    const musicItems = project.music
+      .filter((item) => item.clipId)
+      .map((item) => ({
+        clip_id: Number(item.clipId),
+        start: Math.max(0, Number(item.start || 0)),
+        duration: Math.max(0.25, Number(item.duration || 0.25)),
+        volume: clamp(Number(item.volume || 0.6), 0, 2),
+      }));
+
+    const captions = project.captions
+      .map((caption) => {
+        const text = String(caption.text || "").trim();
+        if (!text) return null;
+        return {
+          text,
+          start: Math.max(0, Number(caption.start || 0)),
+          end: Math.max(0, Number(caption.start || 0) + Number(caption.duration || 0)),
+          x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
+          y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.7, 1.8),
+        };
+      })
+      .filter(Boolean);
+
+    setExporting(true);
+    try {
+      const created = await apiFetch<ClipRow>("/editor/render", {
+        method: "POST",
+        body: {
+          name: project.name,
+          frame: project.frame,
+          target_duration: project.targetDuration,
+          music_bed_level: project.musicBedLevel,
+          visual: visualItems,
+          voiceover: voiceoverItems,
+          music: musicItems,
+          captions,
+        },
+      });
+      setLastExportClipId(Number(created?.id || 0) || null);
+      await loadAssets();
+      if (download && created?.id) {
+        window.open(clipDownloadUrl(Number(created.id)), "_blank", "noopener,noreferrer");
+      }
+    } catch (err: any) {
+      setError(err?.detail || err?.message || "Could not render this timeline.");
     } finally {
       setExporting(false);
     }
@@ -1261,15 +1548,39 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
     }
   }
 
+  async function loadSavedProjects() {
+    setProjectsLoading(true);
+    try {
+      const rows = (await apiFetch<SavedEditorProject[]>("/editor/projects", { method: "GET" })) || [];
+      const normalized = Array.isArray(rows)
+        ? rows.map((row) => ({
+            ...row,
+            frame: (row.frame || "9:16") as FrameRatio,
+            project: normalizeLoadedProject(row.project),
+          }))
+        : [];
+      setSavedProjects(normalized);
+    } catch (err: any) {
+      setSavedProjects([]);
+      setProjectSyncNotice(err?.detail || err?.message || "Could not load saved cloud projects.");
+    } finally {
+      setProjectsLoading(false);
+    }
+  }
+
   useEffect(() => {
     const syncDesktop = () => setIsDesktop(computeIsDesktop());
     syncDesktop();
     window.addEventListener("resize", syncDesktop);
-    return () => window.removeEventListener("resize", syncDesktop);
+    return () => {
+      window.removeEventListener("resize", syncDesktop);
+      clearCaptionDragListenersRef.current?.();
+    };
   }, []);
 
   useEffect(() => {
     loadAssets();
+    loadSavedProjects();
   }, []);
 
   useEffect(() => {
@@ -1277,6 +1588,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       const rawProject = window.localStorage.getItem(PROJECT_STORAGE_KEY);
       if (rawProject) {
         setProject(normalizeLoadedProject(JSON.parse(rawProject)));
+      }
+      const rawServerProjectId = window.localStorage.getItem(PROJECT_SERVER_ID_STORAGE_KEY);
+      const parsedServerProjectId = Number(rawServerProjectId || 0);
+      if (Number.isFinite(parsedServerProjectId) && parsedServerProjectId > 0) {
+        setServerProjectId(parsedServerProjectId);
       }
     } catch {
       // ignore malformed local state
@@ -1302,6 +1618,18 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       // ignore
     }
   }, [project]);
+
+  useEffect(() => {
+    try {
+      if (serverProjectId && serverProjectId > 0) {
+        window.localStorage.setItem(PROJECT_SERVER_ID_STORAGE_KEY, String(serverProjectId));
+      } else {
+        window.localStorage.removeItem(PROJECT_SERVER_ID_STORAGE_KEY);
+      }
+    } catch {
+      // ignore
+    }
+  }, [serverProjectId]);
 
   useEffect(() => {
     if (!selected) return;
@@ -1751,9 +2079,9 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
         <header className="mb-2 flex items-center justify-between gap-2">
           <div>
             <h1 className={cx("font-semibold tracking-tight text-white/95", cardMode ? "text-lg" : "text-2xl sm:text-3xl")}>
-              Orbito Labs <span className="grad-text">Master Editor</span>
+              Orbito Labs <span className="grad-text">Studio Editor</span>
             </h1>
-            {!cardMode ? <p className="mt-1 text-xs text-white/66 sm:text-sm">Timeline workspace for visual, voiceover, music, and captions.</p> : null}
+            {!cardMode ? <p className="mt-1 text-xs text-white/66 sm:text-sm">Timeline workspace for visual, voiceover, music, and draggable text overlays.</p> : null}
           </div>
 
           {cardMode ? (
@@ -1867,6 +2195,74 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                     >
                       {project.safeAreaOn ? "Hide Safe Area" : "Show Safe Area"}
                     </button>
+                    <div className={cx("rounded-2xl border border-transparent p-3 text-[12px] text-white/72", surfaceInsetClass)}>
+                      Local autosave is still on. Cloud save lets this project follow you across sessions and devices.
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => saveProjectToCloud()}
+                        disabled={projectSyncBusy}
+                        className={cx("btn-aurora px-3 py-2 text-[12px]", projectSyncBusy && "cursor-not-allowed opacity-70")}
+                      >
+                        {projectSyncBusy ? "Saving..." : serverProjectId ? "Update Cloud Save" : "Save To Cloud"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => saveProjectToCloud({ saveAsNew: true })}
+                        disabled={projectSyncBusy}
+                        className={cx("btn-ghost px-3 py-2 text-[12px]", projectSyncBusy && "cursor-not-allowed opacity-70")}
+                      >
+                        Save As New
+                      </button>
+                    </div>
+                    <div className={cx("rounded-2xl border border-transparent p-3 text-[11px] text-white/62", surfaceInsetClass)}>
+                      {serverProjectId ? `Connected to cloud project #${serverProjectId}.` : "This project has not been saved to cloud yet."}
+                    </div>
+                    {projectSyncNotice ? (
+                      <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-[11px] text-cyan-100">
+                        {projectSyncNotice}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[12px] text-white/65">Saved cloud projects</label>
+                        <span className="text-[11px] text-white/45">{projectsLoading ? "Loading..." : `${savedProjects.length} saved`}</span>
+                      </div>
+                      {savedProjects.length ? (
+                        <div className="clipforge-scrollbar grid max-h-48 gap-2 overflow-y-auto pr-1">
+                          {savedProjects.map((saved) => (
+                            <div key={saved.id} className={cx("rounded-2xl border border-transparent p-3", surfaceInsetClass)}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-[12px] font-semibold text-white/90">{saved.name}</div>
+                                  <div className="mt-1 text-[10px] text-white/50">
+                                    {saved.frame} • {saved.summary?.visual_count || 0} visual • {saved.summary?.caption_count || 0} text
+                                  </div>
+                                </div>
+                                {serverProjectId === saved.id ? (
+                                  <span className="rounded-full border border-emerald-300/30 bg-emerald-400/12 px-2 py-0.5 text-[10px] text-emerald-100">
+                                    Active
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button type="button" onClick={() => loadCloudProject(saved.id)} className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1.5 text-[11px] text-white/84">
+                                  Load
+                                </button>
+                                <button type="button" onClick={() => deleteCloudProject(saved.id)} className="rounded-xl border border-white/10 bg-black/40 px-2.5 py-1.5 text-[11px] text-white/70">
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={cx("rounded-2xl border border-dashed border-transparent p-3 text-[11px] text-white/55", surfaceInsetClass)}>
+                          Save your first project to create a reusable cloud version.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : null}
 
@@ -2057,8 +2453,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                 {toolTab === "text" ? (
                   <div className="grid gap-3">
                     <button type="button" onClick={addCaptionBlock} className="btn-aurora px-3 py-2 text-[12px]">
-                      Add Caption Block
+                      Add Text / Emoji
                     </button>
+                    <div className={cx("rounded-2xl border border-transparent px-3 py-2 text-[11px] text-white/62", surfaceInsetClass)}>
+                      Add timed text, drag it on the preview, and export it burned into the clip.
+                    </div>
                     {project.captions.length ? (
                       <div className="clipforge-scrollbar grid max-h-44 gap-2 overflow-auto pr-1">
                         {sortTrack(project.captions).map((item) => (
@@ -2085,15 +2484,39 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                 {toolTab === "export" ? (
                   <div className="grid gap-3">
                     <div className={cx("rounded-3xl border border-transparent p-3 text-[12px] text-white/72", surfaceSoftClass)}>
-                      Export saves the selected visual video block as a new clip in your library. Use the Clips page to download or post it.
+                      Timeline render now exports the whole editor sequence to your Clips library. The single-clip export stays here when you only want the current cropped visual block.
+                    </div>
+                    {hasLocalOnlyAudio ? (
+                      <div className="rounded-3xl border border-amber-300/25 bg-amber-400/10 p-3 text-[11px] text-amber-100">
+                        Local uploaded music is preview-only for now. Remove it before using full timeline render, or use the single-clip export below.
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => renderTimelineProject({ download: false })}
+                      disabled={exporting || !hasServerRenderableVisuals}
+                      className={cx("btn-aurora px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
+                    >
+                      {exporting ? "Rendering..." : "Render Full Timeline"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => renderTimelineProject({ download: true })}
+                      disabled={exporting || !hasServerRenderableVisuals}
+                      className={cx("btn-ghost px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
+                    >
+                      Render + Download
+                    </button>
+                    <div className={cx("rounded-3xl border border-transparent p-3 text-[11px] text-white/62", surfaceInsetClass)}>
+                      Need just one clip? Export the selected visual block below with crop and text overlays.
                     </div>
                     <button
                       type="button"
                       onClick={() => exportCurrentVisual({ download: false })}
                       disabled={exporting}
-                      className={cx("btn-aurora px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
+                      className={cx("btn-ghost px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
                     >
-                      {exporting ? "Exporting..." : "Save To Clips"}
+                      Save Current Clip
                     </button>
                     <button
                       type="button"
@@ -2101,7 +2524,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                       disabled={exporting}
                       className={cx("btn-ghost px-3 py-2 text-[12px]", exporting && "cursor-not-allowed opacity-70")}
                     >
-                      Save + Download
+                      Current Clip + Download
                     </button>
                     {lastExportClipId ? (
                       <div className="rounded-3xl border border-emerald-300/25 bg-emerald-500/10 p-3 text-[12px] text-emerald-100">
@@ -2155,7 +2578,26 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                     </div>
 
                     {activeCaption?.text ? (
-                      <div className="pointer-events-none absolute bottom-[8%] left-1/2 -translate-x-1/2 rounded-xl bg-black/50 px-3 py-1.5 text-center text-[14px] font-semibold text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+                      <div
+                        className={cx(
+                          "absolute z-20 max-w-[78%] rounded-[22px] border px-4 py-2 text-center font-semibold text-white shadow-[0_18px_44px_rgba(0,0,0,0.42)] backdrop-blur-sm",
+                          selected?.track === "captions" && selected.itemId === activeCaption.id
+                            ? "cursor-grab border-amber-300/40 bg-[linear-gradient(145deg,rgba(255,183,3,0.20),rgba(251,86,7,0.18),rgba(10,12,20,0.88))] active:cursor-grabbing"
+                            : "pointer-events-none border-white/12 bg-[linear-gradient(145deg,rgba(7,9,18,0.82),rgba(15,20,34,0.78),rgba(10,16,26,0.72))]"
+                        )}
+                        style={{
+                          left: `${clamp(Number(activeCaption.x ?? 0.5), 0.08, 0.92) * 100}%`,
+                          top: `${clamp(Number(activeCaption.y ?? 0.82), 0.08, 0.92) * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                          fontSize: `${Math.round(20 * clamp(Number(activeCaption.fontScale ?? 1), 0.7, 1.8))}px`,
+                          lineHeight: 1.15,
+                        }}
+                        onPointerDown={
+                          selected?.track === "captions" && selected.itemId === activeCaption.id
+                            ? (event) => beginCaptionDrag(event, activeCaption)
+                            : undefined
+                        }
+                      >
                         {activeCaption.text}
                       </div>
                     ) : null}
@@ -2486,12 +2928,50 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                     </div>
                   ) : null}
                   {selectedItem.type === "caption" ? (
-                    <textarea
-                      rows={2}
-                      value={selectedItem.text || ""}
-                      onChange={(event) => updateSelected({ text: event.target.value })}
-                      className="rounded-2xl border border-transparent bg-black/45 px-3 py-2 text-xs text-white/92 outline-none focus:border-transparent lg:col-span-5"
-                    />
+                    <>
+                      <textarea
+                        rows={2}
+                        value={selectedItem.text || ""}
+                        onChange={(event) => updateSelected({ text: event.target.value })}
+                        className="rounded-2xl border border-transparent bg-black/45 px-3 py-2 text-xs text-white/92 outline-none focus:border-transparent lg:col-span-5"
+                      />
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72 lg:col-span-2", surfaceInsetClass)}>
+                        <span>X {formatPercent(Number(selectedItem.x ?? 0.5))}</span>
+                        <input
+                          type="range"
+                          min={0.08}
+                          max={0.92}
+                          step={0.01}
+                          value={clamp(Number(selectedItem.x ?? 0.5), 0.08, 0.92)}
+                          onChange={(event) => updateSelected({ x: clamp(Number(event.target.value || 0.5), 0.08, 0.92) })}
+                          className="w-24 accent-white"
+                        />
+                      </label>
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72 lg:col-span-2", surfaceInsetClass)}>
+                        <span>Y {formatPercent(Number(selectedItem.y ?? 0.82))}</span>
+                        <input
+                          type="range"
+                          min={0.08}
+                          max={0.92}
+                          step={0.01}
+                          value={clamp(Number(selectedItem.y ?? 0.82), 0.08, 0.92)}
+                          onChange={(event) => updateSelected({ y: clamp(Number(event.target.value || 0.82), 0.08, 0.92) })}
+                          className="w-24 accent-white"
+                        />
+                      </label>
+                      <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72 lg:col-span-1", surfaceInsetClass)}>
+                        <span>Size {Number(selectedItem.fontScale ?? 1).toFixed(2)}x</span>
+                        <input
+                          type="range"
+                          min={0.7}
+                          max={1.8}
+                          step={0.05}
+                          value={clamp(Number(selectedItem.fontScale ?? 1), 0.7, 1.8)}
+                          onChange={(event) => updateSelected({ fontScale: clamp(Number(event.target.value || 1), 0.7, 1.8) })}
+                          className="w-20 accent-white"
+                        />
+                      </label>
+                    </>
                   ) : null}
                 </div>
               ) : (
