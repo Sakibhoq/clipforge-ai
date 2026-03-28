@@ -63,6 +63,42 @@ function displayPlanLabel(rawPlan: string | null | undefined): string {
   return token.replace(/_/g, " ");
 }
 
+function marketingHomeUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.CANONICAL_URL ||
+    "https://orbito.cc"
+  ).trim();
+}
+
+function LabsMark({ size = 18 }: { size?: number }) {
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.96,
+          height: size * 0.48,
+          border: "1.7px solid rgba(255, 183, 3, 0.78)",
+          boxShadow: "0 0 12px rgba(251, 86, 7, 0.20)",
+          transform: "rotate(-18deg) scaleX(1.18)",
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.58,
+          height: size * 0.58,
+          background: "linear-gradient(145deg, #ffd166 0%, #fb5607 52%, #3a86ff 100%)",
+          boxShadow: "0 0 14px rgba(251, 86, 7, 0.24)",
+        }}
+      />
+    </span>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathnameRaw = usePathname();
@@ -180,7 +216,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   function aiLabButton(mobile = false) {
     const active = isActive("/app/labs");
     const labsHref = labsLaunchPath("generate");
-    const labsLogoV = "labs-3";
     const locked = !!me && !hasLabsFeatureAccess(me.plan);
     const deniedTitle = "You don't have permission to open Orbito Generate. Upgrade to a Generate plan.";
 
@@ -198,13 +233,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             active && "ring-1 ring-amber-300/45"
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
-            alt="Orbito Generate logo"
-            width={18}
-            height={18}
-          />
+          <LabsMark size={18} />
           <span>Generate 🔒</span>
         </button>
       );
@@ -220,13 +249,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           active && "ring-1 ring-amber-300/45"
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`/clipforge-labs-mark.svg?v=${labsLogoV}`}
-          alt="Orbito Generate logo"
-          width={18}
-          height={18}
-        />
+        <LabsMark size={18} />
         <span>Generate</span>
       </Link>
     );
@@ -280,7 +303,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {/* Brand */}
           <div className="flex items-center gap-3 min-w-0">
-            <Link href="/" className="group inline-flex items-center gap-3 min-w-0">
+            <a href={marketingHomeUrl()} className="group inline-flex items-center gap-3 min-w-0">
               <span className="relative inline-flex h-12 w-12 items-center justify-center">
                 <span
                   aria-hidden="true"
@@ -297,6 +320,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   alt="Orbito logo"
                   width={36}
                   height={36}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.logoFallback === "1") return;
+                    img.dataset.logoFallback = "1";
+                    img.src = `/orbito-mark.png?v=${logoV}`;
+                  }}
                   style={{ display: "block" }}
                 />
               </span>
@@ -305,7 +334,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="text-[18px] sm:text-[19px] font-semibold tracking-[-0.01em] text-white/95">
                 Orbito
               </span>
-            </Link>
+            </a>
 
             <span className="text-xs text-white/40">/</span>
             <span className="text-xs text-white/60">App</span>

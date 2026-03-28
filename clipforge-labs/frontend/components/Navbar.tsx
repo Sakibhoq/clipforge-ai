@@ -8,20 +8,36 @@ import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
 
-function withBasePath(path: string) {
-  const raw = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
-  if (!raw) return path.startsWith("/") ? path : `/${path}`;
-  const base = `/${raw.replace(/^\/+/, "").replace(/\/+$/, "")}`;
-  const clean = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${clean}`;
+function labsHomeUrl() {
+  return BRAND.orbitoUrl;
 }
 
-function orbitoOrigin() {
-  return (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
-}
-
-function labsMarketingUrl() {
-  return `${orbitoOrigin()}/labs`;
+function LabsMark({ size = 34 }: { size?: number }) {
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.98,
+          height: size * 0.48,
+          border: "1.7px solid rgba(255, 183, 3, 0.78)",
+          boxShadow: "0 0 14px rgba(251, 86, 7, 0.22)",
+          transform: "rotate(-18deg) scaleX(1.18)",
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.58,
+          height: size * 0.58,
+          background: "linear-gradient(145deg, #ffd166 0%, #fb5607 52%, #3a86ff 100%)",
+          boxShadow: "0 0 16px rgba(251, 86, 7, 0.24)",
+        }}
+      />
+    </span>
+  );
 }
 
 function Logo() {
@@ -29,10 +45,6 @@ function Logo() {
   const inApp = pathname?.startsWith("/app");
 
   // bump this when you want to force-refresh the navbar mark (CDN/browser cache)
-  const v = "cflabs-8";
-  const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${v}`);
-  const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${v}`;
-
   const markWrapClass = inApp ? "h-11 w-11" : "h-11 w-11";
   const markImgSize = inApp ? 36 : 34;
   const wordmarkClass = inApp
@@ -51,7 +63,7 @@ function Logo() {
 
   return (
     <Link
-      href={inApp ? labsMarketingUrl() : "/"}
+      href={inApp ? labsHomeUrl() : BRAND.orbitoUrl}
       onClick={onLogoClick}
       className="group flex items-center gap-1.5 shrink-0"
     >
@@ -69,21 +81,7 @@ function Logo() {
           }}
         />
 
-        {/* Primary mark */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logoSrc}
-          alt={`${BRAND.name} logo`}
-          width={markImgSize}
-          height={markImgSize}
-          onError={(e) => {
-            const img = e.currentTarget;
-            if (img.dataset.logoFallback === "1") return;
-            img.dataset.logoFallback = "1";
-            img.src = logoFallbackSrc;
-          }}
-          style={{ display: "block" }}
-        />
+        <LabsMark size={markImgSize} />
       </span>
 
       {/* Wordmark */}
@@ -477,12 +475,10 @@ export default function Navbar() {
               <div className="hidden lg:flex items-center gap-2.5 xl:gap-3">
                 <a
                   href={BRAND.orbitoUrl}
-                  target="_blank"
-                  rel="noreferrer"
                   className="hidden xl:inline-flex btn-orbito text-xs"
                   title={`Go to ${BRAND.orbitoName}`}
                 >
-                  {BRAND.orbitoName} <span aria-hidden="true">↗</span>
+                  {BRAND.orbitoName}
                 </a>
 
                 {authed && (

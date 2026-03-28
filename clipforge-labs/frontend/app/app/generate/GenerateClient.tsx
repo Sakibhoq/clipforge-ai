@@ -175,32 +175,6 @@ const STORY_MEMORY_EXAMPLES = [
   "A suspenseful true-story style explainer about a forgotten tech invention.",
 ];
 
-const GENERATOR_MODE_META: Record<
-  GenerationMode,
-  { badge: string; title: string; description: string }
-> = {
-  post: {
-    badge: "Fastest workflow",
-    title: "Turn one idea into a full short-form story",
-    description: "Best when you want Orbito to shape the visual direction, narration, and pacing for you.",
-  },
-  video: {
-    badge: "Most cinematic",
-    title: "Direct a polished single-shot video",
-    description: "Best for tighter control over shot design, motion, voice, and final visual identity.",
-  },
-  image: {
-    badge: "Still frames",
-    title: "Create premium key art and scene references",
-    description: "Best for thumbnails, moodframes, product stills, and visual concept exploration.",
-  },
-  voiceover: {
-    badge: "Audio only",
-    title: "Generate a clean narration track",
-    description: "Best when you already know the script and just need a polished voice performance.",
-  },
-};
-
 const generatorPanelClass =
   "rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(11,16,27,0.9),rgba(7,10,18,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.34)]";
 const generatorInsetClass =
@@ -1388,26 +1362,15 @@ export default function GenerateClient() {
   const activeJobFailed = !!activeJob && (status === "failed" || status === "canceled");
   const activeJobFailureReason = activeJobFailed ? humanizeGenerationError(activeJob?.error || "") : "";
   const activeJobFailureAction = activeJobFailed ? generationRecoveryAction(activeJob?.error || "") : "";
-  const modeMeta = GENERATOR_MODE_META[mode];
-  const renderSummary =
-    mode === "post"
-      ? `${postDurationSeconds}s AI post`
-      : mode === "video"
-        ? `${duration}s ${videoSpeed === "4k" ? "4K" : "HD"} render`
-        : mode === "image"
-          ? "Single premium image"
-          : "Voiceover delivery";
-  const continuitySummary = continuationJob
-    ? "Story memory active"
-    : referenceJob
-      ? "Reference look active"
-      : "Fresh generation";
+  const showContinuityTools =
+    (mode === "post" || mode === "video") &&
+    (Boolean(continuationJob) || Boolean(referenceJob) || storyMemoryJobs.length > 0);
 
   return (
     <div className="theme-merged relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <form onSubmit={onGenerate} className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.32fr)_minmax(320px,0.88fr)]">
-          <section className={cx("surface relative flex min-h-[760px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6 xl:min-h-[860px]", generatorPanelClass)}>
+      <main className="relative mx-auto max-w-[1080px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+        <form onSubmit={onGenerate} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className={cx("surface relative flex min-h-[720px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6", generatorPanelClass)}>
             <div
               aria-hidden="true"
               className="pointer-events-none absolute -inset-12 opacity-50 blur-3xl"
@@ -1418,53 +1381,21 @@ export default function GenerateClient() {
             />
 
             <div className="relative flex h-full flex-col">
-              <div className={cx("grid gap-4 rounded-[28px] border border-white/10 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_320px]", generatorInsetClass)}>
+              <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4">
                 <div>
                   <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200/82">Orbito Generate</div>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-[2rem]">
-                    Build premium AI clips with a cleaner workflow.
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm text-white/66">
-                    Start with one clear brief, keep the setup tight, and bring back story memory or reference looks only when you need continuity.
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-[2.1rem]">Create AI clips</h1>
+                  <p className="mt-2 max-w-2xl text-sm text-white/64">
+                    Keep it simple: choose a mode, write the brief, adjust a few essentials, and generate.
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {["1. Brief", "2. Refine", "3. Render"].map((step) => (
-                      <span
-                        key={step}
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/78"
-                      >
-                        {step}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-
-                <div className={cx("flex h-full flex-col justify-between gap-4 rounded-[24px] border border-white/10 p-4", generatorInsetClass)}>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                      {modeMeta.badge}
-                    </div>
-                    <div className="mt-2 text-sm font-semibold text-white/92">{modeMeta.title}</div>
-                    <p className="mt-1 text-[12px] leading-5 text-white/62">{modeMeta.description}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-white/60">
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-                      <div className="text-white/42">Current render</div>
-                      <div className="mt-1 font-semibold text-white/88">{renderSummary}</div>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-                      <div className="text-white/42">Continuity</div>
-                      <div className="mt-1 font-semibold text-white/88">{continuitySummary}</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
-                      Open editor
-                    </Link>
-                    <Link href="/app/clips" className={cx("inline-flex items-center px-4 py-2 text-xs", generatorQuietButtonClass)}>
-                      Clips library
-                    </Link>
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
+                    Open editor
+                  </Link>
+                  <Link href="/app/clips" className={cx("inline-flex items-center px-4 py-2 text-xs", generatorQuietButtonClass)}>
+                    Clips library
+                  </Link>
                 </div>
               </div>
 
@@ -1486,101 +1417,86 @@ export default function GenerateClient() {
                 ))}
               </div>
 
-              {(mode === "post" || mode === "video") ? (
-                <div className={cx("mt-4 p-4", generatorInsetClass)}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+              {showContinuityTools ? (
+                <details open={Boolean(continuationJob || referenceJob)} className={cx("mt-4 p-4", generatorInsetClass)}>
+                  <summary className="cursor-pointer list-none text-sm font-semibold text-white/88">
+                    Continue a story or reuse a look
+                  </summary>
+                  <div className="mt-4 grid gap-3">
                     <div>
                       <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100/55">Story Memory</div>
-                      <div className="mt-1 text-sm font-semibold text-white/92">
-                        {mode === "post" ? "Keep the same world across multiple AI posts." : "Continue a previous video generation with the same visual identity."}
-                      </div>
                       <div className="mt-1 text-[12px] text-white/58">
-                        Select a finished generation below, then write the next beat. We’ll keep the style and character continuity anchored.
+                        Use a finished generation when you want the next clip to feel like the same story.
                       </div>
                     </div>
+
                     {continuationJob ? (
-                      <button
-                        type="button"
-                        onClick={() => setContinuationJobId(null)}
-                        className={cx(generatorQuietButtonClass, "border-sky-300/25 bg-sky-400/10 text-sky-100")}
-                      >
-                        Clear story memory
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {continuationJob ? (
-                    <div className="mt-3 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-4 py-3 text-[12px] text-sky-50/95">
-                      Continuing from <span className="font-semibold">{storyJobLabel(continuationJob)}</span>.
-                      <div className="mt-1 text-sky-50/80">Your next prompt becomes the next chapter instead of starting from zero.</div>
-                    </div>
-                  ) : null}
-
-                  {storyMemoryJobs.length ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {storyMemoryJobs.map((job) => {
-                        const active = continuationJobId === job.id;
-                        return (
-                          <button
-                            key={job.id}
-                            type="button"
-                            onClick={() => applyContinuationFromJob(job)}
-                            className={cx(
-                              "rounded-2xl border px-3 py-3 text-left transition",
-                              active
-                                ? "border-sky-300/30 bg-sky-400/10 text-white"
-                                : "border-white/10 bg-[#0a111b]/76 text-white/86 hover:bg-white/[0.06]"
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="truncate text-[12px] font-semibold">{shortPromptLabel(job.prompt, job.id)}</div>
-                              <span className={cx("rounded-full border px-2 py-0.5 text-[10px] font-semibold", statusTone(job.status))}>
-                                {kindLabel(job.kind)}
-                              </span>
-                            </div>
-                            <div className="mt-1 text-[11px] text-white/55">
-                              Job #{job.id} • {durationPresetLabel(job.duration_seconds)}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-[12px] text-white/58">
-                      Finish one {modeLabel(mode).toLowerCase()} first and it will appear here as reusable story memory.
-                    </div>
-                  )}
-
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#09111d]/68 px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/55">Reference Look</div>
-                        <div className="mt-1 text-[12px] text-white/62">
-                          Optional. Use any finished visual generation from Queue to borrow its look without continuing the exact same storyline.
-                        </div>
-                      </div>
-                      {referenceJob ? (
+                      <div className="rounded-2xl border border-sky-300/20 bg-sky-400/10 px-4 py-3 text-[12px] text-sky-50/95">
+                        Continuing from <span className="font-semibold">{storyJobLabel(continuationJob)}</span>.
                         <button
                           type="button"
-                          onClick={() => setReferenceJobId(null)}
-                          className={cx(generatorQuietButtonClass, "border-emerald-300/25 bg-emerald-400/10 text-emerald-100")}
+                          onClick={() => setContinuationJobId(null)}
+                          className={cx("ml-3", generatorQuietButtonClass, "border-sky-300/25 bg-sky-400/10 text-sky-100")}
                         >
-                          Clear reference
+                          Clear
                         </button>
-                      ) : null}
-                    </div>
-                    {referenceJob ? (
-                      <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-[12px] text-emerald-50/95">
-                        Using <span className="font-semibold">{storyJobLabel(referenceJob)}</span> as the visual reference.
-                        <div className="mt-1 text-emerald-50/80">The next generation will keep its visual identity while creating a new scene or story beat.</div>
+                      </div>
+                    ) : null}
+
+                    {storyMemoryJobs.length ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {storyMemoryJobs.map((job) => {
+                          const active = continuationJobId === job.id;
+                          return (
+                            <button
+                              key={job.id}
+                              type="button"
+                              onClick={() => applyContinuationFromJob(job)}
+                              className={cx(
+                                "rounded-2xl border px-3 py-3 text-left transition",
+                                active
+                                  ? "border-sky-300/30 bg-sky-400/10 text-white"
+                                  : "border-white/10 bg-[#0a111b]/76 text-white/86 hover:bg-white/[0.06]"
+                              )}
+                            >
+                              <div className="truncate text-[12px] font-semibold">{shortPromptLabel(job.prompt, job.id)}</div>
+                              <div className="mt-1 text-[11px] text-white/55">
+                                Job #{job.id} • {durationPresetLabel(job.duration_seconds)}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
-                      <div className="mt-3 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-3 text-[12px] text-white/55">
-                        Pick “Use as reference look” on any finished visual job in Queue when you want consistent polish or character identity.
+                      <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-[12px] text-white/58">
+                        Finish one {modeLabel(mode).toLowerCase()} first and it will appear here.
                       </div>
                     )}
+
+                    <div className="rounded-2xl border border-white/10 bg-[#09111d]/68 px-4 py-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/55">Reference Look</div>
+                      <div className="mt-1 text-[12px] text-white/62">
+                        Use a finished clip as a visual reference without continuing the same storyline.
+                      </div>
+                      {referenceJob ? (
+                        <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-[12px] text-emerald-50/95">
+                          Using <span className="font-semibold">{storyJobLabel(referenceJob)}</span>.
+                          <button
+                            type="button"
+                            onClick={() => setReferenceJobId(null)}
+                            className={cx("ml-3", generatorQuietButtonClass, "border-emerald-300/25 bg-emerald-400/10 text-emerald-100")}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-3 text-[12px] text-white/55">
+                          Pick “Use as reference look” from Recent generations when you want more consistency.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </details>
               ) : null}
 
               {activeJob ? (
@@ -1620,35 +1536,16 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
-                    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#08101a]/80 p-4 sm:p-5">
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(125,211,252,0.34) 0%, rgba(125,211,252,0) 72%)" }}
-                      />
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(45,212,191,0.26) 0%, rgba(45,212,191,0) 74%)" }}
-                      />
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0"
-                        style={{
-                          background:
-                            "linear-gradient(138deg, rgba(125,211,252,0.08) 0%, rgba(45,212,191,0.07) 42%, rgba(245,158,11,0.06) 68%, rgba(2,8,23,0.64) 100%)",
-                        }}
-                      />
-
-                      <div className="relative">
+                    <div className={cx("rounded-3xl p-4 sm:p-5", generatorInsetClass)}>
+                      <div>
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/84">Start With One Brief</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/84">Prompt Helper</div>
                             <div className="mt-1 text-base font-semibold text-white sm:text-lg">
-                              Give Orbito Labs the core idea and let it build the first pass for you.
+                              Start with the core idea and let Orbito draft the first pass.
                             </div>
                             <p className="mt-1 text-xs text-white/68">
-                              This is the fastest path when the generator feels off. Start broad here, then refine the visual direction and narration below.
+                              Use this when you want a quick starting point, then edit the visual direction and voiceover below.
                             </p>
                           </div>
                           <span className={generatorAccentChipClass}>
@@ -2118,17 +2015,20 @@ export default function GenerateClient() {
               </div>
             </div>
 
-            <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-white/88">Queue</div>
+            <details className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white/88">Recent generations</div>
                 <button
                   type="button"
-                  onClick={refreshJobs}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    refreshJobs();
+                  }}
                   className={generatorQuietButtonClass}
                 >
                   Refresh
                 </button>
-              </div>
+              </summary>
 
               {jobs.length ? (
                 <div className="mt-3 grid gap-2">
@@ -2221,7 +2121,7 @@ export default function GenerateClient() {
                   No generation jobs yet.
                 </div>
               )}
-            </div>
+            </details>
           </aside>
         </form>
         <audio

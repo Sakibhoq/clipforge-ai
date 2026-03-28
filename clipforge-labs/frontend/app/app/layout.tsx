@@ -83,12 +83,8 @@ function orbitoLoginUrl(nextPath: string) {
   return url.toString();
 }
 
-function orbitoConsoleUrl() {
-  return `${orbitoOrigin()}/app`;
-}
-
-function orbitoLabsMarketingUrl() {
-  return `${orbitoOrigin()}/labs`;
+function orbitoLandingUrl() {
+  return BRAND.orbitoUrl;
 }
 
 function orbitoLabsBillingUrl() {
@@ -96,6 +92,34 @@ function orbitoLabsBillingUrl() {
   url.searchParams.set("intent", "labs");
   url.searchParams.set("source", "labs-lock");
   return url.toString();
+}
+
+function LabsMark({ size = 34 }: { size?: number }) {
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.98,
+          height: size * 0.48,
+          border: "1.7px solid rgba(255, 183, 3, 0.78)",
+          boxShadow: "0 0 14px rgba(251, 86, 7, 0.22)",
+          transform: "rotate(-18deg) scaleX(1.18)",
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="absolute rounded-full"
+        style={{
+          width: size * 0.58,
+          height: size * 0.58,
+          background: "linear-gradient(145deg, #ffd166 0%, #fb5607 52%, #3a86ff 100%)",
+          boxShadow: "0 0 16px rgba(251, 86, 7, 0.24)",
+        }}
+      />
+    </span>
+  );
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -235,11 +259,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.location.replace(orbitoLabsBillingUrl());
   }, [labsPlanAccess, loading, me]);
 
-  // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "cflabs-8";
-  const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
-  const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${logoV}`;
-
   return (
     <div
       className={cx(
@@ -275,7 +294,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {/* Brand */}
           <div className="flex min-w-0 items-center gap-1.5">
-            <a href={orbitoLabsMarketingUrl()} className="group inline-flex min-w-0 items-center gap-1.5">
+            <a href={orbitoLandingUrl()} className="group inline-flex min-w-0 items-center gap-1.5">
               <span className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center">
                 <span
                   aria-hidden="true"
@@ -286,20 +305,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     filter: "blur(10px)",
                   }}
                 />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={logoSrc}
-                  alt={`${BRAND.product} logo`}
-                  width={34}
-                  height={34}
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (img.dataset.logoFallback === "1") return;
-                    img.dataset.logoFallback = "1";
-                    img.src = logoFallbackSrc;
-                  }}
-                  style={{ display: "block" }}
-                />
+                <LabsMark size={34} />
               </span>
 
               {/* Bigger wordmark */}
@@ -353,11 +359,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
 
             <a
-              href={orbitoConsoleUrl()}
+              href={orbitoLandingUrl()}
               className="btn-orbito hidden lg:inline-flex text-[12px]"
-              title={`Go to ${BRAND.orbitoName} Console`}
+              title={`Go to ${BRAND.orbitoName}`}
             >
-              {BRAND.orbitoName} <span aria-hidden="true">↗</span>
+              {BRAND.orbitoName}
             </a>
 
             <button
@@ -394,11 +400,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="mt-3 h-px bg-white/10" />
 
               <a
-                href={orbitoConsoleUrl()}
+                href={orbitoLandingUrl()}
                 className="btn-orbito w-full text-left text-sm"
-                title={`Go to ${BRAND.orbitoName} Console`}
+                title={`Go to ${BRAND.orbitoName}`}
               >
-                Go to {BRAND.orbitoName} <span aria-hidden="true">↗</span>
+                Go to {BRAND.orbitoName}
               </a>
 
               <button
