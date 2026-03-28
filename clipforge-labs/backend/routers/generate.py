@@ -1973,6 +1973,7 @@ def prompt_helper(
     continuity_anchor: str | None = None
     reference_context: dict[str, object] | None = None
     if continuation_job_id:
+        # Continuation means "same story, same identity", so only prior post jobs are valid here.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,
@@ -1985,6 +1986,7 @@ def prompt_helper(
             style = str(reference_context.get("style_preset") or "").strip()
         continuity_anchor = str(reference_context.get("continuity_anchor") or "").strip() or None
     elif reference_job_id:
+        # Reference mode is broader: borrow the look from any finished visual generation without forcing story continuation.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,
@@ -2003,6 +2005,7 @@ def prompt_helper(
         aspect_ratio=aspect,
         duration_seconds=duration_seconds,
     )
+    # Apply continuity/reference instructions after the base pack is written so the helper stays readable first.
     if continuation_job_id:
         visual_prompt = _merge_continuation_prompt(visual_prompt, continuity_anchor)
     elif reference_context:
@@ -2105,6 +2108,7 @@ def create_video_generation(
     continuity_anchor: str | None = None
     reference_context: dict[str, object] | None = None
     if continuation_job_id:
+        # Video continuation keeps the same character/world and reuses the prior seed when possible.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,
@@ -2122,6 +2126,7 @@ def create_video_generation(
             style_preset = prev_style
         composed_prompt = _merge_continuation_prompt(composed_prompt, continuity_anchor)
     elif reference_job_id:
+        # Reference video generation borrows the prior look and anchor but still makes a fresh scene.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,
@@ -2341,6 +2346,7 @@ def create_post_generation(
     continuity_anchor: str | None = None
     reference_context: dict[str, object] | None = None
     if continuation_job_id:
+        # Post continuation stays strict so the new chapter keeps the same recurring subject and style.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,
@@ -2358,6 +2364,7 @@ def create_post_generation(
             style_preset = ref_style
         visual_prompt = _merge_continuation_prompt(visual_prompt, continuity_anchor)
     elif reference_job_id:
+        # Reference post generation is looser: match polish/identity cues without inheriting the whole prior storyline.
         reference_context = _resolve_reference_job_context(
             db=db,
             current_user=current_user,

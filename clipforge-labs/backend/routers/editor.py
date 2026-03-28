@@ -375,6 +375,7 @@ def render_editor_project(
         .filter(Clip.id.in_(clip_ids), Upload.user_id == current_user.id)
         .all()
     )
+    # Resolve every referenced clip up front so the render fails early if anything is missing or not owned by the user.
     clip_by_id = {int(clip.id): clip for clip in clips}
     missing = sorted(clip_id for clip_id in clip_ids if clip_id not in clip_by_id)
     if missing:
@@ -393,6 +394,7 @@ def render_editor_project(
         for clip_id, clip in clip_by_id.items():
             if not _clip_storage_exists(storage, clip.storage_key):
                 raise HTTPException(status_code=404, detail=f"Clip file missing for clip #{clip_id}")
+            # Pull every source asset into a temp workspace so ffmpeg can work with normal local paths.
             body = storage.open(clip.storage_key)
             src_path = os.path.join(workdir, f"src-{clip_id}{os.path.splitext(str(clip.storage_key or ''))[1] or '.bin'}")
             _copy_stream_to_path(body, src_path)
@@ -414,6 +416,7 @@ def render_editor_project(
             for idx, item in enumerate(visual_items):
                 start_at = max(0.0, float(item.start or 0.0))
                 if start_at > timeline_cursor + 0.02:
+                    # Insert black filler clips when the timeline has gaps instead of collapsing time unexpectedly.
                     gap_duration = round(start_at - timeline_cursor, 3)
                     gap_path = os.path.join(workdir, f"gap-{idx}.mp4")
                     gap_cmd = [
@@ -455,6 +458,7 @@ def render_editor_project(
                     filters.append(crop_filter)
 
                 if str(item.type or "").lower() == "image":
+                    # Images become synthetic video segments so they can live on the same render timeline as clips.
                     if str(item.motion or "").lower() == "kenburns":
                         zoom_frames = max(1, int(round(effective_duration * 30)))
                         filters.append(
@@ -562,6 +566,7 @@ def render_editor_project(
                 clip_id = int(audio_item.clip_id)
                 if allow_missing_audio and not audio_presence.get(clip_id, False):
                     continue
+                # Track each ffmpeg input index so we can build one mixed soundtrack later.
                 ffmpeg_cmd.extend(["-i", src_paths[clip_id]])
                 audio_inputs.append((input_index, audio_item, gain_multiplier))
                 input_index += 1
@@ -595,6 +600,7 @@ def render_editor_project(
 
         if audio_labels:
             mix_label = "amixout"
+            # All audio sources are time-shifted first, then mixed into one output bus.
             filter_parts.append(
                 f"{''.join(audio_labels)}amix=inputs={len(audio_labels)}:duration=longest:dropout_transition=0,volume=1.0[{mix_label}]"
             )
@@ -636,6 +642,7 @@ def render_editor_project(
             )
 
         if caption_filters:
+            # Draw captions after the base visual timeline is assembled so positioning is relative to the final frame.
             filter_parts.append(f"[0:v]{','.join(caption_filters)}[vout]")
 
         if filter_parts:
@@ -674,6 +681,7 @@ def render_editor_project(
         output_duration = max(0.0, _media_duration_seconds(mixed_output_path))
         key_base = _slugify_filename_base(_clean_project_name(payload.name), fallback=f"editor-{current_user.id}")
         storage_key = f"clips/generated/editor/{current_user.id}/{key_base}-{uuid.uuid4().hex[:8]}.mp4"
+        # Upload the final render back through the same storage path as other generated clips.
         if hasattr(storage, "upload"):
             storage.upload(mixed_output_path, storage_key, content_type="video/mp4")  # type: ignore[attr-defined]
         else:

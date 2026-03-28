@@ -126,6 +126,7 @@ export function proxy(req: NextRequest) {
   const orbitoAppHost = hostFromOrigin(ORBITO_APP_ORIGIN);
   const labsTarget = (req.nextUrl.searchParams.get("target") || "").trim().toLowerCase();
   const redirectToOrbitoApp = (path: string) => {
+    // Use one helper so every Labs-to-Orbito handoff keeps the same headers and redirect code.
     const target = new URL(path, ORBITO_APP_ORIGIN);
     return applySecurityHeaders(NextResponse.redirect(target, 308), {
       production: isProduction,
@@ -189,6 +190,7 @@ export function proxy(req: NextRequest) {
     canonicalApexHost &&
     orbitoAppHost !== canonicalApexHost
   ) {
+    // Marketing content should stay on the apex host, even if a user lands on app.orbito.cc.
     if (host === orbitoAppHost && !isAppSurface(pathname)) {
       const url = req.nextUrl.clone();
       url.protocol = "https:";
@@ -198,6 +200,7 @@ export function proxy(req: NextRequest) {
         https: true,
       });
     }
+    // Product routes should stay on the app host so auth and app navigation stay consistent.
     if (host === canonicalApexHost && isAppSurface(pathname)) {
       const target = new URL(req.nextUrl.pathname + req.nextUrl.search, ORBITO_APP_ORIGIN);
       return applySecurityHeaders(NextResponse.redirect(target, 308), {

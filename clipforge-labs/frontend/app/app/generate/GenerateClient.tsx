@@ -886,6 +886,7 @@ export default function GenerateClient() {
   function applyContinuationFromJob(job: JobRow) {
     const kind = String(job.kind || "").toLowerCase();
     if (kind === "generate_post") {
+      // Keep the current prompt fields when possible, but inherit the prior job's settings and continuity anchor.
       hydrateFormFromJob(job, { preservePrompt: true });
       setMode("post");
       setContinuationJobId(job.id);
@@ -905,6 +906,7 @@ export default function GenerateClient() {
     const settings: JobSettings =
       job?.settings && typeof job.settings === "object" ? (job.settings as JobSettings) : {};
     const style = typeof settings.style_preset === "string" ? settings.style_preset : "";
+    // Reference mode mainly nudges style/look, so we sync the visible style preset too.
     if (STYLE_PRESET_VALUES.has(style as StylePreset)) {
       setStylePreset(style as StylePreset);
     }
@@ -1317,6 +1319,7 @@ export default function GenerateClient() {
       if (!visual || !voice) {
         throw new Error("Prompt helper returned an empty result.");
       }
+      // The helper fills the editable fields, but the storyboard stays as a review layer above them.
       setPostVisualPrompt(visual);
       setPostVoiceScript(voice);
       setPostIdeaAnalysis(res && typeof res.analysis === "object" ? (res.analysis as PromptHelperAnalysis) : null);

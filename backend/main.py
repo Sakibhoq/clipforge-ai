@@ -51,6 +51,7 @@ def _social_dispatch_loop() -> None:
 
 def _startup_db() -> None:
     global _social_dispatch_thread
+    # Keep DB setup in startup so local SQLite/dev environments self-initialize on boot.
     init_db()
     if _social_dispatch_enabled() and (_social_dispatch_thread is None or not _social_dispatch_thread.is_alive()):
         _social_dispatch_stop.clear()
@@ -66,6 +67,7 @@ def _shutdown_background_workers() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # FastAPI lifespan replaces deprecated on_event hooks and keeps startup/shutdown work paired together.
     _startup_db()
     try:
         yield

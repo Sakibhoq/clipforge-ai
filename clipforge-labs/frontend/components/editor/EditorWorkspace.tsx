@@ -1332,6 +1332,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
     setProjectSyncBusy(true);
     setProjectSyncNotice(null);
     try {
+      // Strip blob-only assets before saving because they only exist in the current browser session.
       const safeProject = sanitizeForPersistence(project);
       const payload = {
         name: safeProject.name,
@@ -1364,6 +1365,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
     setProjectSyncNotice(null);
     try {
       const saved = await apiFetch<SavedEditorProject>(`/editor/projects/${projectId}`, { method: "GET" });
+      // Reset selection/playhead so the restored timeline opens in a predictable state.
       setProject(normalizeLoadedProject(saved?.project));
       setServerProjectId(Number(saved?.id || 0) || null);
       setSelected(null);
@@ -1417,6 +1419,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
       return;
     }
 
+    // Server render currently requires library-owned audio because blob URLs cannot be resolved by the backend.
     const invalidAudio = [...project.voiceover, ...project.music].find((item) => !item.clipId);
     if (invalidAudio) {
       setError("Cloud timeline render only supports library audio right now. Remove local uploaded music before exporting the full timeline.");
@@ -1458,6 +1461,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
 
     setExporting(true);
     try {
+      // Send a normalized timeline payload so the backend can rebuild the sequence without browser-only state.
       const created = await apiFetch<ClipRow>("/editor/render", {
         method: "POST",
         body: {
