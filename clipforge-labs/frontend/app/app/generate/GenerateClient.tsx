@@ -1513,9 +1513,10 @@ export default function GenerateClient() {
   return (
     <div className="theme-merged relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1080px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <form onSubmit={onGenerate} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          {/* Keep the editing workflow and the helper as separate cards on the left column. */}
-          <div className="grid gap-5">
+        <div className="grid gap-5">
+          {postPromptHelperCard}
+
+          <form onSubmit={onGenerate} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section className={cx("surface relative flex min-h-[720px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6", generatorPanelClass)}>
               <div
                 aria-hidden="true"
@@ -1816,69 +1817,67 @@ export default function GenerateClient() {
                 </button>
               </div>
 
-            </div>
+              </div>
             </section>
-            {postPromptHelperCard}
-          </div>
 
-          <aside className="grid gap-4">
-            <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
-              <div className="text-sm font-semibold text-white/88">Render setup</div>
-              <div className="mt-1 text-[12px] text-white/56">Only the controls that materially change the output stay visible here.</div>
-              <div className="mt-3 grid gap-3">
-                {(mode === "post" || mode === "video" || mode === "image") ? (
-                  <div className="grid gap-2">
-                    <label className="text-xs font-medium text-white/70">Aspect ratio</label>
-                    <select
-                      value={aspectRatio}
-                      onChange={(e) => setAspectRatio(e.target.value)}
-                      className={generatorSelectClass}
-                    >
-                      <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
-                      <option value="16:9">16:9 (Landscape)</option>
-                      <option value="1:1">1:1 (Square)</option>
-                    </select>
-                  </div>
-                ) : null}
-
-                {(mode === "post" || mode === "video" || mode === "image") ? (
-                  <div className="grid gap-2">
-                    <label className="text-xs font-medium text-white/70">Style</label>
-                    <select
-                      value={stylePreset}
-                      onChange={(e) => setStylePreset(e.target.value as StylePreset)}
-                      className={generatorSelectClass}
-                    >
-                      {STYLE_PRESET_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
+            <aside className="grid gap-4">
+              <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
+                <div className="text-sm font-semibold text-white/88">Render setup</div>
+                <div className="mt-1 text-[12px] text-white/56">Only the controls that materially change the output stay visible here.</div>
+                <div className="mt-3 grid gap-3">
+                  {(mode === "post" || mode === "video" || mode === "image") ? (
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Aspect ratio</label>
+                      <select
+                        value={aspectRatio}
+                        onChange={(e) => setAspectRatio(e.target.value)}
+                        className={generatorSelectClass}
+                      >
+                        <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
+                        <option value="16:9">16:9 (Landscape)</option>
+                        <option value="1:1">1:1 (Square)</option>
                       </select>
-                  </div>
-                ) : null}
-
-                {(mode === "post" || mode === "video" || mode === "image") ? (
-                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/72 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={watermarkEnabled}
-                      onChange={(e) => setWatermarkEnabled(e.target.checked)}
-                      disabled={freeTrialWatermarkLocked}
-                      className="h-4 w-4 accent-sky-400"
-                    />
-                    <span className="text-xs text-white/80">
-                      Orbito Watermark
-                      {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
-                    </span>
-                  </label>
-                ) : null}
-
-                {mode === "post" ? (
-                  <>
-                    <div className="rounded-xl border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-[11px] text-sky-50/95">
-                      AI Post is optimized for faster, lower-friction story generation. For single cinematic shots, switch to Video mode.
                     </div>
+                  ) : null}
+
+                  {(mode === "post" || mode === "video" || mode === "image") ? (
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-white/70">Style</label>
+                      <select
+                        value={stylePreset}
+                        onChange={(e) => setStylePreset(e.target.value as StylePreset)}
+                        className={generatorSelectClass}
+                      >
+                        {STYLE_PRESET_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+
+                  {(mode === "post" || mode === "video" || mode === "image") ? (
+                    <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/72 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={watermarkEnabled}
+                        onChange={(e) => setWatermarkEnabled(e.target.checked)}
+                        disabled={freeTrialWatermarkLocked}
+                        className="h-4 w-4 accent-sky-400"
+                      />
+                      <span className="text-xs text-white/80">
+                        Orbito Watermark
+                        {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
+                      </span>
+                    </label>
+                  ) : null}
+
+                  {mode === "post" ? (
+                    <>
+                      <div className="rounded-xl border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-[11px] text-sky-50/95">
+                        AI Post is optimized for faster, lower-friction story generation. For single cinematic shots, switch to Video mode.
+                      </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>
                       <select
@@ -2148,6 +2147,7 @@ export default function GenerateClient() {
             </details>
           </aside>
         </form>
+        </div>
         <audio
           ref={voicePreviewAudioRef}
           onEnded={() => setVoicePreviewPlayingKey(null)}

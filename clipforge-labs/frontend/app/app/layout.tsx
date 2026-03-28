@@ -87,6 +87,10 @@ function orbitoLandingUrl() {
   return BRAND.orbitoUrl;
 }
 
+function orbitoConsoleUrl() {
+  return new URL("/app", orbitoOrigin()).toString();
+}
+
 function orbitoLabsBillingUrl() {
   const url = new URL("/app/billing", orbitoOrigin());
   url.searchParams.set("intent", "labs");
@@ -349,9 +353,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
 
             <a
-              href={orbitoLandingUrl()}
+              href={orbitoConsoleUrl()}
               className="btn-orbito hidden lg:inline-flex text-[12px]"
-              title={`Go to ${BRAND.orbitoName}`}
+              title={`Go to ${BRAND.orbitoName} Console`}
             >
               {BRAND.orbitoName}
             </a>
@@ -390,9 +394,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="mt-3 h-px bg-white/10" />
 
               <a
-                href={orbitoLandingUrl()}
+                href={orbitoConsoleUrl()}
                 className="btn-orbito w-full text-left text-sm"
-                title={`Go to ${BRAND.orbitoName}`}
+                title={`Go to ${BRAND.orbitoName} Console`}
               >
                 Go to {BRAND.orbitoName}
               </a>
