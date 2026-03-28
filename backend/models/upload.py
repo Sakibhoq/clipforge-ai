@@ -1,6 +1,10 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from core.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now_naive() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Upload(Base):
@@ -21,4 +25,4 @@ class Upload(Base):
     source_id = Column(String, nullable=True)
 
     transcript = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now_naive)
