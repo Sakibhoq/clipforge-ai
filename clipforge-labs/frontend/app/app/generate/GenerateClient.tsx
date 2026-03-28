@@ -187,8 +187,6 @@ const generatorQuietButtonClass =
   "rounded-xl border border-white/10 bg-[#0b1220]/78 px-3 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]";
 const generatorAccentButtonClass =
   "border-sky-300/35 bg-[linear-gradient(120deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12),rgba(245,158,11,0.08))] text-sky-50 shadow-[0_14px_32px_rgba(56,189,248,0.14)] hover:brightness-110";
-const generatorAccentChipClass =
-  "rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100";
 const generatorModeActiveClass =
   "border-sky-300/35 bg-[linear-gradient(180deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12))] text-sky-50 shadow-[0_12px_28px_rgba(56,189,248,0.12)]";
 const generatorModeIdleClass =
@@ -1536,19 +1534,92 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
-                    <div className={cx("rounded-3xl p-4 sm:p-5", generatorInsetClass)}>
+                    <label className="text-xs font-medium text-white/70">Visual direction</label>
+                    <textarea
+                      value={postVisualPrompt}
+                      onChange={(e) => setPostVisualPrompt(e.target.value)}
+                      rows={10}
+                      placeholder="Describe shots, scene style, camera behavior, and pacing."
+                      className={generatorFieldClass}
+                    />
+                    <div className="text-[11px] text-white/50">
+                      {postVisualLength.toLocaleString()} / {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} characters
+                    </div>
+
+                    <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
+                    <textarea
+                      value={postVoiceScript}
+                      onChange={(e) => setPostVoiceScript(e.target.value)}
+                      rows={8}
+                      placeholder="Write the narration for your 1-minute clip."
+                      className={generatorFieldClass}
+                    />
+                    <div className="text-[11px] text-white/50">
+                      {postVoiceLength.toLocaleString()} / {POST_VOICE_SCRIPT_MAX_CHARS.toLocaleString()} characters
+                    </div>
+                    <details className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[12px] text-white/70">
+                      <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for character lines</summary>
+                      <div className="mt-3 grid gap-2">
+                        <label className="text-xs font-medium text-white/70">Character dialogue</label>
+                        <textarea
+                          value={postDialogueScript}
+                          onChange={(e) => setPostDialogueScript(e.target.value)}
+                          rows={4}
+                          placeholder="Optional: Founder: We almost quit. Partner: But we kept showing up."
+                          className={generatorFieldClass}
+                        />
+                      </div>
+                    </details>
+                    <div className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[11px] text-white/72">
                       <div>
+                        Estimated voice length at 1x:{" "}
+                        <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
+                      </div>
+                      {postNeedsMoreWords ? (
+                        <div className="mt-1 text-amber-100/90">
+                          Script is short for this duration. Add more words for fuller narration.
+                        </div>
+                      ) : null}
+                      {postWillAutoSpeed ? (
+                        <div className="mt-1 text-amber-100/90">Script is long, so playback speed is auto-adjusted to fit.</div>
+                      ) : null}
+                      <div className="mt-1 text-white/55">
+                        Estimated output length: {formatDuration(postEstimateAppliedSeconds)}
+                      </div>
+                    </div>
+
+                    <div className="group relative overflow-hidden rounded-3xl border border-[#fb56075f] bg-black/35 p-4 sm:p-5">
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
+                        style={{ background: "radial-gradient(circle, rgba(251,86,7,0.45) 0%, rgba(251,86,7,0) 72%)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
+                        style={{ background: "radial-gradient(circle, rgba(58,134,255,0.33) 0%, rgba(58,134,255,0) 74%)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(138deg, rgba(251,86,7,0.10) 0%, rgba(255,183,3,0.07) 32%, rgba(58,134,255,0.07) 64%, rgba(2,8,23,0.60) 100%)",
+                        }}
+                      />
+
+                      <div className="relative">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/84">Prompt Helper</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Helper</div>
                             <div className="mt-1 text-base font-semibold text-white sm:text-lg">
-                              Start with the core idea and let Orbito draft the first pass.
+                              Need help getting started? Write one brief and let Orbito draft the fields above.
                             </div>
                             <p className="mt-1 text-xs text-white/68">
-                              Use this when you want a quick starting point, then edit the visual direction and voiceover below.
+                              This helper fills the visual direction and voiceover for you, then you can keep refining manually.
                             </p>
                           </div>
-                          <span className={generatorAccentChipClass}>
+                          <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
                             Guided
                           </span>
                         </div>
@@ -1564,8 +1635,8 @@ export default function GenerateClient() {
                                 setPostIdeaStoryboard([]);
                                 setPostIdeaError(null);
                               }}
-                              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
-                          >
+                              className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
+                            >
                               {clipText(example, 60)}
                             </button>
                           ))}
@@ -1583,7 +1654,7 @@ export default function GenerateClient() {
                             }}
                             rows={4}
                             placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
-                            className={cx("min-h-[120px] resize-y", generatorFieldClass)}
+                            className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
                           />
                         </div>
 
@@ -1601,7 +1672,7 @@ export default function GenerateClient() {
                               "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
                               postIdeaLoading
                                 ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                                : generatorAccentButtonClass
+                                : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
                             )}
                           >
                             {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
@@ -1658,60 +1729,6 @@ export default function GenerateClient() {
                             </div>
                           </div>
                         ) : null}
-                      </div>
-                    </div>
-
-                    <label className="text-xs font-medium text-white/70">Visual direction</label>
-                    <textarea
-                      value={postVisualPrompt}
-                      onChange={(e) => setPostVisualPrompt(e.target.value)}
-                      rows={10}
-                      placeholder="Describe shots, scene style, camera behavior, and pacing."
-                      className={generatorFieldClass}
-                    />
-                    <div className="text-[11px] text-white/50">
-                      {postVisualLength.toLocaleString()} / {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} characters
-                    </div>
-
-                    <label className="mt-1 text-xs font-medium text-white/70">Voiceover script</label>
-                    <textarea
-                      value={postVoiceScript}
-                      onChange={(e) => setPostVoiceScript(e.target.value)}
-                      rows={8}
-                      placeholder="Write the narration for your 1-minute clip."
-                      className={generatorFieldClass}
-                    />
-                    <div className="text-[11px] text-white/50">
-                      {postVoiceLength.toLocaleString()} / {POST_VOICE_SCRIPT_MAX_CHARS.toLocaleString()} characters
-                    </div>
-                    <details className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[12px] text-white/70">
-                      <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for character lines</summary>
-                      <div className="mt-3 grid gap-2">
-                        <label className="text-xs font-medium text-white/70">Character dialogue</label>
-                        <textarea
-                          value={postDialogueScript}
-                          onChange={(e) => setPostDialogueScript(e.target.value)}
-                          rows={4}
-                          placeholder="Optional: Founder: We almost quit. Partner: But we kept showing up."
-                          className={generatorFieldClass}
-                        />
-                      </div>
-                    </details>
-                    <div className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[11px] text-white/72">
-                      <div>
-                        Estimated voice length at 1x:{" "}
-                        <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
-                      </div>
-                      {postNeedsMoreWords ? (
-                        <div className="mt-1 text-amber-100/90">
-                          Script is short for this duration. Add more words for fuller narration.
-                        </div>
-                      ) : null}
-                      {postWillAutoSpeed ? (
-                        <div className="mt-1 text-amber-100/90">Script is long, so playback speed is auto-adjusted to fit.</div>
-                      ) : null}
-                      <div className="mt-1 text-white/55">
-                        Estimated output length: {formatDuration(postEstimateAppliedSeconds)}
                       </div>
                     </div>
                   </>

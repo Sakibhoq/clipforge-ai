@@ -71,34 +71,6 @@ function marketingHomeUrl() {
   ).trim();
 }
 
-function LabsMark({ size = 18 }: { size?: number }) {
-  return (
-    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
-      <span
-        aria-hidden="true"
-        className="absolute rounded-full"
-        style={{
-          width: size * 0.96,
-          height: size * 0.48,
-          border: "1.7px solid rgba(255, 183, 3, 0.78)",
-          boxShadow: "0 0 12px rgba(251, 86, 7, 0.20)",
-          transform: "rotate(-18deg) scaleX(1.18)",
-        }}
-      />
-      <span
-        aria-hidden="true"
-        className="absolute rounded-full"
-        style={{
-          width: size * 0.58,
-          height: size * 0.58,
-          background: "linear-gradient(145deg, #ffd166 0%, #fb5607 52%, #3a86ff 100%)",
-          boxShadow: "0 0 14px rgba(251, 86, 7, 0.24)",
-        }}
-      />
-    </span>
-  );
-}
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathnameRaw = usePathname();
@@ -233,7 +205,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             active && "ring-1 ring-amber-300/45"
           )}
         >
-          <LabsMark size={18} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/clipforge-labs-mark.svg?v=cflabs-9"
+            alt="Orbito Generate logo"
+            width={18}
+            height={18}
+            className="h-[18px] w-[18px] shrink-0 object-contain"
+          />
           <span>Generate 🔒</span>
         </button>
       );
@@ -249,7 +228,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           active && "ring-1 ring-amber-300/45"
         )}
       >
-        <LabsMark size={18} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/clipforge-labs-mark.svg?v=cflabs-9"
+          alt="Orbito Generate logo"
+          width={18}
+          height={18}
+          className="h-[18px] w-[18px] shrink-0 object-contain"
+        />
         <span>Generate</span>
       </Link>
     );
@@ -259,7 +245,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
 
   // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "orb-1";
+  const logoV = "orb-2";
 
   return (
     <div
@@ -316,15 +302,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/orbito-mark.svg?v=${logoV}`}
+                  src={`/orbito-mark.png?v=${logoV}`}
                   alt="Orbito logo"
                   width={36}
                   height={36}
+                  className="h-9 w-9 object-contain"
                   onError={(e) => {
                     const img = e.currentTarget;
                     if (img.dataset.logoFallback === "1") return;
                     img.dataset.logoFallback = "1";
-                    img.src = `/orbito-mark.png?v=${logoV}`;
+                    img.src = `/orbito-mark.svg?v=${logoV}`;
                   }}
                   style={{ display: "block" }}
                 />

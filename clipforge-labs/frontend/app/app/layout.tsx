@@ -94,34 +94,6 @@ function orbitoLabsBillingUrl() {
   return url.toString();
 }
 
-function LabsMark({ size = 34 }: { size?: number }) {
-  return (
-    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
-      <span
-        aria-hidden="true"
-        className="absolute rounded-full"
-        style={{
-          width: size * 0.98,
-          height: size * 0.48,
-          border: "1.7px solid rgba(255, 183, 3, 0.78)",
-          boxShadow: "0 0 14px rgba(251, 86, 7, 0.22)",
-          transform: "rotate(-18deg) scaleX(1.18)",
-        }}
-      />
-      <span
-        aria-hidden="true"
-        className="absolute rounded-full"
-        style={{
-          width: size * 0.58,
-          height: size * 0.58,
-          background: "linear-gradient(145deg, #ffd166 0%, #fb5607 52%, #3a86ff 100%)",
-          boxShadow: "0 0 16px rgba(251, 86, 7, 0.24)",
-        }}
-      />
-    </span>
-  );
-}
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathnameRaw = usePathname();
   const pathname = normalizePath(pathnameRaw || "/");
@@ -259,6 +231,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.location.replace(orbitoLabsBillingUrl());
   }, [labsPlanAccess, loading, me]);
 
+  const logoV = "cflabs-9";
+  const logoSrc = withBasePath(`/clipforge-labs-mark.svg?v=${logoV}`);
+  const logoFallbackSrc = `/clipforge-labs-mark.svg?v=${logoV}`;
+
   return (
     <div
       className={cx(
@@ -305,7 +281,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     filter: "blur(10px)",
                   }}
                 />
-                <LabsMark size={34} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={logoSrc}
+                  alt={`${BRAND.product} logo`}
+                  width={34}
+                  height={34}
+                  className="h-[34px] w-[34px] object-contain"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (img.dataset.logoFallback === "1") return;
+                    img.dataset.logoFallback = "1";
+                    img.src = logoFallbackSrc;
+                  }}
+                  style={{ display: "block" }}
+                />
               </span>
 
               {/* Bigger wordmark */}
