@@ -1,5 +1,7 @@
 // frontend/proxy.ts
 import { NextRequest, NextResponse } from "next/server";
+import { resolveLabsFrontendEntry, resolveLabsFrontendPath } from "./lib/labs-launch";
+import { labsLaunchPath, normalizeLabsTarget } from "./lib/labs-routes";
 
 const AUTH_COOKIE = "cf_token";
 const ONE_YEAR_SECONDS = 31536000;
@@ -124,27 +126,42 @@ export function proxy(req: NextRequest) {
   }
 
   const orbitoAppHost = hostFromOrigin(ORBITO_APP_ORIGIN);
-  const labsTarget = (req.nextUrl.searchParams.get("target") || "").trim().toLowerCase();
-  const redirectToOrbitoApp = (path: string) => {
-    // Use one helper so every Labs-to-Orbito handoff keeps the same headers and redirect code.
-    const target = new URL(path, ORBITO_APP_ORIGIN);
+  const labsTarget = normalizeLabsTarget(req.nextUrl.searchParams.get("target"));
+  const redirectToLabsFrontendPath = (path: string, search = "") => {
+    // Keep every entry point pointed at the configured Labs frontend instead of a hardcoded production URL.
+    const target = new URL(resolveLabsFrontendPath(path));
+    if (search) target.search = search;
     return applySecurityHeaders(NextResponse.redirect(target, 308), {
       production: isProduction,
       https: true,
     });
   };
+  const redirectToLabsFrontendEntry = (target: "generate" | "clips") => {
+    const resolved = new URL(resolveLabsFrontendEntry(target));
+    return applySecurityHeaders(NextResponse.redirect(resolved, 308), {
+      production: isProduction,
+      https: true,
+    });
+  };
 
-  // Normalize all Labs entry routes to canonical app.orbito.cc destinations.
-  if (pathname === "/app/labs") {
-    if (labsTarget === "clips") return redirectToOrbitoApp("/app/labs/app/clips");
-    return redirectToOrbitoApp("/app/labs/app/generate");
+  // Normalize every Labs launch path through one entry route so local, staging, and production behave the same.
+  if (pathname === "/labs") {
+    const target = new URL(labsLaunchPath("generate"), req.nextUrl);
+    target.hash = "";
+    return applySecurityHeaders(NextResponse.redirect(target, 308), {
+      production: isProduction,
+      https: isHttps,
+    });
   }
-  if (pathname === "/app/labs/contact") return redirectToOrbitoApp("/contact");
-  if (pathname === "/app/labs/privacy-policy") return redirectToOrbitoApp("/privacy-policy");
-  if (pathname === "/app/labs/terms-of-service") return redirectToOrbitoApp("/terms-of-service");
-  if (pathname.startsWith("/app/labs/") && host !== orbitoAppHost) {
-    const suffix = `${pathname}${req.nextUrl.search || ""}`;
-    return redirectToOrbitoApp(suffix);
+  if (pathname === "/app/labs") {
+    return redirectToLabsFrontendEntry(labsTarget);
+  }
+  if (pathname === "/app/labs/contact") return redirectToLabsFrontendPath("/contact");
+  if (pathname === "/app/labs/privacy-policy") return redirectToLabsFrontendPath("/privacy-policy");
+  if (pathname === "/app/labs/terms-of-service") return redirectToLabsFrontendPath("/terms-of-service");
+  if (pathname.startsWith("/app/labs/")) {
+    const suffix = pathname.slice("/app/labs".length) || "/";
+    return redirectToLabsFrontendPath(suffix, req.nextUrl.search);
   }
 
   // Keep nested Labs marketing paths normalized to canonical /labs.

@@ -1,3 +1,5 @@
+import { labsLaunchPath } from "./labs-routes";
+
 // frontend/lib/brand.ts
 export const BRAND = {
   name: "Orbito",
@@ -10,9 +12,7 @@ export const BRAND = {
   // Merged product link
   clipforgeName: "Orbito Generate",
   clipforgeProduct: "Orbito Generate",
-  clipforgeUrl:
-    process.env.NEXT_PUBLIC_LABS_MARKETING_URL?.trim() ||
-    "https://app.orbito.cc/app/labs/app/generate",
+  clipforgeUrl: process.env.NEXT_PUBLIC_LABS_MARKETING_URL?.trim() || labsLaunchPath("generate"),
 
   // Monetization partner
   whopName: "Whop",

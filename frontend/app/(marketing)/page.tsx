@@ -7,6 +7,7 @@ import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
 import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
+import { labsLaunchPath } from "@/lib/labs-routes";
 
 const ORBITO_WHOP_MARKETING_URL = "/whop";
 
@@ -717,7 +718,7 @@ function GenerateStage({
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link href="https://app.orbito.cc/app/labs/app/generate" className="btn-clipforge">
+              <Link href={labsLaunchPath("generate")} className="btn-clipforge">
                 Open Generate
               </Link>
               <Link href="/pricing" className="btn-ghost">

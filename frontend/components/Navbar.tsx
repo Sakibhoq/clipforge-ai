@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
+import { labsLaunchPath } from "@/lib/labs-routes";
 import { hasLabsFeatureAccess } from "@/lib/plans";
 
 function Logo() {
@@ -400,8 +401,7 @@ export default function Navbar() {
     ],
     []
   );
-  const orbitoAppOrigin = (process.env.NEXT_PUBLIC_ORBITO_APP_ORIGIN || "https://app.orbito.cc").replace(/\/+$/, "");
-  const aiLabGeneratorHref = `${orbitoAppOrigin}/app/labs/app/generate`;
+  const aiLabGeneratorHref = labsLaunchPath("generate");
 
   const appLinks = useMemo(
     () => {
@@ -412,11 +412,11 @@ export default function Navbar() {
         { href: "/app", label: "Console" },
         { href: "/app/clips?source=orbito", label: "Clips" },
         {
-          href: generatorLocked ? "/app/billing?intent=labs" : `${orbitoAppOrigin}/app/labs/app/generate`,
+          href: generatorLocked ? "/app/billing?intent=labs" : labsLaunchPath("generate"),
           label: generatorLocked ? "Generator 🔒" : "Generator",
         },
         {
-          href: labsClipsLocked ? "/app/billing?intent=labs" : `${orbitoAppOrigin}/app/labs/app/clips`,
+          href: labsClipsLocked ? "/app/billing?intent=labs" : labsLaunchPath("clips"),
           label: labsClipsLocked ? "AI Clips 🔒" : "AI Clips",
         },
         { href: "/app/connections", label: "Connection" },
@@ -424,15 +424,13 @@ export default function Navbar() {
         { href: "/app/settings", label: "Settings" },
       ];
     },
-    [authed, labsPlanAccess, orbitoAppOrigin]
+    [authed, labsPlanAccess]
   );
 
   const navLinks = inApp ? appLinks : marketingLinks;
   const whopPageHref = inApp ? BRAND.whopUrl : "/whop";
   const whopLinkProps = inApp ? { target: "_blank", rel: "noreferrer" } : {};
-  const labsNavHref = inApp
-    ? "https://app.orbito.cc/app/labs/app/generate"
-    : "/#generate";
+  const labsNavHref = labsLaunchPath("generate");
   const labsNavTitle = inApp
     ? "Open Orbito Generate"
     : "See Orbito Generate";

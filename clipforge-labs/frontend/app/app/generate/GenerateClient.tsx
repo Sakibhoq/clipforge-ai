@@ -175,6 +175,51 @@ const STORY_MEMORY_EXAMPLES = [
   "A suspenseful true-story style explainer about a forgotten tech invention.",
 ];
 
+const GENERATOR_MODE_META: Record<
+  GenerationMode,
+  { badge: string; title: string; description: string }
+> = {
+  post: {
+    badge: "Fastest workflow",
+    title: "Turn one idea into a full short-form story",
+    description: "Best when you want Orbito to shape the visual direction, narration, and pacing for you.",
+  },
+  video: {
+    badge: "Most cinematic",
+    title: "Direct a polished single-shot video",
+    description: "Best for tighter control over shot design, motion, voice, and final visual identity.",
+  },
+  image: {
+    badge: "Still frames",
+    title: "Create premium key art and scene references",
+    description: "Best for thumbnails, moodframes, product stills, and visual concept exploration.",
+  },
+  voiceover: {
+    badge: "Audio only",
+    title: "Generate a clean narration track",
+    description: "Best when you already know the script and just need a polished voice performance.",
+  },
+};
+
+const generatorPanelClass =
+  "rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(11,16,27,0.9),rgba(7,10,18,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.34)]";
+const generatorInsetClass =
+  "rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,32,0.8),rgba(7,11,19,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+const generatorSelectClass =
+  "h-11 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(9,13,22,0.96),rgba(7,11,18,0.98))] px-3 text-sm text-white/90 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition focus:border-sky-300/45 focus:shadow-[0_0_0_1px_rgba(125,211,252,0.16)]";
+const generatorFieldClass =
+  "w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(9,13,22,0.96),rgba(7,11,18,0.98))] px-4 py-3 text-sm text-white/92 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition placeholder:text-white/36 focus:border-sky-300/45 focus:shadow-[0_0_0_1px_rgba(125,211,252,0.16),0_16px_38px_rgba(3,11,24,0.34)]";
+const generatorQuietButtonClass =
+  "rounded-xl border border-white/10 bg-[#0b1220]/78 px-3 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]";
+const generatorAccentButtonClass =
+  "border-sky-300/35 bg-[linear-gradient(120deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12),rgba(245,158,11,0.08))] text-sky-50 shadow-[0_14px_32px_rgba(56,189,248,0.14)] hover:brightness-110";
+const generatorAccentChipClass =
+  "rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-100";
+const generatorModeActiveClass =
+  "border-sky-300/35 bg-[linear-gradient(180deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12))] text-sky-50 shadow-[0_12px_28px_rgba(56,189,248,0.12)]";
+const generatorModeIdleClass =
+  "border-white/10 bg-[#09101b]/78 text-white/78 hover:bg-white/[0.08]";
+
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -191,7 +236,7 @@ function prettyStatus(s: string) {
 
 function statusTone(status: string) {
   const v = String(status || "").toLowerCase();
-  if (v === "running" || v === "queued") return "border-amber-300/35 bg-amber-400/12 text-amber-100";
+  if (v === "running" || v === "queued") return "border-sky-300/30 bg-sky-400/10 text-sky-100";
   if (v === "done") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-100";
   if (v === "failed" || v === "canceled") return "border-rose-300/30 bg-rose-400/10 text-rose-100";
   return "border-white/15 bg-white/[0.06] text-white/75";
@@ -825,7 +870,7 @@ export default function GenerateClient() {
     return (
       <div className="grid gap-2">
         <label className="text-xs font-medium text-white/70">Voice</label>
-        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-2.5">
+        <div className={cx("grid gap-2 p-2.5", generatorInsetClass)}>
           <div className="flex flex-col gap-2 sm:flex-row">
             <select
               value={voiceName}
@@ -833,7 +878,7 @@ export default function GenerateClient() {
                 setVoiceName(e.target.value);
                 setVoicePreviewError(null);
               }}
-              className="h-10 w-full rounded-xl border border-white/10 bg-black/55 px-3 text-[12px] text-white/90 outline-none focus:border-white/25"
+              className={cx("h-10 text-[12px]", generatorSelectClass)}
             >
               {VOICE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -847,7 +892,7 @@ export default function GenerateClient() {
               className={cx(
                 "h-10 rounded-xl border px-3 text-[11px] font-semibold transition sm:min-w-[92px]",
                 previewLoading
-                  ? "border-amber-300/40 bg-amber-400/12 text-amber-100"
+                  ? generatorAccentButtonClass
                   : "border-white/12 bg-white/[0.06] text-white/82 hover:bg-white/[0.12]"
               )}
             >
@@ -1343,44 +1388,87 @@ export default function GenerateClient() {
   const activeJobFailed = !!activeJob && (status === "failed" || status === "canceled");
   const activeJobFailureReason = activeJobFailed ? humanizeGenerationError(activeJob?.error || "") : "";
   const activeJobFailureAction = activeJobFailed ? generationRecoveryAction(activeJob?.error || "") : "";
+  const modeMeta = GENERATOR_MODE_META[mode];
+  const renderSummary =
+    mode === "post"
+      ? `${postDurationSeconds}s AI post`
+      : mode === "video"
+        ? `${duration}s ${videoSpeed === "4k" ? "4K" : "HD"} render`
+        : mode === "image"
+          ? "Single premium image"
+          : "Voiceover delivery";
+  const continuitySummary = continuationJob
+    ? "Story memory active"
+    : referenceJob
+      ? "Reference look active"
+      : "Fresh generation";
 
   return (
-    <div className="relative overflow-x-hidden [max-width:100vw]">
-      <main className="relative mx-auto max-w-[1100px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
-        <form onSubmit={onGenerate} className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
-          <section className="surface relative flex min-h-[760px] flex-col overflow-hidden rounded-3xl border border-[#fb560740] p-5 sm:p-6 xl:min-h-[860px]">
+    <div className="theme-merged relative overflow-x-hidden [max-width:100vw]">
+      <main className="relative mx-auto max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
+        <form onSubmit={onGenerate} className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.32fr)_minmax(320px,0.88fr)]">
+          <section className={cx("surface relative flex min-h-[760px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6 xl:min-h-[860px]", generatorPanelClass)}>
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute -inset-12 opacity-35 blur-3xl"
+              className="pointer-events-none absolute -inset-12 opacity-50 blur-3xl"
               style={{
                 background:
-                  "radial-gradient(520px 260px at 18% 16%, rgba(255,183,3,0.22), transparent 72%), radial-gradient(520px 260px at 88% 18%, rgba(251,86,7,0.18), transparent 72%)",
+                  "radial-gradient(560px 300px at 12% 12%, rgba(125,211,252,0.22), transparent 72%), radial-gradient(560px 320px at 88% 16%, rgba(45,212,191,0.16), transparent 74%), radial-gradient(480px 260px at 50% 0%, rgba(245,158,11,0.10), transparent 72%)",
               }}
             />
 
             <div className="relative flex h-full flex-col">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className={cx("grid gap-4 rounded-[28px] border border-white/10 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_320px]", generatorInsetClass)}>
                 <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">AI Clip Studio</div>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-3xl">Create polished clips without fighting the UI.</h1>
-                  <p className="mt-1 max-w-2xl text-sm text-white/65">
-                    Start with one brief, keep the flow simple, and reuse prior generations as story memory whenever you want to continue a character or world.
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200/82">Orbito Generate</div>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white/95 sm:text-[2rem]">
+                    Build premium AI clips with a cleaner workflow.
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-sm text-white/66">
+                    Start with one clear brief, keep the setup tight, and bring back story memory or reference looks only when you need continuity.
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {["1. Brief", "2. Refine", "3. Render"].map((step) => (
+                      <span
+                        key={step}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/78"
+                      >
+                        {step}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
-                    Open editor
-                  </Link>
-                  <Link
-                    href="/app/clips"
-                    className="inline-flex items-center rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2 text-xs font-semibold text-white/82 transition hover:bg-white/[0.10]"
-                  >
-                    Clips library
-                  </Link>
+
+                <div className={cx("flex h-full flex-col justify-between gap-4 rounded-[24px] border border-white/10 p-4", generatorInsetClass)}>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">
+                      {modeMeta.badge}
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-white/92">{modeMeta.title}</div>
+                    <p className="mt-1 text-[12px] leading-5 text-white/62">{modeMeta.description}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-white/60">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                      <div className="text-white/42">Current render</div>
+                      <div className="mt-1 font-semibold text-white/88">{renderSummary}</div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                      <div className="text-white/42">Continuity</div>
+                      <div className="mt-1 font-semibold text-white/88">{continuitySummary}</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link href="/app/clips?editor=1" className="btn-aurora px-4 py-2 text-xs">
+                      Open editor
+                    </Link>
+                    <Link href="/app/clips" className={cx("inline-flex items-center px-4 py-2 text-xs", generatorQuietButtonClass)}>
+                      Clips library
+                    </Link>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/35 p-1.5 sm:flex sm:flex-wrap">
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-[24px] border border-white/10 bg-[#08101a]/82 p-1.5 sm:flex sm:flex-wrap">
                 {(["post", "video", "image", "voiceover"] as GenerationMode[]).map((m) => (
                   <button
                     key={m}
@@ -1389,8 +1477,8 @@ export default function GenerateClient() {
                     className={cx(
                       "w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm font-semibold transition sm:min-w-[110px] sm:flex-1",
                       mode === m
-                        ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
-                        : "border-white/12 bg-black/45 text-white/80 hover:bg-white/10"
+                        ? generatorModeActiveClass
+                        : generatorModeIdleClass
                     )}
                   >
                     {modeLabel(m)}
@@ -1399,10 +1487,10 @@ export default function GenerateClient() {
               </div>
 
               {(mode === "post" || mode === "video") ? (
-                <div className="mt-4 rounded-3xl border border-white/10 bg-[linear-gradient(145deg,rgba(14,18,32,0.92),rgba(10,14,24,0.9),rgba(8,20,18,0.86))] p-4">
+                <div className={cx("mt-4 p-4", generatorInsetClass)}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">Story Memory</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100/55">Story Memory</div>
                       <div className="mt-1 text-sm font-semibold text-white/92">
                         {mode === "post" ? "Keep the same world across multiple AI posts." : "Continue a previous video generation with the same visual identity."}
                       </div>
@@ -1414,7 +1502,7 @@ export default function GenerateClient() {
                       <button
                         type="button"
                         onClick={() => setContinuationJobId(null)}
-                        className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/16"
+                        className={cx(generatorQuietButtonClass, "border-sky-300/25 bg-sky-400/10 text-sky-100")}
                       >
                         Clear story memory
                       </button>
@@ -1422,9 +1510,9 @@ export default function GenerateClient() {
                   </div>
 
                   {continuationJob ? (
-                    <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-[12px] text-amber-50/95">
+                    <div className="mt-3 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-4 py-3 text-[12px] text-sky-50/95">
                       Continuing from <span className="font-semibold">{storyJobLabel(continuationJob)}</span>.
-                      <div className="mt-1 text-amber-50/80">Your next prompt becomes the next chapter instead of starting from zero.</div>
+                      <div className="mt-1 text-sky-50/80">Your next prompt becomes the next chapter instead of starting from zero.</div>
                     </div>
                   ) : null}
 
@@ -1440,8 +1528,8 @@ export default function GenerateClient() {
                             className={cx(
                               "rounded-2xl border px-3 py-3 text-left transition",
                               active
-                                ? "border-amber-300/30 bg-amber-400/12 text-white"
-                                : "border-white/10 bg-black/28 text-white/86 hover:bg-white/[0.06]"
+                                ? "border-sky-300/30 bg-sky-400/10 text-white"
+                                : "border-white/10 bg-[#0a111b]/76 text-white/86 hover:bg-white/[0.06]"
                             )}
                           >
                             <div className="flex items-center justify-between gap-3">
@@ -1463,10 +1551,10 @@ export default function GenerateClient() {
                     </div>
                   )}
 
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/24 px-4 py-3">
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#09111d]/68 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50">Reference Look</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-100/55">Reference Look</div>
                         <div className="mt-1 text-[12px] text-white/62">
                           Optional. Use any finished visual generation from Queue to borrow its look without continuing the exact same storyline.
                         </div>
@@ -1475,16 +1563,16 @@ export default function GenerateClient() {
                         <button
                           type="button"
                           onClick={() => setReferenceJobId(null)}
-                          className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-400/16"
+                          className={cx(generatorQuietButtonClass, "border-emerald-300/25 bg-emerald-400/10 text-emerald-100")}
                         >
                           Clear reference
                         </button>
                       ) : null}
                     </div>
                     {referenceJob ? (
-                      <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-[12px] text-cyan-50/95">
+                      <div className="mt-3 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-[12px] text-emerald-50/95">
                         Using <span className="font-semibold">{storyJobLabel(referenceJob)}</span> as the visual reference.
-                        <div className="mt-1 text-cyan-50/80">The next generation will keep its visual identity while creating a new scene or story beat.</div>
+                        <div className="mt-1 text-emerald-50/80">The next generation will keep its visual identity while creating a new scene or story beat.</div>
                       </div>
                     ) : (
                       <div className="mt-3 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-4 py-3 text-[12px] text-white/55">
@@ -1496,7 +1584,7 @@ export default function GenerateClient() {
               ) : null}
 
               {activeJob ? (
-                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/74 px-3 py-2.5">
                   <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(status))}>
                     {statusLabel}
                   </span>
@@ -1532,30 +1620,30 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
-                    <div className="group relative overflow-hidden rounded-3xl border border-[#fb56075f] bg-black/35 p-4 sm:p-5">
+                    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#08101a]/80 p-4 sm:p-5">
                       <div
                         aria-hidden="true"
                         className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(251,86,7,0.45) 0%, rgba(251,86,7,0) 72%)" }}
+                        style={{ background: "radial-gradient(circle, rgba(125,211,252,0.34) 0%, rgba(125,211,252,0) 72%)" }}
                       />
                       <div
                         aria-hidden="true"
                         className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(58,134,255,0.33) 0%, rgba(58,134,255,0) 74%)" }}
+                        style={{ background: "radial-gradient(circle, rgba(45,212,191,0.26) 0%, rgba(45,212,191,0) 74%)" }}
                       />
                       <div
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-0"
                         style={{
                           background:
-                            "linear-gradient(138deg, rgba(251,86,7,0.10) 0%, rgba(255,183,3,0.07) 32%, rgba(58,134,255,0.07) 64%, rgba(2,8,23,0.60) 100%)",
+                            "linear-gradient(138deg, rgba(125,211,252,0.08) 0%, rgba(45,212,191,0.07) 42%, rgba(245,158,11,0.06) 68%, rgba(2,8,23,0.64) 100%)",
                         }}
                       />
 
                       <div className="relative">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Start With One Brief</div>
+                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200/84">Start With One Brief</div>
                             <div className="mt-1 text-base font-semibold text-white sm:text-lg">
                               Give Orbito Labs the core idea and let it build the first pass for you.
                             </div>
@@ -1563,7 +1651,7 @@ export default function GenerateClient() {
                               This is the fastest path when the generator feels off. Start broad here, then refine the visual direction and narration below.
                             </p>
                           </div>
-                          <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
+                          <span className={generatorAccentChipClass}>
                             Guided
                           </span>
                         </div>
@@ -1579,7 +1667,7 @@ export default function GenerateClient() {
                                 setPostIdeaStoryboard([]);
                                 setPostIdeaError(null);
                               }}
-                            className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
+                              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
                           >
                               {clipText(example, 60)}
                             </button>
@@ -1598,7 +1686,7 @@ export default function GenerateClient() {
                             }}
                             rows={4}
                             placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
-                            className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
+                            className={cx("min-h-[120px] resize-y", generatorFieldClass)}
                           />
                         </div>
 
@@ -1616,7 +1704,7 @@ export default function GenerateClient() {
                               "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
                               postIdeaLoading
                                 ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                                : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
+                                : generatorAccentButtonClass
                             )}
                           >
                             {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
@@ -1682,7 +1770,7 @@ export default function GenerateClient() {
                       onChange={(e) => setPostVisualPrompt(e.target.value)}
                       rows={10}
                       placeholder="Describe shots, scene style, camera behavior, and pacing."
-                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                      className={generatorFieldClass}
                     />
                     <div className="text-[11px] text-white/50">
                       {postVisualLength.toLocaleString()} / {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} characters
@@ -1694,12 +1782,12 @@ export default function GenerateClient() {
                       onChange={(e) => setPostVoiceScript(e.target.value)}
                       rows={8}
                       placeholder="Write the narration for your 1-minute clip."
-                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                      className={generatorFieldClass}
                     />
                     <div className="text-[11px] text-white/50">
                       {postVoiceLength.toLocaleString()} / {POST_VOICE_SCRIPT_MAX_CHARS.toLocaleString()} characters
                     </div>
-                    <details className="rounded-2xl border border-white/10 bg-black/28 px-4 py-3 text-[12px] text-white/70">
+                    <details className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[12px] text-white/70">
                       <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for character lines</summary>
                       <div className="mt-3 grid gap-2">
                         <label className="text-xs font-medium text-white/70">Character dialogue</label>
@@ -1708,11 +1796,11 @@ export default function GenerateClient() {
                           onChange={(e) => setPostDialogueScript(e.target.value)}
                           rows={4}
                           placeholder="Optional: Founder: We almost quit. Partner: But we kept showing up."
-                          className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                          className={generatorFieldClass}
                         />
                       </div>
                     </details>
-                    <div className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] text-white/72">
+                    <div className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[11px] text-white/72">
                       <div>
                         Estimated voice length at 1x:{" "}
                         <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
@@ -1744,7 +1832,7 @@ export default function GenerateClient() {
                             ? "Describe subject, lighting, lens, and mood."
                             : "Describe the shot, motion, and final style in one concise prompt."
                       }
-                      className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                      className={generatorFieldClass}
                     />
                     <div className="text-[11px] text-white/50">
                       {mode === "voiceover"
@@ -1755,7 +1843,7 @@ export default function GenerateClient() {
                     </div>
                     {mode === "video" ? (
                       <>
-                        <details className="rounded-2xl border border-white/10 bg-black/28 px-4 py-3 text-[12px] text-white/70">
+                        <details className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[12px] text-white/70">
                           <summary className="cursor-pointer list-none font-semibold text-white/84">Optional dialogue for voice mode</summary>
                           <div className="mt-3 grid gap-2">
                             <label className="text-xs font-medium text-white/70">Character dialogue</label>
@@ -1764,7 +1852,7 @@ export default function GenerateClient() {
                               onChange={(e) => setVideoDialogueScript(e.target.value)}
                               rows={4}
                               placeholder="Optional speaking lines to guide lip-sync and emotional tone."
-                              className="w-full rounded-2xl border border-white/12 bg-black/45 px-4 py-3 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-amber-300/30"
+                              className={generatorFieldClass}
                             />
                           </div>
                         </details>
@@ -1792,16 +1880,16 @@ export default function GenerateClient() {
               ) : null}
 
               <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div className="rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-3 text-xs text-white/70">
+                <div className="rounded-2xl border border-white/12 bg-[#09111c]/72 px-4 py-3 text-xs text-white/70">
                   Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
                 </div>
                 <button
                   type="submit"
                   disabled={!canGenerate}
                   className={cx(
-                    "h-12 rounded-2xl border px-6 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/25",
+                    "h-12 rounded-2xl border px-6 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/25",
                     canGenerate
-                      ? "border-amber-300/35 bg-amber-500/14 text-amber-100 hover:bg-amber-500/22"
+                      ? generatorAccentButtonClass
                       : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
                   )}
                 >
@@ -1813,9 +1901,9 @@ export default function GenerateClient() {
           </section>
 
           <aside className="grid gap-4">
-            <div className="surface-soft rounded-3xl border border-[#fb560740] p-5">
+            <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
               <div className="text-sm font-semibold text-white/88">Render setup</div>
-              <div className="mt-1 text-[12px] text-white/56">Keep the visible controls tight. Everything else stays automatic.</div>
+              <div className="mt-1 text-[12px] text-white/56">Only the controls that materially change the output stay visible here.</div>
               <div className="mt-3 grid gap-3">
                 {(mode === "post" || mode === "video" || mode === "image") ? (
                   <div className="grid gap-2">
@@ -1823,7 +1911,7 @@ export default function GenerateClient() {
                     <select
                       value={aspectRatio}
                       onChange={(e) => setAspectRatio(e.target.value)}
-                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                      className={generatorSelectClass}
                     >
                       <option value="9:16">9:16 (Shorts/Reels/TikTok)</option>
                       <option value="16:9">16:9 (Landscape)</option>
@@ -1838,7 +1926,7 @@ export default function GenerateClient() {
                     <select
                       value={stylePreset}
                       onChange={(e) => setStylePreset(e.target.value as StylePreset)}
-                      className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                      className={generatorSelectClass}
                     >
                       {STYLE_PRESET_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -1850,13 +1938,13 @@ export default function GenerateClient() {
                 ) : null}
 
                 {(mode === "post" || mode === "video" || mode === "image") ? (
-                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                  <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/72 px-3 py-2.5">
                     <input
                       type="checkbox"
                       checked={watermarkEnabled}
                       onChange={(e) => setWatermarkEnabled(e.target.checked)}
                       disabled={freeTrialWatermarkLocked}
-                      className="h-4 w-4 accent-orange-500"
+                      className="h-4 w-4 accent-sky-400"
                     />
                     <span className="text-xs text-white/80">
                       Orbito Watermark
@@ -1867,7 +1955,7 @@ export default function GenerateClient() {
 
                 {mode === "post" ? (
                   <>
-                    <div className="rounded-xl border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-[11px] text-amber-100/95">
+                    <div className="rounded-xl border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-[11px] text-sky-50/95">
                       AI Post is optimized for faster, lower-friction story generation. For single cinematic shots, switch to Video mode.
                     </div>
                     <div className="grid gap-2">
@@ -1875,7 +1963,7 @@ export default function GenerateClient() {
                       <select
                         value={postDurationSeconds}
                         onChange={(e) => setPostDurationSeconds(Number(e.target.value))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                        className={generatorSelectClass}
                       >
                         {postDurationOptions.map((value) => (
                           <option key={value} value={value}>
@@ -1889,12 +1977,12 @@ export default function GenerateClient() {
                         <div className="text-[11px] text-white/55">Upgrade to Starter to unlock 90s and 120s AI posts.</div>
                       ) : null}
                     </div>
-                    <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                    <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/72 px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={postCaptionsEnabled}
                         onChange={(e) => setPostCaptionsEnabled(e.target.checked)}
-                        className="h-4 w-4 accent-orange-500"
+                        className="h-4 w-4 accent-sky-400"
                       />
                       <span className="text-xs text-white/80">Burn-in captions</span>
                     </label>
@@ -1910,7 +1998,7 @@ export default function GenerateClient() {
                       <select
                         value={duration}
                         onChange={(e) => setDuration(Number(e.target.value))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                        className={generatorSelectClass}
                       >
                         {videoDurationOptions.map((seconds) => (
                           <option key={seconds} value={seconds}>
@@ -1928,8 +2016,8 @@ export default function GenerateClient() {
                           className={cx(
                             "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                             videoSpeed === "relax"
-                              ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
-                              : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                              ? generatorModeActiveClass
+                              : "border-white/10 bg-[#09111c]/72 text-white/70 hover:bg-white/8"
                           )}
                         >
                           HD
@@ -1943,8 +2031,8 @@ export default function GenerateClient() {
                           className={cx(
                             "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                             videoSpeed === "4k"
-                              ? "border-orange-300/45 bg-orange-400/10 text-orange-100"
-                              : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8",
+                              ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-50"
+                              : "border-white/10 bg-[#09111c]/72 text-white/70 hover:bg-white/8",
                             !fastEligible && "cursor-not-allowed opacity-55"
                           )}
                           title={fastEligible ? "4K enabled" : "Upgrade to Creator for 4K"}
@@ -1956,17 +2044,17 @@ export default function GenerateClient() {
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Voice (optional)</label>
-                      <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/40 px-3 py-2.5">
+                      <label className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/72 px-3 py-2.5">
                         <input
                           type="checkbox"
                           checked={videoVoiceEnabled}
                           onChange={(e) => setVideoVoiceEnabled(e.target.checked)}
-                          className="h-4 w-4 accent-orange-500"
+                          className="h-4 w-4 accent-sky-400"
                         />
                         <span className="text-xs text-white/80">Add voiceover</span>
                       </label>
                       {videoVoiceEnabled ? (
-                        <div className="grid gap-2 rounded-2xl border border-white/10 bg-black/45 p-3">
+                        <div className={cx("grid gap-2 p-3", generatorInsetClass)}>
                           <div className="grid gap-2">
                             <label className="text-[11px] font-semibold text-white/70">Voice style</label>
                             <div className="grid grid-cols-2 gap-2">
@@ -1976,8 +2064,8 @@ export default function GenerateClient() {
                                 className={cx(
                                   "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                                   videoVoiceMode === "narration"
-                                    ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
-                                    : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                                    ? generatorModeActiveClass
+                                    : "border-white/10 bg-[#09111c]/72 text-white/70 hover:bg-white/8"
                                 )}
                               >
                                 Narration
@@ -1988,8 +2076,8 @@ export default function GenerateClient() {
                                 className={cx(
                                   "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                                   videoVoiceMode === "dialogue"
-                                    ? "border-amber-300/35 bg-amber-500/12 text-amber-100"
-                                    : "border-white/10 bg-black/35 text-white/70 hover:bg-white/8"
+                                    ? generatorModeActiveClass
+                                    : "border-white/10 bg-[#09111c]/72 text-white/70 hover:bg-white/8"
                                 )}
                               >
                                 Dialogue
@@ -2016,7 +2104,7 @@ export default function GenerateClient() {
                       <select
                         value={voiceSpeedMultiplier}
                         onChange={(e) => setVoiceSpeedMultiplier(Number(e.target.value || 1))}
-                        className="h-11 w-full rounded-2xl border border-white/10 bg-black/50 px-3 text-sm text-white/90 outline-none focus:border-amber-300/30"
+                        className={generatorSelectClass}
                       >
                         {VOICE_SPEED_OPTIONS.map((opt) => (
                           <option key={String(opt.value)} value={opt.value}>
@@ -2030,13 +2118,13 @@ export default function GenerateClient() {
               </div>
             </div>
 
-            <div className="surface-soft rounded-3xl border border-[#fb560740] p-5">
+            <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
               <div className="flex items-center justify-between gap-3">
                 <div className="text-sm font-semibold text-white/88">Queue</div>
                 <button
                   type="button"
                   onClick={refreshJobs}
-                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:bg-white/10"
+                  className={generatorQuietButtonClass}
                 >
                   Refresh
                 </button>
@@ -2050,7 +2138,7 @@ export default function GenerateClient() {
                       onClick={() => {
                         openJobFromQueue(j);
                       }}
-                      className="cursor-pointer text-left rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:bg-white/[0.06]"
+                      className="cursor-pointer text-left rounded-2xl border border-white/10 bg-[#09111c]/72 p-3 transition hover:bg-white/[0.06]"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 text-sm font-semibold text-white/85">{shortPromptLabel(j.prompt, j.id)}</div>
@@ -2088,7 +2176,7 @@ export default function GenerateClient() {
                             e.stopPropagation();
                             openJobFromQueue(j);
                           }}
-                          className="rounded-xl border border-white/10 bg-black/35 px-2.5 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]"
+                          className={generatorQuietButtonClass}
                         >
                           Load settings
                         </button>
@@ -2101,7 +2189,7 @@ export default function GenerateClient() {
                               e.stopPropagation();
                               applyContinuationFromJob(j);
                             }}
-                            className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/18"
+                            className="rounded-xl border border-sky-300/30 bg-sky-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-sky-100 transition hover:bg-sky-400/18"
                           >
                             Use as story memory
                           </button>
@@ -2113,7 +2201,7 @@ export default function GenerateClient() {
                               e.stopPropagation();
                               applyReferenceFromJob(j);
                             }}
-                            className="rounded-xl border border-cyan-300/25 bg-cyan-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-100 transition hover:bg-cyan-400/18"
+                            className="rounded-xl border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-400/18"
                           >
                             Use as reference look
                           </button>

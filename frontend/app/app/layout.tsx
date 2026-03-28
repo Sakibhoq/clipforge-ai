@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
+import { labsLaunchPath } from "@/lib/labs-routes";
 import { hasLabsFeatureAccess } from "@/lib/plans";
 
 type MeResponse = {
@@ -178,7 +179,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   function aiLabButton(mobile = false) {
     const active = isActive("/app/labs");
-    const labsHref = "https://app.orbito.cc/app/labs/app/generate";
+    const labsHref = labsLaunchPath("generate");
     const labsLogoV = "labs-3";
     const locked = !!me && !hasLabsFeatureAccess(me.plan);
     const deniedTitle = "You don't have permission to open Orbito Generate. Upgrade to a Generate plan.";
