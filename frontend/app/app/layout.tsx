@@ -71,6 +71,144 @@ function marketingHomeUrl() {
   ).trim();
 }
 
+type MarkProps = {
+  size?: number;
+  className?: string;
+};
+
+// Inline the real brand artwork here so the console navbar never depends on a flaky asset path.
+function OrbitoMark({ size = 36, className }: MarkProps) {
+  const id = React.useId().replace(/:/g, "");
+  const ringId = `orbito-ring-${id}`;
+  const planetId = `orbito-planet-${id}`;
+  const clipTopId = `orbito-clip-top-${id}`;
+  const clipBottomId = `orbito-clip-bottom-${id}`;
+  const glowId = `orbito-glow-${id}`;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 512 512"
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id={ringId} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#5eead4" />
+          <stop offset="55%" stopColor="#818cf8" />
+          <stop offset="100%" stopColor="#a78bfa" />
+        </linearGradient>
+        <linearGradient id={planetId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#4ef3e8" />
+          <stop offset="50%" stopColor="#7b6cff" />
+          <stop offset="100%" stopColor="#ff5fd2" />
+        </linearGradient>
+        <clipPath id={clipTopId} clipPathUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="512" height="256" />
+        </clipPath>
+        <clipPath id={clipBottomId} clipPathUnits="userSpaceOnUse">
+          <rect x="0" y="256" width="512" height="256" />
+        </clipPath>
+        <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g transform="rotate(-18 256 256)" clipPath={`url(#${clipTopId})`} opacity="0.55">
+        <ellipse cx="256" cy="270" rx="210" ry="82" fill="none" stroke={`url(#${ringId})`} strokeWidth="40" strokeLinecap="round" />
+      </g>
+
+      <circle cx="256" cy="256" r="140" fill={`url(#${planetId})`} />
+
+      <g transform="rotate(-18 256 256)" clipPath={`url(#${clipBottomId})`}>
+        <ellipse
+          cx="256"
+          cy="270"
+          rx="210"
+          ry="82"
+          fill="none"
+          stroke={`url(#${ringId})`}
+          strokeWidth="40"
+          strokeLinecap="round"
+          filter={`url(#${glowId})`}
+        />
+      </g>
+    </svg>
+  );
+}
+
+function LabsProductMark({ size = 18, className }: MarkProps) {
+  const id = React.useId().replace(/:/g, "");
+  const ringId = `labs-ring-${id}`;
+  const planetId = `labs-planet-${id}`;
+  const clipTopId = `labs-clip-top-${id}`;
+  const clipBottomId = `labs-clip-bottom-${id}`;
+  const glowId = `labs-glow-${id}`;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 512 512"
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id={ringId} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#ffb703" />
+          <stop offset="52%" stopColor="#fb5607" />
+          <stop offset="100%" stopColor="#3a86ff" />
+        </linearGradient>
+        <linearGradient id={planetId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffd166" />
+          <stop offset="48%" stopColor="#fb5607" />
+          <stop offset="100%" stopColor="#3a86ff" />
+        </linearGradient>
+        <clipPath id={clipTopId} clipPathUnits="userSpaceOnUse">
+          <rect x="0" y="0" width="512" height="256" />
+        </clipPath>
+        <clipPath id={clipBottomId} clipPathUnits="userSpaceOnUse">
+          <rect x="0" y="256" width="512" height="256" />
+        </clipPath>
+        <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <g transform="rotate(-18 256 256)" clipPath={`url(#${clipTopId})`} opacity="0.55">
+        <ellipse cx="256" cy="270" rx="210" ry="82" fill="none" stroke={`url(#${ringId})`} strokeWidth="40" strokeLinecap="round" />
+      </g>
+
+      <circle cx="256" cy="256" r="140" fill={`url(#${planetId})`} />
+
+      <g transform="rotate(-18 256 256)" clipPath={`url(#${clipBottomId})`}>
+        <ellipse
+          cx="256"
+          cy="270"
+          rx="210"
+          ry="82"
+          fill="none"
+          stroke={`url(#${ringId})`}
+          strokeWidth="40"
+          strokeLinecap="round"
+          filter={`url(#${glowId})`}
+        />
+      </g>
+    </svg>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathnameRaw = usePathname();
@@ -205,14 +343,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             active && "ring-1 ring-amber-300/45"
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/clipforge-labs-mark.svg?v=cflabs-9"
-            alt="Orbito Generate logo"
-            width={18}
-            height={18}
-            className="h-[18px] w-[18px] shrink-0 object-contain"
-          />
+          <LabsProductMark size={18} className="h-[18px] w-[18px] shrink-0" />
           <span>Generate 🔒</span>
         </button>
       );
@@ -228,14 +359,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           active && "ring-1 ring-amber-300/45"
         )}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/clipforge-labs-mark.svg?v=cflabs-9"
-          alt="Orbito Generate logo"
-          width={18}
-          height={18}
-          className="h-[18px] w-[18px] shrink-0 object-contain"
-        />
+        <LabsProductMark size={18} className="h-[18px] w-[18px] shrink-0" />
         <span>Generate</span>
       </Link>
     );
@@ -243,9 +367,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const planLabel = useMemo(() => displayPlanLabel(me?.plan), [me?.plan]);
   const displayName = useMemo(() => displayNameFromUser(me), [me]);
-
-  // bump this when you want to force-refresh the mark (CDN/browser cache)
-  const logoV = "orb-2";
 
   return (
     <div
@@ -300,21 +421,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     filter: "blur(10px)",
                   }}
                 />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/orbito-mark.png?v=${logoV}`}
-                  alt="Orbito logo"
-                  width={36}
-                  height={36}
-                  className="h-9 w-9 object-contain"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (img.dataset.logoFallback === "1") return;
-                    img.dataset.logoFallback = "1";
-                    img.src = `/orbito-mark.svg?v=${logoV}`;
-                  }}
-                  style={{ display: "block" }}
-                />
+                <OrbitoMark size={36} className="h-9 w-9" />
               </span>
 
               {/* Bigger wordmark */}

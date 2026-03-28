@@ -1363,20 +1363,168 @@ export default function GenerateClient() {
   const showContinuityTools =
     (mode === "post" || mode === "video") &&
     (Boolean(continuationJob) || Boolean(referenceJob) || storyMemoryJobs.length > 0);
+  const postPromptHelperCard =
+    mode === "post" ? (
+      <section className="group relative overflow-hidden rounded-[32px] border border-[#fb56075f] bg-black/35 p-5 sm:p-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
+          style={{ background: "radial-gradient(circle, rgba(251,86,7,0.45) 0%, rgba(251,86,7,0) 72%)" }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
+          style={{ background: "radial-gradient(circle, rgba(58,134,255,0.33) 0%, rgba(58,134,255,0) 74%)" }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(138deg, rgba(251,86,7,0.10) 0%, rgba(255,183,3,0.07) 32%, rgba(58,134,255,0.07) 64%, rgba(2,8,23,0.60) 100%)",
+          }}
+        />
+
+        <div className="relative">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Helper</div>
+              <div className="mt-1 text-base font-semibold text-white sm:text-lg">
+                Need help getting started? Write one brief and let Orbito draft the fields above.
+              </div>
+              <p className="mt-1 text-xs text-white/68">
+                This helper fills the visual direction and voiceover for you, then you can keep refining manually.
+              </p>
+            </div>
+            <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
+              Guided
+            </span>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {STORY_MEMORY_EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                onClick={() => {
+                  setPostIdeaSeed(example);
+                  setPostIdeaAnalysis(null);
+                  setPostIdeaStoryboard([]);
+                  setPostIdeaError(null);
+                }}
+                className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
+              >
+                {clipText(example, 60)}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            <label className="text-xs font-medium text-white/72">Core idea</label>
+            <textarea
+              value={postIdeaSeed}
+              onChange={(e) => {
+                setPostIdeaSeed(e.target.value);
+                setPostIdeaAnalysis(null);
+                setPostIdeaStoryboard([]);
+                if (postIdeaError) setPostIdeaError(null);
+              }}
+              rows={4}
+              placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
+              className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
+            />
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-[11px] text-white/58">
+              {postIdeaSeed.trim().length.toLocaleString()} chars
+              <span className="mx-2 text-white/30">•</span>
+              Up to {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} chars
+            </div>
+            <button
+              type="button"
+              onClick={generatePostPromptPack}
+              disabled={postIdeaLoading}
+              className={cx(
+                "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
+                postIdeaLoading
+                  ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                  : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
+              )}
+            >
+              {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
+            </button>
+          </div>
+
+          {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
+          {postIdeaAnalysis ? (
+            <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-[11px] text-cyan-50/90">
+              {postIdeaAnalysis.hook_focus ? (
+                <div>
+                  <span className="font-semibold text-cyan-100">Hook focus:</span> {postIdeaAnalysis.hook_focus}
+                </div>
+              ) : null}
+              {postIdeaAnalysis.continuity_anchor ? (
+                <div className="mt-1">
+                  <span className="font-semibold text-cyan-100">Continuity anchor:</span>{" "}
+                  {postIdeaAnalysis.continuity_anchor}
+                </div>
+              ) : null}
+              {Array.isArray(postIdeaAnalysis.quality_guardrails) && postIdeaAnalysis.quality_guardrails.length > 0 ? (
+                <div className="mt-1 text-cyan-50/85">
+                  <span className="font-semibold text-cyan-100">Quality checks:</span>{" "}
+                  {postIdeaAnalysis.quality_guardrails.slice(0, 3).join(" • ")}
+                </div>
+              ) : null}
+              {Array.isArray(postIdeaAnalysis.camera_plan) && postIdeaAnalysis.camera_plan.length > 0 ? (
+                <div className="mt-1 text-cyan-50/85">
+                  <span className="font-semibold text-cyan-100">Camera plan:</span>{" "}
+                  {postIdeaAnalysis.camera_plan.slice(0, 2).join(" | ")}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {postIdeaStoryboard.length ? (
+            <div className="mt-3 grid gap-2">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">Storyboard Review</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {postIdeaStoryboard.map((beat, index) => (
+                  <div key={`${beat.label || "beat"}-${index}`} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/72">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-semibold text-white/90">{beat.label || `Beat ${index + 1}`}</div>
+                      {beat.time_range ? <div className="text-white/46">{beat.time_range}</div> : null}
+                    </div>
+                    {beat.visual_beat ? <div className="mt-2 text-white/84">{beat.visual_beat}</div> : null}
+                    {beat.voice_beat ? <div className="mt-1 text-white/62">{beat.voice_beat}</div> : null}
+                    {beat.camera ? (
+                      <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[10px] text-white/58">
+                        Camera: {beat.camera}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    ) : null;
 
   return (
     <div className="theme-merged relative overflow-x-hidden [max-width:100vw]">
       <main className="relative mx-auto max-w-[1080px] px-4 pb-20 pt-8 sm:px-6 sm:pt-10">
         <form onSubmit={onGenerate} className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className={cx("surface relative flex min-h-[720px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6", generatorPanelClass)}>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-12 opacity-50 blur-3xl"
-              style={{
-                background:
-                  "radial-gradient(560px 300px at 12% 12%, rgba(125,211,252,0.22), transparent 72%), radial-gradient(560px 320px at 88% 16%, rgba(45,212,191,0.16), transparent 74%), radial-gradient(480px 260px at 50% 0%, rgba(245,158,11,0.10), transparent 72%)",
-              }}
-            />
+          {/* Keep the editing workflow and the helper as separate cards on the left column. */}
+          <div className="grid gap-5">
+            <section className={cx("surface relative flex min-h-[720px] flex-col overflow-hidden rounded-[32px] border-white/10 p-5 sm:p-6", generatorPanelClass)}>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-12 opacity-50 blur-3xl"
+                style={{
+                  background:
+                    "radial-gradient(560px 300px at 12% 12%, rgba(125,211,252,0.22), transparent 72%), radial-gradient(560px 320px at 88% 16%, rgba(45,212,191,0.16), transparent 74%), radial-gradient(480px 260px at 50% 0%, rgba(245,158,11,0.10), transparent 72%)",
+                }}
+              />
 
             <div className="relative flex h-full flex-col">
               <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4">
@@ -1588,149 +1736,6 @@ export default function GenerateClient() {
                       </div>
                     </div>
 
-                    <div className="group relative overflow-hidden rounded-3xl border border-[#fb56075f] bg-black/35 p-4 sm:p-5">
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -left-24 -top-20 h-44 w-44 rounded-full opacity-65 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(251,86,7,0.45) 0%, rgba(251,86,7,0) 72%)" }}
-                      />
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full opacity-55 blur-3xl animate-pulse"
-                        style={{ background: "radial-gradient(circle, rgba(58,134,255,0.33) 0%, rgba(58,134,255,0) 74%)" }}
-                      />
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0"
-                        style={{
-                          background:
-                            "linear-gradient(138deg, rgba(251,86,7,0.10) 0%, rgba(255,183,3,0.07) 32%, rgba(58,134,255,0.07) 64%, rgba(2,8,23,0.60) 100%)",
-                        }}
-                      />
-
-                      <div className="relative">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Helper</div>
-                            <div className="mt-1 text-base font-semibold text-white sm:text-lg">
-                              Need help getting started? Write one brief and let Orbito draft the fields above.
-                            </div>
-                            <p className="mt-1 text-xs text-white/68">
-                              This helper fills the visual direction and voiceover for you, then you can keep refining manually.
-                            </p>
-                          </div>
-                          <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
-                            Guided
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {STORY_MEMORY_EXAMPLES.map((example) => (
-                            <button
-                              key={example}
-                              type="button"
-                              onClick={() => {
-                                setPostIdeaSeed(example);
-                                setPostIdeaAnalysis(null);
-                                setPostIdeaStoryboard([]);
-                                setPostIdeaError(null);
-                              }}
-                              className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/74 transition hover:bg-white/[0.10]"
-                            >
-                              {clipText(example, 60)}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="mt-4 grid gap-2">
-                          <label className="text-xs font-medium text-white/72">Core idea</label>
-                          <textarea
-                            value={postIdeaSeed}
-                            onChange={(e) => {
-                              setPostIdeaSeed(e.target.value);
-                              setPostIdeaAnalysis(null);
-                              setPostIdeaStoryboard([]);
-                              if (postIdeaError) setPostIdeaError(null);
-                            }}
-                            rows={4}
-                            placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
-                            className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
-                          />
-                        </div>
-
-                        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="text-[11px] text-white/58">
-                            {postIdeaSeed.trim().length.toLocaleString()} chars
-                            <span className="mx-2 text-white/30">•</span>
-                            Up to {POST_VISUAL_PROMPT_MAX_CHARS.toLocaleString()} chars
-                          </div>
-                          <button
-                            type="button"
-                            onClick={generatePostPromptPack}
-                            disabled={postIdeaLoading}
-                            className={cx(
-                              "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
-                              postIdeaLoading
-                                ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                                : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
-                            )}
-                          >
-                            {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
-                          </button>
-                        </div>
-
-                        {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
-                        {postIdeaAnalysis ? (
-                          <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-[11px] text-cyan-50/90">
-                            {postIdeaAnalysis.hook_focus ? (
-                              <div>
-                                <span className="font-semibold text-cyan-100">Hook focus:</span> {postIdeaAnalysis.hook_focus}
-                              </div>
-                            ) : null}
-                            {postIdeaAnalysis.continuity_anchor ? (
-                              <div className="mt-1">
-                                <span className="font-semibold text-cyan-100">Continuity anchor:</span>{" "}
-                                {postIdeaAnalysis.continuity_anchor}
-                              </div>
-                            ) : null}
-                            {Array.isArray(postIdeaAnalysis.quality_guardrails) && postIdeaAnalysis.quality_guardrails.length > 0 ? (
-                              <div className="mt-1 text-cyan-50/85">
-                                <span className="font-semibold text-cyan-100">Quality checks:</span>{" "}
-                                {postIdeaAnalysis.quality_guardrails.slice(0, 3).join(" • ")}
-                              </div>
-                            ) : null}
-                            {Array.isArray(postIdeaAnalysis.camera_plan) && postIdeaAnalysis.camera_plan.length > 0 ? (
-                              <div className="mt-1 text-cyan-50/85">
-                                <span className="font-semibold text-cyan-100">Camera plan:</span>{" "}
-                                {postIdeaAnalysis.camera_plan.slice(0, 2).join(" | ")}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        {postIdeaStoryboard.length ? (
-                          <div className="mt-3 grid gap-2">
-                            <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">Storyboard Review</div>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {postIdeaStoryboard.map((beat, index) => (
-                                <div key={`${beat.label || "beat"}-${index}`} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/72">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="font-semibold text-white/90">{beat.label || `Beat ${index + 1}`}</div>
-                                    {beat.time_range ? <div className="text-white/46">{beat.time_range}</div> : null}
-                                  </div>
-                                  {beat.visual_beat ? <div className="mt-2 text-white/84">{beat.visual_beat}</div> : null}
-                                  {beat.voice_beat ? <div className="mt-1 text-white/62">{beat.voice_beat}</div> : null}
-                                  {beat.camera ? (
-                                    <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[10px] text-white/58">
-                                      Camera: {beat.camera}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
                   </>
                 ) : (
                   <>
@@ -1812,7 +1817,9 @@ export default function GenerateClient() {
               </div>
 
             </div>
-          </section>
+            </section>
+            {postPromptHelperCard}
+          </div>
 
           <aside className="grid gap-4">
             <div className={cx("surface-soft rounded-[28px] border-white/10 p-5", generatorPanelClass)}>
