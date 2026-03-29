@@ -10,6 +10,7 @@ import { normalizeAppPlan } from "@/lib/plans";
 // API payloads and persisted draft state for the Labs generator surface.
 type GenerationMode = "post" | "video" | "image" | "voiceover";
 type VideoSpeedMode = "relax" | "4k";
+type PostVisualMode = "image" | "video";
 type JobKind = "generate" | "generate_image" | "generate_voiceover" | "generate_post";
 type StylePreset = "real" | "anime" | "cartoon" | "comic";
 
@@ -76,6 +77,8 @@ type JobSettings = {
   speed_wpm?: number;
   style_preset?: string;
   caption_style_preset?: string;
+  post_visual_mode?: PostVisualMode;
+  generated_scene_media_type?: "image" | "video";
   generation_speed?: string;
   watermark_enabled?: boolean;
   captions_enabled?: boolean;
@@ -97,6 +100,7 @@ type GenerateDraft = {
   postDialogueScript?: string;
   postIdeaSeed?: string;
   postDurationSeconds?: number;
+  postVisualMode?: PostVisualMode;
   postCaptionsEnabled?: boolean;
   watermarkEnabled?: boolean;
   voiceName?: string;
@@ -127,6 +131,11 @@ const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 6;
 const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
 const POST_DURATION_OPTIONS: number[] = [60, 90, 120];
+const POST_SCENE_COUNT_BY_DURATION: Record<number, number> = {
+  60: 6,
+  90: 8,
+  120: 10,
+};
 const VIDEO_PROMPT_MAX_CHARS = 3000;
 const IMAGE_PROMPT_MAX_CHARS = 3000;
 const POST_VISUAL_PROMPT_MAX_CHARS = 3000;
@@ -151,6 +160,8 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
 ];
 
 const VOICE_OPTIONS = [
+  { value: "en-US-Studio-O", label: "Sora (US • studio female • most natural)" },
+  { value: "en-US-Studio-Q", label: "Vale (US • studio male • most natural)" },
   { value: "en-US-Neural2-H", label: "Iris (US • expressive female • premium)" },
   { value: "en-US-Neural2-I", label: "Noir (US • dramatic male • premium)" },
   { value: "en-US-Neural2-A", label: "Ember (US • narrative male • premium)" },
@@ -165,7 +176,7 @@ const VOICE_OPTIONS = [
   { value: "en-AU-Neural2-A", label: "Skye (AU • warm female)" },
 ] as const;
 
-const DEFAULT_VOICE_NAME = "en-US-Neural2-H";
+const DEFAULT_VOICE_NAME = "en-US-Studio-O";
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
 const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
@@ -187,6 +198,10 @@ const generatorQuietButtonClass =
   "rounded-xl border border-white/10 bg-[#0b1220]/78 px-3 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]";
 const generatorAccentButtonClass =
   "border-sky-300/35 bg-[linear-gradient(120deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12),rgba(245,158,11,0.08))] text-sky-50 shadow-[0_14px_32px_rgba(56,189,248,0.14)] hover:brightness-110";
+const generatorWarningButtonClass =
+  "border-amber-300/45 bg-[linear-gradient(120deg,rgba(251,191,36,0.28),rgba(245,158,11,0.24),rgba(251,146,60,0.18))] text-amber-50 shadow-[0_16px_36px_rgba(245,158,11,0.2)] hover:brightness-110";
+const generatorWarningCardClass =
+  "rounded-2xl border border-amber-300/35 bg-[linear-gradient(180deg,rgba(120,53,15,0.22),rgba(69,26,3,0.18))] px-4 py-3 text-amber-50/95 shadow-[0_14px_32px_rgba(245,158,11,0.10)]";
 const generatorModeActiveClass =
   "border-sky-300/35 bg-[linear-gradient(180deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12))] text-sky-50 shadow-[0_12px_28px_rgba(56,189,248,0.12)]";
 const generatorModeIdleClass =
@@ -208,10 +223,14 @@ function prettyStatus(s: string) {
 
 function statusTone(status: string) {
   const v = String(status || "").toLowerCase();
-  if (v === "running" || v === "queued") return "border-sky-300/30 bg-sky-400/10 text-sky-100";
+  if (v === "running" || v === "queued") return "border-amber-300/35 bg-amber-400/12 text-amber-100";
   if (v === "done") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-100";
   if (v === "failed" || v === "canceled") return "border-rose-300/30 bg-rose-400/10 text-rose-100";
   return "border-white/15 bg-white/[0.06] text-white/75";
+}
+
+function postSceneCountForDuration(durationSeconds: number): number {
+  return POST_SCENE_COUNT_BY_DURATION[Math.max(60, Math.min(120, Number(durationSeconds || POST_DURATION_SECONDS)))] || POST_IMAGE_DEFAULT_COUNT;
 }
 
 function kindLabel(kind: string | undefined) {
@@ -453,9 +472,10 @@ function estimatePostCredits(
   imageCount: number,
   voiceWordCount: number,
   stylePreset: StylePreset,
-  durationSeconds: number
+  durationSeconds: number,
+  visualMode: PostVisualMode
 ): number {
-  if (isLowCostStyle(stylePreset)) {
+  if (visualMode === "video") {
     const safeDuration = Math.max(60, Math.min(120, Number(durationSeconds || POST_DURATION_SECONDS)));
     const videoCreditsPerSecond = estimateVideoCreditsPerSecond("relax", stylePreset);
     return Math.round(safeDuration * videoCreditsPerSecond) + estimateVoiceCredits(voiceWordCount);
@@ -548,6 +568,7 @@ export default function GenerateClient() {
   const [postIdeaAnalysis, setPostIdeaAnalysis] = useState<PromptHelperAnalysis | null>(null);
   const [postIdeaStoryboard, setPostIdeaStoryboard] = useState<PromptHelperStoryboardBeat[]>([]);
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
+  const [postVisualMode, setPostVisualMode] = useState<PostVisualMode>("image");
   const [postCaptionsEnabled, setPostCaptionsEnabled] = useState(true);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
@@ -619,10 +640,19 @@ export default function GenerateClient() {
     return table[normalizedPlan] ?? fallback;
   }, [normalizedPlan, lowCostStyleSelected, videoSpeed]);
   const videoDurationOptions = useMemo(() => VIDEO_DURATION_OPTIONS.filter((d) => d <= maxVideoDuration), [maxVideoDuration]);
+  const postSceneCount = useMemo(() => postSceneCountForDuration(postDurationSeconds), [postDurationSeconds]);
+  const postImageCreditsEstimate = useMemo(
+    () => estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, "image"),
+    [postSceneCount, postWordCount, stylePreset, postDurationSeconds]
+  );
+  const postVideoCreditsEstimate = useMemo(
+    () => estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, "video"),
+    [postSceneCount, postWordCount, stylePreset, postDurationSeconds]
+  );
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      return estimatePostCredits(POST_IMAGE_DEFAULT_COUNT, postWordCount, stylePreset, postDurationSeconds);
+      return estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, postVisualMode);
     }
     if (mode === "image") return estimateImageCredits(stylePreset);
     if (mode === "voiceover") {
@@ -630,7 +660,7 @@ export default function GenerateClient() {
     }
     const perSecond = estimateVideoCreditsPerSecond(videoSpeed, stylePreset);
     return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds]);
+  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds, postSceneCount, postVisualMode]);
 
   const fastEligible = useMemo(() => {
     return normalizedPlan === "creator";
@@ -704,7 +734,16 @@ export default function GenerateClient() {
       if (Number.isFinite(postDurationRaw) && [60, 90, 120].includes(postDurationRaw)) {
         setPostDurationSeconds(postDurationRaw);
       }
-
+      const savedPostVisualMode = typeof settings.post_visual_mode === "string" ? settings.post_visual_mode.trim().toLowerCase() : "";
+      const generatedSceneMediaType =
+        typeof settings.generated_scene_media_type === "string" ? settings.generated_scene_media_type.trim().toLowerCase() : "";
+      if (savedPostVisualMode === "image" || savedPostVisualMode === "video") {
+        setPostVisualMode(savedPostVisualMode as PostVisualMode);
+      } else if (generatedSceneMediaType === "image" || generatedSceneMediaType === "video") {
+        setPostVisualMode(generatedSceneMediaType as PostVisualMode);
+      } else {
+        setPostVisualMode("image");
+      }
       setPostCaptionsEnabled(typeof settings.captions_enabled === "boolean" ? settings.captions_enabled : true);
       setContinuationJobId(Number.isFinite(Number(settings.continuation_job_id)) ? Number(settings.continuation_job_id) : null);
       return;
@@ -1030,6 +1069,7 @@ export default function GenerateClient() {
       if (typeof draft.postDurationSeconds === "number" && POST_DURATION_OPTIONS.includes(draft.postDurationSeconds)) {
         setPostDurationSeconds(draft.postDurationSeconds);
       }
+      if (draft.postVisualMode === "image" || draft.postVisualMode === "video") setPostVisualMode(draft.postVisualMode);
       if (typeof draft.postCaptionsEnabled === "boolean") setPostCaptionsEnabled(draft.postCaptionsEnabled);
       if (!freeTrialWatermarkLocked && typeof draft.watermarkEnabled === "boolean") {
         setWatermarkEnabled(draft.watermarkEnabled);
@@ -1064,6 +1104,7 @@ export default function GenerateClient() {
       postDialogueScript,
       postIdeaSeed,
       postDurationSeconds,
+      postVisualMode,
       postCaptionsEnabled,
       watermarkEnabled,
       voiceName,
@@ -1083,6 +1124,7 @@ export default function GenerateClient() {
     postCaptionsEnabled,
     postDialogueScript,
     postDurationSeconds,
+    postVisualMode,
     postIdeaSeed,
     postVisualPrompt,
     postVoiceScript,
@@ -1235,7 +1277,8 @@ export default function GenerateClient() {
           dialogue_script: postDialogue || undefined,
           aspect_ratio: aspectRatio,
           duration_seconds: postDurationSeconds,
-          image_count: POST_IMAGE_DEFAULT_COUNT,
+          image_count: postSceneCount,
+          post_visual_mode: postVisualMode,
           model: "google",
           voice_name: voiceName,
           style_preset: stylePreset,
@@ -1360,6 +1403,8 @@ export default function GenerateClient() {
   const activeJobFailed = !!activeJob && (status === "failed" || status === "canceled");
   const activeJobFailureReason = activeJobFailed ? humanizeGenerationError(activeJob?.error || "") : "";
   const activeJobFailureAction = activeJobFailed ? generationRecoveryAction(activeJob?.error || "") : "";
+  const activeJobCancelable = !!activeJob && (status === "queued" || status === "running");
+  const generationInFlight = submitting || activeJobCancelable;
   const showContinuityTools =
     (mode === "post" || mode === "video") &&
     (Boolean(continuationJob) || Boolean(referenceJob) || storyMemoryJobs.length > 0);
@@ -1458,27 +1503,27 @@ export default function GenerateClient() {
 
           {postIdeaError ? <div className="mt-2 text-[11px] text-rose-100/90">{postIdeaError}</div> : null}
           {postIdeaAnalysis ? (
-            <div className="mt-3 rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-3 text-[11px] text-cyan-50/90">
+            <div className={cx("mt-3 text-[11px]", generatorWarningCardClass)}>
               {postIdeaAnalysis.hook_focus ? (
                 <div>
-                  <span className="font-semibold text-cyan-100">Hook focus:</span> {postIdeaAnalysis.hook_focus}
+                  <span className="font-semibold text-amber-50">Hook focus:</span> {postIdeaAnalysis.hook_focus}
                 </div>
               ) : null}
               {postIdeaAnalysis.continuity_anchor ? (
                 <div className="mt-1">
-                  <span className="font-semibold text-cyan-100">Continuity anchor:</span>{" "}
+                  <span className="font-semibold text-amber-50">Continuity anchor:</span>{" "}
                   {postIdeaAnalysis.continuity_anchor}
                 </div>
               ) : null}
               {Array.isArray(postIdeaAnalysis.quality_guardrails) && postIdeaAnalysis.quality_guardrails.length > 0 ? (
-                <div className="mt-1 text-cyan-50/85">
-                  <span className="font-semibold text-cyan-100">Quality checks:</span>{" "}
+                <div className="mt-1 text-amber-100/90">
+                  <span className="font-semibold text-amber-50">Quality checks:</span>{" "}
                   {postIdeaAnalysis.quality_guardrails.slice(0, 3).join(" • ")}
                 </div>
               ) : null}
               {Array.isArray(postIdeaAnalysis.camera_plan) && postIdeaAnalysis.camera_plan.length > 0 ? (
-                <div className="mt-1 text-cyan-50/85">
-                  <span className="font-semibold text-cyan-100">Camera plan:</span>{" "}
+                <div className="mt-1 text-amber-100/90">
+                  <span className="font-semibold text-amber-50">Camera plan:</span>{" "}
                   {postIdeaAnalysis.camera_plan.slice(0, 2).join(" | ")}
                 </div>
               ) : null}
@@ -1647,12 +1692,12 @@ export default function GenerateClient() {
               ) : null}
 
               {activeJob ? (
-                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-[#09111c]/74 px-3 py-2.5">
+                <div className={cx("mt-4 flex flex-wrap items-center gap-2", generatorWarningCardClass)}>
                   <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(status))}>
                     {statusLabel}
                   </span>
-                  <span className="text-xs text-white/60">Latest job #{activeJob.id}</span>
-                  {String(status || "").toLowerCase() === "queued" ? (
+                  <span className="text-xs text-amber-100/85">Latest job #{activeJob.id}</span>
+                  {activeJobCancelable ? (
                     <button
                       type="button"
                       onClick={() => cancelQueuedJob(activeJob.id)}
@@ -1664,7 +1709,7 @@ export default function GenerateClient() {
                           : "border-rose-300/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
                       )}
                     >
-                      {cancelingJobId === activeJob.id ? "Canceling..." : "Cancel"}
+                      {cancelingJobId === activeJob.id ? "Canceling..." : status === "running" ? "Stop generation" : "Cancel"}
                     </button>
                   ) : null}
                 </div>
@@ -1683,6 +1728,46 @@ export default function GenerateClient() {
               <div className="mt-4 grid flex-1 gap-3">
                 {mode === "post" ? (
                   <>
+                    <div className={cx("grid gap-3", generatorWarningCardClass)}>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-100/90">AI Post Mode</div>
+                          <div className="mt-1 text-sm font-semibold text-amber-50">Choose between a picture post or a video post.</div>
+                        </div>
+                        <div className="text-[11px] text-amber-100/90">Images cost less. Video costs more.</div>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => setPostVisualMode("image")}
+                          className={cx(
+                            "rounded-2xl border px-4 py-3 text-left transition",
+                            postVisualMode === "image"
+                              ? "border-amber-200/60 bg-amber-300/12 text-amber-50 shadow-[0_0_0_1px_rgba(253,224,71,0.18)]"
+                              : "border-white/12 bg-black/25 text-white/80 hover:bg-white/[0.06]"
+                          )}
+                        >
+                          <div className="text-sm font-semibold">Picture post</div>
+                          <div className="mt-1 text-[12px] text-white/70">Still images + voiceover</div>
+                          <div className="mt-2 text-[11px] text-amber-100/90">{postImageCreditsEstimate} credits estimated</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPostVisualMode("video")}
+                          className={cx(
+                            "rounded-2xl border px-4 py-3 text-left transition",
+                            postVisualMode === "video"
+                              ? "border-amber-200/60 bg-amber-300/12 text-amber-50 shadow-[0_0_0_1px_rgba(253,224,71,0.18)]"
+                              : "border-white/12 bg-black/25 text-white/80 hover:bg-white/[0.06]"
+                          )}
+                        >
+                          <div className="text-sm font-semibold">Video post</div>
+                          <div className="mt-1 text-[12px] text-white/70">Moving scenes + voiceover</div>
+                          <div className="mt-2 text-[11px] text-amber-100/90">{postVideoCreditsEstimate} credits estimated</div>
+                        </button>
+                      </div>
+                    </div>
+
                     <label className="text-xs font-medium text-white/70">Visual direction</label>
                     <textarea
                       value={postVisualPrompt}
@@ -1719,20 +1804,20 @@ export default function GenerateClient() {
                         />
                       </div>
                     </details>
-                    <div className="rounded-2xl border border-white/10 bg-[#09111c]/72 px-4 py-3 text-[11px] text-white/72">
+                    <div className={cx("text-[11px]", generatorWarningCardClass)}>
                       <div>
                         Estimated voice length at 1x:{" "}
-                        <span className="font-semibold text-white/90">{formatDuration(postEstimateAt1xSeconds)}</span>
+                        <span className="font-semibold text-amber-50">{formatDuration(postEstimateAt1xSeconds)}</span>
                       </div>
                       {postNeedsMoreWords ? (
-                        <div className="mt-1 text-amber-100/90">
+                        <div className="mt-1 text-amber-50">
                           Script is short for this duration. Add more words for fuller narration.
                         </div>
                       ) : null}
                       {postWillAutoSpeed ? (
-                        <div className="mt-1 text-amber-100/90">Script is long, so playback speed is auto-adjusted to fit.</div>
+                        <div className="mt-1 text-amber-50">Script is long, so playback speed is auto-adjusted to fit.</div>
                       ) : null}
-                      <div className="mt-1 text-white/55">
+                      <div className="mt-1 text-amber-100/85">
                         Estimated output length: {formatDuration(postEstimateAppliedSeconds)}
                       </div>
                     </div>
@@ -1800,21 +1885,40 @@ export default function GenerateClient() {
               ) : null}
 
               <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div className="rounded-2xl border border-white/12 bg-[#09111c]/72 px-4 py-3 text-xs text-white/70">
-                  Estimated cost: <span className="font-semibold text-white/90">{estimatedCredits} credits</span>
+                <div className={cx("text-xs", generatorWarningCardClass)}>
+                  Estimated cost: <span className="font-semibold text-amber-50">{estimatedCredits} credits</span>
                 </div>
-                <button
-                  type="submit"
-                  disabled={!canGenerate}
-                  className={cx(
-                    "h-12 rounded-2xl border px-6 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/25",
-                    canGenerate
-                      ? generatorAccentButtonClass
-                      : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
-                  )}
-                >
-                  {submitting ? "Starting generation..." : `Generate ${modeLabel(mode)}`}
-                </button>
+                <div className="grid gap-2 sm:grid-cols-[auto_auto]">
+                  {activeJobCancelable ? (
+                    <button
+                      type="button"
+                      onClick={() => activeJob && cancelQueuedJob(activeJob.id)}
+                      disabled={!activeJob || cancelingJobId === activeJob.id}
+                      className={cx(
+                        "h-12 rounded-2xl border px-5 text-sm font-semibold transition",
+                        !activeJob || cancelingJobId === activeJob?.id
+                          ? "cursor-not-allowed border-rose-300/20 bg-rose-500/10 text-rose-100/60"
+                          : "border-rose-300/40 bg-rose-500/12 text-rose-100 hover:bg-rose-500/20"
+                      )}
+                    >
+                      {cancelingJobId === activeJob?.id ? "Canceling..." : "Cancel"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    disabled={!canGenerate}
+                    className={cx(
+                      "h-12 rounded-2xl border px-6 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/25",
+                      generationInFlight
+                        ? generatorWarningButtonClass
+                        : canGenerate
+                          ? generatorAccentButtonClass
+                          : "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                    )}
+                  >
+                    {submitting ? "Starting..." : activeJobCancelable ? statusLabel : `Generate ${modeLabel(mode)}`}
+                  </button>
+                </div>
               </div>
 
               </div>
@@ -1875,8 +1979,8 @@ export default function GenerateClient() {
 
                   {mode === "post" ? (
                     <>
-                      <div className="rounded-xl border border-sky-300/25 bg-sky-400/10 px-3 py-2 text-[11px] text-sky-50/95">
-                        AI Post is optimized for faster, lower-friction story generation. For single cinematic shots, switch to Video mode.
+                      <div className={cx("text-[11px]", generatorWarningCardClass)}>
+                        Picture posts use still images plus voiceover and cost less. Video posts use moving scenes plus voiceover and cost more.
                       </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>
@@ -1906,7 +2010,7 @@ export default function GenerateClient() {
                       />
                       <span className="text-xs text-white/80">Burn-in captions</span>
                     </label>
-                    <div className="text-[11px] text-white/55">Captions use Orbito Labs’ default burn-in style. It’s either on or off now.</div>
+                    <div className="text-[11px] text-amber-100/85">Captions use Orbito Labs’ default burn-in style. It’s either on or off now.</div>
                     {renderVoiceSelector(VOICE_BASE_WPM)}
                   </>
                 ) : null}
@@ -2069,7 +2173,7 @@ export default function GenerateClient() {
                           <span className={cx("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusTone(j.status))}>
                             {prettyStatus(j.status)}
                           </span>
-                          {String(j.status || "").toLowerCase() === "queued" ? (
+                          {["queued", "running"].includes(String(j.status || "").toLowerCase()) ? (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2084,7 +2188,7 @@ export default function GenerateClient() {
                                   : "border-rose-300/35 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
                               )}
                             >
-                              {cancelingJobId === j.id ? "Canceling..." : "Cancel"}
+                              {cancelingJobId === j.id ? "Canceling..." : String(j.status || "").toLowerCase() === "running" ? "Stop" : "Cancel"}
                             </button>
                           ) : null}
                         </div>

@@ -34,6 +34,7 @@ JOB_KIND_POST = "generate_post"
 GENERATION_JOB_KINDS = (JOB_KIND_VIDEO, JOB_KIND_IMAGE, JOB_KIND_VOICEOVER, JOB_KIND_POST)
 VIDEO_GENERATION_SPEEDS = {"relax", "fast"}
 LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
+ALLOWED_POST_VISUAL_MODES = {"image", "video"}
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9", "1:1"}
 ALLOWED_DURATIONS = {5, 6, 7}
@@ -43,13 +44,13 @@ POST_DEFAULT_IMAGE_COUNT = 6
 PROMPT_MAX_CHARS = 3000
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
-DEFAULT_TTS_VOICE = "en-US-Neural2-H"
-FALLBACK_TTS_VOICE = "en-US-Neural2-I"
+DEFAULT_TTS_VOICE = "en-US-Studio-O"
+FALLBACK_TTS_VOICE = "en-US-Neural2-H"
 TTS_VOICE_FALLBACK_CHAIN = [
+    "en-US-Studio-O",
+    "en-US-Studio-Q",
     "en-US-Neural2-H",
     "en-US-Neural2-I",
-    "en-US-Studio-Q",
-    "en-US-Studio-O",
     "en-US-Wavenet-A",
     "en-US-Wavenet-C",
     "en-US-Wavenet-E",
@@ -373,6 +374,15 @@ def _voiceover_credits_needed(script: str) -> int:
     words = _script_word_count(script)
     usage_credits = int(math.ceil(float(words) / float(words_per_credit))) if words > 0 else 0
     return max(min_credits, usage_credits)
+
+
+def _default_post_scene_count(duration_seconds: int) -> int:
+    safe_duration = max(60, min(120, int(duration_seconds or POST_DEFAULT_DURATION_SECONDS)))
+    if safe_duration >= 120:
+        return 10
+    if safe_duration >= 90:
+        return 8
+    return POST_DEFAULT_IMAGE_COUNT
 
 
 def _script_word_count(script: str) -> int:
@@ -1116,9 +1126,12 @@ def _post_credits_needed(
     voice_script: str,
     style_preset: str | None,
     duration_seconds: int = POST_DEFAULT_DURATION_SECONDS,
+    visual_mode: str = "image",
 ) -> int:
     voice_credits = _voiceover_credits_needed(voice_script)
-    safe_images = max(1, int(image_count or POST_DEFAULT_IMAGE_COUNT))
+    if (visual_mode or "image").strip().lower() == "video":
+        return _video_credits_needed(duration_seconds, "relax", style_preset) + voice_credits
+    safe_images = max(1, int(image_count or _default_post_scene_count(duration_seconds)))
     image_credits = safe_images * _image_credits_needed(style_preset)
     return image_credits + voice_credits
 
@@ -1165,14 +1178,14 @@ def _split_tts_sentences(script: str) -> list[str]:
 
 
 def _tts_style_profile(script: str) -> dict[str, float]:
-    style = (os.getenv("GOOGLE_TTS_STYLE") or "narrative").strip().lower()
+    style = (os.getenv("GOOGLE_TTS_STYLE") or "conversational").strip().lower()
     profiles: dict[str, dict[str, float]] = {
         "narrative": {"rate": -3.0, "pitch": 0.3, "volume": 2.0},
         "conversational": {"rate": 0.0, "pitch": 0.6, "volume": 2.2},
         "energetic": {"rate": 4.0, "pitch": 1.2, "volume": 2.4},
         "cinematic": {"rate": -5.0, "pitch": 0.1, "volume": 2.3},
     }
-    base = dict(profiles.get(style, profiles["narrative"]))
+    base = dict(profiles.get(style, profiles["conversational"]))
     low = (script or "").lower()
     if any(k in low for k in ("urgent", "hurry", "breaking", "now")):
         base["rate"] += 2.0
@@ -1883,6 +1896,7 @@ class GeneratePostRequest(BaseModel):
     aspect_ratio: str = "9:16"
     duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
+    post_visual_mode: str = Field(default="image", max_length=16)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int | None = Field(default=None, ge=80, le=330)
@@ -2336,7 +2350,12 @@ def create_post_generation(
     if duration_seconds not in POST_ALLOWED_DURATIONS:
         raise HTTPException(status_code=422, detail="AI Post duration must be 60, 90, or 120 seconds")
 
-    image_count = max(6, min(10, int(payload.image_count or POST_DEFAULT_IMAGE_COUNT)))
+    post_visual_mode = (payload.post_visual_mode or "image").strip().lower()
+    if post_visual_mode not in ALLOWED_POST_VISUAL_MODES:
+        raise HTTPException(status_code=422, detail="AI Post mode must be image or video")
+
+    default_scene_count = _default_post_scene_count(duration_seconds)
+    image_count = max(6, min(10, int(payload.image_count or default_scene_count)))
     model = _check_model_supported(payload.model)
     style_preset = (payload.style_preset or "social-native")
     dialogue_script = _clean_dialogue_script(payload.dialogue_script)
@@ -2402,7 +2421,13 @@ def create_post_generation(
     else:
         safe_speed = max(80, min(330, int(payload.speed_wpm)))
     safe_voice = (payload.voice_name or DEFAULT_TTS_VOICE).strip()[:64] or DEFAULT_TTS_VOICE
-    credits_needed = _post_credits_needed(image_count, voice_script, style_preset, duration_seconds)
+    credits_needed = _post_credits_needed(
+        image_count,
+        voice_script,
+        style_preset,
+        duration_seconds,
+        post_visual_mode,
+    )
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = int(PLAN_MAX_POST_DURATION_SECONDS.get(plan, 60))
@@ -2435,6 +2460,7 @@ def create_post_generation(
         "voice_name": safe_voice,
         "speed_wpm": safe_speed,
         "style_preset": style_preset,
+        "post_visual_mode": post_visual_mode,
         "seed": continuity_seed,
         "caption_style_preset": (
             "none"

@@ -29,13 +29,13 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
-DEFAULT_TTS_VOICE = "en-US-Neural2-H"
-FALLBACK_TTS_VOICE = "en-US-Neural2-I"
+DEFAULT_TTS_VOICE = "en-US-Studio-O"
+FALLBACK_TTS_VOICE = "en-US-Neural2-H"
 TTS_VOICE_FALLBACK_CHAIN = [
+  "en-US-Studio-O",
+  "en-US-Studio-Q",
   "en-US-Neural2-H",
   "en-US-Neural2-I",
-  "en-US-Studio-Q",
-  "en-US-Studio-O",
   "en-US-Wavenet-A",
   "en-US-Wavenet-C",
   "en-US-Wavenet-E",
@@ -1964,7 +1964,7 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
-    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.65, min_value=0.45, max_value=1.0)
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.52, min_value=0.35, max_value=1.0)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
@@ -1976,8 +1976,8 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
 
     # Labs now uses one premium default caption look instead of multiple presets:
     # raised bottom-center placement, stronger contrast, and roomier margins.
-    font_size = _scaled_font(min(38, max(28, int(video_h * 0.020))), 18)
-    margin_v = max(96, int(video_h * 0.084))
+    font_size = _scaled_font(min(32, max(22, int(video_h * 0.017))), 16)
+    margin_v = max(118, int(video_h * 0.102))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
@@ -2795,14 +2795,14 @@ def _split_tts_sentences(script: str) -> list[str]:
 
 
 def _tts_style_profile(script: str) -> dict[str, float]:
-    style = _env("GOOGLE_TTS_STYLE", "narrative").strip().lower()
+    style = _env("GOOGLE_TTS_STYLE", "conversational").strip().lower()
     profiles: dict[str, dict[str, float]] = {
         "narrative": {"rate": -3.0, "pitch": 0.3, "volume": 2.0},
         "conversational": {"rate": 0.0, "pitch": 0.6, "volume": 2.2},
         "energetic": {"rate": 4.0, "pitch": 1.2, "volume": 2.4},
         "cinematic": {"rate": -5.0, "pitch": 0.1, "volume": 2.3},
     }
-    base = dict(profiles.get(style, profiles["narrative"]))
+    base = dict(profiles.get(style, profiles["conversational"]))
     low = (script or "").lower()
     if any(k in low for k in ("urgent", "hurry", "breaking", "now")):
         base["rate"] += 2.0
@@ -3991,8 +3991,9 @@ def _process_job(job: dict) -> dict[str, Any]:
             if audio_duration > target_duration:
                 target_duration = audio_duration
 
-            # AI Post is image-scene mode for all styles.
-            use_video_scene_mode = False
+            # AI Post can now render either image scenes or true video scenes based on the selected mode.
+            post_visual_mode = str(settings.get("post_visual_mode") or "image").strip().lower()
+            use_video_scene_mode = post_visual_mode == "video"
 
             if use_video_scene_mode:
                 def _clear_scene_video_paths() -> None:
@@ -4563,6 +4564,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             settings_patch: dict[str, Any] = {
                 "generated_scene_count": int(scene_count),
                 "generated_scene_storage_keys": scene_keys,
+                "generated_scene_media_type": "image",
                 "generated_voiceover_key": voice_key,
                 "generated_word_captions": word_caption_events,
             }
