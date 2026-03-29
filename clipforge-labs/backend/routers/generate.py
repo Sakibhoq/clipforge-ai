@@ -1901,7 +1901,7 @@ class GeneratePostRequest(BaseModel):
     voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int | None = Field(default=None, ge=80, le=330)
     style_preset: str | None = Field(default="social-native", max_length=64)
-    caption_style_preset: str | None = Field(default="bold_center", max_length=64)
+    caption_style_preset: str | None = Field(default="orbito", max_length=64)
     captions_enabled: bool = Field(default=True)
     watermark_enabled: bool = Field(default=True)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
@@ -2465,7 +2465,7 @@ def create_post_generation(
         "caption_style_preset": (
             "none"
             if not bool(payload.captions_enabled)
-            else (payload.caption_style_preset or "bold_center")
+            else (payload.caption_style_preset or "orbito")
         ),
         "captions_enabled": bool(payload.captions_enabled),
         "watermark_enabled": bool(payload.watermark_enabled),
