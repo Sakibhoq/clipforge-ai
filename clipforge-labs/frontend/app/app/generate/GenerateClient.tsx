@@ -181,9 +181,9 @@ const DEFAULT_VOICE_NAME = "en-US-Studio-O";
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
 const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
 const STORY_MEMORY_EXAMPLES = [
-  "A luxury skincare founder telling the brand origin in a calm, premium tone.",
-  "An anime comeback arc where the hero returns stronger after losing everything.",
-  "A suspenseful true-story style explainer about a forgotten tech invention.",
+  "A premium skincare founder story told in a calm, editorial tone.",
+  "An anime comeback story where the hero rebuilds after losing everything.",
+  "A suspenseful true-story explainer about a forgotten invention that changed everything.",
 ];
 
 const generatorPanelClass =
@@ -1435,14 +1435,14 @@ export default function GenerateClient() {
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbe6a]/90">Prompt Helper</div>
               <div className="mt-1 text-base font-semibold text-white sm:text-lg">
-                Need help getting started? Write one brief and let Orbito draft the fields above.
+                Start with one clear brief. Orbito will draft the visual direction and voiceover for you.
               </div>
               <p className="mt-1 text-xs text-white/68">
-                This helper fills the visual direction and voiceover for you, then you can keep refining manually.
+                Describe the outcome you want in plain language. You can review the first draft, edit it, and generate when it feels right.
               </p>
             </div>
             <span className="rounded-full border border-[#fb560770] bg-[#fb56071a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#ffbe6a]">
-              Guided
+              Quick Start
             </span>
           </div>
 
@@ -1465,7 +1465,7 @@ export default function GenerateClient() {
           </div>
 
           <div className="mt-4 grid gap-2">
-            <label className="text-xs font-medium text-white/72">Core idea</label>
+            <label className="text-xs font-medium text-white/72">Brief</label>
             <textarea
               value={postIdeaSeed}
               onChange={(e) => {
@@ -1475,7 +1475,7 @@ export default function GenerateClient() {
                 if (postIdeaError) setPostIdeaError(null);
               }}
               rows={4}
-              placeholder="Example: A premium founder story about rebuilding confidence after a failed launch, with clean editorial visuals and a calm voice."
+              placeholder="Example: A premium founder story about rebuilding after a failed launch, with clean visuals, emotional pacing, and a calm confident voice."
               className="min-h-[120px] w-full resize-y rounded-2xl border border-white/12 bg-black/50 px-4 py-3 text-sm text-white/92 outline-none placeholder:text-white/42 focus:border-[#ffbe6a]/55"
             />
           </div>
@@ -1497,7 +1497,7 @@ export default function GenerateClient() {
                   : "border-[#ffbe6a]/60 bg-[linear-gradient(120deg,rgba(251,86,7,0.28)_0%,rgba(255,183,3,0.25)_55%,rgba(58,134,255,0.2)_100%)] text-amber-50 shadow-[0_0_32px_rgba(251,86,7,0.22)] hover:brightness-110"
               )}
             >
-              {postIdeaLoading ? "Generating..." : "Generate prompt + voiceover"}
+              {postIdeaLoading ? "Drafting..." : "Draft prompt + voiceover"}
             </button>
           </div>
 
@@ -1531,7 +1531,7 @@ export default function GenerateClient() {
           ) : null}
           {postIdeaStoryboard.length ? (
             <div className="mt-3 grid gap-2">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">Storyboard Review</div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/52">Draft Preview</div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {postIdeaStoryboard.map((beat, index) => (
                   <div key={`${beat.label || "beat"}-${index}`} className="rounded-2xl border border-white/10 bg-black/30 p-3 text-[11px] text-white/72">
