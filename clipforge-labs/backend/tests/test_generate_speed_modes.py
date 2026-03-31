@@ -8,7 +8,7 @@ from core.database import SessionLocal
 from models.job import Job
 from models.upload import Upload
 from models.user import User
-from routers.generate import GenerateVideoRequest, create_video_generation
+from routers.generate import GenerateVideoRequest, GenerateVoiceoverRequest, create_video_generation, create_voiceover_generation
 
 
 def _mk_user(db, *, plan: str, credits: int = 200) -> int:
@@ -76,6 +76,7 @@ def test_starter_plan_relax_mode_charges_relax_rate(db):
     user_row = db.query(User).filter(User.id == user_id).first()
     assert user_row is not None
     assert int(user_row.credits or 0) == 100 - int(res.credits_reserved or 0)
+    assert int(res.credits_reserved or 0) == 18
 
 
 def test_creator_plan_fast_mode_charges_fast_rate(db):
@@ -96,6 +97,7 @@ def test_creator_plan_fast_mode_charges_fast_rate(db):
     user_row = db.query(User).filter(User.id == user_id).first()
     assert user_row is not None
     assert int(user_row.credits or 0) == 100 - int(res.credits_reserved or 0)
+    assert int(res.credits_reserved or 0) == 24
 
 
 def test_labs_spark_plan_fast_mode_charges_fast_rate(db):
@@ -116,3 +118,73 @@ def test_labs_spark_plan_fast_mode_charges_fast_rate(db):
     user_row = db.query(User).filter(User.id == user_id).first()
     assert user_row is not None
     assert int(user_row.credits or 0) == 100 - int(res.credits_reserved or 0)
+    assert int(res.credits_reserved or 0) == 24
+
+
+def test_video_voiceover_charges_extra_for_studio_voice(db):
+    user_id = _mk_user(db, plan="creator", credits=200)
+    base_payload = dict(
+        prompt=" ".join(
+            [
+                "A premium founder monologue about rebuilding after a failed launch, regaining trust, "
+                "and turning a rough comeback into a calm, cinematic story."
+            ]
+            * 8
+        ),
+        aspect_ratio="9:16",
+        duration_seconds=6,
+        generation_speed="relax",
+    )
+
+    db.commit()
+
+    session_neural = SessionLocal()
+    try:
+        neural = create_video_generation(
+            payload=GenerateVideoRequest(voice_name="en-US-Neural2-H", **base_payload),
+            db=session_neural,
+            current_user=SimpleNamespace(id=user_id),
+        )
+    finally:
+        session_neural.close()
+
+    session_studio = SessionLocal()
+    try:
+        studio = create_video_generation(
+            payload=GenerateVideoRequest(voice_name="en-US-Studio-O", **base_payload),
+            db=session_studio,
+            current_user=SimpleNamespace(id=user_id),
+        )
+    finally:
+        session_studio.close()
+
+    assert int(studio.credits_reserved or 0) > int(neural.credits_reserved or 0)
+
+
+def test_voiceover_studio_voice_costs_more_than_neural2(db):
+    user_id = _mk_user(db, plan="creator", credits=200)
+    script = " ".join(["cinematic"] * 260)
+
+    db.commit()
+
+    session_neural = SessionLocal()
+    try:
+        neural = create_voiceover_generation(
+            payload=GenerateVoiceoverRequest(script=script, voice_name="en-US-Neural2-H"),
+            db=session_neural,
+            current_user=SimpleNamespace(id=user_id),
+        )
+    finally:
+        session_neural.close()
+
+    session_studio = SessionLocal()
+    try:
+        studio = create_voiceover_generation(
+            payload=GenerateVoiceoverRequest(script=script, voice_name="en-US-Studio-O"),
+            db=session_studio,
+            current_user=SimpleNamespace(id=user_id),
+        )
+    finally:
+        session_studio.close()
+
+    assert int(studio.credits_reserved or 0) > int(neural.credits_reserved or 0)

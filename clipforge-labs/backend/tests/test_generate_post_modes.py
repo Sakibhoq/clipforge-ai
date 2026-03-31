@@ -57,3 +57,5 @@ def test_picture_post_charges_less_than_video_post():
     video_credits = _reserve_post_credits("video")
 
     assert picture_credits < video_credits
+    assert 16 <= picture_credits <= 20
+    assert 75 <= video_credits <= 100

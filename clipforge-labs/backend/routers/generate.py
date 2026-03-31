@@ -46,22 +46,22 @@ POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
 GENERATED_CAPTION_FONT_SCALE = 0.6
 GENERATED_CAPTION_Y = 0.72
-DEFAULT_TTS_VOICE = "en-US-Studio-O"
-FALLBACK_TTS_VOICE = "en-US-Neural2-H"
+DEFAULT_TTS_VOICE = "en-US-Neural2-H"
+FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
-    "en-US-Studio-O",
-    "en-US-Studio-Q",
     "en-US-Neural2-H",
     "en-US-Neural2-I",
     "en-US-Wavenet-A",
     "en-US-Wavenet-C",
     "en-US-Wavenet-E",
-    "en-US-Neural2-A",
-    "en-US-Neural2-J",
+    "en-US-Studio-O",
+    "en-US-Studio-Q",
     "en-US-Standard-C",
     "en-US-Standard-D",
     "en-US-Standard-E",
     "en-US-Standard-F",
+    "en-US-Neural2-A",
+    "en-US-Neural2-J",
 ]
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
@@ -98,7 +98,7 @@ PLAN_ALLOWED_VIDEO_SPEEDS = {
     "free": {"relax"},
     "starter": {"relax"},
     "creator": {"relax", "fast"},
-    "studio": {"relax"},
+    "studio": {"relax", "fast"},
 }
 
 PLAN_MAX_POST_DURATION_SECONDS = {
@@ -308,44 +308,65 @@ def _is_low_cost_style(style_preset: str | None) -> bool:
     return _normalize_style_preset(style_preset) in LOW_COST_STYLE_PRESETS
 
 
+def _credit_usd_value() -> float:
+    return _env_float("LABS_CREDIT_USD_VALUE", 0.10, min_value=0.01, max_value=10.0)
+
+
 def _credits_from_usd(usd_value: float) -> int:
-    credit_usd = _env_float("LABS_CREDIT_USD_VALUE", 0.10, min_value=0.01, max_value=10.0)
+    credit_usd = _credit_usd_value()
     return max(1, int(math.ceil(float(max(0.0, usd_value)) / float(credit_usd))))
+
+
+def _video_provider_cost_usd_per_second(speed: str, style_preset: str | None) -> float:
+    low_cost = _is_low_cost_style(style_preset)
+    if speed == "fast":
+        return _env_float("GOOGLE_VIDEO_PREMIUM_USD_PER_SECOND", 0.20, min_value=0.01, max_value=10.0)
+    env_name = "GOOGLE_VIDEO_LOW_COST_USD_PER_SECOND" if low_cost else "GOOGLE_VIDEO_STANDARD_USD_PER_SECOND"
+    default_value = 0.10 if low_cost else 0.20
+    return _env_float(env_name, default_value, min_value=0.01, max_value=10.0)
+
+
+def _image_provider_cost_usd(style_preset: str | None) -> float:
+    low_cost = _is_low_cost_style(style_preset)
+    env_name = "GOOGLE_IMAGE_LOW_COST_USD_PER_IMAGE" if low_cost else "GOOGLE_IMAGE_STANDARD_USD_PER_IMAGE"
+    return _env_float(env_name, 0.04, min_value=0.001, max_value=10.0)
+
+
+def _voice_rate_usd_per_char(voice_name: str | None) -> float:
+    voice_token = str(voice_name or DEFAULT_TTS_VOICE).strip().lower()
+    if "studio" in voice_token:
+        return _env_float("GOOGLE_TTS_STUDIO_USD_PER_CHAR", 160.0 / 1_000_000.0, min_value=0.0, max_value=1.0)
+    if "standard" in voice_token:
+        return _env_float("GOOGLE_TTS_STANDARD_USD_PER_CHAR", 4.0 / 1_000_000.0, min_value=0.0, max_value=1.0)
+    return _env_float("GOOGLE_TTS_PREMIUM_USD_PER_CHAR", 16.0 / 1_000_000.0, min_value=0.0, max_value=1.0)
+
+
+def _voice_provider_cost_usd(script: str, voice_name: str | None) -> float:
+    char_count = len((script or "").strip())
+    if char_count <= 0:
+        return 0.0
+    return float(char_count) * _voice_rate_usd_per_char(voice_name)
 
 
 def _video_credits_per_second(speed: str, style_preset: str | None) -> int:
     low_cost = _is_low_cost_style(style_preset)
-    # 4K should always use premium routing/pricing, not low-cost style pricing.
+    # Premium mode should always use premium routing/pricing, not low-cost style pricing.
     if speed == "fast":
         low_cost = False
-    base_usd = _env_float(
-        "LABS_VIDEO_LOW_COST_USD_PER_SECOND" if low_cost else "LABS_VIDEO_REAL_USD_PER_SECOND",
-        0.10 if low_cost else 0.50,
-        min_value=0.01,
-        max_value=10.0,
-    )
-    markup = _env_float(
-        "LABS_VIDEO_4K_MARKUP" if speed == "fast" else "LABS_VIDEO_HD_MARKUP",
-        3.0 if speed == "fast" else 2.7,
-        min_value=1.0,
-        max_value=20.0,
-    )
-    default_credits = _credits_from_usd(base_usd * markup)
     if speed == "fast":
-        env_name = "LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND"
-        # Target ~1.50 USD profit for 7s premium 4K runs (about 7 credits/sec at 0.10 USD/credit).
-        default_credits = 7
-        return _env_int(env_name, default_credits, min_value=1, max_value=10_000)
+        env_name = "LABS_VIDEO_PREMIUM_CREDITS_PER_SECOND"
+        # Premium mode is tuned for roughly ~1.00-1.50 USD gross profit on 5-7 second runs.
+        return _env_int(env_name, 4, min_value=1, max_value=10_000)
     elif low_cost:
         env_name = "LABS_VIDEO_LOW_COST_HD_CREDITS_PER_SECOND"
-        # Target profit tuning for low-cost 7s clips: ~2.8 USD profit at 0.10 USD/credit.
-        default_credits = max(default_credits, 5)
+        default_credits = 3
     else:
         env_name = "LABS_VIDEO_REAL_HD_CREDITS_PER_SECOND"
+        default_credits = 4
 
     hd_credits = _env_int(env_name, default_credits, min_value=1, max_value=10_000)
-    fast_credits = _env_int("LABS_VIDEO_REAL_4K_CREDITS_PER_SECOND", 7, min_value=1, max_value=10_000)
-    # Keep pricing hierarchy sane: HD must never cost more than 4K.
+    fast_credits = _env_int("LABS_VIDEO_PREMIUM_CREDITS_PER_SECOND", 4, min_value=1, max_value=10_000)
+    # Keep pricing hierarchy sane: HD must never cost more than premium mode.
     if hd_credits >= fast_credits:
         return max(1, fast_credits - 1)
     return hd_credits
@@ -358,24 +379,30 @@ def _video_credits_needed(duration_seconds: int, speed: str, style_preset: str |
 
 def _image_credits_needed(style_preset: str | None) -> int:
     low_cost = _is_low_cost_style(style_preset)
-    base_usd = _env_float(
-        "LABS_IMAGE_LOW_COST_USD_PER_IMAGE" if low_cost else "LABS_IMAGE_REAL_USD_PER_IMAGE",
-        0.02 if low_cost else 0.04,
-        min_value=0.001,
-        max_value=10.0,
-    )
-    markup = _env_float("LABS_IMAGE_MARKUP", 6.0, min_value=1.0, max_value=25.0)
-    default_credits = _credits_from_usd(base_usd * markup)
-    env_name = "LABS_IMAGE_LOW_COST_CREDITS" if low_cost else "LABS_IMAGE_REAL_CREDITS"
+    target_profit = _env_float("LABS_IMAGE_TARGET_PROFIT_USD", 0.40, min_value=0.0, max_value=20.0)
+    default_credits = _credits_from_usd(_image_provider_cost_usd(style_preset) + target_profit)
+    env_name = "LABS_IMAGE_LOW_COST_CREDITS" if low_cost else "LABS_IMAGE_STANDARD_CREDITS"
     return _env_int(env_name, default_credits, min_value=1, max_value=500)
 
 
-def _voiceover_credits_needed(script: str) -> int:
+def _voiceover_base_credits_needed(script: str) -> int:
     words_per_credit = _env_int("LABS_VOICE_WORDS_PER_CREDIT", 300, min_value=20, max_value=5000)
     min_credits = _env_int("LABS_VOICE_MIN_CREDITS", 1, min_value=1, max_value=200)
     words = _script_word_count(script)
     usage_credits = int(math.ceil(float(words) / float(words_per_credit))) if words > 0 else 0
     return max(min_credits, usage_credits)
+
+
+def _voiceover_credits_needed(script: str, voice_name: str | None = None) -> int:
+    base_credits = _voiceover_base_credits_needed(script)
+    credit_value = _credit_usd_value()
+    base_revenue = float(base_credits) * credit_value
+    target_margin = _env_float("LABS_VOICE_TARGET_MARGIN_USD", 0.05, min_value=0.0, max_value=20.0)
+    target_revenue = _voice_provider_cost_usd(script, voice_name) + target_margin
+    if target_revenue <= base_revenue:
+        return base_credits
+    extra_credits = int(math.ceil(float(target_revenue - base_revenue) / credit_value))
+    return max(base_credits, base_credits + max(1, extra_credits))
 
 
 def _default_post_scene_count(duration_seconds: int) -> int:
@@ -1129,13 +1156,21 @@ def _post_credits_needed(
     style_preset: str | None,
     duration_seconds: int = POST_DEFAULT_DURATION_SECONDS,
     visual_mode: str = "image",
+    voice_name: str | None = None,
 ) -> int:
-    voice_credits = _voiceover_credits_needed(voice_script)
-    if (visual_mode or "image").strip().lower() == "video":
-        return _video_credits_needed(duration_seconds, "relax", style_preset) + voice_credits
     safe_images = max(1, int(image_count or _default_post_scene_count(duration_seconds)))
-    image_credits = safe_images * _image_credits_needed(style_preset)
-    return image_credits + voice_credits
+    safe_mode = (visual_mode or "image").strip().lower()
+    voice_cost = _voice_provider_cost_usd(voice_script, voice_name)
+    if safe_mode == "video":
+        # AI video posts are billed against the actual montage workload: multiple short Veo scene renders plus voice.
+        scene_duration = max(5, min(7, int(round(float(duration_seconds) / float(max(1, safe_images))))))
+        scene_seconds = float(safe_images * scene_duration)
+        target_profit = _env_float("LABS_POST_VIDEO_TARGET_PROFIT_USD", 3.50, min_value=0.0, max_value=50.0)
+        provider_cost = scene_seconds * _video_provider_cost_usd_per_second("relax", style_preset) + voice_cost
+        return _credits_from_usd(provider_cost + target_profit)
+    target_profit = _env_float("LABS_POST_IMAGE_TARGET_PROFIT_USD", 1.45, min_value=0.0, max_value=50.0)
+    provider_cost = (float(safe_images) * _image_provider_cost_usd(style_preset)) + voice_cost
+    return _credits_from_usd(provider_cost + target_profit)
 
 
 def _video_max_duration_seconds(plan: str, *, generation_speed: str, style_preset: str | None) -> int:
@@ -2162,7 +2197,9 @@ def create_video_generation(
             str(reference_context.get("prompt") or ""),
             continuity_anchor,
         )
-    credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset)
+    voice_script = dialogue_script if voice_mode == "dialogue" and dialogue_script else prompt
+    voice_credits = _voiceover_credits_needed(voice_script, voice_name) if voice_name else 0
+    credits_needed = _video_credits_needed(duration_seconds, generation_speed, style_preset) + voice_credits
 
     def _plan_guard(plan: str) -> None:
         plan_max_duration = _video_max_duration_seconds(
@@ -2179,7 +2216,7 @@ def create_video_generation(
         if generation_speed not in allowed_speeds:
             detail = f"{plan.capitalize()} plan includes HD mode only."
             if "fast" in PLAN_ALLOWED_VIDEO_SPEEDS.get("creator", set()):
-                detail += " Upgrade to Creator to use 4K mode."
+                detail += " Upgrade to Creator to use Premium mode."
             raise HTTPException(status_code=403, detail=detail)
 
     settings_payload = {
@@ -2289,10 +2326,10 @@ def create_voiceover_generation(
         raise HTTPException(status_code=400, detail="Script is required")
 
     model = _check_model_supported(payload.model)
-    credits_needed = _voiceover_credits_needed(script)
     text_length = len(script)
     safe_speed = max(80, min(330, int(payload.speed_wpm or POST_BASE_VOICE_WPM)))
     safe_voice = (payload.voice_name or DEFAULT_TTS_VOICE).strip()[:64] or DEFAULT_TTS_VOICE
+    credits_needed = _voiceover_credits_needed(script, safe_voice)
 
     def _plan_guard(plan: str) -> None:
         max_chars = int(PLAN_MAX_VOICE_CHARS.get(plan, 300))
@@ -2431,6 +2468,7 @@ def create_post_generation(
         style_preset,
         duration_seconds,
         post_visual_mode,
+        safe_voice,
     )
 
     def _plan_guard(plan: str) -> None:

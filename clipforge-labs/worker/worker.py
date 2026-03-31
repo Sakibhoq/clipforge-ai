@@ -29,16 +29,16 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
-DEFAULT_TTS_VOICE = "en-US-Studio-O"
-FALLBACK_TTS_VOICE = "en-US-Neural2-H"
+DEFAULT_TTS_VOICE = "en-US-Neural2-H"
+FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
-  "en-US-Studio-O",
-  "en-US-Studio-Q",
   "en-US-Neural2-H",
   "en-US-Neural2-I",
   "en-US-Wavenet-A",
   "en-US-Wavenet-C",
   "en-US-Wavenet-E",
+  "en-US-Studio-O",
+  "en-US-Studio-Q",
   "en-US-Neural2-A",
   "en-US-Neural2-J",
   "en-US-Standard-C",

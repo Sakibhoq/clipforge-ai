@@ -113,16 +113,18 @@ type GenerateDraft = {
 };
 
 const CREDIT_USD_VALUE = 0.10;
-const VIDEO_REAL_USD_PER_SECOND = 0.50;
+const VIDEO_REAL_USD_PER_SECOND = 0.20;
 const VIDEO_LOW_COST_USD_PER_SECOND = 0.10;
-const VIDEO_HD_MARKUP = 2.7;
-const VIDEO_HD_MIN_CREDITS_PER_SECOND = 5;
+const VIDEO_HD_MIN_CREDITS_PER_SECOND = 3;
+const VIDEO_PREMIUM_CREDITS_PER_SECOND = 4;
 const IMAGE_REAL_USD_PER_IMAGE = 0.04;
-const IMAGE_LOW_COST_USD_PER_IMAGE = 0.02;
-const IMAGE_MARKUP = 6.0;
+const IMAGE_LOW_COST_USD_PER_IMAGE = 0.04;
+const IMAGE_TARGET_PROFIT_USD = 0.40;
+const POST_IMAGE_TARGET_PROFIT_USD = 1.45;
+const POST_VIDEO_TARGET_PROFIT_USD = 3.5;
 const VOICE_WORDS_PER_CREDIT = 300;
 const VOICE_MIN_CREDITS = 1;
-const VIDEO_4K_CREDITS_PER_SECOND = 7;
+const VOICE_TARGET_MARGIN_USD = 0.05;
 const VIDEO_FORCE_LOW_COST_MODELS =
   (process.env.NEXT_PUBLIC_LABS_FORCE_LOW_COST_MODELS ?? "1") !== "0";
 const VOICE_BASE_WPM = 165;
@@ -160,12 +162,12 @@ const STYLE_PRESET_OPTIONS: Array<{ value: StylePreset; label: string }> = [
 ];
 
 const VOICE_OPTIONS = [
-  { value: "en-US-Studio-O", label: "Sora (US • studio female • most natural)" },
-  { value: "en-US-Studio-Q", label: "Vale (US • studio male • most natural)" },
-  { value: "en-US-Neural2-H", label: "Iris (US • expressive female • premium)" },
+  { value: "en-US-Neural2-H", label: "Iris (US • expressive female • recommended)" },
   { value: "en-US-Neural2-I", label: "Noir (US • dramatic male • premium)" },
   { value: "en-US-Neural2-A", label: "Ember (US • narrative male • premium)" },
   { value: "en-US-Neural2-G", label: "Riven (US • deep female • premium)" },
+  { value: "en-US-Studio-O", label: "Sora (US • studio female • highest realism • higher credits)" },
+  { value: "en-US-Studio-Q", label: "Vale (US • studio male • highest realism • higher credits)" },
   { value: "en-US-Standard-C", label: "Core (US • Standard female • lower cost)" },
   { value: "en-US-Standard-D", label: "Atlas (US • Standard male • lower cost)" },
   { value: "en-US-Standard-E", label: "Mira (US • Standard female)" },
@@ -176,7 +178,7 @@ const VOICE_OPTIONS = [
   { value: "en-AU-Neural2-A", label: "Skye (AU • warm female)" },
 ] as const;
 
-const DEFAULT_VOICE_NAME = "en-US-Studio-O";
+const DEFAULT_VOICE_NAME = "en-US-Neural2-H";
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
 const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
@@ -448,39 +450,67 @@ function isLowCostStyle(stylePreset: StylePreset): boolean {
 
 function estimateImageCredits(stylePreset: StylePreset): number {
   const base = isLowCostStyle(stylePreset) ? IMAGE_LOW_COST_USD_PER_IMAGE : IMAGE_REAL_USD_PER_IMAGE;
-  return creditsFromUsd(base * IMAGE_MARKUP);
+  return creditsFromUsd(base + IMAGE_TARGET_PROFIT_USD);
 }
 
 function estimateVideoCreditsPerSecond(speed: VideoSpeedMode, stylePreset: StylePreset): number {
-  if (speed === "4k") return VIDEO_4K_CREDITS_PER_SECOND;
+  if (speed === "4k") return VIDEO_PREMIUM_CREDITS_PER_SECOND;
   // Mirror backend pricing behavior where low-cost routing may be forced globally.
   const lowCost = VIDEO_FORCE_LOW_COST_MODELS || isLowCostStyle(stylePreset);
-  const base = lowCost ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND;
-  const markup = VIDEO_HD_MARKUP;
-  const estimated = creditsFromUsd(base * markup);
-  const hdCredits = Math.max(lowCost ? VIDEO_HD_MIN_CREDITS_PER_SECOND : 1, estimated);
-  // Keep estimate hierarchy sane in UI: HD must be cheaper than 4K.
-  return Math.min(hdCredits, Math.max(1, VIDEO_4K_CREDITS_PER_SECOND - 1));
+  return lowCost ? VIDEO_HD_MIN_CREDITS_PER_SECOND : Math.max(VIDEO_HD_MIN_CREDITS_PER_SECOND, VIDEO_PREMIUM_CREDITS_PER_SECOND - 1);
 }
 
-function estimateVoiceCredits(wordCount: number): number {
+function estimateVoiceBaseCredits(wordCount: number): number {
   const usage = Math.ceil(Math.max(1, wordCount) / VOICE_WORDS_PER_CREDIT);
   return Math.max(VOICE_MIN_CREDITS, usage);
 }
 
+function voiceRateUsdPerChar(voiceName: string): number {
+  const token = String(voiceName || DEFAULT_VOICE_NAME).trim().toLowerCase();
+  if (token.includes("studio")) return 160 / 1_000_000;
+  if (token.includes("standard")) return 4 / 1_000_000;
+  return 16 / 1_000_000;
+}
+
+function estimateVoiceProviderCostUsd(script: string, voiceName: string): number {
+  const charCount = script.trim().length;
+  if (charCount <= 0) return 0;
+  return charCount * voiceRateUsdPerChar(voiceName);
+}
+
+function estimateVoiceCredits(script: string, voiceName: string): number {
+  const baseCredits = estimateVoiceBaseCredits(countWords(script));
+  const baseRevenue = baseCredits * CREDIT_USD_VALUE;
+  const targetRevenue = estimateVoiceProviderCostUsd(script, voiceName) + VOICE_TARGET_MARGIN_USD;
+  if (targetRevenue <= baseRevenue) return baseCredits;
+  const extraCredits = Math.max(1, Math.ceil((targetRevenue - baseRevenue) / CREDIT_USD_VALUE));
+  return baseCredits + extraCredits;
+}
+
+function estimatePostSceneDurationSeconds(durationSeconds: number, imageCount: number): number {
+  return Math.max(5, Math.min(7, Math.round(durationSeconds / Math.max(1, imageCount))));
+}
+
 function estimatePostCredits(
   imageCount: number,
-  voiceWordCount: number,
+  voiceScript: string,
   stylePreset: StylePreset,
   durationSeconds: number,
-  visualMode: PostVisualMode
+  visualMode: PostVisualMode,
+  voiceName: string
 ): number {
+  const voiceCost = estimateVoiceProviderCostUsd(voiceScript, voiceName);
   if (visualMode === "video") {
     const safeDuration = Math.max(60, Math.min(120, Number(durationSeconds || POST_DURATION_SECONDS)));
-    const videoCreditsPerSecond = estimateVideoCreditsPerSecond("relax", stylePreset);
-    return Math.round(safeDuration * videoCreditsPerSecond) + estimateVoiceCredits(voiceWordCount);
+    const safeImageCount = Math.max(6, Math.min(10, Number(imageCount || POST_IMAGE_DEFAULT_COUNT)));
+    const sceneDuration = estimatePostSceneDurationSeconds(safeDuration, safeImageCount);
+    const lowCost = VIDEO_FORCE_LOW_COST_MODELS || isLowCostStyle(stylePreset);
+    const providerVideoUsd = safeImageCount * sceneDuration * (lowCost ? VIDEO_LOW_COST_USD_PER_SECOND : VIDEO_REAL_USD_PER_SECOND);
+    return creditsFromUsd(providerVideoUsd + voiceCost + POST_VIDEO_TARGET_PROFIT_USD);
   }
-  return imageCount * estimateImageCredits(stylePreset) + estimateVoiceCredits(voiceWordCount);
+  const safeImageCount = Math.max(6, Math.min(10, Number(imageCount || POST_IMAGE_DEFAULT_COUNT)));
+  const imageUsd = safeImageCount * (isLowCostStyle(stylePreset) ? IMAGE_LOW_COST_USD_PER_IMAGE : IMAGE_REAL_USD_PER_IMAGE);
+  return creditsFromUsd(imageUsd + voiceCost + POST_IMAGE_TARGET_PROFIT_USD);
 }
 
 function countWords(text: string): number {
@@ -598,7 +628,6 @@ export default function GenerateClient() {
   const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
-  const voiceWordCount = useMemo(() => countWords(prompt), [prompt]);
   const postVisualLength = useMemo(() => postVisualPrompt.trim().length, [postVisualPrompt]);
   const postVoiceLength = useMemo(() => postVoiceScript.trim().length, [postVoiceScript]);
   const voiceSpeedWpm = useMemo(() => speedMultiplierToWpm(voiceSpeedMultiplier), [voiceSpeedMultiplier]);
@@ -642,28 +671,44 @@ export default function GenerateClient() {
   const videoDurationOptions = useMemo(() => VIDEO_DURATION_OPTIONS.filter((d) => d <= maxVideoDuration), [maxVideoDuration]);
   const postSceneCount = useMemo(() => postSceneCountForDuration(postDurationSeconds), [postDurationSeconds]);
   const postImageCreditsEstimate = useMemo(
-    () => estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, "image"),
-    [postSceneCount, postWordCount, stylePreset, postDurationSeconds]
+    () => estimatePostCredits(postSceneCount, postVoiceScript, stylePreset, postDurationSeconds, "image", voiceName),
+    [postSceneCount, postVoiceScript, stylePreset, postDurationSeconds, voiceName]
   );
   const postVideoCreditsEstimate = useMemo(
-    () => estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, "video"),
-    [postSceneCount, postWordCount, stylePreset, postDurationSeconds]
+    () => estimatePostCredits(postSceneCount, postVoiceScript, stylePreset, postDurationSeconds, "video", voiceName),
+    [postSceneCount, postVoiceScript, stylePreset, postDurationSeconds, voiceName]
   );
 
   const estimatedCredits = useMemo(() => {
     if (mode === "post") {
-      return estimatePostCredits(postSceneCount, postWordCount, stylePreset, postDurationSeconds, postVisualMode);
+      return estimatePostCredits(postSceneCount, postVoiceScript, stylePreset, postDurationSeconds, postVisualMode, voiceName);
     }
     if (mode === "image") return estimateImageCredits(stylePreset);
     if (mode === "voiceover") {
-      return estimateVoiceCredits(voiceWordCount);
+      return estimateVoiceCredits(prompt, voiceName);
     }
     const perSecond = estimateVideoCreditsPerSecond(videoSpeed, stylePreset);
-    return Math.max(1, Number(duration || 0)) * perSecond;
-  }, [mode, postWordCount, stylePreset, voiceWordCount, duration, videoSpeed, postDurationSeconds, postSceneCount, postVisualMode]);
+    const voiceScript = videoVoiceMode === "dialogue" && videoDialogueScript.trim() ? videoDialogueScript : prompt;
+    const voiceCredits = videoVoiceEnabled ? estimateVoiceCredits(voiceScript, voiceName) : 0;
+    return Math.max(1, Number(duration || 0)) * perSecond + voiceCredits;
+  }, [
+    mode,
+    postVoiceScript,
+    stylePreset,
+    prompt,
+    duration,
+    videoSpeed,
+    postDurationSeconds,
+    postSceneCount,
+    postVisualMode,
+    voiceName,
+    videoVoiceEnabled,
+    videoVoiceMode,
+    videoDialogueScript,
+  ]);
 
   const fastEligible = useMemo(() => {
-    return normalizedPlan === "creator";
+    return normalizedPlan === "creator" || normalizedPlan === "studio";
   }, [normalizedPlan]);
   const freeTrialWatermarkLocked = useMemo(() => {
     return normalizedPlan === "free";
@@ -915,6 +960,9 @@ export default function GenerateClient() {
             <span className="font-semibold text-white/88">
               {VOICE_OPTIONS.find((opt) => opt.value === voiceName)?.label || voiceName}
             </span>
+          </div>
+          <div className="text-[11px] text-white/52">
+            Neural2 is the default. Studio voices reserve extra credits because they cost more to synthesize.
           </div>
         </div>
 
@@ -2059,12 +2107,13 @@ export default function GenerateClient() {
                               : "border-white/10 bg-[#09111c]/72 text-white/70 hover:bg-white/8",
                             !fastEligible && "cursor-not-allowed opacity-55"
                           )}
-                          title={fastEligible ? "4K enabled" : "Upgrade to Creator for 4K"}
+                          title={fastEligible ? "Premium enabled" : "Upgrade to Creator for Premium"}
                         >
-                          4K
+                          Premium
                         </button>
                       </div>
-                      {!fastEligible ? <div className="text-[11px] text-white/55">Creator plan required for 4K.</div> : null}
+                      <div className="text-[11px] text-white/55">Premium uses the higher-quality Veo path and costs more than HD.</div>
+                      {!fastEligible ? <div className="text-[11px] text-white/55">Creator plan required for Premium mode.</div> : null}
                     </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Voice (optional)</label>
