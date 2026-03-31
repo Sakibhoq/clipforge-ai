@@ -2083,10 +2083,13 @@ def _apply_video_overlays(
     label = "[0:v]"
     graph_parts: list[str] = []
     if subtitles_path:
-        _, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+        w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
         force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
         sub_path = _ff_path_escape(subtitles_path)
-        graph_parts.append(f"[0:v]subtitles='{sub_path}':force_style='{force_style}'[vsub]")
+        # Pin libass to the real frame size so burned captions don't get oversized on portrait generator renders.
+        graph_parts.append(
+            f"[0:v]subtitles='{sub_path}':original_size={w}x{h}:force_style='{force_style}'[vsub]"
+        )
         label = "[vsub]"
     if watermark_enabled and logo_path:
         logo_label = "[wm]"
