@@ -151,8 +151,8 @@ type TextOverlayPayload = {
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
 const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
-const GENERATED_CAPTION_FONT_SCALE = 0.72;
-const GENERATED_CAPTION_Y = 0.76;
+const GENERATED_CAPTION_FONT_SCALE = 0.6;
+const GENERATED_CAPTION_Y = 0.72;
 
 const EXPORT_PROFILES: Array<{
   id: string;

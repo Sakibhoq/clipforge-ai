@@ -1964,7 +1964,7 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
-    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.68, min_value=0.45, max_value=1.0)
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.56, min_value=0.4, max_value=1.0)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
@@ -1976,8 +1976,8 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
 
     # Labs now uses one premium default caption look instead of multiple presets:
     # raised bottom-center placement, stronger contrast, and roomier margins.
-    font_size = _scaled_font(min(38, max(28, int(video_h * 0.020))), 18)
-    margin_v = max(108, int(video_h * 0.092))
+    font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
+    margin_v = max(132, int(video_h * 0.11))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
