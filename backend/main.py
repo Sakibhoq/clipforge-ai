@@ -24,12 +24,15 @@ from routers import auth, upload, jobs, health, clips, billing, oauth, social, a
 from routers import storage as storage_router
 from routers import upload_register
 from core.db_init import init_db
+from services import clip_retention
 
 # ---------------------------------------------------------
 # App lifecycle
 # ---------------------------------------------------------
 _social_dispatch_stop = threading.Event()
 _social_dispatch_thread: threading.Thread | None = None
+_clip_retention_stop = threading.Event()
+_clip_retention_thread: threading.Thread | None = None
 
 
 def _social_dispatch_enabled() -> bool:
@@ -50,19 +53,31 @@ def _social_dispatch_loop() -> None:
         _social_dispatch_stop.wait(interval)
 
 def _startup_db() -> None:
-    global _social_dispatch_thread
+    global _social_dispatch_thread, _clip_retention_thread
     # Keep DB setup in startup so local SQLite/dev environments self-initialize on boot.
     init_db()
     if _social_dispatch_enabled() and (_social_dispatch_thread is None or not _social_dispatch_thread.is_alive()):
         _social_dispatch_stop.clear()
         _social_dispatch_thread = threading.Thread(target=_social_dispatch_loop, name="social-dispatch", daemon=True)
         _social_dispatch_thread.start()
+    if clip_retention.clip_retention_enabled() and (_clip_retention_thread is None or not _clip_retention_thread.is_alive()):
+        _clip_retention_stop.clear()
+        _clip_retention_thread = threading.Thread(
+            target=clip_retention.retention_loop,
+            args=(_clip_retention_stop,),
+            name="clip-retention",
+            daemon=True,
+        )
+        _clip_retention_thread.start()
 
 
 def _shutdown_background_workers() -> None:
     _social_dispatch_stop.set()
+    _clip_retention_stop.set()
     if _social_dispatch_thread is not None and _social_dispatch_thread.is_alive():
         _social_dispatch_thread.join(timeout=2.0)
+    if _clip_retention_thread is not None and _clip_retention_thread.is_alive():
+        _clip_retention_thread.join(timeout=2.0)
 
 
 @asynccontextmanager
