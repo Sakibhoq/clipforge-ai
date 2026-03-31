@@ -44,6 +44,8 @@ POST_DEFAULT_IMAGE_COUNT = 6
 PROMPT_MAX_CHARS = 3000
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
+GENERATED_CAPTION_FONT_SCALE = 0.72
+GENERATED_CAPTION_Y = 0.76
 DEFAULT_TTS_VOICE = "en-US-Studio-O"
 FALLBACK_TTS_VOICE = "en-US-Neural2-H"
 TTS_VOICE_FALLBACK_CHAIN = [
@@ -2185,6 +2187,8 @@ def create_video_generation(
         "generation_speed": generation_speed,
         "style_preset": style_preset,
         "seed": continuity_seed,
+        "generated_caption_font_scale": GENERATED_CAPTION_FONT_SCALE,
+        "generated_caption_y": GENERATED_CAPTION_Y,
         "input_image_key": input_image_key,
         "dialogue_script": dialogue_script,
         "voice_name": voice_name or None,
@@ -2462,6 +2466,8 @@ def create_post_generation(
         "style_preset": style_preset,
         "post_visual_mode": post_visual_mode,
         "seed": continuity_seed,
+        "generated_caption_font_scale": GENERATED_CAPTION_FONT_SCALE,
+        "generated_caption_y": GENERATED_CAPTION_Y,
         "caption_style_preset": (
             "none"
             if not bool(payload.captions_enabled)

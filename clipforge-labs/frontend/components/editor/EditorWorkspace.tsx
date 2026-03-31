@@ -151,6 +151,8 @@ type TextOverlayPayload = {
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
 const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
+const GENERATED_CAPTION_FONT_SCALE = 0.72;
+const GENERATED_CAPTION_Y = 0.76;
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -299,7 +301,15 @@ function normalizeWordEvents(raw: unknown): WordCaptionEvent[] {
   return out.sort((a, b) => a.start - b.start);
 }
 
-function captionItemsFromWordEvents(events: WordCaptionEvent[]): TimelineItem[] {
+function captionItemsFromWordEvents(
+  events: WordCaptionEvent[],
+  options?: {
+    fontScale?: number;
+    y?: number;
+  }
+): TimelineItem[] {
+  const fontScale = clamp(Number(options?.fontScale ?? GENERATED_CAPTION_FONT_SCALE), 0.7, 1.8);
+  const y = clamp(Number(options?.y ?? GENERATED_CAPTION_Y), 0.08, 0.92);
   return events.map((event) => ({
     id: newId(),
     type: "caption" as const,
@@ -310,8 +320,8 @@ function captionItemsFromWordEvents(events: WordCaptionEvent[]): TimelineItem[] 
     text: event.word,
     motion: "none",
     x: 0.5,
-    y: 0.82,
-    fontScale: 1,
+    y,
+    fontScale,
   }));
 }
 
@@ -785,7 +795,14 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
             : [];
         const events = fromSettings.length > 0 ? fromSettings : fromScript;
         if (events.length > 0) {
-          next.captions = captionItemsFromWordEvents(events);
+          const generatedCaptionFontScale = Number(
+            settings?.generated_caption_font_scale ?? settings?.caption_font_scale ?? GENERATED_CAPTION_FONT_SCALE
+          );
+          const generatedCaptionY = Number(settings?.generated_caption_y ?? settings?.caption_y ?? GENERATED_CAPTION_Y);
+          next.captions = captionItemsFromWordEvents(events, {
+            fontScale: generatedCaptionFontScale,
+            y: generatedCaptionY,
+          });
         }
       } catch {
         // best-effort hydrate from settings
