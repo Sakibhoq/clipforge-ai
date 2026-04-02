@@ -44,8 +44,10 @@ POST_DEFAULT_IMAGE_COUNT = 6
 PROMPT_MAX_CHARS = 3000
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
-GENERATED_CAPTION_FONT_SCALE = 0.6
-GENERATED_CAPTION_Y = 0.72
+# Default generator caption placement is intentionally conservative so
+# portrait previews open cleanly without spilling off the frame edges.
+GENERATED_CAPTION_FONT_SCALE = 0.42
+GENERATED_CAPTION_Y = 0.66
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
 FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [

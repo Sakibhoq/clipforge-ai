@@ -572,7 +572,6 @@ function HeroFlowBackdrop() {
 
 function HeroVisual() {
   const [heroPreviewIndex, setHeroPreviewIndex] = useState(0);
-  const activeHeroPreview = HERO_PREVIEW_CLIPS[heroPreviewIndex] || HERO_PREVIEW_CLIPS[0];
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -622,22 +621,27 @@ function HeroVisual() {
 
           <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
             <div className="relative h-[340px] w-full [contain:layout_paint]">
-              <video
-                key={activeHeroPreview}
-                src={activeHeroPreview}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                className="absolute inset-0 h-full w-full"
-                style={{
-                  objectFit: "cover",
-                  objectPosition: "center center",
-                  transform: "scale(1.02) translateZ(0)",
-                  backfaceVisibility: "hidden",
-                }}
-              />
+              {HERO_PREVIEW_CLIPS.map((src, index) => (
+                <video
+                  key={src}
+                  src={src}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="metadata"
+                  aria-hidden={index !== heroPreviewIndex}
+                  className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: "center center",
+                    transform: "scale(1.02) translateZ(0)",
+                    opacity: index === heroPreviewIndex ? 1 : 0,
+                    zIndex: index === heroPreviewIndex ? 1 : 0,
+                    backfaceVisibility: "hidden",
+                  }}
+                />
+              ))}
             </div>
             <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
               One workflow. Clip, generate, then publish.

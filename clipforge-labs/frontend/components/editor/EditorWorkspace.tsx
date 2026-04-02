@@ -151,8 +151,8 @@ type TextOverlayPayload = {
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
 const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
-const GENERATED_CAPTION_FONT_SCALE = 0.6;
-const GENERATED_CAPTION_Y = 0.72;
+const GENERATED_CAPTION_FONT_SCALE = 0.42;
+const GENERATED_CAPTION_Y = 0.66;
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -308,7 +308,7 @@ function captionItemsFromWordEvents(
     y?: number;
   }
 ): TimelineItem[] {
-  const fontScale = clamp(Number(options?.fontScale ?? GENERATED_CAPTION_FONT_SCALE), 0.7, 1.8);
+  const fontScale = clamp(Number(options?.fontScale ?? GENERATED_CAPTION_FONT_SCALE), 0.38, 1.8);
   const y = clamp(Number(options?.y ?? GENERATED_CAPTION_Y), 0.08, 0.92);
   return events.map((event) => ({
     id: newId(),
@@ -1311,7 +1311,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           end: Number((overlapEnd - Number(target.start || 0)).toFixed(3)),
           x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
           y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
-          font_scale: clamp(Number(caption.fontScale ?? 1), 0.7, 1.8),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.38, 1.8),
         };
       })
       .filter(Boolean)
@@ -1471,7 +1471,7 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           end: Math.max(0, Number(caption.start || 0) + Number(caption.duration || 0)),
           x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
           y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
-          font_scale: clamp(Number(caption.fontScale ?? 1), 0.7, 1.8),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.38, 1.8),
         };
       })
       .filter(Boolean);
@@ -2610,8 +2610,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                           left: `${clamp(Number(activeCaption.x ?? 0.5), 0.08, 0.92) * 100}%`,
                           top: `${clamp(Number(activeCaption.y ?? 0.82), 0.08, 0.92) * 100}%`,
                           transform: "translate(-50%, -50%)",
-                          fontSize: `${Math.round(20 * clamp(Number(activeCaption.fontScale ?? 1), 0.7, 1.8))}px`,
-                          lineHeight: 1.15,
+                          maxWidth: "68%",
+                          fontSize: `${Math.round(18 * clamp(Number(activeCaption.fontScale ?? 1), 0.38, 1.8))}px`,
+                          lineHeight: 1.08,
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
                         }}
                         onPointerDown={
                           selected?.track === "captions" && selected.itemId === activeCaption.id
@@ -2984,11 +2987,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                         <span>Size {Number(selectedItem.fontScale ?? 1).toFixed(2)}x</span>
                         <input
                           type="range"
-                          min={0.7}
+                          min={0.38}
                           max={1.8}
                           step={0.05}
-                          value={clamp(Number(selectedItem.fontScale ?? 1), 0.7, 1.8)}
-                          onChange={(event) => updateSelected({ fontScale: clamp(Number(event.target.value || 1), 0.7, 1.8) })}
+                          value={clamp(Number(selectedItem.fontScale ?? 1), 0.38, 1.8)}
+                          onChange={(event) => updateSelected({ fontScale: clamp(Number(event.target.value || 1), 0.38, 1.8) })}
                           className="w-20 accent-white"
                         />
                       </label>
