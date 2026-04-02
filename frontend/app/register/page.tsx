@@ -3,7 +3,7 @@
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, getApiBase } from "@/lib/api";
 import AuthMixedBackground from "@/components/AuthMixedBackground";
 
@@ -17,6 +17,14 @@ import AuthMixedBackground from "@/components/AuthMixedBackground";
 
 function H({ children }: { children: React.ReactNode }) {
   return <span className="grad-text font-semibold">{children}</span>;
+}
+
+function marketingHomeUrl() {
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.CANONICAL_URL ||
+    "https://orbito.cc"
+  ).trim();
 }
 
 function HoverSheen() {
@@ -274,6 +282,7 @@ function errToMessage(err: any) {
 }
 
 function RegisterPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams?.get("next") || "/app";
 
@@ -410,6 +419,14 @@ function RegisterPageInner() {
     paddingBottom: "env(safe-area-inset-bottom)",
   };
 
+  function handleBackClick() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    window.location.assign(marketingHomeUrl());
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden [max-width:100vw]" style={rootStyle}>
       <AuthMixedBackground />
@@ -424,12 +441,13 @@ function RegisterPageInner() {
             {/* TOP ROW */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3 text-xs text-white/55">
-                <Link
-                  href="/"
+                <button
+                  type="button"
+                  onClick={handleBackClick}
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
                 >
                   <span aria-hidden="true">←</span> Back
-                </Link>
+                </button>
                 <span>• Create account</span>
               </div>
               <div className="flex items-center gap-3 text-[12px] text-white/60">

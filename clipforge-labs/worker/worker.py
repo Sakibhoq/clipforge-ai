@@ -1963,25 +1963,31 @@ def _watermark_logo_path() -> str:
     return ""
 
 
-def _caption_force_style(preset: str | None, video_h: int) -> str:
+def _caption_style_metrics(video_w: int, video_h: int) -> tuple[int, int, int]:
     caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.56, min_value=0.4, max_value=1.0)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
         return max(min_value, scaled)
 
+    font_size = _scaled_font(min(88, max(72, int(video_h * 0.042))), 34)
+    margin_v = max(178, int(video_h * 0.115))
+    margin_h = max(70, int(video_w * 0.085))
+    return (font_size, margin_v, margin_h)
+
+
+def _caption_force_style(preset: str | None, video_w: int, video_h: int) -> str:
     style = (preset or "").strip().lower()
     if style in {"none", "off", "disabled"}:
         return ""
 
-    # Labs now uses one premium default caption look instead of multiple presets:
-    # raised bottom-center placement, stronger contrast, and roomier margins.
-    font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
-    margin_v = max(132, int(video_h * 0.11))
+    # Burned generator captions are tuned in actual video pixels so portrait
+    # renders stay centered and on-frame instead of scaling from libass defaults.
+    font_size, margin_v, margin_h = _caption_style_metrics(video_w, video_h)
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
-        "BorderStyle=3,Outline=0,Shadow=0,Bold=1,Italic=0,MarginL=54,MarginR=54,Spacing=0.1,WrapStyle=2"
+        f"BorderStyle=3,Outline=0,Shadow=0,Bold=1,Italic=0,MarginL={margin_h},MarginR={margin_h},Spacing=0.1,WrapStyle=2"
     )
 
 
@@ -1995,46 +2001,125 @@ def _format_srt_ts(seconds: float) -> str:
     return f"{hh:02d}:{mm:02d}:{ss:02d},{ms:03d}"
 
 
+def _format_ass_ts(seconds: float) -> str:
+    safe = max(0.0, float(seconds or 0.0))
+    hh = int(safe // 3600)
+    mm = int((safe % 3600) // 60)
+    ss = safe % 60
+    return f"{hh:d}:{mm:02d}:{ss:05.2f}"
+
+
+def _wrap_caption_text(text: str, max_line_chars: int = 16, max_lines: int = 2) -> str:
+    words = [word.strip() for word in re.findall(r"\S+", text or "") if word.strip()]
+    if not words:
+        return ""
+
+    lines: list[str] = []
+    current: list[str] = []
+    for word in words:
+        candidate = " ".join([*current, word]).strip()
+        if current and len(candidate) > max_line_chars and len(lines) < max_lines - 1:
+            lines.append(" ".join(current).strip())
+            current = [word]
+            continue
+        current.append(word)
+    if current:
+        lines.append(" ".join(current).strip())
+    if len(lines) > max_lines:
+        lines = lines[: max_lines - 1] + [" ".join(lines[max_lines - 1 :]).strip()]
+    return "\n".join(line for line in lines if line)
+
+
+def _ass_escape_text(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("\\", r"\\")
+        .replace("{", r"\{")
+        .replace("}", r"\}")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\n", r"\N")
+    )
+
+
 def _build_word_caption_events(script: str, duration_seconds: float) -> list[dict[str, float | str]]:
     tokens = [tok.strip() for tok in re.findall(r"\S+", script or "") if tok.strip()]
     if not tokens:
         return []
     safe_duration = max(0.6, float(duration_seconds or 0.0))
-    chunks: list[str] = []
+    raw_chunks: list[str] = []
     current: list[str] = []
     for token in tokens:
         current.append(token)
         joined = " ".join(current).strip()
         punctuation_break = token.endswith((".", "!", "?", ";", ":"))
         soft_break = token.endswith(",") and len(current) >= 2
-        length_break = len(current) >= 4 or len(joined) >= 28
+        length_break = len(current) >= 3 or len(joined) >= 18
         if punctuation_break or soft_break or length_break:
-            chunks.append(joined)
+            raw_chunks.append(joined)
             current = []
     if current:
-        chunks.append(" ".join(current).strip())
-    if not chunks:
+        raw_chunks.append(" ".join(current).strip())
+    if not raw_chunks:
         return []
 
     weights: list[float] = []
-    for chunk in chunks:
+    for chunk in raw_chunks:
         word_count = max(1, len(re.findall(r"\S+", chunk)))
         punctuation_bonus = 0.28 if chunk.endswith((".", "!", "?", ";", ":")) else 0.12 if chunk.endswith(",") else 0.0
         weights.append(float(word_count) + punctuation_bonus)
-    total_weight = sum(weights) or float(len(chunks))
+    total_weight = sum(weights) or float(len(raw_chunks))
     events: list[dict[str, float | str]] = []
     cursor = 0.0
-    for idx, chunk in enumerate(chunks):
+    for idx, chunk in enumerate(raw_chunks):
         slot = safe_duration * (weights[idx] / total_weight)
         start = round(cursor, 3)
         end = round(cursor + slot, 3)
-        if idx == len(chunks) - 1:
+        if idx == len(raw_chunks) - 1:
             end = max(end, safe_duration)
         if end <= start:
             end = round(start + 0.18, 3)
-        events.append({"word": chunk, "start": start, "end": end})
+        events.append({"word": _wrap_caption_text(chunk), "start": start, "end": end})
         cursor = end
     return events
+
+
+def _write_word_by_word_ass(
+    events: list[dict[str, float | str]],
+    *,
+    video_w: int,
+    video_h: int,
+) -> str:
+    fd, path = tempfile.mkstemp(prefix="cflabs-word-captions-", suffix=".ass")
+    os.close(fd)
+    font_size, margin_v, margin_h = _caption_style_metrics(video_w, video_h)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("[Script Info]\n")
+        f.write("ScriptType: v4.00+\n")
+        f.write(f"PlayResX: {int(video_w)}\n")
+        f.write(f"PlayResY: {int(video_h)}\n")
+        f.write("ScaledBorderAndShadow: yes\n")
+        f.write("WrapStyle: 2\n\n")
+        f.write("[V4+ Styles]\n")
+        f.write(
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+            "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+            "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        )
+        f.write(
+            "Style: OrbitoCaption,DejaVu Sans,"
+            f"{font_size},&H00FFFFFF,&H000000FF,&H00101010,&H70000000,-1,0,0,0,100,100,0.1,0,3,0,0,2,{margin_h},{margin_h},{margin_v},1\n\n"
+        )
+        f.write("[Events]\n")
+        f.write("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
+        for event in events:
+            text = _ass_escape_text(str(event.get("word") or "").strip())
+            if not text:
+                continue
+            start = _format_ass_ts(float(event.get("start") or 0.0))
+            end = _format_ass_ts(float(event.get("end") or 0.0))
+            f.write(f"Dialogue: 0,{start},{end},OrbitoCaption,,0,0,0,,{text}\n")
+    return path
 
 
 def _write_word_by_word_srt(events: list[dict[str, float | str]]) -> str:
@@ -2084,12 +2169,14 @@ def _apply_video_overlays(
     graph_parts: list[str] = []
     if subtitles_path:
         w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
-        force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
         sub_path = _ff_path_escape(subtitles_path)
-        # Pin libass to the real frame size so burned captions don't get oversized on portrait generator renders.
-        graph_parts.append(
-            f"[0:v]subtitles='{sub_path}':original_size={w}x{h}:force_style='{force_style}'[vsub]"
-        )
+        if str(subtitles_path).lower().endswith(".ass"):
+            graph_parts.append(f"[0:v]subtitles='{sub_path}':original_size={w}x{h}[vsub]")
+        else:
+            force_style = _caption_force_style(caption_style_preset, w, h).replace("'", "\\'")
+            graph_parts.append(
+                f"[0:v]subtitles='{sub_path}':original_size={w}x{h}:force_style='{force_style}'[vsub]"
+            )
         label = "[vsub]"
     if watermark_enabled and logo_path:
         logo_label = "[wm]"
@@ -4215,7 +4302,12 @@ def _process_job(job: dict) -> dict[str, Any]:
 
                 subtitles_path: str | None = None
                 if captions_enabled and word_caption_events:
-                    subtitles_path = _write_word_by_word_srt(word_caption_events)
+                    w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+                    subtitles_path = _write_word_by_word_ass(
+                        word_caption_events,
+                        video_w=w,
+                        video_h=h,
+                    )
 
                 fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
                 os.close(fd_overlay)
@@ -4503,7 +4595,12 @@ def _process_job(job: dict) -> dict[str, Any]:
 
             subtitles_path: str | None = None
             if captions_enabled and word_caption_events:
-                subtitles_path = _write_word_by_word_srt(word_caption_events)
+                w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+                subtitles_path = _write_word_by_word_ass(
+                    word_caption_events,
+                    video_w=w,
+                    video_h=h,
+                )
 
             fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
             os.close(fd_overlay)

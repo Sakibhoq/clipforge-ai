@@ -141,6 +141,23 @@ def _subscription_item_id(subscription: object) -> Optional[str]:
     return None
 
 
+def _subscription_price_id(subscription: object) -> Optional[str]:
+    items_container = getattr(subscription, "items", None)
+    items = getattr(items_container, "data", None)
+
+    if items is None and isinstance(items_container, dict):
+        items = items_container.get("data")
+    if items is None and isinstance(subscription, dict):
+        items = (subscription.get("items") or {}).get("data")
+
+    for item in items or []:
+        price_obj = item.get("price") if isinstance(item, dict) else getattr(item, "price", None)
+        price_id = price_obj.get("id") if isinstance(price_obj, dict) else getattr(price_obj, "id", None)
+        if price_id:
+            return str(price_id)
+    return None
+
+
 def _subscription_status_payload(active_subs: list) -> tuple[str, bool, Optional[str]]:
     if not active_subs:
         return ("no_active_subscription", False, None)
@@ -216,6 +233,20 @@ def _resolve_plan_interval_from_price_id(price_id: str | None) -> tuple[Optional
             if expected and expected == pid:
                 return (_canonical_checkout_plan(plan), _normalize_interval(interval))
     return (None, None)
+
+
+def _highest_active_subscription_plan(customer_id: str | None) -> Optional[str]:
+    cid = str(customer_id or "").strip()
+    if not cid:
+        return None
+
+    best_plan: Optional[str] = None
+    for sub in _active_subscriptions_for_customer(cid):
+        price_id = _subscription_price_id(sub)
+        plan, _interval = _resolve_plan_interval_from_price_id(price_id)
+        if plan and _plan_tier(plan) >= _plan_tier(best_plan):
+            best_plan = plan
+    return best_plan
 
 
 def _first_invoice_line_price_and_quantity(invoice_obj: object) -> tuple[Optional[str], int]:
@@ -678,12 +709,17 @@ async def stripe_webhook(
             pack=max(1, _safe_int(quantity, 1)),
             event_id=event_id,
         )
+        # Stripe can briefly leave an older lower-tier subscription active while a
+        # newer higher-tier Labs plan is already live. Keep account state/email copy
+        # anchored to the highest active subscription so billing notices stay accurate.
+        effective_plan = _highest_active_subscription_plan(customer_id) or plan
+        user.plan = effective_plan
         db.commit()
 
         try:
             send_billing_confirmation_email(
                 to_email=user.email,
-                plan=plan,
+                plan=effective_plan,
                 interval=interval or "monthly",
                 credits_granted=int(grant),
                 credits_balance=int(user.credits or 0),

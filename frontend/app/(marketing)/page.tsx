@@ -65,16 +65,14 @@ const HERO_PREVIEW_CLIPS = [
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
 const PAGE_BACKGROUND_CLIPS = [
-  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "8%", left: "4%", size: "", tilt: "tilt-left", scatterX: "12px", opacity: 0.24 },
-  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "18%", left: "11%", size: "large", tilt: "tilt-right", scatterX: "18px", opacity: 0.32 },
-  { src: previewSrc("Real Vertical Clip #57.mp4"), top: "34%", left: "6%", size: "", tilt: "tilt-left", scatterX: "10px", opacity: 0.22 },
-  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "51%", left: "13%", size: "", tilt: "tilt-right", scatterX: "16px", opacity: 0.24 },
-  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "70%", left: "7%", size: "large", tilt: "tilt-left", scatterX: "14px", opacity: 0.28 },
-  { src: previewSrc("Comic Vertical Clip #70.mp4"), top: "86%", left: "12%", size: "", tilt: "tilt-right", scatterX: "10px", opacity: 0.22 },
-  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "12%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-14px", opacity: 0.24 },
-  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "28%", left: "89%", size: "large", tilt: "tilt-left", scatterX: "-20px", opacity: 0.3 },
-  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "55%", left: "83%", size: "", tilt: "tilt-right", scatterX: "-14px", opacity: 0.24 },
-  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "78%", left: "88%", size: "large", tilt: "tilt-left", scatterX: "-18px", opacity: 0.28 },
+  { src: previewSrc("Real Vertical Clip #48.mp4"), top: "6%", left: "4%", size: "", tilt: "tilt-left", scatterX: "8px", opacity: 0.22 },
+  { src: previewSrc("Real Vertical Clip #53.mp4"), top: "24%", left: "11%", size: "large", tilt: "tilt-right", scatterX: "12px", opacity: 0.3 },
+  { src: previewSrc("Real Vertical Clip #61.mp4"), top: "49%", left: "5%", size: "", tilt: "tilt-left", scatterX: "7px", opacity: 0.22 },
+  { src: previewSrc("Anime Vertical Clip #66.mp4"), top: "74%", left: "11%", size: "large", tilt: "tilt-right", scatterX: "10px", opacity: 0.26 },
+  { src: previewSrc("Real Vertical Clip #51.mp4"), top: "10%", left: "84%", size: "", tilt: "tilt-right", scatterX: "-8px", opacity: 0.22 },
+  { src: previewSrc("Real Vertical Clip #56.mp4"), top: "33%", left: "89%", size: "large", tilt: "tilt-left", scatterX: "-12px", opacity: 0.28 },
+  { src: previewSrc("Real Vertical Clip #60.mp4"), top: "58%", left: "82%", size: "", tilt: "tilt-right", scatterX: "-8px", opacity: 0.22 },
+  { src: previewSrc("Comic Vertical Clip #71.mp4"), top: "83%", left: "88%", size: "large", tilt: "tilt-left", scatterX: "-10px", opacity: 0.26 },
 ] as const;
 
 type MeResponse = {
@@ -208,7 +206,7 @@ function LandingFX() {
         }
         @keyframes sideScatterFloat {
           0%, 100% { transform: translate3d(var(--scatter-x, 0px), 0, 0) rotate(var(--tilt, 0deg)) scale(1); }
-          50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -10px, 0) rotate(calc(var(--tilt, 0deg) + 0.7deg)) scale(1.01); }
+          50% { transform: translate3d(calc(var(--scatter-x, 0px) + var(--drift-x, 0px)), -6px, 0) rotate(calc(var(--tilt, 0deg) + 0.45deg)) scale(1.005); }
         }
         @keyframes panelBreath {
           0%, 100% { transform: translateY(0); box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 18px 46px rgba(0,0,0,0.28); }
@@ -289,8 +287,8 @@ function LandingFX() {
           --tilt: 0deg;
           --drift-x: 0px;
           --scatter-x: 0px;
-          width: 164px;
-          height: 292px;
+          width: 156px;
+          height: 280px;
           border-radius: 22px;
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.14);
@@ -299,8 +297,8 @@ function LandingFX() {
           animation: sideScatterFloat 11.5s ease-in-out infinite;
         }
         .orbito-side-item.large {
-          width: 188px;
-          height: 334px;
+          width: 180px;
+          height: 322px;
         }
         .orbito-side-item video {
           width: 100%;
@@ -309,12 +307,12 @@ function LandingFX() {
           object-position: center;
         }
         .orbito-side-item.tilt-left {
-          --tilt: -4.5deg;
-          --drift-x: 9px;
+          --tilt: -3.5deg;
+          --drift-x: 6px;
         }
         .orbito-side-item.tilt-right {
-          --tilt: 4.5deg;
-          --drift-x: -11px;
+          --tilt: 3.5deg;
+          --drift-x: -7px;
         }
         .orbito-preview-item video {
           width: 100%;
@@ -574,6 +572,7 @@ function HeroFlowBackdrop() {
 
 function HeroVisual() {
   const [heroPreviewIndex, setHeroPreviewIndex] = useState(0);
+  const activeHeroPreview = HERO_PREVIEW_CLIPS[heroPreviewIndex] || HERO_PREVIEW_CLIPS[0];
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -623,27 +622,22 @@ function HeroVisual() {
 
           <div className="overflow-hidden rounded-[24px] border border-white/12 bg-black/70 shadow-[0_22px_54px_rgba(0,0,0,0.36)]">
             <div className="relative h-[340px] w-full [contain:layout_paint]">
-              {HERO_PREVIEW_CLIPS.map((src, index) => (
-                <video
-                  key={src}
-                  src={src}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                  aria-hidden={index !== heroPreviewIndex}
-                  className="absolute inset-0 h-full w-full transition-opacity duration-500 will-change-[opacity]"
-                  style={{
-                    objectFit: "cover",
-                    objectPosition: "center center",
-                    transform: "scale(1.02) translateZ(0)",
-                    opacity: index === heroPreviewIndex ? 1 : 0,
-                    zIndex: index === heroPreviewIndex ? 1 : 0,
-                    backfaceVisibility: "hidden",
-                  }}
-                />
-              ))}
+              <video
+                key={activeHeroPreview}
+                src={activeHeroPreview}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                className="absolute inset-0 h-full w-full"
+                style={{
+                  objectFit: "cover",
+                  objectPosition: "center center",
+                  transform: "scale(1.02) translateZ(0)",
+                  backfaceVisibility: "hidden",
+                }}
+              />
             </div>
             <div className="border-t border-white/10 px-3 py-2 text-xs text-white/70">
               One workflow. Clip, generate, then publish.
@@ -748,7 +742,7 @@ function GenerateStage({
                     loop
                     muted
                     playsInline
-                    preload="auto"
+                    preload="metadata"
                     className="h-full w-full"
                     style={{
                       objectFit: "cover",
@@ -796,6 +790,7 @@ export default function Page() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [showDecorativeMedia, setShowDecorativeMedia] = useState(false);
   const revealRef = useReveal();
 
   useEffect(() => {
@@ -824,6 +819,11 @@ export default function Page() {
       setPreviewIndex((value) => (value + 1) % GENERATE_PREVIEWS.length);
     }, 4200);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowDecorativeMedia(true), 360);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const trialLocked = Boolean(me?.trial_used);
@@ -874,27 +874,29 @@ export default function Page() {
     <div ref={revealRef as any} className="relative bg-transparent [overflow-x:clip]">
       <LandingFX />
 
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 [overflow-x:clip] [overflow-y:visible] min-[1600px]:block"
-        style={{ top: "280px", bottom: "300px" }}
-      >
-        {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
-          <div
-            key={`${item.src}-${idx}`}
-            className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
-            style={{
-              top: item.top,
-              left: item.left,
-              animationDelay: `${idx * 0.45}s`,
-              opacity: item.opacity,
-              ["--scatter-x" as any]: item.scatterX,
-            }}
-          >
-            <video src={item.src} autoPlay loop muted playsInline preload="metadata" />
-          </div>
-        ))}
-      </div>
+      {showDecorativeMedia ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 z-0 hidden w-screen -translate-x-1/2 [overflow-x:clip] [overflow-y:visible] min-[1600px]:block"
+          style={{ top: "280px", bottom: "300px" }}
+        >
+          {PAGE_BACKGROUND_CLIPS.map((item, idx) => (
+            <div
+              key={`${item.src}-${idx}`}
+              className={["orbito-side-item absolute", item.size, item.tilt].filter(Boolean).join(" ")}
+              style={{
+                top: item.top,
+                left: item.left,
+                animationDelay: `${idx * 0.45}s`,
+                opacity: item.opacity,
+                ["--scatter-x" as any]: item.scatterX,
+              }}
+            >
+              <video src={item.src} autoPlay loop muted playsInline preload="none" />
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-6 [padding-bottom:calc(env(safe-area-inset-bottom)+5rem)]">
         <section className="relative isolate">
