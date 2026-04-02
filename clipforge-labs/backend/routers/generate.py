@@ -48,6 +48,9 @@ POST_MAX_AUTO_VOICE_WPM = 210
 # portrait previews open cleanly without spilling off the frame edges.
 GENERATED_CAPTION_FONT_SCALE = 0.42
 GENERATED_CAPTION_Y = 0.66
+GENERATED_CAPTION_MAX_WORDS = 3
+GENERATED_CAPTION_MAX_CHARS = 18
+GENERATED_CAPTION_LINE_CHARS = 14
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
 FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
@@ -2228,6 +2231,9 @@ def create_video_generation(
         "seed": continuity_seed,
         "generated_caption_font_scale": GENERATED_CAPTION_FONT_SCALE,
         "generated_caption_y": GENERATED_CAPTION_Y,
+        "generated_caption_max_words": GENERATED_CAPTION_MAX_WORDS,
+        "generated_caption_max_chars": GENERATED_CAPTION_MAX_CHARS,
+        "generated_caption_line_chars": GENERATED_CAPTION_LINE_CHARS,
         "input_image_key": input_image_key,
         "dialogue_script": dialogue_script,
         "voice_name": voice_name or None,
@@ -2508,6 +2514,9 @@ def create_post_generation(
         "seed": continuity_seed,
         "generated_caption_font_scale": GENERATED_CAPTION_FONT_SCALE,
         "generated_caption_y": GENERATED_CAPTION_Y,
+        "generated_caption_max_words": GENERATED_CAPTION_MAX_WORDS,
+        "generated_caption_max_chars": GENERATED_CAPTION_MAX_CHARS,
+        "generated_caption_line_chars": GENERATED_CAPTION_LINE_CHARS,
         "caption_style_preset": (
             "none"
             if not bool(payload.captions_enabled)

@@ -153,6 +153,9 @@ const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
 const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
 const GENERATED_CAPTION_FONT_SCALE = 0.42;
 const GENERATED_CAPTION_Y = 0.66;
+const GENERATED_CAPTION_MAX_WORDS = 3;
+const GENERATED_CAPTION_MAX_CHARS = 18;
+const GENERATED_CAPTION_LINE_CHARS = 14;
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -267,31 +270,99 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function buildWordEventsFromScript(script: string, durationSeconds: number): WordCaptionEvent[] {
+function wrapCaptionText(text: string, maxLineChars = GENERATED_CAPTION_LINE_CHARS, maxLines = 2): string {
+  const words = String(text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return "";
+
+  const lines: string[] = [];
+  let current: string[] = [];
+  for (const word of words) {
+    const next = [...current, word].join(" ").trim();
+    if (current.length > 0 && next.length > maxLineChars && lines.length < maxLines - 1) {
+      lines.push(current.join(" ").trim());
+      current = [word];
+      continue;
+    }
+    current.push(word);
+  }
+  if (current.length > 0) lines.push(current.join(" ").trim());
+  if (lines.length <= 1) return lines[0] || "";
+  if (lines.length > maxLines) {
+    const merged = lines.slice(maxLines - 1).join(" ").trim();
+    return [...lines.slice(0, maxLines - 1), merged].join("\n");
+  }
+  return lines.join("\n");
+}
+
+function buildWordEventsFromScript(
+  script: string,
+  durationSeconds: number,
+  options?: {
+    maxWords?: number;
+    maxChars?: number;
+    lineChars?: number;
+  }
+): WordCaptionEvent[] {
   const words = String(script || "")
     .trim()
     .split(/\s+/)
     .filter(Boolean);
   if (!words.length) return [];
+
+  const maxWords = Math.max(2, Number(options?.maxWords ?? GENERATED_CAPTION_MAX_WORDS));
+  const maxChars = Math.max(12, Number(options?.maxChars ?? GENERATED_CAPTION_MAX_CHARS));
+  const lineChars = Math.max(10, Number(options?.lineChars ?? GENERATED_CAPTION_LINE_CHARS));
+
+  const chunks: string[] = [];
+  let current: string[] = [];
+  for (const word of words) {
+    current.push(word);
+    const joined = current.join(" ").trim();
+    const punctuationBreak = /[.!?;:]$/.test(word);
+    const softBreak = /,$/.test(word) && current.length >= 2;
+    const lengthBreak = current.length >= maxWords || joined.length >= maxChars;
+    if (punctuationBreak || softBreak || lengthBreak) {
+      chunks.push(wrapCaptionText(joined, lineChars));
+      current = [];
+    }
+  }
+  if (current.length > 0) {
+    chunks.push(wrapCaptionText(current.join(" ").trim(), lineChars));
+  }
+  if (!chunks.length) return [];
+
   const total = Math.max(0.6, Number(durationSeconds || 0.6));
-  const slot = total / words.length;
-  return words.map((word, index) => {
-    const start = Number((index * slot).toFixed(3));
-    const end = Number(((index + 1) * slot).toFixed(3));
+  const weights = chunks.map((chunk) => {
+    const plain = chunk.replace(/\n/g, " ").trim();
+    const wordCount = Math.max(1, plain.split(/\s+/).filter(Boolean).length);
+    const punctuationBonus = /[.!?;:]$/.test(plain) ? 0.28 : /,$/.test(plain) ? 0.12 : 0;
+    return wordCount + punctuationBonus;
+  });
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
+  let cursor = 0;
+  return chunks.map((chunk, index) => {
+    const slot = total * (weights[index] / totalWeight);
+    const start = Number(cursor.toFixed(3));
+    const end = Number((cursor + slot).toFixed(3));
+    cursor = end;
     return {
-      word,
+      word: chunk,
       start,
-      end: index === words.length - 1 ? Math.max(end, total) : end,
+      end: index === chunks.length - 1 ? Math.max(end, total) : Math.max(end, start + 0.12),
     };
   });
 }
 
-function normalizeWordEvents(raw: unknown): WordCaptionEvent[] {
+function normalizeWordEvents(raw: unknown, lineChars = GENERATED_CAPTION_LINE_CHARS): WordCaptionEvent[] {
   if (!Array.isArray(raw)) return [];
+  const safeLineChars = Math.max(10, Number(lineChars || GENERATED_CAPTION_LINE_CHARS));
   const out: WordCaptionEvent[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const word = String((item as Record<string, unknown>).word || "").trim();
+    const word = wrapCaptionText(String((item as Record<string, unknown>).word || "").trim(), safeLineChars);
     const start = Number((item as Record<string, unknown>).start || 0);
     const end = Number((item as Record<string, unknown>).end || 0);
     if (!word) continue;
@@ -788,10 +859,18 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           method: "GET",
         });
         const settings = job?.settings && typeof job.settings === "object" ? job.settings : null;
-        const fromSettings = normalizeWordEvents(settings?.generated_word_captions);
+        const generatedCaptionLineChars = Math.max(
+          10,
+          Number(settings?.generated_caption_line_chars ?? GENERATED_CAPTION_LINE_CHARS)
+        );
+        const fromSettings = normalizeWordEvents(settings?.generated_word_captions, generatedCaptionLineChars);
         const fromScript =
           fromSettings.length === 0 && typeof settings?.voice_script === "string"
-            ? buildWordEventsFromScript(settings.voice_script, totalDuration)
+            ? buildWordEventsFromScript(settings.voice_script, totalDuration, {
+                maxWords: Number(settings?.generated_caption_max_words ?? GENERATED_CAPTION_MAX_WORDS),
+                maxChars: Number(settings?.generated_caption_max_chars ?? GENERATED_CAPTION_MAX_CHARS),
+                lineChars: generatedCaptionLineChars,
+              })
             : [];
         const events = fromSettings.length > 0 ? fromSettings : fromScript;
         if (events.length > 0) {
