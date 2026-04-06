@@ -1579,6 +1579,13 @@ def _normalize_post_line(line: str) -> str:
     return value
 
 
+def _trim_prompt_fragment(value: str | None, max_chars: int) -> str:
+    cleaned = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max(0, max_chars - 3)].rstrip(" ,;:-") + "..."
+
+
 def _parse_post_prompt_metadata(raw_visual_prompt: str) -> dict[str, str]:
     out: dict[str, str] = {}
     allowed_keys = {
@@ -1751,6 +1758,51 @@ def _post_scene_intensity(*, scene_index: int, scene_count: int) -> str:
     return "confident resolution"
 
 
+def _post_scene_style_guard(style_preset: str | None) -> str:
+    style = (style_preset or "").strip().lower()
+    if style == "anime":
+        return "premium anime frame, crisp linework, stable face proportions, consistent cel shading"
+    if style == "cartoon":
+        return "premium stylized frame, clean outlines, stable shape language, controlled color palette"
+    if style == "comic":
+        return "graphic comic frame, bold ink separation, controlled contrast, stable character rendering"
+    return "premium cinematic frame, natural lens feel, grounded textures, stable facial identity"
+
+
+def _post_scene_motion_guard(*, scene_index: int, scene_count: int, dialogue_mode: bool = False) -> str:
+    if dialogue_mode:
+        return (
+            "subtle head and shoulder motion only, natural eye focus, visible mouth, no exaggerated gestures,"
+            " no body wobble"
+        )
+    ratio = float(scene_index + 1) / float(max(1, scene_count))
+    if ratio <= 0.25:
+        return "one clean camera move, grounded stance, readable silhouette, no frantic motion"
+    if ratio <= 0.75:
+        return "motivated body mechanics, planted feet, no floating limbs, no erratic camera swings"
+    return "controlled payoff motion, stable horizon, confident end pose, hold the finish cleanly"
+
+
+def _post_scene_environment_lock(
+    *,
+    story_summary: str,
+    scene_beat: str,
+    raw_visual_prompt: str,
+) -> str:
+    source = story_summary or scene_beat or raw_visual_prompt
+    return _trim_prompt_fragment(_normalize_post_line(source), 140) or "same world tone and location family"
+
+
+def _post_scene_character_bible(profile: str | None, continuity_anchor: str | None = None) -> str:
+    anchor_source = (continuity_anchor or "").strip() or (profile or "").strip()
+    anchor = _trim_prompt_fragment(_normalize_post_line(anchor_source), 170)
+    if not anchor:
+        anchor = "single recurring protagonist, same face, hair silhouette, body build, and wardrobe palette"
+    if "same face" not in anchor.lower():
+        anchor = f"{anchor}; same face, hair silhouette, body build, and wardrobe palette"
+    return anchor
+
+
 def _build_post_scene_prompt(
     *,
     raw_visual_prompt: str,
@@ -1761,6 +1813,7 @@ def _build_post_scene_prompt(
     dialogue_script: str | None = None,
     character_profile: str | None = None,
     character_lock_id: str | None = None,
+    continuity_anchor: str | None = None,
 ) -> str:
     metadata = _parse_post_prompt_metadata(raw_visual_prompt)
     story_title = metadata.get("title", "")
@@ -1777,9 +1830,7 @@ def _build_post_scene_prompt(
     )
 
     story_summary_source = story_concept or _strip_style_suffix(raw_visual_prompt)
-    story_summary = _normalize_post_line(story_summary_source)
-    if len(story_summary) > 260:
-        story_summary = story_summary[:257].rstrip() + "..."
+    story_summary = _trim_prompt_fragment(_normalize_post_line(story_summary_source), 220)
 
     scene_beat = _post_scene_beat_for_index(
         scene_beats=scene_beats,
@@ -1788,57 +1839,76 @@ def _build_post_scene_prompt(
     )
     style_hint = _style_hint(style_preset)
     dialogue_mode = _post_scene_has_dialogue(dialogue_script, raw_visual_prompt)
+    character_bible = _post_scene_character_bible(profile, continuity_anchor)
+    environment_lock = _post_scene_environment_lock(
+        story_summary=story_summary,
+        scene_beat=scene_beat,
+        raw_visual_prompt=raw_visual_prompt,
+    )
+    shot_design = _post_scene_camera_motion(
+        scene_index=scene_index,
+        scene_count=scene_count,
+        dialogue_mode=dialogue_mode,
+    )
+    motion_guard = _post_scene_motion_guard(
+        scene_index=scene_index,
+        scene_count=scene_count,
+        dialogue_mode=dialogue_mode,
+    )
+    pacing = _post_scene_intensity(scene_index=scene_index, scene_count=scene_count)
+    style_guard = _post_scene_style_guard(style_preset)
 
     pieces: list[str] = [
-        f"Scene {scene_index + 1} of {scene_count} for a vertical short-form video frame.",
+        f"Create Scene {scene_index + 1}/{scene_count} for a premium vertical short-form video.",
     ]
     if story_title:
-        pieces.append(f"Story title: {story_title}.")
+        pieces.append(f"Title: {_trim_prompt_fragment(story_title, 72)}.")
     if story_concept:
-        pieces.append(f"Core story premise: {story_concept}.")
-    if profile:
-        pieces.append(f"Main character profile (must stay identical): {profile}.")
+        pieces.append(f"Premise: {_trim_prompt_fragment(story_concept, 150)}.")
+    if character_bible:
+        pieces.append(f"Character bible: {character_bible}.")
     if character_lock_id:
         pieces.append(f"Character lock id: {character_lock_id}.")
-    pieces.append(f"Primary scene direction: {scene_beat}.")
-    pieces.append(
-        f"Camera direction: {_post_scene_camera_motion(scene_index=scene_index, scene_count=scene_count, dialogue_mode=dialogue_mode)}."
-    )
-    pieces.append(
-        f"Pacing target: {_post_scene_intensity(scene_index=scene_index, scene_count=scene_count)}."
-    )
+    pieces.append(f"Scene beat: {_trim_prompt_fragment(scene_beat, 160)}.")
+    pieces.append(f"Environment lock: {environment_lock}.")
+    pieces.append(f"Camera: {shot_design}.")
+    pieces.append(f"Motion discipline: {motion_guard}.")
+    pieces.append(f"Pacing: {pacing}.")
+    pieces.append(f"Style lock: {style_guard}.")
     if story_summary and scene_beat.lower() not in story_summary.lower():
-        pieces.append(f"Overall story context: {story_summary}.")
+        pieces.append(f"Story context: {story_summary}.")
     if style_hint:
         pieces.append(f"Visual style: {style_hint}.")
     elif story_visual_style:
-        pieces.append(f"Visual style: {story_visual_style}.")
+        pieces.append(f"Visual style: {_trim_prompt_fragment(story_visual_style, 90)}.")
     if scene_index == 0:
         pieces.append(
-            "Define the protagonist look clearly in this first scene so the same person can be reused exactly."
+            "Scene 1 must establish the protagonist look clearly enough to reuse exactly in every later shot."
         )
     else:
-        pieces.append("Match the protagonist from Scene 1 exactly, with no character swap.")
+        pieces.append("Match the protagonist from Scene 1 exactly with no face swap, age shift, or costume drift.")
     pieces.append(
-        "Continuity lock (critical): keep one single protagonist across all scenes with the exact same face,"
-        " hair color/style, age range, body type, outfit palette, and art style."
-        " Keep the setting family consistent unless this beat explicitly changes location."
-        " Do not switch character, gender, ethnicity, or era."
+        "Framing rule: keep one clear main human subject, protect the full head and face, keep extras background-only,"
+        " and leave clean negative space for captions."
     )
     pieces.append(
-        "Avoid unintended text artifacts, subtitles, logos, and watermarks unless the scene explicitly asks for visible text."
+        "Continuity lock (critical): identical protagonist across scenes; same face geometry, eyes, hair, outfit palette,"
+        " body build, and art style. No morphing anatomy, floating limbs, sliding feet, or identity drift."
+    )
+    pieces.append(
+        "Output safety: no unintended text, subtitle artifacts, logos, watermarks, broken UI text, or random letters."
     )
     dialogue_hint = _compact_dialogue_script(dialogue_script, max_chars=420)
     if dialogue_hint:
         pieces.append(
-            "Dialogue guidance (critical): speak these lines exactly and keep mouth/jaw movement tightly synced"
-            " to each word while preserving the same protagonist identity."
+            "Dialogue guidance (critical): speak these lines exactly, keep the mouth visible, keep lip-sync natural,"
+            " and preserve the same protagonist identity."
         )
         pieces.append(f"Dialogue lines:\n{dialogue_hint}")
     else:
         pieces.append(
-            "Shot policy: no talking-head close-up framing unless direct spoken dialogue is present."
-            " Prioritize medium/wide cinematic framing with action and environmental context."
+            "Shot policy: do not stage a talking-head speech shot unless the beat explicitly requires dialogue."
+            " Prioritize clean cinematic action and environmental storytelling."
         )
 
     composed = " ".join(piece.strip() for piece in pieces if piece.strip())
@@ -1964,7 +2034,7 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
-    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.56, min_value=0.4, max_value=1.0)
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.48, min_value=0.24, max_value=1.0)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
@@ -1974,10 +2044,10 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
     if style in {"none", "off", "disabled"}:
         return ""
 
-    # Labs now uses one premium default caption look instead of multiple presets:
-    # raised bottom-center placement, stronger contrast, and roomier margins.
-    font_size = _scaled_font(min(34, max(24, int(video_h * 0.018))), 16)
-    margin_v = max(132, int(video_h * 0.11))
+    # This is only the fallback style path. The generator now prefers explicit
+    # ASS subtitles so portrait captions can be centered safely.
+    font_size = _scaled_font(min(28, max(20, int(video_h * 0.015))), 14)
+    margin_v = max(92, int(video_h * 0.09))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
@@ -1985,42 +2055,103 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
     )
 
 
-def _format_srt_ts(seconds: float) -> str:
-    safe = max(0.0, float(seconds or 0.0))
-    total_ms = int(round(safe * 1000.0))
-    hh = total_ms // 3_600_000
-    mm = (total_ms % 3_600_000) // 60_000
-    ss = (total_ms % 60_000) // 1000
-    ms = total_ms % 1000
-    return f"{hh:02d}:{mm:02d}:{ss:02d},{ms:03d}"
+def _caption_int(value: Any, default: int, *, min_value: int, max_value: int) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = default
+    return max(min_value, min(max_value, parsed))
 
 
-def _build_word_caption_events(script: str, duration_seconds: float) -> list[dict[str, float | str]]:
+def _caption_float(value: Any, default: float, *, min_value: float, max_value: float) -> float:
+    try:
+        parsed = float(value)
+    except Exception:
+        parsed = default
+    return max(min_value, min(max_value, parsed))
+
+
+def _caption_render_settings(settings: dict[str, Any] | None) -> dict[str, float | int]:
+    raw = settings or {}
+    return {
+        "font_scale": _caption_float(raw.get("generated_caption_font_scale"), 0.32, min_value=0.24, max_value=1.2),
+        "y_ratio": _caption_float(raw.get("generated_caption_y"), 0.60, min_value=0.48, max_value=0.72),
+        "max_words": _caption_int(raw.get("generated_caption_max_words"), 3, min_value=1, max_value=3),
+        "max_chars": _caption_int(raw.get("generated_caption_max_chars"), 14, min_value=8, max_value=24),
+        "line_chars": _caption_int(raw.get("generated_caption_line_chars"), 10, min_value=8, max_value=18),
+    }
+
+
+def _wrap_caption_text(text: str, *, max_line_chars: int, newline_token: str = "\n", max_lines: int = 2) -> str:
+    words = [word for word in re.split(r"\s+", str(text or "").strip()) if word]
+    if not words:
+        return ""
+    if len(words) == 1:
+        return words[0]
+
+    joined = " ".join(words).strip()
+    best_lines = joined
+    best_score = float("inf")
+    for idx in range(1, len(words)):
+        left = " ".join(words[:idx]).strip()
+        right = " ".join(words[idx:]).strip()
+        if not left or not right:
+            continue
+        overflow = max(0, len(left) - max_line_chars) + max(0, len(right) - max_line_chars)
+        imbalance = abs(len(left) - len(right))
+        orphan_penalty = 4 if min(len(words[:idx]), len(words[idx:])) == 1 and len(words) >= 3 else 0
+        connector_penalty = 3 if words[idx - 1].lower().strip(",.:;!?") in {"and", "or", "but", "to", "of", "the", "a", "an"} else 0
+        score = float((overflow * 100) + imbalance + orphan_penalty + connector_penalty)
+        if score < best_score:
+            best_score = score
+            best_lines = f"{left}{newline_token}{right}"
+
+    if len(joined) <= max_line_chars and len(words) <= max_lines:
+        return joined
+    return best_lines
+
+
+def _build_word_caption_events(
+    script: str,
+    duration_seconds: float,
+    *,
+    max_words: int = 3,
+    max_chars: int = 14,
+    line_chars: int = 10,
+) -> list[dict[str, float | str]]:
     tokens = [tok.strip() for tok in re.findall(r"\S+", script or "") if tok.strip()]
     if not tokens:
         return []
     safe_duration = max(0.6, float(duration_seconds or 0.0))
+    safe_max_words = max(1, min(3, int(max_words or 3)))
+    safe_max_chars = max(8, min(24, int(max_chars or 14)))
+    safe_line_chars = max(8, min(18, int(line_chars or 10)))
     chunks: list[str] = []
     current: list[str] = []
-    for token in tokens:
+    for idx, token in enumerate(tokens):
         current.append(token)
         joined = " ".join(current).strip()
-        punctuation_break = token.endswith((".", "!", "?", ";", ":"))
+        next_token = tokens[idx + 1] if idx + 1 < len(tokens) else ""
+        punctuation_break = token.endswith((".", "!", "?"))
         soft_break = token.endswith(",") and len(current) >= 2
-        length_break = len(current) >= 4 or len(joined) >= 28
-        if punctuation_break or soft_break or length_break:
-            chunks.append(joined)
+        clause_break = token.endswith((";", ":")) and len(current) >= 1
+        length_break = len(current) >= safe_max_words or len(joined) >= safe_max_chars
+        preemptive_break = len(current) >= 2 and bool(next_token) and len(joined) >= max(8, safe_max_chars - 3)
+        if punctuation_break or soft_break or clause_break or length_break or preemptive_break:
+            chunks.append(_wrap_caption_text(joined, max_line_chars=safe_line_chars))
             current = []
     if current:
-        chunks.append(" ".join(current).strip())
+        chunks.append(_wrap_caption_text(" ".join(current).strip(), max_line_chars=safe_line_chars))
     if not chunks:
         return []
 
     weights: list[float] = []
     for chunk in chunks:
-        word_count = max(1, len(re.findall(r"\S+", chunk)))
-        punctuation_bonus = 0.28 if chunk.endswith((".", "!", "?", ";", ":")) else 0.12 if chunk.endswith(",") else 0.0
-        weights.append(float(word_count) + punctuation_bonus)
+        plain = chunk.replace("\n", " ").strip()
+        word_count = max(1, len(re.findall(r"\S+", plain)))
+        char_count = max(word_count, len(re.sub(r"\s+", "", plain)))
+        punctuation_bonus = 0.24 if plain.endswith((".", "!", "?", ";", ":")) else 0.10 if plain.endswith(",") else 0.0
+        weights.append(max(0.22, (word_count * 0.92) + (char_count * 0.045) + punctuation_bonus))
     total_weight = sum(weights) or float(len(chunks))
     events: list[dict[str, float | str]] = []
     cursor = 0.0
@@ -2037,11 +2168,64 @@ def _build_word_caption_events(script: str, duration_seconds: float) -> list[dic
     return events
 
 
-def _write_word_by_word_srt(events: list[dict[str, float | str]]) -> str:
-    fd, path = tempfile.mkstemp(prefix="cflabs-word-captions-", suffix=".srt")
+def _format_ass_ts(seconds: float) -> str:
+    safe = max(0.0, float(seconds or 0.0))
+    centiseconds = int(round(safe * 100.0))
+    hh = centiseconds // 360000
+    mm = (centiseconds % 360000) // 6000
+    ss = (centiseconds % 6000) // 100
+    cs = centiseconds % 100
+    return f"{hh}:{mm:02d}:{ss:02d}.{cs:02d}"
+
+
+def _ass_escape_text(value: str) -> str:
+    return (
+        str(value or "")
+        .replace("\\", r"\\")
+        .replace("{", "(")
+        .replace("}", ")")
+        .replace("\n", r"\N")
+    )
+
+
+def _write_word_by_word_ass(
+    events: list[dict[str, float | str]],
+    *,
+    video_w: int,
+    video_h: int,
+    font_scale: float,
+    y_ratio: float,
+) -> str:
+    fd, path = tempfile.mkstemp(prefix="cflabs-word-captions-", suffix=".ass")
     os.close(fd)
+    safe_w = max(320, int(video_w or 720))
+    safe_h = max(320, int(video_h or 1280))
+    base_font = min(int(round(safe_w * 0.055)), int(round(safe_h * 0.032)))
+    font_size = max(22, min(46, int(round(float(base_font) * (float(font_scale) / 0.32)))))
+    outline = max(2.8, min(5.8, round(font_size * 0.10, 2)))
+    margin_lr = max(26, int(round(safe_w * 0.10)))
+    pos_x = int(round(safe_w * 0.50))
+    pos_y = int(round(safe_h * max(0.48, min(0.72, float(y_ratio)))))
     with open(path, "w", encoding="utf-8") as f:
-        for idx, event in enumerate(events, start=1):
+        f.write("[Script Info]\n")
+        f.write("ScriptType: v4.00+\n")
+        f.write(f"PlayResX: {safe_w}\n")
+        f.write(f"PlayResY: {safe_h}\n")
+        f.write("ScaledBorderAndShadow: yes\n")
+        f.write("WrapStyle: 2\n")
+        f.write("\n[V4+ Styles]\n")
+        f.write(
+            "Format: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,"
+            "Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,"
+            "Alignment,MarginL,MarginR,MarginV,Encoding\n"
+        )
+        f.write(
+            f"Style: OrbitoRealtime,DejaVu Sans,{font_size},&H00FFFFFF,&H00FFFFFF,&H00101010,&H00000000,"
+            f"-1,0,0,0,100,100,0,0,1,{outline},0,5,{margin_lr},{margin_lr},0,1\n"
+        )
+        f.write("\n[Events]\n")
+        f.write("Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n")
+        for event in events:
             word = str(event.get("word") or "").strip()
             if not word:
                 continue
@@ -2049,9 +2233,12 @@ def _write_word_by_word_srt(events: list[dict[str, float | str]]) -> str:
             end = float(event.get("end") or 0.0)
             if end <= start:
                 end = start + 0.08
-            f.write(f"{idx}\n")
-            f.write(f"{_format_srt_ts(start)} --> {_format_srt_ts(end)}\n")
-            f.write(f"{word}\n\n")
+            text = _ass_escape_text(word)
+            f.write(
+                "Dialogue: 0,"
+                f"{_format_ass_ts(start)},{_format_ass_ts(end)},OrbitoRealtime,,0,0,0,,"
+                f"{{\\an5\\pos({pos_x},{pos_y})\\fad(40,70)\\blur0.8}}{text}\n"
+            )
     return path
 
 
@@ -2085,11 +2272,14 @@ def _apply_video_overlays(
     if subtitles_path:
         w, h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
         sub_path = _ff_path_escape(subtitles_path)
-        force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
-        # Pin libass to the real frame size so burned captions don't get oversized on portrait generator renders.
-        graph_parts.append(
-            f"[0:v]subtitles='{sub_path}':original_size={w}x{h}:force_style='{force_style}'[vsub]"
-        )
+        # Pin libass to the real frame size so portrait captions stay proportional.
+        if str(subtitles_path).lower().endswith(".ass"):
+            graph_parts.append(f"[0:v]subtitles='{sub_path}':original_size={w}x{h}[vsub]")
+        else:
+            force_style = _caption_force_style(caption_style_preset, h).replace("'", "\\'")
+            graph_parts.append(
+                f"[0:v]subtitles='{sub_path}':original_size={w}x{h}:force_style='{force_style}'[vsub]"
+            )
         label = "[vsub]"
     if watermark_enabled and logo_path:
         logo_label = "[wm]"
@@ -3597,17 +3787,18 @@ def _style_hint(style_preset: str | None) -> str:
 def _style_quality_directive(style_preset: str | None) -> str:
     style = (style_preset or "").strip().lower()
     base = (
-        "Quality lock: keep one consistent main character identity across frames; clean anatomy and hands; "
-        "stable face geometry; sharp subject focus; no unintended text, logos, watermarks, or subtitle artifacts. "
+        "Quality lock: keep one clear primary subject and one stable character identity across frames; "
+        "stable face geometry, eyes, hands, and body mechanics; grounded pose-to-pose motion; "
+        "clean head-to-toe framing with readable silhouette; no unintended text, logos, watermarks, or subtitle artifacts. "
         "Do not render readable in-scene typography, app UI labels, or branded logos inside the generated pixels."
     )
     if style == "anime":
-        return f"{base} Preserve anime line quality and avoid flicker between frames."
+        return f"{base} Preserve premium anime line quality, stable proportions, and avoid flicker or off-model drift between frames."
     if style == "cartoon":
-        return f"{base} Preserve clean outlines and stable color palette across shots."
+        return f"{base} Preserve clean outlines, stable proportions, and a controlled color palette across shots."
     if style == "comic":
-        return f"{base} Preserve inked contour consistency and controlled contrast."
-    return f"{base} Preserve realistic skin texture, lighting continuity, and natural motion."
+        return f"{base} Preserve inked contour consistency, controlled contrast, and readable panel-like composition."
+    return f"{base} Preserve realistic skin texture, lighting continuity, and natural human motion."
 
 
 def _compose_negative_prompt(user_negative: str, style_preset: str | None) -> str:
@@ -3633,6 +3824,26 @@ def _compose_negative_prompt(user_negative: str, style_preset: str | None) -> st
         "fake app interface text",
         "frame glitch",
         "flicker",
+        "character drift",
+        "identity swap",
+        "face morph",
+        "mutating face",
+        "asymmetrical eyes",
+        "warped jaw",
+        "cropped head",
+        "cut off face",
+        "floating limbs",
+        "sliding feet",
+        "rubber body",
+        "twisted torso",
+        "unstable pose",
+        "camera whip blur",
+        "erratic camera motion",
+        "crowded foreground people",
+        "duplicate protagonist",
+        "costume change",
+        "hair length change",
+        "eye color change",
     ]
     if style == "anime":
         defaults.extend(["off-model character", "line wobble", "muddy shading"])
@@ -3698,6 +3909,8 @@ def _process_job(job: dict) -> dict[str, Any]:
     negative_prompt = str(job.get("negative_prompt") or "").strip()
     model = str(job.get("model") or "").strip()
     settings = _parse_settings(str(job.get("settings_json") or "{}"))
+    generated_caption_settings = _caption_render_settings(settings)
+    continuity_anchor = str(settings.get("continuity_anchor") or "").strip()
     style_preset = str(settings.get("style_preset") or "").strip().lower()
     negative_prompt = _compose_negative_prompt(negative_prompt, style_preset)
     job_seed = _normalize_seed(settings.get("seed"))
@@ -4027,6 +4240,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             dialogue_script=raw_dialogue_script,
                             character_profile=character_profile,
                             character_lock_id=character_lock_id,
+                            continuity_anchor=continuity_anchor,
                         )
 
                         if use_google_provider:
@@ -4211,11 +4425,21 @@ def _process_job(job: dict) -> dict[str, Any]:
                     word_caption_events = _build_word_caption_events(
                         voice_script,
                         final_duration if final_duration > 0 else target_duration,
+                        max_words=int(generated_caption_settings["max_words"]),
+                        max_chars=int(generated_caption_settings["max_chars"]),
+                        line_chars=int(generated_caption_settings["line_chars"]),
                     )
 
                 subtitles_path: str | None = None
                 if captions_enabled and word_caption_events:
-                    subtitles_path = _write_word_by_word_srt(word_caption_events)
+                    video_w, video_h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+                    subtitles_path = _write_word_by_word_ass(
+                        word_caption_events,
+                        video_w=video_w,
+                        video_h=video_h,
+                        font_scale=float(generated_caption_settings["font_scale"]),
+                        y_ratio=float(generated_caption_settings["y_ratio"]),
+                    )
 
                 fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
                 os.close(fd_overlay)
@@ -4288,6 +4512,11 @@ def _process_job(job: dict) -> dict[str, Any]:
                     "generated_scene_media_type": "video",
                     "generated_voiceover_key": voice_key,
                     "generated_word_captions": word_caption_events,
+                    "generated_caption_font_scale": float(generated_caption_settings["font_scale"]),
+                    "generated_caption_y": float(generated_caption_settings["y_ratio"]),
+                    "generated_caption_max_words": int(generated_caption_settings["max_words"]),
+                    "generated_caption_max_chars": int(generated_caption_settings["max_chars"]),
+                    "generated_caption_line_chars": int(generated_caption_settings["line_chars"]),
                 }
                 return {
                     "storage_key": key,
@@ -4324,6 +4553,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         dialogue_script=raw_dialogue_script,
                         character_profile=character_profile,
                         character_lock_id=character_lock_id,
+                        continuity_anchor=continuity_anchor,
                     )
 
                     if use_google_provider:
@@ -4499,11 +4729,21 @@ def _process_job(job: dict) -> dict[str, Any]:
                 word_caption_events = _build_word_caption_events(
                     voice_script,
                     final_duration if final_duration > 0 else target_duration,
+                    max_words=int(generated_caption_settings["max_words"]),
+                    max_chars=int(generated_caption_settings["max_chars"]),
+                    line_chars=int(generated_caption_settings["line_chars"]),
                 )
 
             subtitles_path: str | None = None
             if captions_enabled and word_caption_events:
-                subtitles_path = _write_word_by_word_srt(word_caption_events)
+                video_w, video_h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+                subtitles_path = _write_word_by_word_ass(
+                    word_caption_events,
+                    video_w=video_w,
+                    video_h=video_h,
+                    font_scale=float(generated_caption_settings["font_scale"]),
+                    y_ratio=float(generated_caption_settings["y_ratio"]),
+                )
 
             fd_overlay, overlay_path = tempfile.mkstemp(prefix=f"cflabs-post-overlay-{job_id}-", suffix=".mp4")
             os.close(fd_overlay)
@@ -4570,6 +4810,11 @@ def _process_job(job: dict) -> dict[str, Any]:
                 "generated_scene_media_type": "image",
                 "generated_voiceover_key": voice_key,
                 "generated_word_captions": word_caption_events,
+                "generated_caption_font_scale": float(generated_caption_settings["font_scale"]),
+                "generated_caption_y": float(generated_caption_settings["y_ratio"]),
+                "generated_caption_max_words": int(generated_caption_settings["max_words"]),
+                "generated_caption_max_chars": int(generated_caption_settings["max_chars"]),
+                "generated_caption_line_chars": int(generated_caption_settings["line_chars"]),
             }
             return {
                 "storage_key": key,
@@ -4800,6 +5045,48 @@ def _process_job(job: dict) -> dict[str, Any]:
                 except Exception:
                     pass
 
+        word_caption_events: list[dict[str, float | str]] = []
+        if captions_enabled:
+            caption_script = dialogue_script if voice_mode == "dialogue" and dialogue_script else (prompt or "")
+            word_caption_events = _build_word_caption_events(
+                caption_script,
+                detected_duration if detected_duration > 0 else requested_duration,
+                max_words=int(generated_caption_settings["max_words"]),
+                max_chars=int(generated_caption_settings["max_chars"]),
+                line_chars=int(generated_caption_settings["line_chars"]),
+            )
+            if word_caption_events:
+                video_w, video_h = _clip_dimensions(aspect_ratio if aspect_ratio in {"9:16", "16:9", "1:1"} else "9:16")
+                subtitles_path = _write_word_by_word_ass(
+                    word_caption_events,
+                    video_w=video_w,
+                    video_h=video_h,
+                    font_scale=float(generated_caption_settings["font_scale"]),
+                    y_ratio=float(generated_caption_settings["y_ratio"]),
+                )
+                fd_caption, caption_path = tempfile.mkstemp(prefix=f"cflabs-video-captions-{job_id}-", suffix=".mp4")
+                os.close(fd_caption)
+                try:
+                    _apply_video_overlays(
+                        src_path=out_path,
+                        out_path=caption_path,
+                        watermark_enabled=False,
+                        subtitles_path=subtitles_path,
+                        caption_style_preset=str(settings.get("caption_style_preset") or "orbito").strip().lower(),
+                        aspect_ratio=aspect_ratio,
+                    )
+                    shutil.move(caption_path, out_path)
+                finally:
+                    if os.path.exists(caption_path):
+                        try:
+                            os.unlink(caption_path)
+                        except Exception:
+                            pass
+                    try:
+                        os.unlink(subtitles_path)
+                    except Exception:
+                        pass
+
         valid_video, detected_duration = _valid_video_file(
             out_path,
             reject_mostly_black=provider_generated and not used_fallback_renderer,
@@ -4828,7 +5115,14 @@ def _process_job(job: dict) -> dict[str, Any]:
                 aspect_ratio=aspect_ratio,
             ),
             "extra_clips": [],
-            "settings_patch": None,
+            "settings_patch": {
+                "generated_word_captions": word_caption_events,
+                "generated_caption_font_scale": float(generated_caption_settings["font_scale"]),
+                "generated_caption_y": float(generated_caption_settings["y_ratio"]),
+                "generated_caption_max_words": int(generated_caption_settings["max_words"]),
+                "generated_caption_max_chars": int(generated_caption_settings["max_chars"]),
+                "generated_caption_line_chars": int(generated_caption_settings["line_chars"]),
+            },
         }
     finally:
         try:

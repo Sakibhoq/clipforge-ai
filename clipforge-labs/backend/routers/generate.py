@@ -44,13 +44,13 @@ POST_DEFAULT_IMAGE_COUNT = 6
 PROMPT_MAX_CHARS = 3000
 POST_BASE_VOICE_WPM = 165
 POST_MAX_AUTO_VOICE_WPM = 210
-# Default generator caption placement is intentionally conservative so
-# portrait previews open cleanly without spilling off the frame edges.
-GENERATED_CAPTION_FONT_SCALE = 0.42
-GENERATED_CAPTION_Y = 0.66
+# Default generator captions are tuned for short 1-3 word beats that sit
+# around the optical center instead of stretching across the whole frame.
+GENERATED_CAPTION_FONT_SCALE = 0.32
+GENERATED_CAPTION_Y = 0.60
 GENERATED_CAPTION_MAX_WORDS = 3
-GENERATED_CAPTION_MAX_CHARS = 18
-GENERATED_CAPTION_LINE_CHARS = 14
+GENERATED_CAPTION_MAX_CHARS = 14
+GENERATED_CAPTION_LINE_CHARS = 10
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
 FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
@@ -813,7 +813,8 @@ def _build_visual_prompt_pack(*, idea: str, style_preset: str | None, aspect_rat
             )
             lines.append(
                 f"{start}-{end}s: {beat} Camera: {camera}. Lighting: {lighting}. "
-                "Continuity lock: same protagonist identity, same wardrobe palette, same environment family."
+                "Continuity lock: same protagonist identity, same wardrobe palette, same environment family, "
+                "one main hero per shot, stable anatomy, and clean readable framing."
             )
         return "\n".join(lines).strip()
 
@@ -1086,7 +1087,9 @@ def _build_prompt_helper_analysis(*, idea: str, style_preset: str | None, durati
         "continuity_anchor": _character_anchor(subject, trait_display),
         "hook_focus": f"Open on {subject} quickly and reveal {trait_display} within the first 3 seconds.",
         "quality_guardrails": [
-            "Keep one protagonist identity across all scenes (no character swaps).",
+            "Keep one protagonist identity across all scenes with the same face, hair, and wardrobe.",
+            "Keep one clear main subject per shot; background extras stay secondary and unobtrusive.",
+            "Avoid morphing anatomy, erratic body motion, sliding feet, and unstable framing.",
             "Avoid random text, logos, subtitle artifacts, and watermark artifacts.",
             "Maintain consistent lighting direction and environment family.",
             "Use clean subject framing so captions and platform UI remain readable.",

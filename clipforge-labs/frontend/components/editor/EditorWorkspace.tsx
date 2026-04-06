@@ -151,11 +151,11 @@ type TextOverlayPayload = {
 
 const PROJECT_STORAGE_KEY = "clipforge-editor-project-v3";
 const PROJECT_SERVER_ID_STORAGE_KEY = "clipforge-editor-project-cloud-id-v1";
-const GENERATED_CAPTION_FONT_SCALE = 0.42;
-const GENERATED_CAPTION_Y = 0.66;
+const GENERATED_CAPTION_FONT_SCALE = 0.32;
+const GENERATED_CAPTION_Y = 0.6;
 const GENERATED_CAPTION_MAX_WORDS = 3;
-const GENERATED_CAPTION_MAX_CHARS = 18;
-const GENERATED_CAPTION_LINE_CHARS = 14;
+const GENERATED_CAPTION_MAX_CHARS = 14;
+const GENERATED_CAPTION_LINE_CHARS = 10;
 
 const EXPORT_PROFILES: Array<{
   id: string;
@@ -276,25 +276,32 @@ function wrapCaptionText(text: string, maxLineChars = GENERATED_CAPTION_LINE_CHA
     .split(/\s+/)
     .filter(Boolean);
   if (!words.length) return "";
+  if (words.length === 1) return words[0] || "";
 
-  const lines: string[] = [];
-  let current: string[] = [];
-  for (const word of words) {
-    const next = [...current, word].join(" ").trim();
-    if (current.length > 0 && next.length > maxLineChars && lines.length < maxLines - 1) {
-      lines.push(current.join(" ").trim());
-      current = [word];
-      continue;
+  const joined = words.join(" ").trim();
+  let best = joined;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let idx = 1; idx < words.length; idx += 1) {
+    const left = words.slice(0, idx).join(" ").trim();
+    const right = words.slice(idx).join(" ").trim();
+    if (!left || !right) continue;
+    const overflow = Math.max(0, left.length - maxLineChars) + Math.max(0, right.length - maxLineChars);
+    const imbalance = Math.abs(left.length - right.length);
+    const orphanPenalty = Math.min(idx, words.length - idx) === 1 && words.length >= 3 ? 4 : 0;
+    const connectorPenalty = ["and", "or", "but", "to", "of", "the", "a", "an"].includes(
+      words[idx - 1]?.toLowerCase().replace(/[.,!?;:]+$/g, "") || ""
+    )
+      ? 3
+      : 0;
+    const score = overflow * 100 + imbalance + orphanPenalty + connectorPenalty;
+    if (score < bestScore) {
+      bestScore = score;
+      best = `${left}\n${right}`;
     }
-    current.push(word);
   }
-  if (current.length > 0) lines.push(current.join(" ").trim());
-  if (lines.length <= 1) return lines[0] || "";
-  if (lines.length > maxLines) {
-    const merged = lines.slice(maxLines - 1).join(" ").trim();
-    return [...lines.slice(0, maxLines - 1), merged].join("\n");
-  }
-  return lines.join("\n");
+
+  if (joined.length <= maxLineChars && words.length <= maxLines) return joined;
+  return best;
 }
 
 function buildWordEventsFromScript(
@@ -312,19 +319,23 @@ function buildWordEventsFromScript(
     .filter(Boolean);
   if (!words.length) return [];
 
-  const maxWords = Math.max(2, Number(options?.maxWords ?? GENERATED_CAPTION_MAX_WORDS));
-  const maxChars = Math.max(12, Number(options?.maxChars ?? GENERATED_CAPTION_MAX_CHARS));
-  const lineChars = Math.max(10, Number(options?.lineChars ?? GENERATED_CAPTION_LINE_CHARS));
+  const maxWords = Math.max(1, Math.min(3, Number(options?.maxWords ?? GENERATED_CAPTION_MAX_WORDS)));
+  const maxChars = Math.max(8, Math.min(24, Number(options?.maxChars ?? GENERATED_CAPTION_MAX_CHARS)));
+  const lineChars = Math.max(8, Math.min(18, Number(options?.lineChars ?? GENERATED_CAPTION_LINE_CHARS)));
 
   const chunks: string[] = [];
   let current: string[] = [];
-  for (const word of words) {
+  for (let idx = 0; idx < words.length; idx += 1) {
+    const word = words[idx] || "";
     current.push(word);
     const joined = current.join(" ").trim();
+    const nextWord = words[idx + 1] || "";
     const punctuationBreak = /[.!?;:]$/.test(word);
     const softBreak = /,$/.test(word) && current.length >= 2;
+    const clauseBreak = /[;:]$/.test(word);
     const lengthBreak = current.length >= maxWords || joined.length >= maxChars;
-    if (punctuationBreak || softBreak || lengthBreak) {
+    const preemptiveBreak = current.length >= 2 && Boolean(nextWord) && joined.length >= Math.max(8, maxChars - 3);
+    if (punctuationBreak || softBreak || clauseBreak || lengthBreak || preemptiveBreak) {
       chunks.push(wrapCaptionText(joined, lineChars));
       current = [];
     }
@@ -338,8 +349,9 @@ function buildWordEventsFromScript(
   const weights = chunks.map((chunk) => {
     const plain = chunk.replace(/\n/g, " ").trim();
     const wordCount = Math.max(1, plain.split(/\s+/).filter(Boolean).length);
-    const punctuationBonus = /[.!?;:]$/.test(plain) ? 0.28 : /,$/.test(plain) ? 0.12 : 0;
-    return wordCount + punctuationBonus;
+    const charCount = Math.max(wordCount, plain.replace(/\s+/g, "").length);
+    const punctuationBonus = /[.!?;:]$/.test(plain) ? 0.24 : /,$/.test(plain) ? 0.1 : 0;
+    return Math.max(0.22, wordCount * 0.92 + charCount * 0.045 + punctuationBonus);
   });
   const totalWeight = weights.reduce((sum, value) => sum + value, 0) || chunks.length;
   let cursor = 0;
@@ -358,7 +370,7 @@ function buildWordEventsFromScript(
 
 function normalizeWordEvents(raw: unknown, lineChars = GENERATED_CAPTION_LINE_CHARS): WordCaptionEvent[] {
   if (!Array.isArray(raw)) return [];
-  const safeLineChars = Math.max(10, Number(lineChars || GENERATED_CAPTION_LINE_CHARS));
+  const safeLineChars = Math.max(8, Math.min(18, Number(lineChars || GENERATED_CAPTION_LINE_CHARS)));
   const out: WordCaptionEvent[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
@@ -379,7 +391,7 @@ function captionItemsFromWordEvents(
     y?: number;
   }
 ): TimelineItem[] {
-  const fontScale = clamp(Number(options?.fontScale ?? GENERATED_CAPTION_FONT_SCALE), 0.38, 1.8);
+  const fontScale = clamp(Number(options?.fontScale ?? GENERATED_CAPTION_FONT_SCALE), 0.24, 1.8);
   const y = clamp(Number(options?.y ?? GENERATED_CAPTION_Y), 0.08, 0.92);
   return events.map((event) => ({
     id: newId(),
@@ -1389,8 +1401,8 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           start: Number((overlapStart - Number(target.start || 0)).toFixed(3)),
           end: Number((overlapEnd - Number(target.start || 0)).toFixed(3)),
           x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
-          y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
-          font_scale: clamp(Number(caption.fontScale ?? 1), 0.38, 1.8),
+          y: clamp(Number(caption.y ?? GENERATED_CAPTION_Y), 0.08, 0.92),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.24, 1.8),
         };
       })
       .filter(Boolean)
@@ -1549,8 +1561,8 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
           start: Math.max(0, Number(caption.start || 0)),
           end: Math.max(0, Number(caption.start || 0) + Number(caption.duration || 0)),
           x: clamp(Number(caption.x ?? 0.5), 0.08, 0.92),
-          y: clamp(Number(caption.y ?? 0.82), 0.08, 0.92),
-          font_scale: clamp(Number(caption.fontScale ?? 1), 0.38, 1.8),
+          y: clamp(Number(caption.y ?? GENERATED_CAPTION_Y), 0.08, 0.92),
+          font_scale: clamp(Number(caption.fontScale ?? 1), 0.24, 1.8),
         };
       })
       .filter(Boolean);
@@ -2687,11 +2699,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                         )}
                         style={{
                           left: `${clamp(Number(activeCaption.x ?? 0.5), 0.08, 0.92) * 100}%`,
-                          top: `${clamp(Number(activeCaption.y ?? 0.82), 0.08, 0.92) * 100}%`,
+                          top: `${clamp(Number(activeCaption.y ?? GENERATED_CAPTION_Y), 0.08, 0.92) * 100}%`,
                           transform: "translate(-50%, -50%)",
-                          maxWidth: "68%",
-                          fontSize: `${Math.round(18 * clamp(Number(activeCaption.fontScale ?? 1), 0.38, 1.8))}px`,
-                          lineHeight: 1.08,
+                          maxWidth: "58%",
+                          fontSize: `${Math.round(16 * clamp(Number(activeCaption.fontScale ?? 1), 0.24, 1.8))}px`,
+                          lineHeight: 1.04,
                           whiteSpace: "pre-wrap",
                           overflowWrap: "anywhere",
                         }}
@@ -3051,14 +3063,14 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                         />
                       </label>
                       <label className={cx("flex items-center justify-between gap-2 border border-transparent px-2.5 py-1 text-[11px] text-white/72 lg:col-span-2", surfaceInsetClass)}>
-                        <span>Y {formatPercent(Number(selectedItem.y ?? 0.82))}</span>
+                        <span>Y {formatPercent(Number(selectedItem.y ?? GENERATED_CAPTION_Y))}</span>
                         <input
                           type="range"
                           min={0.08}
                           max={0.92}
                           step={0.01}
-                          value={clamp(Number(selectedItem.y ?? 0.82), 0.08, 0.92)}
-                          onChange={(event) => updateSelected({ y: clamp(Number(event.target.value || 0.82), 0.08, 0.92) })}
+                          value={clamp(Number(selectedItem.y ?? GENERATED_CAPTION_Y), 0.08, 0.92)}
+                          onChange={(event) => updateSelected({ y: clamp(Number(event.target.value || GENERATED_CAPTION_Y), 0.08, 0.92) })}
                           className="w-24 accent-white"
                         />
                       </label>
@@ -3066,11 +3078,11 @@ export default function EditorWorkspace({ mode = "page", onClose, initialClipId 
                         <span>Size {Number(selectedItem.fontScale ?? 1).toFixed(2)}x</span>
                         <input
                           type="range"
-                          min={0.38}
+                          min={0.24}
                           max={1.8}
                           step={0.05}
-                          value={clamp(Number(selectedItem.fontScale ?? 1), 0.38, 1.8)}
-                          onChange={(event) => updateSelected({ fontScale: clamp(Number(event.target.value || 1), 0.38, 1.8) })}
+                          value={clamp(Number(selectedItem.fontScale ?? 1), 0.24, 1.8)}
+                          onChange={(event) => updateSelected({ fontScale: clamp(Number(event.target.value || 1), 0.24, 1.8) })}
                           className="w-20 accent-white"
                         />
                       </label>
