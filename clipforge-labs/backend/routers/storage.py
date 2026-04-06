@@ -9,6 +9,7 @@ import urllib.parse
 import json
 import time
 import shutil
+import mimetypes
 from typing import Optional, Dict
 
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File, Form
@@ -525,4 +526,5 @@ def local_get(
     headers = {}
     if response_content_disposition:
         headers["Content-Disposition"] = response_content_disposition
-    return FileResponse(path, media_type="video/mp4", headers=headers)
+    media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type, headers=headers)

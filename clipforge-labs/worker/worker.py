@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import math
+import mimetypes
 import os
 import re
 import shutil
@@ -295,6 +296,59 @@ def _delete_uploaded_key(key: str) -> None:
         pass
     except Exception:
         pass
+
+
+def _download_uploaded_key_bytes(key: str) -> bytes:
+    safe_key = (key or "").strip()
+    if not safe_key:
+        raise RuntimeError("Reference image key is required")
+
+    backend = _storage_backend()
+    if _uses_object_storage_backend(backend):
+        bucket = _env("S3_BUCKET", "")
+        if not bucket:
+            raise RuntimeError("S3_BUCKET is required when STORAGE_BACKEND=s3/gcs")
+        s3 = _s3_client()
+        obj = s3.get_object(Bucket=bucket, Key=safe_key)
+        payload = obj["Body"].read()
+        if not payload:
+            raise RuntimeError("Reference image payload is empty")
+        return payload
+
+    path = os.path.join(_local_storage_path(), safe_key)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Reference image key not found: {safe_key}")
+    with open(path, "rb") as f:
+        payload = f.read()
+    if not payload:
+        raise RuntimeError("Reference image payload is empty")
+    return payload
+
+
+def _reference_image_content_type(payload: bytes, key: str | None = None) -> str:
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if payload.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    guessed = (mimetypes.guess_type(str(key or ""))[0] or "").strip().lower()
+    if guessed in {"image/png", "image/jpeg"}:
+        return guessed
+    raise RuntimeError("Reference image must be a PNG or JPEG")
+
+
+def _reference_image_payload_from_key(key: str | None) -> list[dict[str, str]] | None:
+    safe_key = (key or "").strip()
+    if not safe_key:
+        return None
+    payload = _download_uploaded_key_bytes(safe_key)
+    mime_type = _reference_image_content_type(payload, safe_key)
+    return [
+        {
+            "bytesBase64Encoded": base64.b64encode(payload).decode("ascii"),
+            "mimeType": mime_type,
+            "referenceType": "asset",
+        }
+    ]
 
 
 def _extension_for_content_type(content_type: str, default_ext: str) -> str:
@@ -901,6 +955,7 @@ def _run_google_vertex_video_generation(
     generation_speed: str | None = None,
     style_preset: str | None = None,
     seed: int | None = None,
+    reference_images: list[dict[str, str]] | None = None,
     _allow_model_fallback: bool = True,
     _provision_retry_count: int = 0,
     _disable_storage_uri: bool = False,
@@ -954,8 +1009,21 @@ def _run_google_vertex_video_generation(
     if output_storage_uri:
         params["storageUri"] = output_storage_uri
 
+    instance: dict[str, Any] = {"prompt": (prompt or "").strip()[:1200]}
+    if reference_images:
+        instance["referenceImages"] = [
+            {
+                "image": {
+                    "bytesBase64Encoded": str(item.get("bytesBase64Encoded") or ""),
+                    "mimeType": str(item.get("mimeType") or "image/png"),
+                },
+                "referenceType": str(item.get("referenceType") or "asset"),
+            }
+            for item in reference_images
+            if str(item.get("bytesBase64Encoded") or "").strip()
+        ]
     payload = {
-        "instances": [{"prompt": (prompt or "").strip()[:1200]}],
+        "instances": [instance],
         "parameters": params,
     }
     try:
@@ -1042,6 +1110,7 @@ def _run_google_vertex_video_generation(
                     generation_speed=generation_speed,
                     style_preset=style_preset,
                     seed=seed,
+                    reference_images=reference_images,
                     _allow_model_fallback=_allow_model_fallback,
                     _provision_retry_count=next_attempt,
                     _disable_storage_uri=_disable_storage_uri,
@@ -1064,6 +1133,7 @@ def _run_google_vertex_video_generation(
                 generation_speed=generation_speed,
                 style_preset=style_preset,
                 seed=seed,
+                reference_images=reference_images,
                 _allow_model_fallback=_allow_model_fallback,
                 _provision_retry_count=_provision_retry_count,
                 _disable_storage_uri=True,
@@ -1088,6 +1158,7 @@ def _run_google_vertex_video_generation(
                     generation_speed=generation_speed,
                     style_preset=style_preset,
                     seed=seed,
+                    reference_images=reference_images,
                     _allow_model_fallback=_allow_model_fallback,
                     _provision_retry_count=_provision_retry_count,
                     _disable_storage_uri=_disable_storage_uri,
@@ -1113,6 +1184,7 @@ def _run_google_vertex_video_generation(
                 generation_speed=generation_speed,
                 style_preset="real",
                 seed=seed,
+                reference_images=reference_images,
                 _allow_model_fallback=False,
                 _provision_retry_count=_provision_retry_count,
                 _disable_storage_uri=_disable_storage_uri,
@@ -3912,6 +3984,8 @@ def _process_job(job: dict) -> dict[str, Any]:
     generated_caption_settings = _caption_render_settings(settings)
     continuity_anchor = str(settings.get("continuity_anchor") or "").strip()
     style_preset = str(settings.get("style_preset") or "").strip().lower()
+    reference_image_key = str(settings.get("input_image_key") or "").strip()
+    reference_image_payloads = _reference_image_payload_from_key(reference_image_key)
     negative_prompt = _compose_negative_prompt(negative_prompt, style_preset)
     job_seed = _normalize_seed(settings.get("seed"))
     watermark_enabled = bool(settings.get("watermark_enabled", bool(job.get("watermark_enabled", True))))
@@ -3934,6 +4008,11 @@ def _process_job(job: dict) -> dict[str, Any]:
     if use_google_provider:
         allow_image_fallback = False
         allow_voice_fallback = False
+        allow_post_fallback = False
+        allow_video_fallback = False
+    if reference_image_payloads:
+        # A reference-guided job should never silently degrade into a fake local
+        # placeholder or a prompt-only fallback without the user choosing that.
         allow_post_fallback = False
         allow_video_fallback = False
 
@@ -4261,6 +4340,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                                     generation_speed="relax",
                                                 ),
                                                 "seed": post_seed,
+                                                "reference_images": reference_image_payloads,
                                                 "settings": {
                                                     **settings,
                                                     "scene_index": idx + 1,
@@ -4282,6 +4362,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                                             generation_speed="relax",
                                             style_preset=style_preset,
                                             seed=post_seed,
+                                            reference_images=reference_image_payloads,
                                         )
                                     _write_bytes(scene_path, media_bytes)
                                     break
@@ -4873,6 +4954,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                             "model": model or "google",
                             "provider_model_id": video_model_id,
                             "seed": job_seed,
+                            "reference_images": reference_image_payloads,
                             "settings": settings,
                             "kind": JOB_KIND_VIDEO,
                         },
@@ -4886,6 +4968,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                         generation_speed=generation_speed,
                         style_preset=style_preset,
                         seed=job_seed,
+                        reference_images=reference_image_payloads,
                     )
                 _write_bytes(out_path, media_bytes)
                 provider_generated = True

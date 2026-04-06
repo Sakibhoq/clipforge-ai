@@ -1,4 +1,5 @@
 import uuid
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -159,6 +160,25 @@ def test_video_voiceover_charges_extra_for_studio_voice(db):
         session_studio.close()
 
     assert int(studio.credits_reserved or 0) > int(neural.credits_reserved or 0)
+
+
+def test_video_generation_persists_reference_image_key(db):
+    user_id = _mk_user(db, plan="creator", credits=100)
+    current_user = SimpleNamespace(id=user_id)
+
+    payload = GenerateVideoRequest(
+        prompt="A polished creator walks into frame and speaks directly to camera.",
+        aspect_ratio="9:16",
+        duration_seconds=6,
+        generation_speed="relax",
+        input_image_key=f"users/{user_id}/reference-images/hero.jpg",
+    )
+
+    res = create_video_generation(payload=payload, db=db, current_user=current_user)
+    job = db.query(Job).filter(Job.id == int(res.job_id)).first()
+    assert job is not None
+    settings = json.loads(job.caption_style_json or "{}")
+    assert settings.get("input_image_key") == f"users/{user_id}/reference-images/hero.jpg"
 
 
 def test_voiceover_studio_voice_costs_more_than_neural2(db):

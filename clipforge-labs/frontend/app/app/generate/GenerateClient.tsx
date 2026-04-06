@@ -23,6 +23,14 @@ type GenerateResponse = {
   text_length?: number | null;
 };
 
+type ReferenceImageAsset = {
+  upload_id: number;
+  storage_key: string;
+  original_filename: string;
+  content_type: string;
+  preview_url: string;
+};
+
 type VoicePreviewResponse = {
   voice_name: string;
   content_type: string;
@@ -86,6 +94,7 @@ type JobSettings = {
   continuation_job_id?: number;
   reference_job_id?: number;
   continuity_anchor?: string;
+  input_image_key?: string;
 };
 
 type GenerateDraft = {
@@ -110,6 +119,8 @@ type GenerateDraft = {
   videoVoiceMode?: "narration" | "dialogue";
   continuationJobId?: number | null;
   referenceJobId?: number | null;
+  referenceImageKey?: string | null;
+  referenceImageName?: string | null;
 };
 
 const CREDIT_USD_VALUE = 0.10;
@@ -144,7 +155,7 @@ const POST_VISUAL_PROMPT_MAX_CHARS = 3000;
 const POST_VOICE_SCRIPT_MAX_CHARS = 12000;
 const VOICEOVER_SCRIPT_MAX_CHARS = 6000;
 const LOW_COST_STYLES = new Set<StylePreset>(["anime", "cartoon", "comic"]);
-const GENERATOR_DRAFT_STORAGE_KEY = "clipforge-labs-generate-draft-v4";
+const GENERATOR_DRAFT_STORAGE_KEY = "clipforge-labs-generate-draft-v5";
 const VOICE_SPEED_OPTIONS = [
   { value: 0.5, label: "0.5x" },
   { value: 0.75, label: "0.75x" },
@@ -609,6 +620,9 @@ export default function GenerateClient() {
   const [videoVoiceMode, setVideoVoiceMode] = useState<"narration" | "dialogue">("narration");
   const [continuationJobId, setContinuationJobId] = useState<number | null>(null);
   const [referenceJobId, setReferenceJobId] = useState<number | null>(null);
+  const [referenceImage, setReferenceImage] = useState<ReferenceImageAsset | null>(null);
+  const [referenceImageUploading, setReferenceImageUploading] = useState(false);
+  const [referenceImageError, setReferenceImageError] = useState<string | null>(null);
   const [currentPlan, setCurrentPlan] = useState("free");
 
   const [submitting, setSubmitting] = useState(false);
@@ -626,6 +640,7 @@ export default function GenerateClient() {
   const hydratedFromQuery = useRef(false);
   const hydratedFromDraft = useRef(false);
   const voicePreviewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const referenceImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const textLength = useMemo(() => prompt.trim().length, [prompt]);
   const postVisualLength = useMemo(() => postVisualPrompt.trim().length, [postVisualPrompt]);
@@ -722,6 +737,69 @@ export default function GenerateClient() {
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 12000;
   }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
+  const referenceImageActive = mode === "video" || (mode === "post" && postVisualMode === "video");
+
+  async function hydrateReferenceImageFromKey(storageKey: string, fallbackName?: string | null) {
+    const safeKey = String(storageKey || "").trim();
+    if (!safeKey) {
+      setReferenceImage(null);
+      return;
+    }
+    try {
+      const asset = await apiFetch<ReferenceImageAsset>(`/labs/reference-image?storage_key=${encodeURIComponent(safeKey)}`, {
+        method: "GET",
+      });
+      setReferenceImage(asset);
+      setReferenceImageError(null);
+    } catch {
+      setReferenceImage((prev) =>
+        prev && prev.storage_key === safeKey
+          ? prev
+          : {
+              upload_id: 0,
+              storage_key: safeKey,
+              original_filename: String(fallbackName || "Reference image"),
+              content_type: "image/png",
+              preview_url: "",
+            }
+      );
+    }
+  }
+
+  async function uploadReferenceImage(file: File) {
+    if (!file) return;
+    const mime = String(file.type || "").toLowerCase();
+    if (!["image/png", "image/jpeg"].includes(mime)) {
+      setReferenceImageError("Use a PNG or JPEG reference image.");
+      return;
+    }
+    setReferenceImageUploading(true);
+    setReferenceImageError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const asset = await apiFetch<ReferenceImageAsset>("/labs/reference-image", {
+        method: "POST",
+        body: form,
+      });
+      setReferenceImage(asset);
+    } catch (err: any) {
+      setReferenceImageError(String(err?.detail || err?.message || "Could not upload reference image."));
+    } finally {
+      setReferenceImageUploading(false);
+      if (referenceImageInputRef.current) {
+        referenceImageInputRef.current.value = "";
+      }
+    }
+  }
+
+  function clearReferenceImage() {
+    setReferenceImage(null);
+    setReferenceImageError(null);
+    if (referenceImageInputRef.current) {
+      referenceImageInputRef.current.value = "";
+    }
+  }
 
   useEffect(() => {
     if (!postDurationOptions.includes(postDurationSeconds)) {
@@ -764,6 +842,11 @@ export default function GenerateClient() {
       setWatermarkEnabled(settings.watermark_enabled);
     }
     setReferenceJobId(Number.isFinite(Number(settings.reference_job_id)) ? Number(settings.reference_job_id) : null);
+    if (typeof settings.input_image_key === "string" && settings.input_image_key.trim()) {
+      void hydrateReferenceImageFromKey(settings.input_image_key);
+    } else {
+      setReferenceImage(null);
+    }
 
     if (kind === "generate_post") {
       setMode("post");
@@ -1133,6 +1216,9 @@ export default function GenerateClient() {
       if (Number.isFinite(Number(draft.referenceJobId))) {
         setReferenceJobId(Number(draft.referenceJobId));
       }
+      if (typeof draft.referenceImageKey === "string" && draft.referenceImageKey.trim()) {
+        void hydrateReferenceImageFromKey(draft.referenceImageKey, draft.referenceImageName);
+      }
     } catch {
       // ignore invalid saved drafts
     }
@@ -1162,6 +1248,8 @@ export default function GenerateClient() {
       videoVoiceMode,
       continuationJobId,
       referenceJobId,
+      referenceImageKey: referenceImage?.storage_key || null,
+      referenceImageName: referenceImage?.original_filename || null,
     };
     window.localStorage.setItem(GENERATOR_DRAFT_STORAGE_KEY, JSON.stringify(payload));
   }, [
@@ -1177,6 +1265,7 @@ export default function GenerateClient() {
     postVisualPrompt,
     postVoiceScript,
     prompt,
+    referenceImage,
     referenceJobId,
     stylePreset,
     videoDialogueScript,
@@ -1333,6 +1422,7 @@ export default function GenerateClient() {
           caption_style_preset: postCaptionsEnabled ? "orbito" : "none",
           captions_enabled: postCaptionsEnabled,
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
+          input_image_key: postVisualMode === "video" ? referenceImage?.storage_key || undefined : undefined,
           continuation_job_id: continuationJobId || undefined,
           reference_job_id: referenceJobId || undefined,
         };
@@ -1366,6 +1456,7 @@ export default function GenerateClient() {
           watermark_enabled: freeTrialWatermarkLocked ? true : watermarkEnabled,
           voice_name: videoVoiceEnabled ? voiceName : undefined,
           voice_mode: videoVoiceEnabled ? videoVoiceMode : undefined,
+          input_image_key: referenceImage?.storage_key || undefined,
           continuation_job_id: continuationJobId || undefined,
           reference_job_id: referenceJobId || undefined,
         };
@@ -2023,6 +2114,84 @@ export default function GenerateClient() {
                         {freeTrialWatermarkLocked ? " • required on Free Trial" : ""}
                       </span>
                     </label>
+                  ) : null}
+
+                  {(mode === "post" || mode === "video") ? (
+                    <div className={cx("grid gap-3 p-3", generatorInsetClass)}>
+                      <input
+                        ref={referenceImageInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void uploadReferenceImage(file);
+                        }}
+                      />
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-medium text-white/78">Character reference image</div>
+                          <div className="mt-1 text-[11px] text-white/56">
+                            Upload one clean PNG or JPG of the main character. Orbito now sends it to Veo as a real reference image for stronger identity consistency.
+                          </div>
+                        </div>
+                        <span className={cx("rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]", referenceImageActive ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/50")}>
+                          {referenceImageActive ? "Live" : "Video only"}
+                        </span>
+                      </div>
+
+                      {referenceImage ? (
+                        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                          <div className="h-16 w-16 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                            {referenceImage.preview_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={referenceImage.preview_url} alt={referenceImage.original_filename} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[10px] text-white/45">Image</div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-xs font-semibold text-white/88">{referenceImage.original_filename}</div>
+                            <div className="mt-1 text-[11px] text-white/55">
+                              {referenceImageActive
+                                ? "This image will guide character identity in the next Veo generation."
+                                : "Reference images are currently used for video clips and video AI posts."}
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => referenceImageInputRef.current?.click()}
+                          className={cx(
+                            "rounded-xl border px-3 py-2 text-[11px] font-semibold transition",
+                            referenceImageUploading
+                              ? "cursor-not-allowed border-white/10 bg-white/[0.06] text-white/45"
+                              : "border-white/12 bg-[#09111c]/72 text-white/78 hover:bg-white/[0.06]"
+                          )}
+                        >
+                          {referenceImageUploading ? "Uploading..." : referenceImage ? "Replace image" : "Upload image"}
+                        </button>
+                        {referenceImage ? (
+                          <button
+                            type="button"
+                            onClick={clearReferenceImage}
+                            className="rounded-xl border border-white/10 bg-[#09111c]/72 px-3 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.06]"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {!referenceImageActive ? (
+                        <div className={cx("text-[11px]", generatorWarningCardClass)}>
+                          Switch AI Post to <span className="font-semibold text-amber-50">Video post</span> or use <span className="font-semibold text-amber-50">Video</span> mode to activate true reference-image guidance.
+                        </div>
+                      ) : null}
+                      {referenceImageError ? <div className="text-[11px] text-rose-100/90">{referenceImageError}</div> : null}
+                    </div>
                   ) : null}
 
                   {mode === "post" ? (

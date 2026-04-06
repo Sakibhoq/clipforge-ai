@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import math
 import os
@@ -9,7 +10,7 @@ import time
 import uuid
 from typing import Callable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, Query, UploadFile
 from pydantic import BaseModel, Field
 import requests
 from sqlalchemy import func
@@ -19,6 +20,7 @@ from core.database import get_db
 from models.job import Job
 from models.upload import Upload
 from models.user import User
+from storage import get_storage
 from routers.auth import (
     adjust_orbito_entitlements,
     get_current_user,
@@ -51,6 +53,8 @@ GENERATED_CAPTION_Y = 0.60
 GENERATED_CAPTION_MAX_WORDS = 3
 GENERATED_CAPTION_MAX_CHARS = 14
 GENERATED_CAPTION_LINE_CHARS = 10
+REFERENCE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+ALLOWED_REFERENCE_IMAGE_TYPES = {"image/jpeg", "image/png"}
 DEFAULT_TTS_VOICE = "en-US-Neural2-H"
 FALLBACK_TTS_VOICE = "en-US-Neural2-I"
 TTS_VOICE_FALLBACK_CHAIN = [
@@ -1624,6 +1628,39 @@ def _assert_user_owned_key(user_id: int, key: str | None) -> str | None:
     return value
 
 
+def _safe_reference_filename(name: str | None) -> str:
+    raw = str(name or "").strip().replace("\\", "_").replace("/", "_").replace("\x00", "_")
+    if not raw:
+        return "reference-image.png"
+    if len(raw) > 180:
+        stem, ext = os.path.splitext(raw)
+        raw = stem[:160] + ext[:20]
+    return raw
+
+
+def _normalize_reference_image_payload(file: UploadFile, payload: bytes) -> tuple[str, str]:
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png", ".png"
+    if payload.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+
+    raw_type = str(file.content_type or "").strip().lower()
+    if raw_type == "image/png":
+        return "image/png", ".png"
+    if raw_type in {"image/jpeg", "image/jpg"}:
+        return "image/jpeg", ".jpg"
+    raise HTTPException(status_code=415, detail="Reference image must be a PNG or JPEG.")
+
+
+def _reference_image_preview_url(storage_key: str, original_filename: str) -> str:
+    storage = get_storage()
+    return storage.presign_get(
+        storage_key,
+        expires_in=3600,
+        response_content_disposition=f'inline; filename="{_safe_reference_filename(original_filename)}"',
+    )
+
+
 def _parse_settings_payload(raw: object) -> dict:
     if raw is None:
         return {}
@@ -1950,6 +1987,7 @@ class GeneratePostRequest(BaseModel):
     captions_enabled: bool = Field(default=True)
     watermark_enabled: bool = Field(default=True)
     seed: int | None = Field(default=None, ge=0, le=2_147_483_647)
+    input_image_key: str | None = Field(default=None, max_length=512)
     continuation_job_id: int | None = Field(default=None, ge=1)
     reference_job_id: int | None = Field(default=None, ge=1)
 
@@ -1962,6 +2000,83 @@ class GenerateResponse(BaseModel):
     duration_seconds: int | None = None
     text_length: int | None = None
     generation_speed: str | None = None
+
+
+class ReferenceImageResponse(BaseModel):
+    upload_id: int
+    storage_key: str
+    original_filename: str
+    content_type: str
+    preview_url: str
+
+
+@router.post("/reference-image", response_model=ReferenceImageResponse)
+async def upload_reference_image(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    original_filename = _safe_reference_filename(file.filename)
+    raw_payload = await file.read()
+    if not raw_payload:
+        raise HTTPException(status_code=400, detail="Reference image is empty.")
+    if len(raw_payload) > REFERENCE_IMAGE_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Reference image is too large. Max size is {REFERENCE_IMAGE_MAX_BYTES // (1024 * 1024)}MB.",
+        )
+
+    content_type, ext = _normalize_reference_image_payload(file, raw_payload)
+    storage_key = f"users/{int(current_user.id)}/reference-images/{uuid.uuid4().hex}{ext}"
+    storage = get_storage()
+    storage.save(io.BytesIO(raw_payload), storage_key, content_type=content_type)
+
+    upload = Upload(
+        user_id=int(current_user.id),
+        original_filename=original_filename,
+        storage_key=storage_key,
+        source_type="upload",
+    )
+    db.add(upload)
+    db.commit()
+    db.refresh(upload)
+
+    return ReferenceImageResponse(
+        upload_id=int(upload.id),
+        storage_key=storage_key,
+        original_filename=original_filename,
+        content_type=content_type,
+        preview_url=_reference_image_preview_url(storage_key, original_filename),
+    )
+
+
+@router.get("/reference-image", response_model=ReferenceImageResponse)
+def get_reference_image(
+    storage_key: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    key = _assert_user_owned_key(int(current_user.id), storage_key)
+    if not key:
+        raise HTTPException(status_code=404, detail="Reference image not found.")
+
+    upload = (
+        db.query(Upload)
+        .filter(Upload.user_id == int(current_user.id), Upload.storage_key == key)
+        .order_by(Upload.id.desc())
+        .first()
+    )
+    if upload is None:
+        raise HTTPException(status_code=404, detail="Reference image not found.")
+
+    content_type = "image/png" if key.lower().endswith(".png") else "image/jpeg"
+    return ReferenceImageResponse(
+        upload_id=int(upload.id),
+        storage_key=key,
+        original_filename=str(upload.original_filename or "reference-image"),
+        content_type=content_type,
+        preview_url=_reference_image_preview_url(key, str(upload.original_filename or "reference-image")),
+    )
 
 
 class PromptHelperRequest(BaseModel):
@@ -2405,6 +2520,12 @@ def create_post_generation(
     post_visual_mode = (payload.post_visual_mode or "image").strip().lower()
     if post_visual_mode not in ALLOWED_POST_VISUAL_MODES:
         raise HTTPException(status_code=422, detail="AI Post mode must be image or video")
+    input_image_key = _assert_user_owned_key(current_user.id, payload.input_image_key)
+    if input_image_key and post_visual_mode != "video":
+        raise HTTPException(
+            status_code=422,
+            detail="Reference image guidance is currently available for video clips and video AI posts only.",
+        )
 
     default_scene_count = _default_post_scene_count(duration_seconds)
     image_count = max(6, min(10, int(payload.image_count or default_scene_count)))
@@ -2515,6 +2636,7 @@ def create_post_generation(
         "style_preset": style_preset,
         "post_visual_mode": post_visual_mode,
         "seed": continuity_seed,
+        "input_image_key": input_image_key,
         "generated_caption_font_scale": GENERATED_CAPTION_FONT_SCALE,
         "generated_caption_y": GENERATED_CAPTION_Y,
         "generated_caption_max_words": GENERATED_CAPTION_MAX_WORDS,

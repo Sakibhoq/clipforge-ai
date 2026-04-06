@@ -1,5 +1,9 @@
 import uuid
+import json
 from types import SimpleNamespace
+
+import pytest
+from fastapi import HTTPException
 
 from core.database import SessionLocal
 from models.job import Job
@@ -59,3 +63,51 @@ def test_picture_post_charges_less_than_video_post():
     assert picture_credits < video_credits
     assert 16 <= picture_credits <= 20
     assert 75 <= video_credits <= 100
+
+
+def test_video_post_persists_reference_image_key():
+    db = SessionLocal()
+    try:
+        user_id = _mk_user(db, plan="creator", credits=1000)
+        current_user = SimpleNamespace(id=user_id)
+        payload = GeneratePostRequest(
+            visual_prompt="Anime founder story with one recurring protagonist and premium neon framing.",
+            voice_script="This is a polished narration script with enough words to cover the short post comfortably.",
+            aspect_ratio="9:16",
+            duration_seconds=60,
+            style_preset="anime",
+            image_count=6,
+            post_visual_mode="video",
+            input_image_key=f"users/{user_id}/reference-images/hero.png",
+        )
+
+        result = create_post_generation(payload=payload, db=db, current_user=current_user)
+        job = db.query(Job).filter(Job.id == int(result.job_id)).first()
+        assert job is not None
+        settings = json.loads(job.caption_style_json or "{}")
+        assert settings.get("input_image_key") == f"users/{user_id}/reference-images/hero.png"
+    finally:
+        db.close()
+
+
+def test_picture_post_rejects_reference_image_key():
+    db = SessionLocal()
+    try:
+        user_id = _mk_user(db, plan="creator", credits=1000)
+        current_user = SimpleNamespace(id=user_id)
+        payload = GeneratePostRequest(
+            visual_prompt="Anime founder story with one recurring protagonist and premium neon framing.",
+            voice_script="This is a polished narration script with enough words to cover the short post comfortably.",
+            aspect_ratio="9:16",
+            duration_seconds=60,
+            style_preset="anime",
+            image_count=6,
+            post_visual_mode="image",
+            input_image_key=f"users/{user_id}/reference-images/hero.png",
+        )
+
+        with pytest.raises(HTTPException) as e:
+            create_post_generation(payload=payload, db=db, current_user=current_user)
+        assert e.value.status_code == 422
+    finally:
+        db.close()
