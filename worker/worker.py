@@ -1107,6 +1107,7 @@ def build_utterances(
     utterances = []
     cur_start = words[0]["start"]
     last_end = words[0]["end"]
+    last_word = str(words[0].get("word", ""))
 
     for w in words[1:]:
         ws = w["start"]
@@ -1120,7 +1121,9 @@ def build_utterances(
             boundary = True
         elif duration >= UTTERANCE_MAX_SECONDS:
             boundary = True
-        elif ends_with_punctuation(w["word"]):  # FIXED
+        # Sentence punctuation should close the utterance that just ended,
+        # not force the punctuated word into the next utterance.
+        elif ends_with_punctuation(last_word):
             boundary = True
 
         if boundary:
@@ -1133,6 +1136,7 @@ def build_utterances(
             cur_start = ws
 
         last_end = we
+        last_word = str(w.get("word", ""))
 
     if last_end > cur_start:
         utterances.append(
@@ -1349,9 +1353,8 @@ def refine_clip_boundaries(
         end = float(words[last_idx].get("end", orig_end))
 
         # Extend to a nearby natural boundary so endings do not feel chopped.
-        max_search = min(len(words) - 1, last_idx + 24)
         natural_end = end
-        for i in range(last_idx, max_search + 1):
+        for i in range(last_idx, len(words)):
             cand_end = float(words[i].get("end", natural_end))
             if cand_end - start > (clip_max_seconds + 0.35):
                 break
@@ -3889,6 +3892,7 @@ WATERMARK_LOGO_W = int(os.getenv("WORKER_WATERMARK_LOGO_W", "240"))
 WATERMARK_ALPHA = float(os.getenv("WORKER_WATERMARK_ALPHA", "0.88"))
 
 WATERMARK_LEFT_PAD = int(os.getenv("WORKER_WATERMARK_LEFT_PAD", "36"))
+WATERMARK_TOP_PAD = int(os.getenv("WORKER_WATERMARK_TOP_PAD", "36"))
 WATERMARK_TEXT_GAP = int(os.getenv("WORKER_WATERMARK_TEXT_GAP", "18"))
 
 # Text settings (vertical)
@@ -4624,7 +4628,7 @@ def render_clip_mp4(
                 f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
                 f"[v1][wm]overlay="
                 f"x={WATERMARK_LEFT_PAD}:"
-                f"y=(H-h)/2:"
+                f"y={WATERMARK_TOP_PAD}:"
                 f"enable='{enable_expr}'"
                 f"[v2];"
                 f"[v2]drawtext="
@@ -4636,7 +4640,7 @@ def render_clip_mp4(
                 f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
                 f"borderw=2:bordercolor=black@0.35:"
                 f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
-                f"y=(H-text_h)/2"
+                f"y={WATERMARK_TOP_PAD}"
                 f"[vout]"
             )
         else:
@@ -4646,7 +4650,7 @@ def render_clip_mp4(
                 f"colorchannelmixer=aa={WATERMARK_ALPHA}[wm];"
                 f"[v1][wm]overlay="
                 f"x={WATERMARK_LEFT_PAD}:"
-                f"y=(H-h)/2:"
+                f"y={WATERMARK_TOP_PAD}:"
                 f"enable='{enable_expr}'"
                 f"[v2];"
                 f"[v2]drawtext="
@@ -4658,7 +4662,7 @@ def render_clip_mp4(
                 f"shadowcolor=black@0.55:shadowx=2:shadowy=2:"
                 f"borderw=2:bordercolor=black@0.35:"
                 f"x={WATERMARK_LEFT_PAD + WATERMARK_LOGO_W + WATERMARK_TEXT_GAP}:"
-                f"y=(H-text_h)/2"
+                f"y={WATERMARK_TOP_PAD}"
                 f"[vout]"
             )
 
@@ -4986,6 +4990,14 @@ def run_job(job_id: int) -> None:
             utterances=utterances,
             video_duration=float(video_duration),
         )
+        log(
+            "Clip length profile: "
+            f"min={float(length_profile['min']):.1f}s "
+            f"target={float(length_profile['target']):.1f}s "
+            f"max={float(length_profile['max']):.1f}s "
+            f"utterances={len(utterances)}",
+            job_id=job_id,
+        )
 
         clip_plans = generate_clip_plans(
             utterances=utterances,
@@ -5021,12 +5033,63 @@ def run_job(job_id: int) -> None:
                 max_seconds=float(length_profile["max"]),
             )
             if fallback_plans:
-                log(
-                    f"Clip plan fallback applied: had={len(clip_plans)} generated={len(fallback_plans)}",
-                    job_id=job_id,
-                    level="WARN",
-                )
-                clip_plans = fallback_plans
+                if clip_plans:
+                    supplemental_plans: List[Dict[str, float]] = []
+                    for fallback in fallback_plans:
+                        fs = float(fallback.get("start", 0.0))
+                        fe = float(fallback.get("end", fs))
+                        if any(
+                            overlaps(
+                                fs,
+                                fe,
+                                float(existing.get("start", 0.0)),
+                                float(existing.get("end", 0.0)),
+                            )
+                            for existing in clip_plans
+                        ):
+                            continue
+                        supplemental_plans.append(fallback)
+
+                    if supplemental_plans:
+                        log(
+                            "Clip plan fallback supplemented sparse speech plans: "
+                            f"had={len(clip_plans)} added={len(supplemental_plans)} "
+                            f"generated={len(fallback_plans)}",
+                            job_id=job_id,
+                            level="WARN",
+                        )
+                        clip_plans = sorted(
+                            [*clip_plans, *supplemental_plans],
+                            key=lambda c: float(c.get("start", 0.0)),
+                        )
+                    else:
+                        log(
+                            "Clip plan fallback skipped replacement to preserve "
+                            f"speech boundaries: had={len(clip_plans)} "
+                            f"generated={len(fallback_plans)}",
+                            job_id=job_id,
+                            level="WARN",
+                        )
+                else:
+                    log(
+                        f"Clip plan fallback applied: had=0 generated={len(fallback_plans)}",
+                        job_id=job_id,
+                        level="WARN",
+                    )
+                    clip_plans = fallback_plans
+
+        if clip_plans:
+            plan_durations = [
+                max(0.0, float(plan.get("end", 0.0)) - float(plan.get("start", 0.0)))
+                for plan in clip_plans
+            ]
+            preview = ", ".join(f"{dur:.1f}" for dur in plan_durations[:8])
+            if len(plan_durations) > 8:
+                preview += ", ..."
+            log(
+                f"Clip plans ready: count={len(clip_plans)} durations=[{preview}]",
+                job_id=job_id,
+            )
 
         # ---------------------------------------------
         # Score + select (viral-ish heuristic)
