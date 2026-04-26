@@ -46,15 +46,33 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover", // iOS notch safe-area support
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#06060b" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#061426" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f9ff" },
   ],
 };
 
+const themeBootScript = `
+(() => {
+  try {
+    const key = "orbito-theme";
+    const stored = window.localStorage.getItem(key);
+    const theme = stored === "dark" || stored === "light" ? stored : "light";
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  } catch (_) {
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fontSans.variable} ${fontMono.variable}`} suppressHydrationWarning>
-      <body className="theme-labs bg-system text-white antialiased">{children}</body>
+    <html lang="en" data-theme="light" className={`${fontSans.variable} ${fontMono.variable}`} suppressHydrationWarning>
+      <body className="theme-labs bg-system text-white antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+        {children}
+      </body>
     </html>
   );
 }

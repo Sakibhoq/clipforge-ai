@@ -9,6 +9,7 @@ import { displayNameFromUser } from "@/lib/user";
 import { BRAND } from "@/lib/brand";
 import { labsLaunchPath } from "@/lib/labs-routes";
 import { hasLabsFeatureAccess } from "@/lib/plans";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function Logo() {
   const pathname = usePathname();
@@ -507,6 +508,8 @@ export default function Navbar() {
 
             <div className="flex items-center gap-2.5">
               <div className="hidden lg:flex items-center gap-2 xl:gap-2.5">
+                <ThemeToggle compact className="shrink-0" />
+
                 <a
                   href={whopPageHref}
                   {...whopLinkProps}
@@ -631,10 +634,12 @@ export default function Navbar() {
               role="dialog"
               aria-label="Mobile navigation"
             >
-                <div className="px-3 py-2 flex items-center justify-between">
+                <div className="px-3 py-2 flex items-center justify-between gap-2">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Navigate</div>
 
-                  {authed && (
+                  <div className="flex items-center gap-2">
+                    <ThemeToggle compact />
+                  {authed ? (
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/70">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/70" />
                       <span className="max-w-[120px] truncate text-white/80">{displayName}</span>
@@ -642,7 +647,8 @@ export default function Navbar() {
                       <span className="text-white/50">Credits</span>
                       <span className="font-semibold text-white/85 tabular-nums">{meLoading ? "…" : credits ?? "—"}</span>
                     </div>
-                  )}
+                  ) : null}
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1 p-1">
