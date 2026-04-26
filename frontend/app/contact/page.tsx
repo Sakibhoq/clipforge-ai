@@ -84,7 +84,7 @@ function Field({
         placeholder={placeholder}
         className={[
           // iOS: avoid input zoom
-          "h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition",
+          "contact-input h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition",
           "placeholder:text-white/30",
           error
             ? "border-rose-200/25 focus:border-rose-200/40"
@@ -123,7 +123,7 @@ function Textarea({
         rows={6}
         className={[
           // iOS: avoid zoom; keep comfy line-height
-          "w-full resize-none rounded-2xl border bg-white/[0.03] px-4 py-3 text-[16px] sm:text-sm leading-relaxed text-white/85 outline-none transition",
+          "contact-input w-full resize-none rounded-2xl border bg-white/[0.03] px-4 py-3 text-[16px] sm:text-sm leading-relaxed text-white/85 outline-none transition",
           "placeholder:text-white/30",
           error
             ? "border-rose-200/25 focus:border-rose-200/40"
@@ -267,11 +267,11 @@ function SendMessageModal({
   const fieldError = (k: keyof FormState) => (touched[k] ? errors[k] : null);
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="contact-modal fixed inset-0 z-[60]">
       {/* overlay */}
       <button
         aria-label="Close contact form overlay"
-        className="absolute inset-0 cursor-default bg-black/55 backdrop-blur-[2px]"
+        className="contact-modal-overlay absolute inset-0 cursor-default bg-black/55 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
@@ -284,7 +284,7 @@ function SendMessageModal({
         )}
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <div className="group surface relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-6 md:p-7 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
+        <div className="contact-modal-panel group surface relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 p-6 md:p-7 shadow-[0_18px_70px_rgba(0,0,0,0.55)] backdrop-blur">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
             <div className="absolute inset-0 opacity-[0.45]">
               <div className="aurora" />
@@ -306,7 +306,7 @@ function SendMessageModal({
 
               <button
                 onClick={onClose}
-                className="group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80 transition hover:text-white active:scale-[0.98]"
+                className="contact-close group relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80 transition hover:text-white active:scale-[0.98]"
                 aria-label="Close"
                 title="Close"
               >
@@ -367,7 +367,7 @@ function SendMessageModal({
                   autoComplete="name"
                   placeholder="Your name"
                   className={cx(
-                    "h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition placeholder:text-white/30",
+                    "contact-input h-11 w-full rounded-2xl border bg-white/[0.03] px-4 text-[16px] sm:text-sm text-white/85 outline-none transition placeholder:text-white/30",
                     fieldError("name")
                       ? "border-rose-200/25 focus:border-rose-200/40"
                       : "border-white/10 focus:border-white/20"
@@ -494,7 +494,7 @@ export default function ContactPage() {
 
   return (
     <div
-      className="relative min-h-screen min-h-[100svh] min-h-[100dvh] overflow-x-hidden [max-width:100vw]"
+      className="contact-page relative min-h-screen min-h-[100svh] min-h-[100dvh] overflow-x-hidden [max-width:100vw]"
       style={rootStyle}
     >
       <Navbar />
@@ -510,8 +510,8 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <main className="relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
-        <section className="surface relative overflow-hidden p-6 sm:p-8 md:p-12">
+      <main className="contact-main relative mx-auto max-w-6xl px-6 pb-20 pt-10 sm:pt-12">
+        <section className="contact-hero surface relative overflow-hidden p-6 sm:p-8 md:p-12">
           <div className="absolute inset-0">
             <div className="aurora opacity-60" />
             <div className="absolute inset-0 bg-[radial-gradient(900px_520px_at_30%_20%,rgba(255,255,255,0.06),transparent_60%)]" />
@@ -556,7 +556,7 @@ export default function ContactPage() {
                     {topics.map((t) => (
                       <span
                         key={t}
-                        className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60"
+                        className="contact-chip rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60"
                       >
                         {t}
                       </span>
@@ -579,7 +579,7 @@ export default function ContactPage() {
 
               {/* RIGHT */}
               <div className="space-y-4">
-                <div className="group surface-soft relative overflow-hidden p-6 md:p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <div className="contact-card group surface-soft relative overflow-hidden p-6 md:p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
 
                   <div className="relative">
@@ -611,7 +611,7 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                <div className="group surface-soft relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
+                <div className="contact-card group surface-soft relative overflow-hidden p-5 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.03]">
                   <HoverSheen />
                   <div className="relative">
                     <div className="text-xs text-white/50">Frequently asked questions</div>
@@ -619,7 +619,7 @@ export default function ContactPage() {
                       {faqs.map((item) => (
                         <details
                           key={item.q}
-                          className="group/faq rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
+                          className="contact-faq group/faq rounded-2xl border border-white/10 bg-black/25 px-4 py-3"
                         >
                           <summary className="list-none cursor-pointer text-sm font-medium text-white/82 [&::-webkit-details-marker]:hidden">
                             <div className="flex items-center justify-between gap-3">

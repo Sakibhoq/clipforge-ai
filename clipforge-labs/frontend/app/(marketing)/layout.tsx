@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative bg-transparent"
+      className="marketing-shell relative bg-transparent"
       style={{
         paddingLeft: "env(safe-area-inset-left)",
         paddingRight: "env(safe-area-inset-right)",
