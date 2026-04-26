@@ -44,27 +44,27 @@ POST_ALLOWED_DURATIONS = {60, 90, 120}
 POST_DEFAULT_DURATION_SECONDS = 60
 POST_DEFAULT_IMAGE_COUNT = 6
 PROMPT_MAX_CHARS = 3000
-POST_BASE_VOICE_WPM = 165
-POST_MAX_AUTO_VOICE_WPM = 210
-# Default generator captions are tuned for short 1-3 word beats that sit
-# around the optical center instead of stretching across the whole frame.
-GENERATED_CAPTION_FONT_SCALE = 0.32
-GENERATED_CAPTION_Y = 0.60
-GENERATED_CAPTION_MAX_WORDS = 3
-GENERATED_CAPTION_MAX_CHARS = 14
-GENERATED_CAPTION_LINE_CHARS = 10
+POST_BASE_VOICE_WPM = 145
+POST_MAX_AUTO_VOICE_WPM = 165
+# Generated post captions should read clearly on phones. Keep them in a
+# lower-third zone with enough scale and line width for premium samples.
+GENERATED_CAPTION_FONT_SCALE = 0.54
+GENERATED_CAPTION_Y = 0.70
+GENERATED_CAPTION_MAX_WORDS = 4
+GENERATED_CAPTION_MAX_CHARS = 28
+GENERATED_CAPTION_LINE_CHARS = 16
 REFERENCE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 ALLOWED_REFERENCE_IMAGE_TYPES = {"image/jpeg", "image/png"}
-DEFAULT_TTS_VOICE = "en-US-Neural2-H"
-FALLBACK_TTS_VOICE = "en-US-Neural2-I"
+DEFAULT_TTS_VOICE = "en-US-Studio-O"
+FALLBACK_TTS_VOICE = "en-US-Studio-Q"
 TTS_VOICE_FALLBACK_CHAIN = [
-    "en-US-Neural2-H",
-    "en-US-Neural2-I",
+    "en-US-Studio-O",
+    "en-US-Studio-Q",
     "en-US-Wavenet-A",
     "en-US-Wavenet-C",
     "en-US-Wavenet-E",
-    "en-US-Studio-O",
-    "en-US-Studio-Q",
+    "en-US-Neural2-H",
+    "en-US-Neural2-I",
     "en-US-Standard-C",
     "en-US-Standard-D",
     "en-US-Standard-E",
@@ -425,6 +425,32 @@ def _default_post_scene_count(duration_seconds: int) -> int:
 
 def _script_word_count(script: str) -> int:
     return len([word for word in (script or "").split() if word.strip()])
+
+
+def _post_needs_character_reference(*, visual_prompt: str, style_preset: str | None, post_visual_mode: str) -> bool:
+    if (post_visual_mode or "").strip().lower() != "video":
+        return False
+    style = _normalize_style_preset(style_preset)
+    low = (visual_prompt or "").lower()
+    story_terms = {
+        "anime",
+        "isekai",
+        "story",
+        "narrative",
+        "character",
+        "protagonist",
+        "creator",
+        "founder",
+        "hero",
+        "person",
+        "woman",
+        "man",
+        "girl",
+        "boy",
+    }
+    if style in {"anime", "cartoon", "comic"} and any(term in low for term in story_terms):
+        return True
+    return any(term in low for term in {"main character", "recurring character", "same character", "protagonist"})
 
 
 def _clean_spaces(value: str) -> str:
@@ -1978,7 +2004,7 @@ class GeneratePostRequest(BaseModel):
     aspect_ratio: str = "9:16"
     duration_seconds: int = Field(default=POST_DEFAULT_DURATION_SECONDS, ge=60, le=120)
     image_count: int | None = Field(default=POST_DEFAULT_IMAGE_COUNT, ge=6, le=10)
-    post_visual_mode: str = Field(default="image", max_length=16)
+    post_visual_mode: str = Field(default="video", max_length=16)
     model: str | None = Field(default="google", max_length=64)
     voice_name: str | None = Field(default=DEFAULT_TTS_VOICE, max_length=64)
     speed_wpm: int | None = Field(default=None, ge=80, le=330)
@@ -2517,7 +2543,7 @@ def create_post_generation(
     if duration_seconds not in POST_ALLOWED_DURATIONS:
         raise HTTPException(status_code=422, detail="AI Post duration must be 60, 90, or 120 seconds")
 
-    post_visual_mode = (payload.post_visual_mode or "image").strip().lower()
+    post_visual_mode = (payload.post_visual_mode or "video").strip().lower()
     if post_visual_mode not in ALLOWED_POST_VISUAL_MODES:
         raise HTTPException(status_code=422, detail="AI Post mode must be image or video")
     input_image_key = _assert_user_owned_key(current_user.id, payload.input_image_key)
@@ -2525,6 +2551,15 @@ def create_post_generation(
         raise HTTPException(
             status_code=422,
             detail="Reference image guidance is currently available for video clips and video AI posts only.",
+        )
+    if _post_needs_character_reference(
+        visual_prompt=visual_prompt,
+        style_preset=payload.style_preset,
+        post_visual_mode=post_visual_mode,
+    ) and not input_image_key:
+        raise HTTPException(
+            status_code=422,
+            detail="Anime/story Video posts need a character reference image for consistent identity. Upload a clean reference image, or switch to Storyboard post for the lower-cost still-image mode.",
         )
 
     default_scene_count = _default_post_scene_count(duration_seconds)

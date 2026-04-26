@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . .
 
+ARG INSTALL_ALIGNMENT_DEPS=0
+ENV INSTALL_ALIGNMENT_DEPS=${INSTALL_ALIGNMENT_DEPS}
+
 RUN pip install --upgrade pip && \
     pip install \
       python-dotenv \
@@ -23,6 +26,10 @@ RUN pip install --upgrade pip && \
       boto3 \
       requests \
       google-auth \
-      PyJWT
+      PyJWT && \
+    if [ "$INSTALL_ALIGNMENT_DEPS" = "1" ]; then \
+      pip install --index-url https://download.pytorch.org/whl/cpu torch && \
+      pip install openai-whisper ; \
+    fi
 
 CMD ["python", "worker.py"]

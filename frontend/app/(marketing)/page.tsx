@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
-import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
+import { SocialBrandPill, SocialBrandRow, SocialPlatformIcon, type SocialPlatform } from "@/components/SocialBrand";
 import { labsLaunchPath } from "@/lib/labs-routes";
 
 const ORBITO_WHOP_MARKETING_URL = "/whop";
@@ -63,6 +63,53 @@ const HERO_PREVIEW_CLIPS = [
 ];
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
+
+const SUPPORTED_PLATFORMS: Array<{ platform: SocialPlatform; label: string; detail: string }> = [
+  { platform: "tiktok", label: "TikTok", detail: "Vertical clips" },
+  { platform: "instagram", label: "Instagram", detail: "Reels-ready" },
+  { platform: "youtube", label: "YouTube", detail: "Shorts + long form" },
+  { platform: "facebook", label: "Facebook", detail: "Reels publishing" },
+  { platform: "shorts", label: "Shorts", detail: "9:16 exports" },
+  { platform: "reels", label: "Reels", detail: "Creator workflow" },
+] as const;
+
+const TRUST_BLOCKS = [
+  {
+    title: "Privacy-first workflow",
+    text: "Your uploads stay inside your Orbito workspace, with account-protected access and secure storage controls.",
+  },
+  {
+    title: "Cancel anytime",
+    text: "Plans are built to be simple: use credits when you need them, then upgrade, downgrade, or cancel from billing.",
+  },
+  {
+    title: "Clear credit examples",
+    text: "Small clip jobs use fewer credits. Premium Generate runs use more because they reserve higher-cost video and voice providers.",
+  },
+  {
+    title: "Average turnaround",
+    text: "Most clipping jobs finish in minutes. Premium AI video can take longer when provider queues are busy.",
+  },
+] as const;
+
+const FAQ_ITEMS = [
+  {
+    q: "Which platforms does Orbito support?",
+    a: "Orbito is built around TikTok, Instagram Reels, YouTube Shorts, YouTube, Facebook, and short-form vertical exports.",
+  },
+  {
+    q: "Do I keep control of what gets posted?",
+    a: "Yes. You review clips before publishing, and connected social accounts stay under your control.",
+  },
+  {
+    q: "Why do AI generations cost more credits?",
+    a: "AI video and premium voice providers cost more to run than clipping existing footage, so credits reflect the provider cost.",
+  },
+  {
+    q: "What happens if generation quality is not good enough?",
+    a: "Premium AI Post runs now include quality checks for duration, captions, duplicated scenes, and output bitrate before the clip is saved.",
+  },
+] as const;
 
 const PAGE_BACKGROUND_CLIPS = [
   { src: previewSrc("Real Vertical Clip #48.mp4"), top: "6%", left: "4%", size: "", tilt: "tilt-left", scatterX: "8px", opacity: 0.22 },
@@ -790,6 +837,96 @@ function GenerateStage({
   );
 }
 
+function SupportedPlatformsSection() {
+  return (
+    <section id="platforms" className="pt-10 sm:pt-12">
+      <div data-reveal className="reveal surface-soft relative overflow-hidden rounded-[30px] p-5 sm:p-6 md:p-7">
+        <HoverSheen />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-70"
+          style={{
+            background:
+              "radial-gradient(560px_260px_at_18%_16%,rgba(125,211,252,0.12),transparent_70%), radial-gradient(620px_260px_at_82%_20%,rgba(251,146,60,0.10),transparent_72%)",
+          }}
+        />
+        <div className="relative">
+          <div className="text-center">
+            <SectionKicker>Supported platforms</SectionKicker>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
+              Built for the channels your clips already need to reach.
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/64">
+              Export, review, and publish with a workflow made for vertical social video, not a generic file folder.
+            </p>
+          </div>
+
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {SUPPORTED_PLATFORMS.map((item) => (
+              <div
+                key={item.label}
+                className="group/platform rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <SocialPlatformIcon platform={item.platform} className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white/90">{item.label}</div>
+                    <div className="mt-0.5 text-xs text-white/52">{item.detail}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TrustAndFaqSection() {
+  return (
+    <section id="trust" className="pt-12 sm:pt-14">
+      <div data-reveal className="reveal">
+        <SectionKicker>Trust</SectionKicker>
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl md:text-4xl">
+          Less guessing before someone signs up.
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base">
+          Give creators the practical answers they look for before connecting accounts, uploading footage, or spending credits.
+        </p>
+      </div>
+
+      <div className="mt-7 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          {TRUST_BLOCKS.map((item) => (
+            <div key={item.title} data-reveal className="reveal group surface-soft relative overflow-hidden rounded-[24px] p-5">
+              <HoverSheen />
+              <div className="relative">
+                <div className="text-sm font-semibold text-white/90">{item.title}</div>
+                <p className="mt-2 text-sm leading-relaxed text-white/62">{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div data-reveal className="reveal surface-soft rounded-[28px] p-5 sm:p-6">
+          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">FAQ</div>
+          <div className="mt-4 grid gap-3">
+            {FAQ_ITEMS.map((item) => (
+              <details key={item.q} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/70">
+                <summary className="cursor-pointer list-none font-semibold text-white/88">{item.q}</summary>
+                <p className="mt-2 leading-relaxed text-white/60">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Page() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
@@ -866,7 +1003,9 @@ export default function Page() {
   const footerLinks = useMemo(
     () => [
       { label: "How it works", href: "/#how-it-works" },
+      { label: "Platforms", href: "/#platforms" },
       { label: "Pricing", href: "/pricing" },
+      { label: "FAQ", href: "/#trust" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },
       { label: "Terms", href: "/terms-of-service" },
@@ -976,6 +1115,7 @@ export default function Page() {
           </div>
         </section>
         <div className="relative">
+        <SupportedPlatformsSection />
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
@@ -1062,6 +1202,8 @@ export default function Page() {
             </Link>
           </div>
         </section>
+
+        <TrustAndFaqSection />
 
         <section id="generate" className="scroll-mt-28 pt-12 sm:pt-14">
           <div data-reveal className="reveal">

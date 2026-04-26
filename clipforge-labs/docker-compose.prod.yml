@@ -39,7 +39,10 @@ services:
     restart: unless-stopped
 
   worker:
-    build: ./worker
+    build:
+      context: ./worker
+      args:
+        INSTALL_ALIGNMENT_DEPS: "${INSTALL_ALIGNMENT_DEPS:-0}"
     depends_on:
       backend:
         condition: service_healthy

@@ -138,8 +138,8 @@ const VOICE_MIN_CREDITS = 1;
 const VOICE_TARGET_MARGIN_USD = 0.05;
 const VIDEO_FORCE_LOW_COST_MODELS =
   (process.env.NEXT_PUBLIC_LABS_FORCE_LOW_COST_MODELS ?? "1") !== "0";
-const VOICE_BASE_WPM = 165;
-const POST_MAX_AUTO_WPM = 210;
+const VOICE_BASE_WPM = 145;
+const POST_MAX_AUTO_WPM = 165;
 const POST_DURATION_SECONDS = 60;
 const POST_IMAGE_DEFAULT_COUNT = 6;
 const VIDEO_DURATION_OPTIONS: number[] = [5, 6, 7];
@@ -189,7 +189,7 @@ const VOICE_OPTIONS = [
   { value: "en-AU-Neural2-A", label: "Skye (AU • warm female)" },
 ] as const;
 
-const DEFAULT_VOICE_NAME = "en-US-Neural2-H";
+const DEFAULT_VOICE_NAME = "en-US-Studio-O";
 
 const STYLE_PRESET_VALUES = new Set<StylePreset>(STYLE_PRESET_OPTIONS.map((opt) => opt.value));
 const VOICE_VALUES = new Set<string>(VOICE_OPTIONS.map((opt) => opt.value));
@@ -459,6 +459,29 @@ function isLowCostStyle(stylePreset: StylePreset): boolean {
   return LOW_COST_STYLES.has(stylePreset);
 }
 
+function postNeedsCharacterReference(stylePreset: StylePreset, visualPrompt: string, visualMode: PostVisualMode): boolean {
+  if (visualMode !== "video") return false;
+  const low = visualPrompt.toLowerCase();
+  const storyTerms = [
+    "anime",
+    "isekai",
+    "story",
+    "narrative",
+    "character",
+    "protagonist",
+    "creator",
+    "founder",
+    "hero",
+    "person",
+    "woman",
+    "man",
+    "girl",
+    "boy",
+  ];
+  if (LOW_COST_STYLES.has(stylePreset) && storyTerms.some((term) => low.includes(term))) return true;
+  return ["main character", "recurring character", "same character", "protagonist"].some((term) => low.includes(term));
+}
+
 function estimateImageCredits(stylePreset: StylePreset): number {
   const base = isLowCostStyle(stylePreset) ? IMAGE_LOW_COST_USD_PER_IMAGE : IMAGE_REAL_USD_PER_IMAGE;
   return creditsFromUsd(base + IMAGE_TARGET_PROFIT_USD);
@@ -609,7 +632,7 @@ export default function GenerateClient() {
   const [postIdeaAnalysis, setPostIdeaAnalysis] = useState<PromptHelperAnalysis | null>(null);
   const [postIdeaStoryboard, setPostIdeaStoryboard] = useState<PromptHelperStoryboardBeat[]>([]);
   const [postDurationSeconds, setPostDurationSeconds] = useState<number>(POST_DURATION_SECONDS);
-  const [postVisualMode, setPostVisualMode] = useState<PostVisualMode>("image");
+  const [postVisualMode, setPostVisualMode] = useState<PostVisualMode>("video");
   const [postCaptionsEnabled, setPostCaptionsEnabled] = useState(true);
   const [watermarkEnabled, setWatermarkEnabled] = useState(true);
 
@@ -661,7 +684,7 @@ export default function GenerateClient() {
     [postWordCount, postAutoSpeedWpm]
   );
   const postNeedsMoreWords = useMemo(
-    () => postEstimateAt1xSeconds > 0 && postEstimateAt1xSeconds < postDurationSeconds * 0.8,
+    () => postEstimateAt1xSeconds > 0 && postEstimateAt1xSeconds < postDurationSeconds * 0.9,
     [postEstimateAt1xSeconds, postDurationSeconds]
   );
   const postWillAutoSpeed = useMemo(() => postAutoSpeedWpm > VOICE_BASE_WPM, [postAutoSpeedWpm]);
@@ -728,15 +751,20 @@ export default function GenerateClient() {
   const freeTrialWatermarkLocked = useMemo(() => {
     return normalizedPlan === "free";
   }, [normalizedPlan]);
+  const postReferenceRequired = useMemo(
+    () => postNeedsCharacterReference(stylePreset, postVisualPrompt, postVisualMode) && !referenceImage,
+    [stylePreset, postVisualPrompt, postVisualMode, referenceImage]
+  );
 
   const canGenerate = useMemo(() => {
     if (submitting) return false;
     if (mode === "post") {
+      if (postReferenceRequired) return false;
       return postVisualPrompt.trim().length >= 3 && postVoiceScript.trim().length >= 30;
     }
     const p = prompt.trim();
     return p.length >= 3 && p.length <= 12000;
-  }, [mode, postVisualPrompt, postVoiceScript, prompt, submitting]);
+  }, [mode, postReferenceRequired, postVisualPrompt, postVoiceScript, prompt, submitting]);
   const referenceImageActive = mode === "video" || (mode === "post" && postVisualMode === "video");
 
   async function hydrateReferenceImageFromKey(storageKey: string, fallbackName?: string | null) {
@@ -1045,7 +1073,7 @@ export default function GenerateClient() {
             </span>
           </div>
           <div className="text-[11px] text-white/52">
-            Neural2 is the default. Studio voices reserve extra credits because they cost more to synthesize.
+            Studio is the default for premium first runs. Standard and Neural2 voices cost less when speed matters more than realism.
           </div>
         </div>
 
@@ -1380,6 +1408,10 @@ export default function GenerateClient() {
       }
       if (postScript.length > POST_VOICE_SCRIPT_MAX_CHARS) {
         setError(`Voice script is too long (${postScript.length}/${POST_VOICE_SCRIPT_MAX_CHARS}).`);
+        return;
+      }
+      if (postReferenceRequired) {
+        setError("Upload a character reference image for anime/story Video posts, or switch to Storyboard post for the lower-cost still-image mode.");
         return;
       }
     } else {
@@ -1871,9 +1903,9 @@ export default function GenerateClient() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-100/90">AI Post Mode</div>
-                          <div className="mt-1 text-sm font-semibold text-amber-50">Choose between a picture post or a video post.</div>
+                          <div className="mt-1 text-sm font-semibold text-amber-50">Choose between a storyboard post or a video post.</div>
                         </div>
-                        <div className="text-[11px] text-amber-100/90">Images cost less. Video costs more.</div>
+                        <div className="text-[11px] text-amber-100/90">Storyboards cost less. Video is the premium default.</div>
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <button
@@ -1886,8 +1918,8 @@ export default function GenerateClient() {
                               : "border-white/12 bg-black/25 text-white/80 hover:bg-white/[0.06]"
                           )}
                         >
-                          <div className="text-sm font-semibold">Picture post</div>
-                          <div className="mt-1 text-[12px] text-white/70">Still images + voiceover</div>
+                          <div className="text-sm font-semibold">Storyboard post</div>
+                          <div className="mt-1 text-[12px] text-white/70">Low-cost still frames + voiceover</div>
                           <div className="mt-2 text-[11px] text-amber-100/90">{postImageCreditsEstimate} credits estimated</div>
                         </button>
                         <button
@@ -1901,10 +1933,15 @@ export default function GenerateClient() {
                           )}
                         >
                           <div className="text-sm font-semibold">Video post</div>
-                          <div className="mt-1 text-[12px] text-white/70">Moving scenes + voiceover</div>
+                          <div className="mt-1 text-[12px] text-white/70">Moving scenes + voiceover + reference guidance</div>
                           <div className="mt-2 text-[11px] text-amber-100/90">{postVideoCreditsEstimate} credits estimated</div>
                         </button>
                       </div>
+                      {postReferenceRequired ? (
+                        <div className="rounded-2xl border border-amber-200/35 bg-amber-300/10 px-4 py-3 text-[12px] leading-relaxed text-amber-50">
+                          Upload a character reference image for anime/story Video posts, or switch to Storyboard post for the lower-cost still-frame workflow.
+                        </div>
+                      ) : null}
                     </div>
 
                     <label className="text-xs font-medium text-white/70">Visual direction</label>
@@ -1950,7 +1987,7 @@ export default function GenerateClient() {
                       </div>
                       {postNeedsMoreWords ? (
                         <div className="mt-1 text-amber-50">
-                          Script is short for this duration. Add more words for fuller narration.
+                          Script is short for this duration. Add more narration so the premium duration quality gate can pass.
                         </div>
                       ) : null}
                       {postWillAutoSpeed ? (
@@ -2190,6 +2227,11 @@ export default function GenerateClient() {
                           Switch AI Post to <span className="font-semibold text-amber-50">Video post</span> or use <span className="font-semibold text-amber-50">Video</span> mode to activate true reference-image guidance.
                         </div>
                       ) : null}
+                      {postReferenceRequired ? (
+                        <div className={cx("text-[11px]", generatorWarningCardClass)}>
+                          Anime/story Video posts need a clean character reference so Orbito can keep the main character consistent.
+                        </div>
+                      ) : null}
                       {referenceImageError ? <div className="text-[11px] text-rose-100/90">{referenceImageError}</div> : null}
                     </div>
                   ) : null}
@@ -2197,7 +2239,7 @@ export default function GenerateClient() {
                   {mode === "post" ? (
                     <>
                       <div className={cx("text-[11px]", generatorWarningCardClass)}>
-                        Picture posts use still images plus voiceover and cost less. Video posts use moving scenes plus voiceover and cost more.
+                        Storyboard posts use still frames plus voiceover and cost less. Video posts use moving scenes, stronger reference guidance, and cost more.
                       </div>
                     <div className="grid gap-2">
                       <label className="text-xs font-medium text-white/70">Duration</label>

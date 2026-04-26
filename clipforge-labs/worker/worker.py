@@ -30,16 +30,19 @@ LOW_COST_STYLE_PRESETS = {"anime", "cartoon", "comic"}
 GOOGLE_CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 _GOOGLE_TOKEN_CACHE: tuple[str, float] | None = None
 _GOOGLE_PROJECT_CACHE: str | None = None
-DEFAULT_TTS_VOICE = "en-US-Neural2-H"
-FALLBACK_TTS_VOICE = "en-US-Neural2-I"
+_WHISPER_MODEL_CACHE: dict[str, Any] = {}
+POST_BASE_VOICE_WPM = 145
+POST_MAX_AUTO_VOICE_WPM = 165
+DEFAULT_TTS_VOICE = "en-US-Studio-O"
+FALLBACK_TTS_VOICE = "en-US-Studio-Q"
 TTS_VOICE_FALLBACK_CHAIN = [
-  "en-US-Neural2-H",
-  "en-US-Neural2-I",
+  "en-US-Studio-O",
+  "en-US-Studio-Q",
   "en-US-Wavenet-A",
   "en-US-Wavenet-C",
   "en-US-Wavenet-E",
-  "en-US-Studio-O",
-  "en-US-Studio-Q",
+  "en-US-Neural2-H",
+  "en-US-Neural2-I",
   "en-US-Neural2-A",
   "en-US-Neural2-J",
   "en-US-Standard-C",
@@ -2106,7 +2109,7 @@ def _watermark_logo_path() -> str:
 
 
 def _caption_force_style(preset: str | None, video_h: int) -> str:
-    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.48, min_value=0.24, max_value=1.0)
+    caption_scale = _env_float("WORKER_CAPTION_FONT_SCALE", 0.58, min_value=0.32, max_value=1.2)
 
     def _scaled_font(base: int, min_value: int) -> int:
         scaled = int(round(float(base) * caption_scale))
@@ -2118,8 +2121,8 @@ def _caption_force_style(preset: str | None, video_h: int) -> str:
 
     # This is only the fallback style path. The generator now prefers explicit
     # ASS subtitles so portrait captions can be centered safely.
-    font_size = _scaled_font(min(28, max(20, int(video_h * 0.015))), 14)
-    margin_v = max(92, int(video_h * 0.09))
+    font_size = _scaled_font(min(52, max(30, int(video_h * 0.028))), 24)
+    margin_v = max(110, int(video_h * 0.13))
     return (
         f"FontName=DejaVu Sans,Fontsize={font_size},Alignment=2,MarginV={margin_v},"
         "PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BackColour=&H70000000,"
@@ -2146,11 +2149,11 @@ def _caption_float(value: Any, default: float, *, min_value: float, max_value: f
 def _caption_render_settings(settings: dict[str, Any] | None) -> dict[str, float | int]:
     raw = settings or {}
     return {
-        "font_scale": _caption_float(raw.get("generated_caption_font_scale"), 0.32, min_value=0.24, max_value=1.2),
-        "y_ratio": _caption_float(raw.get("generated_caption_y"), 0.60, min_value=0.48, max_value=0.72),
-        "max_words": _caption_int(raw.get("generated_caption_max_words"), 3, min_value=1, max_value=3),
-        "max_chars": _caption_int(raw.get("generated_caption_max_chars"), 14, min_value=8, max_value=24),
-        "line_chars": _caption_int(raw.get("generated_caption_line_chars"), 10, min_value=8, max_value=18),
+        "font_scale": _caption_float(raw.get("generated_caption_font_scale"), 0.54, min_value=0.32, max_value=1.2),
+        "y_ratio": _caption_float(raw.get("generated_caption_y"), 0.70, min_value=0.50, max_value=0.82),
+        "max_words": _caption_int(raw.get("generated_caption_max_words"), 4, min_value=1, max_value=5),
+        "max_chars": _caption_int(raw.get("generated_caption_max_chars"), 28, min_value=10, max_value=42),
+        "line_chars": _caption_int(raw.get("generated_caption_line_chars"), 16, min_value=10, max_value=26),
     }
 
 
@@ -2195,9 +2198,9 @@ def _build_word_caption_events(
     if not tokens:
         return []
     safe_duration = max(0.6, float(duration_seconds or 0.0))
-    safe_max_words = max(1, min(3, int(max_words or 3)))
-    safe_max_chars = max(8, min(24, int(max_chars or 14)))
-    safe_line_chars = max(8, min(18, int(line_chars or 10)))
+    safe_max_words = max(1, min(5, int(max_words or 4)))
+    safe_max_chars = max(10, min(42, int(max_chars or 28)))
+    safe_line_chars = max(10, min(26, int(line_chars or 16)))
     chunks: list[str] = []
     current: list[str] = []
     for idx, token in enumerate(tokens):
@@ -2240,6 +2243,150 @@ def _build_word_caption_events(
     return events
 
 
+def _word_timestamp_chunks(
+    words: list[dict[str, float | str]],
+    *,
+    max_words: int,
+    max_chars: int,
+    line_chars: int,
+) -> list[dict[str, float | str]]:
+    safe_max_words = max(1, min(5, int(max_words or 4)))
+    safe_max_chars = max(10, min(42, int(max_chars or 28)))
+    safe_line_chars = max(10, min(26, int(line_chars or 16)))
+    chunks: list[dict[str, float | str]] = []
+    current: list[dict[str, float | str]] = []
+
+    def flush() -> None:
+        if not current:
+            return
+        text = " ".join(str(item.get("word") or "").strip() for item in current).strip()
+        text = re.sub(r"\s+([,.!?;:])", r"\1", text).strip()
+        start = float(current[0].get("start") or 0.0)
+        end = float(current[-1].get("end") or start + 0.18)
+        chunks.append(
+            {
+                "word": _wrap_caption_text(text, max_line_chars=safe_line_chars),
+                "start": round(start, 3),
+                "end": round(max(end, start + 0.18), 3),
+            }
+        )
+        current.clear()
+
+    previous_end = 0.0
+    for item in words:
+        token = str(item.get("word") or "").strip()
+        if not token:
+            continue
+        start = float(item.get("start") or 0.0)
+        end = float(item.get("end") or start + 0.18)
+        if current and start - previous_end > 0.45:
+            flush()
+        current.append({"word": token, "start": start, "end": end})
+        joined = " ".join(str(x.get("word") or "").strip() for x in current).strip()
+        punctuation_break = token.endswith((".", "!", "?"))
+        soft_break = token.endswith(",") and len(current) >= 2
+        if len(current) >= safe_max_words or len(joined) >= safe_max_chars or punctuation_break or soft_break:
+            flush()
+        previous_end = end
+    flush()
+    return chunks
+
+
+def _whisper_model(model_name: str) -> Any | None:
+    key = (model_name or "tiny.en").strip() or "tiny.en"
+    if key in _WHISPER_MODEL_CACHE:
+        return _WHISPER_MODEL_CACHE[key]
+    try:
+        import whisper  # type: ignore
+    except Exception as exc:
+        print(f"[worker] caption alignment unavailable: whisper import failed ({type(exc).__name__}: {exc})")
+        return None
+    try:
+        model = whisper.load_model(key)
+    except Exception as exc:
+        print(f"[worker] caption alignment unavailable: whisper model load failed ({type(exc).__name__}: {exc})")
+        return None
+    _WHISPER_MODEL_CACHE[key] = model
+    return model
+
+
+def _build_whisper_caption_events(
+    *,
+    audio_path: str,
+    max_words: int,
+    max_chars: int,
+    line_chars: int,
+) -> list[dict[str, float | str]]:
+    if not _env_bool("LABS_CAPTION_USE_WHISPER_ALIGNMENT", True):
+        return []
+    model = _whisper_model(_env("LABS_CAPTION_WHISPER_MODEL", "tiny.en"))
+    if model is None:
+        return []
+    try:
+        result = model.transcribe(
+            audio_path,
+            fp16=False,
+            verbose=False,
+            word_timestamps=True,
+            condition_on_previous_text=False,
+        )
+    except TypeError:
+        result = model.transcribe(audio_path, fp16=False, verbose=False)
+    except Exception as exc:
+        print(f"[worker] caption alignment unavailable: whisper transcribe failed ({type(exc).__name__}: {exc})")
+        return []
+    words: list[dict[str, float | str]] = []
+    for segment in result.get("segments") or []:
+        segment_words = segment.get("words") if isinstance(segment, dict) else None
+        if isinstance(segment_words, list):
+            for item in segment_words:
+                if not isinstance(item, dict):
+                    continue
+                token = str(item.get("word") or "").strip()
+                if not token:
+                    continue
+                try:
+                    start = float(item.get("start") or 0.0)
+                    end = float(item.get("end") or start + 0.18)
+                except Exception:
+                    continue
+                words.append({"word": token, "start": start, "end": end})
+    if not words:
+        return []
+    return _word_timestamp_chunks(words, max_words=max_words, max_chars=max_chars, line_chars=line_chars)
+
+
+def _build_caption_events_for_audio(
+    *,
+    script: str,
+    audio_path: str,
+    duration_seconds: float,
+    max_words: int,
+    max_chars: int,
+    line_chars: int,
+) -> tuple[list[dict[str, float | str]], str]:
+    events = _build_whisper_caption_events(
+        audio_path=audio_path,
+        max_words=max_words,
+        max_chars=max_chars,
+        line_chars=line_chars,
+    )
+    if events:
+        return events, "whisper_word_timestamps"
+    if _env_bool("LABS_REQUIRE_CAPTION_ALIGNMENT", False):
+        raise RuntimeError("Caption alignment provider unavailable. Configure Whisper or a TTS provider with word timestamps.")
+    return (
+        _build_word_caption_events(
+            script,
+            duration_seconds,
+            max_words=max_words,
+            max_chars=max_chars,
+            line_chars=line_chars,
+        ),
+        "estimated_script_timing",
+    )
+
+
 def _format_ass_ts(seconds: float) -> str:
     safe = max(0.0, float(seconds or 0.0))
     centiseconds = int(round(safe * 100.0))
@@ -2272,10 +2419,11 @@ def _write_word_by_word_ass(
     os.close(fd)
     safe_w = max(320, int(video_w or 720))
     safe_h = max(320, int(video_h or 1280))
-    base_font = min(int(round(safe_w * 0.055)), int(round(safe_h * 0.032)))
-    font_size = max(22, min(46, int(round(float(base_font) * (float(font_scale) / 0.32)))))
-    outline = max(2.8, min(5.8, round(font_size * 0.10, 2)))
-    margin_lr = max(26, int(round(safe_w * 0.10)))
+    base_font = min(int(round(safe_w * 0.062)), int(round(safe_h * 0.038)))
+    font_size = max(30, min(78, int(round(float(base_font) * (float(font_scale) / 0.54)))))
+    outline = max(4.2, min(8.2, round(font_size * 0.12, 2)))
+    shadow = max(2.2, min(5.0, round(font_size * 0.055, 2)))
+    margin_lr = max(34, int(round(safe_w * 0.085)))
     pos_x = int(round(safe_w * 0.50))
     pos_y = int(round(safe_h * max(0.48, min(0.72, float(y_ratio)))))
     with open(path, "w", encoding="utf-8") as f:
@@ -2293,7 +2441,7 @@ def _write_word_by_word_ass(
         )
         f.write(
             f"Style: OrbitoRealtime,DejaVu Sans,{font_size},&H00FFFFFF,&H00FFFFFF,&H00101010,&H00000000,"
-            f"-1,0,0,0,100,100,0,0,1,{outline},0,5,{margin_lr},{margin_lr},0,1\n"
+            f"-1,0,0,0,100,100,0,0,1,{outline},{shadow},5,{margin_lr},{margin_lr},0,1\n"
         )
         f.write("\n[Events]\n")
         f.write("Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n")
@@ -2309,7 +2457,7 @@ def _write_word_by_word_ass(
             f.write(
                 "Dialogue: 0,"
                 f"{_format_ass_ts(start)},{_format_ass_ts(end)},OrbitoRealtime,,0,0,0,,"
-                f"{{\\an5\\pos({pos_x},{pos_y})\\fad(40,70)\\blur0.8}}{text}\n"
+                f"{{\\an5\\pos({pos_x},{pos_y})\\fad(40,70)\\blur0.6\\bord{outline}\\shad{shadow}}}{text}\n"
             )
     return path
 
@@ -2386,13 +2534,13 @@ def _apply_video_overlays(
             "-preset",
             "veryfast",
             "-crf",
-            "20",
+            _env("WORKER_OVERLAY_CRF", "18"),
             "-pix_fmt",
             "yuv420p",
             "-c:a",
             "aac",
             "-b:a",
-            "160k",
+            _env("WORKER_OVERLAY_AUDIO_BITRATE", "192k"),
             "-movflags",
             "+faststart",
             out_path,
@@ -2556,6 +2704,10 @@ def _render_image_slideshow_video(
                 "30",
                 "-c:v",
                 "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                _env("LABS_POST_VIDEO_CRF", "18"),
                 "-pix_fmt",
                 "yuv420p",
                 scene_path,
@@ -2589,11 +2741,11 @@ def _render_image_slideshow_video(
             "-preset",
             "veryfast",
             "-crf",
-            "20",
+            _env("LABS_POST_VIDEO_CRF", "18"),
             "-c:a",
             "aac",
             "-b:a",
-            "160k",
+            _env("LABS_POST_AUDIO_BITRATE", "192k"),
             "-pix_fmt",
             "yuv420p",
             "-shortest",
@@ -2666,7 +2818,7 @@ def _render_video_scene_montage(
                 "-preset",
                 "veryfast",
                 "-crf",
-                "20",
+                _env("LABS_POST_VIDEO_CRF", "18"),
                 "-pix_fmt",
                 "yuv420p",
                 norm_path,
@@ -2717,11 +2869,11 @@ def _render_video_scene_montage(
             "-preset",
             "veryfast",
             "-crf",
-            "20",
+            _env("LABS_POST_VIDEO_CRF", "18"),
             "-c:a",
             "aac",
             "-b:a",
-            "160k",
+            _env("LABS_POST_AUDIO_BITRATE", "192k"),
             "-pix_fmt",
             "yuv420p",
             "-shortest",
@@ -2942,6 +3094,90 @@ def _valid_video_file(
     if reject_mostly_black and _is_mostly_black_video(path, duration_seconds=duration):
         return False, duration
     return True, duration
+
+
+def _probe_video_bitrate_kbps(path: str, *, duration_seconds: float = 0.0) -> float:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=bit_rate",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        path,
+    ]
+    proc = _run_media_cmd(cmd, timeout_seconds=max(30, _media_cmd_timeout_seconds()))
+    raw = (proc.stdout or "").strip() if proc.returncode == 0 else ""
+    try:
+        bitrate = float(raw)
+    except Exception:
+        bitrate = 0.0
+    if bitrate <= 0.0:
+        try:
+            seconds = max(0.001, float(duration_seconds or _probe_media_duration(path) or 0.0))
+            bitrate = (float(os.path.getsize(path)) * 8.0) / seconds
+        except Exception:
+            bitrate = 0.0
+    return max(0.0, bitrate / 1000.0)
+
+
+def _duplicate_file_count(paths: list[str]) -> int:
+    seen: set[str] = set()
+    duplicates = 0
+    for path in paths:
+        try:
+            with open(path, "rb") as f:
+                digest = hashlib.sha256(f.read()).hexdigest()
+        except Exception:
+            continue
+        if digest in seen:
+            duplicates += 1
+        seen.add(digest)
+    return duplicates
+
+
+def _post_quality_report(
+    *,
+    video_path: str,
+    target_duration: float,
+    final_duration: float,
+    caption_settings: dict[str, float | int],
+    scene_paths: list[str],
+) -> dict[str, Any]:
+    min_duration_ratio = _env_float("LABS_POST_MIN_DURATION_RATIO", 0.90, min_value=0.25, max_value=1.0)
+    min_caption_scale = _env_float("LABS_POST_MIN_CAPTION_SCALE", 0.50, min_value=0.1, max_value=1.2)
+    min_bitrate_kbps = _env_float("LABS_POST_MIN_VIDEO_BITRATE_KBPS", 1200.0, min_value=0.0, max_value=20000.0)
+    safe_target = max(0.1, float(target_duration or 0.0))
+    safe_final = max(0.0, float(final_duration or 0.0))
+    bitrate_kbps = _probe_video_bitrate_kbps(video_path, duration_seconds=safe_final)
+    duplicate_count = _duplicate_file_count(scene_paths)
+    warnings: list[str] = []
+    rejects: list[str] = []
+
+    if safe_final + 0.25 < safe_target * min_duration_ratio:
+        rejects.append(
+            f"duration {safe_final:.1f}s is below {min_duration_ratio:.0%} of target {safe_target:.1f}s"
+        )
+    if float(caption_settings.get("font_scale") or 0.0) < min_caption_scale:
+        rejects.append("caption scale is below premium readability threshold")
+    if duplicate_count > 0:
+        warnings.append(f"{duplicate_count} duplicate scene file(s) detected")
+    if min_bitrate_kbps > 0 and bitrate_kbps > 0 and bitrate_kbps < min_bitrate_kbps:
+        warnings.append(f"video bitrate {bitrate_kbps:.0f} kb/s is below {min_bitrate_kbps:.0f} kb/s")
+
+    return {
+        "bitrate_kbps": round(bitrate_kbps, 1),
+        "duplicate_scene_count": duplicate_count,
+        "warnings": warnings,
+        "rejects": rejects,
+    }
+
+
+def _enforce_post_quality(report: dict[str, Any]) -> None:
+    rejects = [str(item) for item in report.get("rejects") or [] if str(item).strip()]
+    if rejects and _env_bool("LABS_POST_REJECT_QUALITY_FAILURES", True):
+        raise RuntimeError(f"Generated post failed quality gate: {'; '.join(rejects)}")
 
 
 def _trim_video_to_duration(*, src_path: str, out_path: str, duration_seconds: float) -> None:
@@ -4096,7 +4332,7 @@ def _process_job(job: dict) -> dict[str, Any]:
         os.close(fd)
         try:
             voice_name = str(settings.get("voice_name") or DEFAULT_TTS_VOICE)
-            speed = int(settings.get("speed_wpm") or 165)
+            speed = int(settings.get("speed_wpm") or POST_BASE_VOICE_WPM)
             provider_capacity_error = False
 
             if use_google_provider:
@@ -4116,6 +4352,8 @@ def _process_job(job: dict) -> dict[str, Any]:
             if not _file_has_data(out_path):
                 if use_google_provider and not allow_voice_fallback:
                     raise RuntimeError("Google voiceover generation returned no audio payload")
+                if _env_bool("LABS_DISABLE_ROBOTIC_TTS_FALLBACK", True):
+                    raise RuntimeError("Premium voice provider unavailable; refusing robotic fallback voice.")
                 _run_voiceover(script=prompt or "Untitled voiceover", voice_name=voice_name, speed_wpm=speed, out_path=out_path)
 
             dur = _probe_audio_duration(out_path)
@@ -4177,7 +4415,7 @@ def _process_job(job: dict) -> dict[str, Any]:
             if not character_profile:
                 character_profile = "single recurring protagonist, keep same face, hair, age range, and wardrobe palette"
             voice_name = str(settings.get("voice_name") or DEFAULT_TTS_VOICE).strip() or DEFAULT_TTS_VOICE
-            speed = int(settings.get("speed_wpm") or 165)
+            speed = int(settings.get("speed_wpm") or POST_BASE_VOICE_WPM)
             provider_capacity_error_voice = False
             post_voice_capacity_retries = _env_int(
                 "LABS_POST_VOICE_CAPACITY_RETRIES",
@@ -4226,7 +4464,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                 "yes",
                 "on",
             }
-            allow_scene_reuse_on_capacity = _env("LABS_POST_USE_SCENE_REUSE_ON_CAPACITY", "1").strip().lower() in {
+            allow_scene_reuse_on_capacity = _env("LABS_POST_USE_SCENE_REUSE_ON_CAPACITY", "0").strip().lower() in {
                 "1",
                 "true",
                 "yes",
@@ -4266,6 +4504,8 @@ def _process_job(job: dict) -> dict[str, Any]:
             if not _file_has_data(audio_path):
                 if use_google_provider and not allow_post_fallback:
                     raise RuntimeError("Google post voiceover generation returned no audio payload")
+                if _env_bool("LABS_DISABLE_ROBOTIC_TTS_FALLBACK", True):
+                    raise RuntimeError("Premium post voice provider unavailable; refusing robotic fallback voice.")
                 _run_voiceover(
                     script=voice_script or "Untitled voiceover",
                     voice_name=voice_name,
@@ -4276,6 +4516,8 @@ def _process_job(job: dict) -> dict[str, Any]:
             target_duration = max(30.0, float(duration or 60))
             audio_duration = _probe_audio_duration(audio_path)
             if audio_duration <= 0:
+                if _env_bool("LABS_DISABLE_ROBOTIC_TTS_FALLBACK", True):
+                    raise RuntimeError("Generated AI post voiceover is empty; refusing silent or tone fallback.")
                 _run_fallback_tone_voiceover(
                     script=(voice_script or prompt or "Generated AI post voiceover."),
                     out_path=audio_path,
@@ -4287,7 +4529,7 @@ def _process_job(job: dict) -> dict[str, Any]:
                 target_duration = audio_duration
 
             # AI Post can now render either image scenes or true video scenes based on the selected mode.
-            post_visual_mode = str(settings.get("post_visual_mode") or "image").strip().lower()
+            post_visual_mode = str(settings.get("post_visual_mode") or "video").strip().lower()
             use_video_scene_mode = post_visual_mode == "video"
 
             if use_video_scene_mode:
@@ -4502,10 +4744,12 @@ def _process_job(job: dict) -> dict[str, Any]:
                 )
                 caption_style_preset = str(settings.get("caption_style_preset") or "orbito").strip().lower()
                 word_caption_events: list[dict[str, float | str]] = []
+                caption_timing_source = ""
                 if captions_enabled:
-                    word_caption_events = _build_word_caption_events(
-                        voice_script,
-                        final_duration if final_duration > 0 else target_duration,
+                    word_caption_events, caption_timing_source = _build_caption_events_for_audio(
+                        script=voice_script,
+                        audio_path=audio_path,
+                        duration_seconds=final_duration if final_duration > 0 else target_duration,
                         max_words=int(generated_caption_settings["max_words"]),
                         max_chars=int(generated_caption_settings["max_chars"]),
                         line_chars=int(generated_caption_settings["line_chars"]),
@@ -4550,6 +4794,14 @@ def _process_job(job: dict) -> dict[str, Any]:
                 if not final_ok:
                     raise RuntimeError("Generated post output is invalid or unreadable (video stream missing).")
                 final_duration = probed_final_duration if probed_final_duration > 0 else final_duration
+                quality_report = _post_quality_report(
+                    video_path=out_path,
+                    target_duration=target_duration,
+                    final_duration=final_duration,
+                    caption_settings=generated_caption_settings,
+                    scene_paths=scene_video_paths,
+                )
+                _enforce_post_quality(quality_report)
 
                 key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
                 _upload_file(out_path, key, content_type="video/mp4")
@@ -4598,6 +4850,8 @@ def _process_job(job: dict) -> dict[str, Any]:
                     "generated_caption_max_words": int(generated_caption_settings["max_words"]),
                     "generated_caption_max_chars": int(generated_caption_settings["max_chars"]),
                     "generated_caption_line_chars": int(generated_caption_settings["line_chars"]),
+                    "generated_caption_timing_source": caption_timing_source,
+                    "generated_quality_report": quality_report,
                 }
                 return {
                     "storage_key": key,
@@ -4806,10 +5060,12 @@ def _process_job(job: dict) -> dict[str, Any]:
             )
             caption_style_preset = str(settings.get("caption_style_preset") or "orbito").strip().lower()
             word_caption_events: list[dict[str, float | str]] = []
+            caption_timing_source = ""
             if captions_enabled:
-                word_caption_events = _build_word_caption_events(
-                    voice_script,
-                    final_duration if final_duration > 0 else target_duration,
+                word_caption_events, caption_timing_source = _build_caption_events_for_audio(
+                    script=voice_script,
+                    audio_path=audio_path,
+                    duration_seconds=final_duration if final_duration > 0 else target_duration,
                     max_words=int(generated_caption_settings["max_words"]),
                     max_chars=int(generated_caption_settings["max_chars"]),
                     line_chars=int(generated_caption_settings["line_chars"]),
@@ -4854,6 +5110,14 @@ def _process_job(job: dict) -> dict[str, Any]:
             if not final_ok:
                 raise RuntimeError("Generated post output is invalid or unreadable (video stream missing).")
             final_duration = probed_final_duration if probed_final_duration > 0 else final_duration
+            quality_report = _post_quality_report(
+                video_path=out_path,
+                target_duration=target_duration,
+                final_duration=final_duration,
+                caption_settings=generated_caption_settings,
+                scene_paths=image_paths,
+            )
+            _enforce_post_quality(quality_report)
 
             key = f"clips/generated-posts/{job_id}-{uuid.uuid4().hex}.mp4"
             _upload_file(out_path, key, content_type="video/mp4")
@@ -4896,6 +5160,8 @@ def _process_job(job: dict) -> dict[str, Any]:
                 "generated_caption_max_words": int(generated_caption_settings["max_words"]),
                 "generated_caption_max_chars": int(generated_caption_settings["max_chars"]),
                 "generated_caption_line_chars": int(generated_caption_settings["line_chars"]),
+                "generated_caption_timing_source": caption_timing_source,
+                "generated_quality_report": quality_report,
             }
             return {
                 "storage_key": key,

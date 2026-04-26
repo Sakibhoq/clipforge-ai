@@ -281,7 +281,10 @@ services:
 
 
   labs-worker:
-    build: ./clipforge-labs/worker
+    build:
+      context: ./clipforge-labs/worker
+      args:
+        INSTALL_ALIGNMENT_DEPS: "${INSTALL_LABS_ALIGNMENT_DEPS:-0}"
     depends_on:
       labs-backend:
         condition: service_healthy

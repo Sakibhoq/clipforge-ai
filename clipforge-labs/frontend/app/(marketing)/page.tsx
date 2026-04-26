@@ -60,7 +60,7 @@ export default function Page() {
         text: "Build a 1-minute vertical story with 12 cinematic frames: sunrise city, close-up hands writing goals, gym silhouettes, progress montage, and a confident end card.",
         duration: "1 min",
         aspect: "9:16",
-        style: "Image + Voice",
+        style: "Storyboard + Voice",
       },
       {
         title: "2-minute storytelling post",
