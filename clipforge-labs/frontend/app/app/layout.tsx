@@ -244,7 +244,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div
       className={cx(
         // IMPORTANT: no 100vh/100svh/min-h here -> prevents creating a competing scroll container
-        "labs-console relative bg-plain overflow-x-hidden",
+        "relative bg-plain overflow-x-hidden",
         "[padding-left:env(safe-area-inset-left)] [padding-right:env(safe-area-inset-right)]"
       )}
     >
