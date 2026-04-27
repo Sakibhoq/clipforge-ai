@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { apiFetch } from "@/lib/api";
-import { SocialBrandPill, SocialBrandRow, SocialPlatformIcon, type SocialPlatform } from "@/components/SocialBrand";
+import { SocialBrandPill, SocialBrandRow } from "@/components/SocialBrand";
 import { labsLaunchPath } from "@/lib/labs-routes";
 
 const ORBITO_WHOP_MARKETING_URL = "/whop";
@@ -63,15 +63,6 @@ const HERO_PREVIEW_CLIPS = [
 ];
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
-
-const SUPPORTED_PLATFORMS: Array<{ platform: SocialPlatform; label: string; detail: string }> = [
-  { platform: "tiktok", label: "TikTok", detail: "Vertical clips" },
-  { platform: "instagram", label: "Instagram", detail: "Reels-ready" },
-  { platform: "youtube", label: "YouTube", detail: "Shorts + long form" },
-  { platform: "facebook", label: "Facebook", detail: "Reels publishing" },
-  { platform: "shorts", label: "Shorts", detail: "9:16 exports" },
-  { platform: "reels", label: "Reels", detail: "Creator workflow" },
-] as const;
 
 const TRUST_BLOCKS = [
   {
@@ -837,54 +828,6 @@ function GenerateStage({
   );
 }
 
-function SupportedPlatformsSection() {
-  return (
-    <section id="platforms" className="pt-10 sm:pt-12">
-      <div data-reveal className="reveal surface-soft relative overflow-hidden rounded-[30px] p-5 sm:p-6 md:p-7">
-        <HoverSheen />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            background:
-              "radial-gradient(560px_260px_at_18%_16%,rgba(125,211,252,0.12),transparent_70%), radial-gradient(620px_260px_at_82%_20%,rgba(251,146,60,0.10),transparent_72%)",
-          }}
-        />
-        <div className="relative">
-          <div className="text-center">
-            <SectionKicker>Supported platforms</SectionKicker>
-            <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl">
-              Built for the channels your clips already need to reach.
-            </h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/64">
-              Export, review, and publish with a workflow made for vertical social video, not a generic file folder.
-            </p>
-          </div>
-
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {SUPPORTED_PLATFORMS.map((item) => (
-              <div
-                key={item.label}
-                className="group/platform rounded-2xl border border-white/10 bg-white/[0.035] p-4 transition hover:border-white/18 hover:bg-white/[0.06]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                    <SocialPlatformIcon platform={item.platform} className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-white/90">{item.label}</div>
-                    <div className="mt-0.5 text-xs text-white/52">{item.detail}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function TrustAndFaqSection() {
   return (
     <section id="trust" className="pt-12 sm:pt-14">
@@ -1115,7 +1058,6 @@ export default function Page() {
           </div>
         </section>
         <div className="relative">
-        <SupportedPlatformsSection />
         <section id="how-it-works" className="relative pt-10 sm:pt-12">
           <div data-reveal className="reveal">
             <SectionKicker>How it works</SectionKicker>
