@@ -9,7 +9,6 @@ import { displayNameFromUser } from "@/lib/user";
 import { emitMeSync, subscribeMeSync } from "@/lib/me-sync";
 import { labsLaunchPath } from "@/lib/labs-routes";
 import { hasLabsFeatureAccess } from "@/lib/plans";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 type MeResponse = {
   name?: string | null;
@@ -447,8 +446,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right */}
           <div className="flex items-center gap-3">
-            <ThemeToggle compact className="hidden lg:inline-flex" />
-
             <div className="hidden lg:block text-right">
               <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
               <div className="text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>
@@ -490,11 +487,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 "[padding-bottom:calc(env(safe-area-inset-bottom)+1rem)]"
               )}
             >
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">Appearance</span>
-                <ThemeToggle />
-              </div>
-
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <div className="text-xs text-white/60">{loading ? "Loading…" : me ? displayName : "Signed out"}</div>
                 <div className="mt-1 text-[11px] text-white/40">{loading ? "—" : me ? `Plan: ${planLabel}` : "—"}</div>

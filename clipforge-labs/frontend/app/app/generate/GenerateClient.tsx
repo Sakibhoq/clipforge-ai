@@ -200,25 +200,25 @@ const STORY_MEMORY_EXAMPLES = [
 ];
 
 const generatorPanelClass =
-  "rounded-[28px] border border-white/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.24),rgba(255,255,255,0.08))] shadow-[0_30px_90px_rgba(0,122,255,0.16),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-2xl";
+  "rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(11,16,27,0.9),rgba(7,10,18,0.98))] shadow-[0_28px_90px_rgba(0,0,0,0.34)]";
 const generatorInsetClass =
-  "rounded-[24px] border border-white/16 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl";
+  "rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(14,20,32,0.8),rgba(7,11,19,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
 const generatorSelectClass =
-  "h-11 w-full rounded-2xl border border-white/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] px-3 text-sm text-white/90 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] transition focus:border-sky-300/55 focus:shadow-[0_0_0_1px_rgba(90,200,250,0.22),0_0_30px_rgba(175,82,222,0.10)]";
+  "h-11 w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(9,13,22,0.96),rgba(7,11,18,0.98))] px-3 text-sm text-white/90 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition focus:border-sky-300/45 focus:shadow-[0_0_0_1px_rgba(125,211,252,0.16)]";
 const generatorFieldClass =
-  "w-full rounded-2xl border border-white/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.08))] px-4 py-3 text-sm text-white/92 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] transition placeholder:text-white/42 focus:border-sky-300/55 focus:shadow-[0_0_0_1px_rgba(90,200,250,0.22),0_16px_38px_rgba(0,122,255,0.16),0_0_34px_rgba(255,45,85,0.10)]";
+  "w-full rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(9,13,22,0.96),rgba(7,11,18,0.98))] px-4 py-3 text-sm text-white/92 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition placeholder:text-white/36 focus:border-sky-300/45 focus:shadow-[0_0_0_1px_rgba(125,211,252,0.16),0_16px_38px_rgba(3,11,24,0.34)]";
 const generatorQuietButtonClass =
-  "rounded-xl border border-white/18 bg-white/[0.10] px-3 py-1.5 text-[11px] font-semibold text-white/84 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] transition hover:bg-white/[0.18]";
+  "rounded-xl border border-white/10 bg-[#0b1220]/78 px-3 py-1.5 text-[11px] font-semibold text-white/82 transition hover:bg-white/[0.10]";
 const generatorAccentButtonClass =
-  "border-sky-300/40 bg-[linear-gradient(120deg,rgba(0,122,255,0.26),rgba(90,200,250,0.18),rgba(175,82,222,0.18),rgba(255,45,85,0.12))] text-sky-50 shadow-[0_16px_36px_rgba(0,122,255,0.18),0_0_28px_rgba(175,82,222,0.10)] hover:brightness-110";
+  "border-sky-300/35 bg-[linear-gradient(120deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12),rgba(245,158,11,0.08))] text-sky-50 shadow-[0_14px_32px_rgba(56,189,248,0.14)] hover:brightness-110";
 const generatorWarningButtonClass =
-  "border-[#af52de]/45 bg-[linear-gradient(120deg,rgba(0,122,255,0.22),rgba(175,82,222,0.22),rgba(255,45,85,0.14))] text-sky-50 shadow-[0_16px_36px_rgba(175,82,222,0.16),0_0_24px_rgba(255,45,85,0.10)] hover:brightness-110";
+  "border-amber-300/45 bg-[linear-gradient(120deg,rgba(251,191,36,0.28),rgba(245,158,11,0.24),rgba(251,146,60,0.18))] text-amber-50 shadow-[0_16px_36px_rgba(245,158,11,0.2)] hover:brightness-110";
 const generatorWarningCardClass =
-  "rounded-2xl border border-[#af52de]/35 bg-[linear-gradient(180deg,rgba(0,122,255,0.18),rgba(175,82,222,0.14),rgba(255,45,85,0.08))] px-4 py-3 text-sky-50/95 shadow-[0_14px_32px_rgba(0,122,255,0.12),0_0_28px_rgba(175,82,222,0.10)] backdrop-blur-xl";
+  "rounded-2xl border border-amber-300/35 bg-[linear-gradient(180deg,rgba(120,53,15,0.22),rgba(69,26,3,0.18))] px-4 py-3 text-amber-50/95 shadow-[0_14px_32px_rgba(245,158,11,0.10)]";
 const generatorModeActiveClass =
-  "border-sky-300/40 bg-[linear-gradient(135deg,rgba(0,122,255,0.24),rgba(90,200,250,0.16),rgba(175,82,222,0.14))] text-sky-50 shadow-[0_12px_28px_rgba(0,122,255,0.14),0_0_24px_rgba(175,82,222,0.10)]";
+  "border-sky-300/35 bg-[linear-gradient(180deg,rgba(96,165,250,0.18),rgba(45,212,191,0.12))] text-sky-50 shadow-[0_12px_28px_rgba(56,189,248,0.12)]";
 const generatorModeIdleClass =
-  "border-white/14 bg-white/[0.08] text-white/78 hover:bg-white/[0.16]";
+  "border-white/10 bg-[#09101b]/78 text-white/78 hover:bg-white/[0.08]";
 
 function cx(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
