@@ -64,44 +64,6 @@ const HERO_PREVIEW_CLIPS = [
 
 const ORBITO_LOGO = previewSrc("Orbito.png");
 
-const TRUST_BLOCKS = [
-  {
-    title: "Privacy-first workflow",
-    text: "Your uploads stay inside your Orbito workspace, with account-protected access and secure storage controls.",
-  },
-  {
-    title: "Cancel anytime",
-    text: "Plans are built to be simple: use credits when you need them, then upgrade, downgrade, or cancel from billing.",
-  },
-  {
-    title: "Clear credit examples",
-    text: "Small clip jobs use fewer credits. Premium Generate runs use more because they reserve higher-cost video and voice providers.",
-  },
-  {
-    title: "Average turnaround",
-    text: "Most clipping jobs finish in minutes. Premium AI video can take longer when provider queues are busy.",
-  },
-] as const;
-
-const FAQ_ITEMS = [
-  {
-    q: "Which platforms does Orbito support?",
-    a: "Orbito is built around TikTok, Instagram Reels, YouTube Shorts, YouTube, Facebook, and short-form vertical exports.",
-  },
-  {
-    q: "Do I keep control of what gets posted?",
-    a: "Yes. You review clips before publishing, and connected social accounts stay under your control.",
-  },
-  {
-    q: "Why do AI generations cost more credits?",
-    a: "AI video and premium voice providers cost more to run than clipping existing footage, so credits reflect the provider cost.",
-  },
-  {
-    q: "What happens if generation quality is not good enough?",
-    a: "Premium AI Post runs now include quality checks for duration, captions, duplicated scenes, and output bitrate before the clip is saved.",
-  },
-] as const;
-
 const PAGE_BACKGROUND_CLIPS = [
   { src: previewSrc("Real Vertical Clip #48.mp4"), top: "6%", left: "4%", size: "", tilt: "tilt-left", scatterX: "8px", opacity: 0.22 },
   { src: previewSrc("Real Vertical Clip #53.mp4"), top: "24%", left: "11%", size: "large", tilt: "tilt-right", scatterX: "12px", opacity: 0.3 },
@@ -828,48 +790,6 @@ function GenerateStage({
   );
 }
 
-function TrustAndFaqSection() {
-  return (
-    <section id="trust" className="pt-12 sm:pt-14">
-      <div data-reveal className="reveal">
-        <SectionKicker>Trust</SectionKicker>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-white/94 sm:text-3xl md:text-4xl">
-          Less guessing before someone signs up.
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/68 sm:text-base">
-          Give creators the practical answers they look for before connecting accounts, uploading footage, or spending credits.
-        </p>
-      </div>
-
-      <div className="mt-7 grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-          {TRUST_BLOCKS.map((item) => (
-            <div key={item.title} data-reveal className="reveal group surface-soft relative overflow-hidden rounded-[24px] p-5">
-              <HoverSheen />
-              <div className="relative">
-                <div className="text-sm font-semibold text-white/90">{item.title}</div>
-                <p className="mt-2 text-sm leading-relaxed text-white/62">{item.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div data-reveal className="reveal surface-soft rounded-[28px] p-5 sm:p-6">
-          <div className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">FAQ</div>
-          <div className="mt-4 grid gap-3">
-            {FAQ_ITEMS.map((item) => (
-              <details key={item.q} className="rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white/70">
-                <summary className="cursor-pointer list-none font-semibold text-white/88">{item.q}</summary>
-                <p className="mt-2 leading-relaxed text-white/60">{item.a}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function Page() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [meLoading, setMeLoading] = useState(false);
@@ -946,9 +866,7 @@ export default function Page() {
   const footerLinks = useMemo(
     () => [
       { label: "How it works", href: "/#how-it-works" },
-      { label: "Platforms", href: "/#platforms" },
       { label: "Pricing", href: "/pricing" },
-      { label: "FAQ", href: "/#trust" },
       { label: "Contact", href: "/contact" },
       { label: "Privacy", href: "/privacy-policy" },
       { label: "Terms", href: "/terms-of-service" },
@@ -1144,8 +1062,6 @@ export default function Page() {
             </Link>
           </div>
         </section>
-
-        <TrustAndFaqSection />
 
         <section id="generate" className="scroll-mt-28 pt-12 sm:pt-14">
           <div data-reveal className="reveal">
