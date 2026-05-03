@@ -1,9 +1,12 @@
 from types import SimpleNamespace
 
+import routers.billing as billing
 from routers.billing import (
+    _active_subscriptions_for_user,
     _credits_delta_for_upgrade,
     _first_invoice_line_price_and_quantity,
     _first_subscription_item_price_and_quantity,
+    _highest_plan_from_subscriptions,
     _resolve_plan_interval_from_price_id,
     _subscription_item_id,
     _subscription_status_payload,
@@ -39,6 +42,51 @@ def test_subscription_status_payload_cancel_state_when_all_canceling():
     assert subscription_id == "sub_a"
 
 
+def test_subscription_status_payload_reads_dict_shape():
+    rows = [
+        {"id": "sub_dict", "cancel_at_period_end": True},
+    ]
+    status, cancel_at_period_end, subscription_id = _subscription_status_payload(rows)
+    assert status == "cancel_at_period_end"
+    assert cancel_at_period_end is True
+    assert subscription_id == "sub_dict"
+
+
+def test_active_subscriptions_for_user_checks_stored_and_email_customers(monkeypatch):
+    user = SimpleNamespace(stripe_customer_id="cus_saved", email="USER@example.com")
+
+    def fake_customer_list(**kwargs):
+        assert kwargs["email"] == "user@example.com"
+        return SimpleNamespace(
+            data=[
+                SimpleNamespace(id="cus_saved", email="user@example.com"),
+                SimpleNamespace(id="cus_email", email="user@example.com"),
+                SimpleNamespace(id="cus_other", email="other@example.com"),
+            ]
+        )
+
+    def fake_subscription_list(**kwargs):
+        customer_id = kwargs["customer"]
+        return SimpleNamespace(
+            data=[
+                SimpleNamespace(
+                    id=f"sub_{customer_id}",
+                    customer=customer_id,
+                    status="active",
+                    cancel_at_period_end=False,
+                )
+            ]
+        )
+
+    monkeypatch.setattr(billing.stripe.Customer, "list", fake_customer_list)
+    monkeypatch.setattr(billing.stripe.Subscription, "list", fake_subscription_list)
+
+    active_subs, customer_ids = _active_subscriptions_for_user(user)
+
+    assert customer_ids == ["cus_saved", "cus_email"]
+    assert [sub.id for sub in active_subs] == ["sub_cus_saved", "sub_cus_email"]
+
+
 def test_subscription_item_id_reads_namespace_shape():
     subscription = SimpleNamespace(items=SimpleNamespace(data=[SimpleNamespace(id="si_123")]))
     assert _subscription_item_id(subscription) == "si_123"
@@ -69,6 +117,16 @@ def test_resolve_plan_interval_from_price_id_uses_configured_prices(monkeypatch)
     plan, interval = _resolve_plan_interval_from_price_id("price_lv_yr")
     assert plan == "labs_velocity"
     assert interval == "yearly"
+
+
+def test_highest_plan_from_subscriptions_uses_subscription_items(monkeypatch):
+    monkeypatch.setenv("STRIPE_PRICE_STARTER_MONTHLY", "price_starter")
+    monkeypatch.setenv("STRIPE_PRICE_LABS_VELOCITY_MONTHLY", "price_velocity")
+    rows = [
+        {"items": {"data": [{"price": {"id": "price_starter"}}]}},
+        {"items": {"data": [{"price": {"id": "price_velocity"}}]}},
+    ]
+    assert _highest_plan_from_subscriptions(rows) == "labs_velocity"
 
 
 def test_first_invoice_line_price_and_quantity_reads_dict_shape():

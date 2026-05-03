@@ -112,15 +112,85 @@ def _stripe_error_message(exc: Exception) -> str:
     return (str(exc) or "").strip() or "Unknown billing error"
 
 
+def _stripe_obj_get(obj: object, key: str, default: object | None = None) -> object | None:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _stripe_list_data(list_obj: object) -> list:
+    if isinstance(list_obj, dict):
+        return list_obj.get("data") or []
+    return getattr(list_obj, "data", []) or []
+
+
+def _customer_id_from_customer(customer: object) -> Optional[str]:
+    token = str(_stripe_obj_get(customer, "id", "") or "").strip()
+    return token or None
+
+
+def _stripe_customer_ids_for_user(user: User) -> list[str]:
+    ids: list[str] = []
+    seen: set[str] = set()
+
+    def add(customer_id: object) -> None:
+        token = str(customer_id or "").strip()
+        if token and token not in seen:
+            seen.add(token)
+            ids.append(token)
+
+    add(getattr(user, "stripe_customer_id", None))
+
+    email = str(getattr(user, "email", "") or "").strip().lower()
+    if not email:
+        return ids
+
+    customers = stripe.Customer.list(email=email, limit=100)
+    for customer in _stripe_list_data(customers):
+        if bool(_stripe_obj_get(customer, "deleted", False)):
+            continue
+        customer_email = str(_stripe_obj_get(customer, "email", "") or "").strip().lower()
+        if customer_email == email:
+            add(_customer_id_from_customer(customer))
+
+    return ids
+
+
 def _active_subscriptions_for_customer(customer_id: str) -> list:
     active_states = {"active", "trialing", "past_due", "unpaid"}
     subs = stripe.Subscription.list(customer=customer_id, status="all", limit=20)
     rows: list = []
-    for sub in getattr(subs, "data", []) or []:
-        status = str(getattr(sub, "status", "") or "").lower()
+    for sub in _stripe_list_data(subs):
+        status = str(_stripe_obj_get(sub, "status", "") or "").lower()
         if status in active_states:
             rows.append(sub)
     return rows
+
+
+def _active_subscriptions_for_user(user: User) -> tuple[list, list[str]]:
+    customer_ids = _stripe_customer_ids_for_user(user)
+    rows: list = []
+    seen: set[str] = set()
+
+    for customer_id in customer_ids:
+        for sub in _active_subscriptions_for_customer(customer_id):
+            sub_id = str(_stripe_obj_get(sub, "id", "") or "").strip()
+            key = sub_id or f"{customer_id}:{id(sub)}"
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(sub)
+
+    return rows, customer_ids
+
+
+def _subscription_customer_id(subscription: object) -> Optional[str]:
+    raw = _stripe_obj_get(subscription, "customer", None)
+    if isinstance(raw, dict):
+        token = str(raw.get("id") or "").strip()
+    else:
+        token = str(getattr(raw, "id", raw) or "").strip()
+    return token or None
 
 
 def _subscription_item_id(subscription: object) -> Optional[str]:
@@ -142,14 +212,57 @@ def _subscription_item_id(subscription: object) -> Optional[str]:
     return None
 
 
+def _subscription_price_id(subscription: object) -> Optional[str]:
+    items_container = _stripe_obj_get(subscription, "items", None)
+    items = getattr(items_container, "data", None)
+
+    if items is None and isinstance(items_container, dict):
+        items = items_container.get("data")
+    if items is None and isinstance(subscription, dict):
+        items = (subscription.get("items") or {}).get("data")
+
+    for item in items or []:
+        price_obj = item.get("price") if isinstance(item, dict) else getattr(item, "price", None)
+        price_id = price_obj.get("id") if isinstance(price_obj, dict) else getattr(price_obj, "id", None)
+        if price_id:
+            return str(price_id)
+    return None
+
+
 def _subscription_status_payload(active_subs: list) -> tuple[str, bool, Optional[str]]:
     if not active_subs:
         return ("no_active_subscription", False, None)
-    any_non_canceling = any(not bool(getattr(sub, "cancel_at_period_end", False)) for sub in active_subs)
-    primary_id = str(getattr(active_subs[0], "id", "") or "") or None
+    any_non_canceling = any(not bool(_stripe_obj_get(sub, "cancel_at_period_end", False)) for sub in active_subs)
+    primary_id = str(_stripe_obj_get(active_subs[0], "id", "") or "") or None
     if any_non_canceling:
         return ("active", False, primary_id)
     return ("cancel_at_period_end", True, primary_id)
+
+
+def _remember_active_subscription_customer(db: Session, user: User, active_subs: list) -> None:
+    current_id = str(getattr(user, "stripe_customer_id", "") or "").strip()
+    active_customer_ids: list[str] = []
+    seen: set[str] = set()
+
+    for sub in active_subs:
+        customer_id = _subscription_customer_id(sub)
+        if customer_id and customer_id not in seen:
+            seen.add(customer_id)
+            active_customer_ids.append(customer_id)
+
+    if active_customer_ids and current_id not in seen:
+        user.stripe_customer_id = active_customer_ids[0]
+        db.commit()
+
+
+def _highest_plan_from_subscriptions(active_subs: list) -> Optional[str]:
+    best_plan: Optional[str] = None
+    for sub in active_subs:
+        price_id = _subscription_price_id(sub)
+        plan, _interval = _resolve_plan_interval_from_price_id(price_id)
+        if plan and _plan_tier(plan) >= _plan_tier(best_plan):
+            best_plan = plan
+    return best_plan
 
 
 def _reload_user(db: Session, current_user: User) -> User:
@@ -205,6 +318,26 @@ def _get_user_from_customer_id(db: Session, customer_id: str | None) -> Optional
     if not cid:
         return None
     return db.query(User).filter(User.stripe_customer_id == cid).first()
+
+
+def _get_user_from_customer_id_or_email(db: Session, customer_id: str | None) -> Optional[User]:
+    cid = str(customer_id or "").strip()
+    user = _get_user_from_customer_id(db, cid)
+    if user or not cid or not stripe.api_key:
+        return user
+
+    try:
+        customer = stripe.Customer.retrieve(cid)
+    except Exception:
+        return None
+
+    email = str(_stripe_obj_get(customer, "email", "") or "").strip().lower()
+    if not email:
+        return None
+    user = db.query(User).filter(User.email == email).first()
+    if user and not str(getattr(user, "stripe_customer_id", "") or "").strip():
+        user.stripe_customer_id = cid
+    return user
 
 
 def _invoice_field(invoice_obj: object, key: str) -> object | None:
@@ -640,20 +773,22 @@ def cancel_subscription(
 
     user = _reload_user(db, current_user)
     customer_id = getattr(user, "stripe_customer_id", None)
-    if not customer_id:
+    if not customer_id and not str(getattr(user, "email", "") or "").strip():
         raise HTTPException(status_code=400, detail="No Stripe customer found")
 
     try:
-        active_subs = _active_subscriptions_for_customer(customer_id)
+        active_subs, _customer_ids = _active_subscriptions_for_user(user)
+        _remember_active_subscription_customer(db, user, active_subs)
         if not active_subs:
             return CancelSubscriptionResponse(status="no_active_subscription")
 
         for sub in active_subs:
-            if not bool(getattr(sub, "cancel_at_period_end", False)):
-                stripe.Subscription.modify(sub.id, cancel_at_period_end=True)
+            sub_id = str(_stripe_obj_get(sub, "id", "") or "").strip()
+            if sub_id and not bool(_stripe_obj_get(sub, "cancel_at_period_end", False)):
+                stripe.Subscription.modify(sub_id, cancel_at_period_end=True)
         return CancelSubscriptionResponse(status="cancel_at_period_end")
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=502, detail=f"Stripe error while canceling subscription: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Stripe error while canceling subscription: {_stripe_error_message(e)}")
     except Exception:
         raise HTTPException(status_code=502, detail="Could not reach billing provider to cancel subscription")
 
@@ -668,12 +803,14 @@ def subscription_status(
 
     user = _reload_user(db, current_user)
     customer_id = getattr(user, "stripe_customer_id", None)
-    if not customer_id:
+    if not customer_id and not str(getattr(user, "email", "") or "").strip():
         return SubscriptionStatusResponse(status="no_active_subscription")
 
     try:
+        active_subs, _customer_ids = _active_subscriptions_for_user(user)
+        _remember_active_subscription_customer(db, user, active_subs)
         status, cancel_at_period_end, subscription_id = _subscription_status_payload(
-            _active_subscriptions_for_customer(customer_id)
+            active_subs
         )
         return SubscriptionStatusResponse(
             status=status,
@@ -681,7 +818,7 @@ def subscription_status(
             subscription_id=subscription_id,
         )
     except stripe.error.StripeError as e:
-        raise HTTPException(status_code=502, detail=f"Stripe error while checking subscription: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Stripe error while checking subscription: {_stripe_error_message(e)}")
     except Exception:
         raise HTTPException(status_code=502, detail="Could not reach billing provider to check subscription")
 
@@ -874,5 +1011,30 @@ async def stripe_webhook(
             )
         except Exception as exc:
             print(f"[billing] confirmation email skipped: {type(exc).__name__}")
+
+    if event["type"] in {"customer.subscription.deleted", "customer.subscription.updated"}:
+        subscription = event["data"]["object"]
+        customer_id = _subscription_customer_id(subscription)
+        user = _get_user_from_customer_id_or_email(db, customer_id)
+        if not user:
+            print(f"[billing] subscription sync ignored: user not found (customer={customer_id})")
+            return {"status": "ignored", "reason": "user not found"}
+
+        if getattr(user, "last_stripe_event_id", None) == event_id:
+            return {"status": "ignored", "reason": "duplicate event"}
+
+        active_subs, _customer_ids = _active_subscriptions_for_user(user)
+        _remember_active_subscription_customer(db, user, active_subs)
+
+        if active_subs:
+            effective_plan = _highest_plan_from_subscriptions(active_subs)
+            if effective_plan:
+                user.plan = effective_plan
+        else:
+            user.plan = "free"
+
+        if hasattr(user, "last_stripe_event_id"):
+            user.last_stripe_event_id = event_id
+        db.commit()
 
     return {"status": "ok"}

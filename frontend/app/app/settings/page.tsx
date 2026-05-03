@@ -404,8 +404,9 @@ export default function SettingsPage() {
   const plan = displayPlanLabel(me?.plan ?? "—");
   const credits = typeof me?.credits === "number" ? String(me.credits) : "—";
   const status = meLoading ? "Loading…" : me ? "Active" : "—";
-  const subscriptionCanceled =
-    subscriptionStatus === "cancel_at_period_end" || subscriptionStatus === "no_active_subscription";
+  const cancellationScheduled = subscriptionStatus === "cancel_at_period_end";
+  const noActiveSubscription = subscriptionStatus === "no_active_subscription";
+  const cancelDisabled = billingBusy || cancellationScheduled || noActiveSubscription;
 
   function mapSubscriptionStatus(raw: string | null | undefined) {
     const v = String(raw || "").toLowerCase().trim();
@@ -497,7 +498,7 @@ export default function SettingsPage() {
   }
 
   async function cancelSubscription() {
-    if (billingBusy || subscriptionCanceled) return;
+    if (cancelDisabled) return;
     setBillingBusy(true);
     setActionMsg(null);
     try {
@@ -507,7 +508,7 @@ export default function SettingsPage() {
       if (nextStatus === "cancel_at_period_end") {
         setActionMsg("Subscription canceled. Access stays active until period end.");
       } else if (nextStatus === "no_active_subscription") {
-        setActionMsg("No active subscription found.");
+        setActionMsg("No active Stripe subscription was found for this account.");
       } else {
         setActionMsg("Subscription update requested.");
       }
@@ -721,18 +722,20 @@ export default function SettingsPage() {
           <Row
             label="Cancel subscription"
             hint={
-              subscriptionCanceled
-                ? "Subscription already canceled. Access stays active until period end."
+              cancellationScheduled
+                ? "Subscription is scheduled to end. Access stays active until period end."
+                : noActiveSubscription
+                ? "No active Stripe subscription was found for this account."
                 : "Stops future renewals at the end of your current billing period."
             }
             right={
               <button
                 type="button"
                 onClick={cancelSubscription}
-                disabled={billingBusy || subscriptionCanceled}
+                disabled={cancelDisabled}
                 className="btn-ghost text-[12px] px-4 py-2 disabled:opacity-60"
               >
-                {billingBusy ? "Canceling…" : subscriptionCanceled ? "Canceled" : "Cancel"}
+                {billingBusy ? "Canceling…" : cancellationScheduled ? "Ending" : noActiveSubscription ? "No active plan" : "Cancel"}
               </button>
             }
           />
